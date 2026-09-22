@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Shopify 网站开发系统教程：从平台地图、Theme、Liquid 到 App、Headless 和 Enterprise。">
+  <title>Shopify 网站开发系统教程</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="#top">Shopify<span>·</span>Dev Notes</a><div class="top-actions"><button id="theme-toggle" type="button" aria-label="切换深色模式">◐</button><a href="https://github.com/" target="_blank" rel="noreferrer">GitHub</a></div></header>
+  <div class="layout">
+    <aside class="sidebar" aria-label="课程导航"><div class="sidebar-inner"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索章节或关键词" aria-label="搜索教程"></label><div class="progress"><div class="progress-label"><span>阅读进度</span><strong id="progress-text">0%</strong></div><div class="progress-track"><i id="progress-bar"></i></div></div><nav id="toc"></nav></div></aside>
+    <main id="article" class="article"><div class="loading">正在加载教程…</div></main>
+  </div>
+  <button class="backtop" id="backtop" aria-label="返回顶部">↑</button>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,19 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Level 0 · Shopify 是什么</title><link rel="stylesheet" href="../assets/course.css"></head><body><main><span class="pill">Level 0 · Lesson 01</span><h1>Shopify 到底是什么？</h1><p class="lede">先不要把 Shopify 理解成“一个建站模板”。更准确的理解是：Shopify 是一套托管式电商平台，提供商店数据、管理后台、面向顾客的销售界面，以及扩展这些能力的开发接口。</p>
+<h2>一、先看完整系统</h2><pre>商家 / 运营人员
+       ↓
+Shopify Admin（管理商品、订单、客户、设置）
+       ↓
+Shop（一个具体的 Shopify 商店及其数据）
+       ├── Theme / Storefront（顾客看到的网站）
+       ├── Checkout（结账流程）
+       └── Apps / APIs（扩展与外部系统连接）
+       ↓
+顾客浏览、加购、结账</pre>
+<h2>二、Shopify 和普通网站有什么区别</h2><div class="grid"><div class="card"><h3>普通网站</h3><p>团队通常需要自己准备服务器、数据库、后台、商品管理、订单流程、支付和部署体系。</p></div><div class="card"><h3>Shopify 网站</h3><p>Shopify 托管核心电商能力。开发者主要通过 Theme、App、API 和扩展点定制体验。</p></div></div><p>因此，Shopify 前端开发不是从空白开始搭建整个电商系统，而是在平台规定的数据模型和扩展边界内，构建更好的商店体验。</p>
+<h2>三、Store、Theme、App 分别是什么</h2><table><thead><tr><th>概念</th><th>它是什么</th><th>前端开发者关心什么</th></tr></thead><tbody><tr><td><strong>Store</strong></td><td>一个商家的 Shopify 商店实例，包含商品、订单、客户、设置等数据。</td><td>数据从哪里来、权限和环境是哪一个店。</td></tr><tr><td><strong>Theme</strong></td><td>控制 Online Store 外观、页面结构和交互的主题代码。</td><td>Liquid、Section、JSON、CSS、JavaScript、Theme Editor。</td></tr><tr><td><strong>App</strong></td><td>通过 API 或扩展能力增加功能、自动化流程或连接外部系统的应用。</td><td>Admin API、Storefront API、OAuth、Webhooks、App Bridge 等。</td></tr></tbody></table>
+<h2>四、Admin 和 Storefront 在做什么</h2><p><strong>Admin</strong> 是商家操作 Shopify 的后台：创建商品、管理订单、配置折扣、选择主题、安装 App。它面向商家。</p><p><strong>Storefront</strong> 是顾客购物的前台：浏览首页、商品页、集合页，搜索商品，加入购物车并进入结账。它面向买家。</p><p>Theme 主要负责 Storefront；App 可以扩展 Admin、Storefront、Checkout 等不同位置。Shopify 官方把这些能力拆成不同 API 和扩展面，所以“做 Shopify 开发”不是只有一种开发方式。</p>
+<h2>五、Shopify 的数据从哪里来</h2><p>最常见的数据来源是 Shopify Store 本身：商品、Variant、媒体、集合、购物车和商店设置都由 Shopify 管理。Theme 中的 Liquid 可以读取当前页面可用的数据；JavaScript 可以在页面加载后调用 Ajax API；App 的后端通常通过 GraphQL Admin API 读取或修改管理数据。</p><p>记住三条边界：</p><ul><li>Theme 负责把已有数据呈现成页面。</li><li>Admin 负责让商家维护数据。</li><li>App/API 负责扩展、自动化或连接外部系统。</li></ul>
+<h2>六、一个 Shopify 网站怎么跑起来</h2><ol><li>商家在 Admin 创建商品、设置价格、上传图片。</li><li>商家选择一个 Theme，并在 Theme Editor 配置首页和页面模块。</li><li>顾客访问 URL，Shopify 根据页面类型选择模板。</li><li>模板引用 Section，Liquid 读取 Shopify 数据并输出 HTML。</li><li>浏览器加载 CSS 和 JavaScript，完成交互，例如 Variant 切换和 Ajax 加购。</li><li>购物车和结账继续由 Shopify 的电商能力处理；App 可以在授权范围内参与流程。</li></ol>
+<h2>七、这一课的常见误区</h2><div class="card"><ul><li><strong>误区：</strong>Shopify 就是一个主题。<br><strong>纠正：</strong>Theme 只是 Storefront 的一部分，Store 还包含数据、Admin、Checkout、Apps 等。</li><li><strong>误区：</strong>所有数据都应该写死在 Liquid 里。<br><strong>纠正：</strong>商品和商店内容通常来自 Shopify 数据；代码应该负责渲染和行为。</li><li><strong>误区：</strong>Shopify 前端就是普通 React 项目。<br><strong>纠正：</strong>Online Store 2.0 主题以 Liquid、Section 和 JSON 模板为核心；React 更常见于 App 或 Hydrogen。</li></ul></div>
+<h2>练习：建立你的第一张系统图</h2><p>请回答：</p><ol><li>如果运营人员想修改首页 Banner 文案，应该主要在哪个位置操作？</li><li>如果要自动把 Shopify 订单同步到 ERP，应该优先考虑 Theme 还是 App/API？为什么？</li><li>顾客打开商品页时，Theme、Store 数据和浏览器 JavaScript 各自负责什么？</li></ol><p class="check">下一课会讲 Shopify 的四个开发表面：Admin、Online Store、Checkout、Headless，以及为什么同一个需求可能有不同实现方式。</p>
+<h2>官方资料</h2><p><a href="https://shopify.dev/docs">Shopify Dev Docs 总览</a> · <a href="https://shopify.dev/docs/apps/build/apis">Apps and APIs</a> · <a href="https://shopify.dev/docs/storefronts/themes/architecture">Theme architecture</a></p></main></body></html>

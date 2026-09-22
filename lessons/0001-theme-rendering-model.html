@@ -1,0 +1,29 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>第 1 课：Shopify 主题的渲染模型</title><link rel="stylesheet" href="../assets/course.css"></head><body><main>
+<span class="pill">Lesson 01 · 约 15 分钟</span><h1>Shopify 主题不是一张网页，而是一套可配置的页面系统</h1><p class="lede">这一课只解决一个问题：当顾客打开商品页时，Shopify 如何从主题文件拼出最终 HTML？掌握它，后面学 Liquid、Section 和 JSON 才不会变成背目录。</p>
+<section class="card"><h2>先建立类比</h2><div class="grid"><div><h3>普通前端项目</h3><p>路由决定页面，组件负责 UI，数据由接口或状态管理提供。</p></div><div><h3>Shopify 主题</h3><p>页面类型匹配模板，Section 是商家可配置的组件，Liquid 读取 Shopify 提供的数据并输出 HTML。</p></div></div></section>
+<h2>1. 一次请求经过什么</h2><p>以 <code>/products/mug</code> 为例：</p><pre>URL /products/mug
+  ↓
+页面类型：product
+  ↓
+templates/product.json
+  ↓
+sections/main-product.liquid
+sections/related-products.liquid
+  ↓
+blocks + snippets + Shopify 数据
+  ↓
+HTML + CSS + JavaScript</pre><p>模板更像“编排文件”，Section 才是“实现文件”。JSON 模板保存要渲染哪些 Section、它们的顺序和设置值；Section 的 Liquid 负责真正输出标记。</p><h2>2. 主题目录只记职责</h2><table><thead><tr><th>目录</th><th>你可以把它理解为</th><th>典型问题</th></tr></thead><tbody><tr><td><code>layout/</code></td><td>全站 HTML 外壳</td><td>全站 head、全局资源在哪里加载？</td></tr><tr><td><code>templates/</code></td><td>页面编排</td><td>商品页有哪些模块、顺序是什么？</td></tr><tr><td><code>sections/</code></td><td>可配置组件</td><td>商家能否添加、删除、排序和修改模块？</td></tr><tr><td><code>snippets/</code></td><td>可复用函数片段</td><td>价格、图片、按钮是否重复实现？</td></tr><tr><td><code>assets/</code></td><td>静态资源</td><td>CSS、JS、图片如何加载？</td></tr><tr><td><code>config/</code> + <code>locales/</code></td><td>设置与翻译</td><td>全局主题设置和多语言在哪里维护？</td></tr></tbody></table>
+<h2>3. JSON 模板 vs Liquid 模板</h2><div class="card"><p><strong>优先选择 JSON 模板</strong>：它让商家在 Theme Editor 中添加、删除和排序 Section。</p><p><strong>Liquid 模板</strong>：HTML/Liquid 直接写在模板中，适合少数不能使用 Section 的场景；它本身没有 JSON 的固定 schema。</p></div><p>一个关键规则：如果你希望页面使用可拖拽的 Section 组合，就使用 JSON 模板，把 HTML/Liquid 放进被引用的 Section 文件中。</p>
+<h2>4. Section 为什么是 Shopify 的核心</h2><p>Section 是一个 Liquid 文件，通常包含 HTML/Liquid 和一个 <code>{% schema %}</code> 配置块。Schema 告诉 Theme Editor：这个模块叫什么、有哪些设置、允许哪些 blocks、默认添加时长什么样。</p><pre>{% schema %}
+{
+  "name": "Promo banner",
+  "settings": [
+    {"type": "text", "id": "title", "label": "标题"}
+  ],
+  "presets": [{"name": "Promo banner"}]
+}
+{% endschema %}</pre><p class="check">注意：schema 是给编辑器和主题配置使用的元数据，不会直接输出到页面 HTML。</p>
+<h2>5. 练习：用自己的话复述</h2><div class="card"><ol><li>顾客打开商品页时，<code>product.json</code> 的职责是什么？</li><li>为什么“可拖拽的首页模块”通常应该写成 Section，而不是把所有 HTML 放在模板里？</li><li>如果两个 Section 都需要显示商品价格，你会优先考虑复制代码，还是使用 snippet？为什么？</li></ol><p>请直接回复你的答案。我会根据答案决定下一课是补充渲染链路，还是进入第一个可配置 Section 实战。</p></div>
+<h2>本课主资料</h2><p><a href="https://shopify.dev/docs/storefronts/themes/architecture">Shopify 官方：Theme architecture</a> · <a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/json-templates">JSON templates</a> · <a href="https://shopify.dev/docs/storefronts/themes/architecture/sections">Sections</a></p>
+<p><a href="../reference/theme-architecture.md">打开主题架构速查表</a> · <a href="../MISSION.md">查看学习目标</a></p>
+</main></body></html>
