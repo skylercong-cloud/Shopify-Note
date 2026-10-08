@@ -1,0 +1,777 @@
+{
+  "version": "2026-10-08",
+  "groups": [
+    {
+      "id": "0",
+      "title": "认识 Shopify",
+      "description": "理解平台、后台、店面与数据的关系。"
+    },
+    {
+      "id": "1",
+      "title": "Theme 开发基础",
+      "description": "准备环境，理解渲染与配置，走通开发和发布流程。"
+    },
+    {
+      "id": "2",
+      "title": "Shopify 前端开发",
+      "description": "从商品选择到购物车，再到搜索、性能与完整项目。"
+    },
+    {
+      "id": "3",
+      "title": "Shopify 数据模型",
+      "description": "理解对象关系、自定义数据与交易生命周期。"
+    },
+    {
+      "id": "4",
+      "title": "Shopify App 开发",
+      "description": "理解应用、认证、后台 API、事件同步与扩展边界。"
+    },
+    {
+      "id": "5",
+      "title": "Headless Shopify",
+      "description": "理解自定义店面与 Shopify 商业能力的连接。"
+    },
+    {
+      "id": "6",
+      "title": "企业级 Shopify",
+      "description": "理解市场、价格、企业扩展与系统架构。"
+    },
+    {
+      "id": "reference",
+      "title": "开发参考",
+      "description": "需要时查阅，不作为重复的必读课程。"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "l0-01",
+      "label": "L0-01",
+      "level": "0",
+      "title": "从普通前端网站理解 Shopify",
+      "goal": "用已有前端经验理解后台、店面、主题和数据的分工。",
+      "file": "content/lessons/l0-01.md",
+      "kind": "lesson",
+      "source": null,
+      "legacy": ""
+    },
+    {
+      "id": "l0-02",
+      "label": "L0-02",
+      "level": "0",
+      "title": "平台全局地图",
+      "goal": "分清 Store、Theme、App、Admin 与 Storefront。",
+      "file": "content/lessons/l0-02.md",
+      "kind": "lesson",
+      "source": {
+        "start": 98,
+        "end": 214
+      },
+      "legacy": "part-0先建立-shopify-全局地图"
+    },
+    {
+      "id": "l1-01",
+      "label": "L1-01",
+      "level": "1",
+      "title": "开发环境、Shopify CLI 与发布工作流",
+      "goal": "连接开发店，初始化或拉取主题，预览、检查并上传未发布副本。",
+      "file": "content/lessons/l1-01.md",
+      "kind": "lesson",
+      "source": null,
+      "legacy": ""
+    },
+    {
+      "id": "l1-02",
+      "label": "L1-02",
+      "level": "1",
+      "title": "Theme 结构与 Liquid 渲染",
+      "goal": "解释 Layout、Template、Section、Block、Snippet 和 Assets 的职责。",
+      "file": "content/lessons/l1-02.md",
+      "kind": "lesson",
+      "source": {
+        "start": 215,
+        "end": 610
+      },
+      "legacy": "part-1theme-与-liquid-基础架构"
+    },
+    {
+      "id": "l1-03",
+      "label": "L1-03",
+      "level": "1",
+      "title": "主题编辑器、组件生命周期与调试",
+      "goal": "理解局部重渲染为何导致重复绑定或组件失效。",
+      "file": "content/lessons/l1-03.md",
+      "kind": "lesson",
+      "source": null,
+      "legacy": ""
+    },
+    {
+      "id": "l1-04",
+      "label": "L1-04",
+      "level": "1",
+      "title": "Metafield 入门：给商品补充字段",
+      "goal": "给已有商品资源增加有类型的自定义字段。",
+      "file": "content/lessons/l1-04.md",
+      "kind": "lesson",
+      "source": {
+        "start": 2137,
+        "end": 2448
+      },
+      "legacy": "part-3metafield-基础与自定义数据"
+    },
+    {
+      "id": "l2-01",
+      "label": "L2-01",
+      "level": "2",
+      "title": "Product、Option 与 Variant 基础",
+      "goal": "理解商品、选项维度与实际可购买规格。",
+      "file": "content/lessons/l2-01.md",
+      "kind": "lesson",
+      "source": {
+        "start": 611,
+        "end": 987
+      },
+      "legacy": "part-2productoption-与-variant"
+    },
+    {
+      "id": "l2-02",
+      "label": "L2-02",
+      "level": "2",
+      "title": "Variant Selector：从选项找到规格",
+      "goal": "从服务端首屏逐步建立规格选择状态。",
+      "file": "content/lessons/l2-02.md",
+      "kind": "lesson",
+      "source": {
+        "start": 988,
+        "end": 1483
+      },
+      "legacy": "26-第-7-课variant-selector-实战从-option-选择到唯一-variant"
+    },
+    {
+      "id": "l2-03",
+      "label": "L2-03",
+      "level": "2",
+      "title": "Variant Selector：同步 UI、URL 与媒体",
+      "goal": "将规格状态同步到商品页相关组件。",
+      "file": "content/lessons/l2-03.md",
+      "kind": "lesson",
+      "source": {
+        "start": 1484,
+        "end": 1875
+      },
+      "legacy": "2610-选择-variant-后至少应该同步哪些-ui"
+    },
+    {
+      "id": "l2-04",
+      "label": "L2-04",
+      "level": "2",
+      "title": "Variant Selector：骨架、初始化与排错",
+      "goal": "理解代码骨架的适用范围并补上首次状态同步。",
+      "file": "content/lessons/l2-04.md",
+      "kind": "lesson",
+      "source": {
+        "start": 1876,
+        "end": 2136
+      },
+      "legacy": "2620-一个教学版的完整实现骨架"
+    },
+    {
+      "id": "l2-05",
+      "label": "L2-05",
+      "level": "2",
+      "title": "加购：从 Variant ID 到真实 Cart",
+      "goal": "解释表单、异步请求、loading 与错误反馈。",
+      "file": "content/lessons/l2-05.md",
+      "kind": "lesson",
+      "source": {
+        "start": 6079,
+        "end": 6541
+      },
+      "legacy": "第-8-课add-to-cart-实战从-variant-id-到真实-cart"
+    },
+    {
+      "id": "l2-06",
+      "label": "L2-06",
+      "level": "2",
+      "title": "Cart Drawer 与 Section Rendering",
+      "goal": "分清购物车数据、服务端 HTML 与抽屉交互。",
+      "file": "content/lessons/l2-06.md",
+      "kind": "lesson",
+      "source": {
+        "start": 6542,
+        "end": 6858
+      },
+      "legacy": "第-9-课cart-drawer为什么它是-theme-ui而不是-shopify-固定组件"
+    },
+    {
+      "id": "l2-07",
+      "label": "L2-07",
+      "level": "2",
+      "title": "Cart API 与购物车行操作",
+      "goal": "区分 add、change、update、clear 与 line key。",
+      "file": "content/lessons/l2-07.md",
+      "kind": "lesson",
+      "source": {
+        "start": 6859,
+        "end": 7004
+      },
+      "legacy": "第-10-课cart-apiadd-change-update-clear-到底怎么选"
+    },
+    {
+      "id": "l2-08",
+      "label": "L2-08",
+      "level": "2",
+      "title": "活动价与可信业务规则",
+      "goal": "分清展示价格、活动来源和实际折扣执行。",
+      "file": "content/lessons/l2-08.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7005,
+        "end": 7119
+      },
+      "legacy": "第-1112-课活动价campaign-contextfunction-与-app-边界"
+    },
+    {
+      "id": "l2-09",
+      "label": "L2-09",
+      "level": "2",
+      "title": "Collection 与商品卡片",
+      "goal": "理解商品集合、卡片复用和分页。",
+      "file": "content/lessons/l2-09.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7120,
+        "end": 7260
+      },
+      "legacy": "第-13-课collection为什么它不是-product-的文件夹"
+    },
+    {
+      "id": "l2-10",
+      "label": "L2-10",
+      "level": "2",
+      "title": "Product Media 与 Gallery",
+      "goal": "按媒体类型渲染，并同步 Variant 关联媒体。",
+      "file": "content/lessons/l2-10.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7261,
+        "end": 7382
+      },
+      "legacy": "第-14-课product-media为什么不能把商品媒体理解成图片数组"
+    },
+    {
+      "id": "l2-11",
+      "label": "L2-11",
+      "level": "2",
+      "title": "Search：完整搜索页面",
+      "goal": "把搜索词、结果类型和分页表达在 URL 中。",
+      "file": "content/lessons/l2-11.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7383,
+        "end": 7498
+      },
+      "legacy": "第-15-课search完整搜索页面到底是什么"
+    },
+    {
+      "id": "l2-12",
+      "label": "L2-12",
+      "level": "2",
+      "title": "Predictive Search：防抖与竞态",
+      "goal": "解释 debounce、AbortController 与键盘体验。",
+      "file": "content/lessons/l2-12.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7499,
+        "end": 7660
+      },
+      "legacy": "第-16-课predictive-search为什么输入框会出现-race-condition"
+    },
+    {
+      "id": "l2-13",
+      "label": "L2-13",
+      "level": "2",
+      "title": "Collection Filtering",
+      "goal": "理解 Filter 配置、类型与组合逻辑。",
+      "file": "content/lessons/l2-13.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7661,
+        "end": 7823
+      },
+      "legacy": "第-17-课collection-filteringfilter-到底从哪里来"
+    },
+    {
+      "id": "l2-14",
+      "label": "L2-14",
+      "level": "2",
+      "title": "排序、分页、URL 与局部更新",
+      "goal": "让 URL 成为可分享、可回退的列表状态。",
+      "file": "content/lessons/l2-14.md",
+      "kind": "lesson",
+      "source": {
+        "start": 7824,
+        "end": 8027
+      },
+      "legacy": "第-18-课pagination-sort-url-state为什么-url-是-theme-的状态容器"
+    },
+    {
+      "id": "l2-15",
+      "label": "L2-15",
+      "level": "2",
+      "title": "Theme SEO",
+      "goal": "理解标题、Canonical、结构化数据与页面语义。",
+      "file": "content/lessons/l2-15.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8028,
+        "end": 8154
+      },
+      "legacy": "第-19-课theme-seo不是几个-meta-tags而是-url-语义"
+    },
+    {
+      "id": "l2-16",
+      "label": "L2-16",
+      "level": "2",
+      "title": "Theme 性能",
+      "goal": "根据 LCP、CLS、INP 找到实际瓶颈。",
+      "file": "content/lessons/l2-16.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8155,
+        "end": 8308
+      },
+      "legacy": "第-20-课theme-performance性能优化不是全都-lazy"
+    },
+    {
+      "id": "l2-17",
+      "label": "L2-17",
+      "level": "2",
+      "title": "完整 Theme 的职责划分与重构",
+      "goal": "按服务端渲染、组件、浏览器状态与平台能力分层。",
+      "file": "content/lessons/l2-17.md",
+      "kind": "lesson",
+      "source": {
+        "start": 11809,
+        "end": 12263
+      },
+      "legacy": "第-34-课完整-theme-项目重构把-storefront-变成清晰边界的前端系统"
+    },
+    {
+      "id": "l2-18",
+      "label": "L2-18",
+      "level": "2",
+      "title": "阶段项目：交付一个可配置商品页",
+      "goal": "将数据、模板、交互和发布串成可以验收的 Theme 项目。",
+      "file": "content/lessons/l2-18.md",
+      "kind": "lesson",
+      "source": null,
+      "legacy": ""
+    },
+    {
+      "id": "l3-01",
+      "label": "L3-01",
+      "level": "3",
+      "title": "Product / Variant 的身份与关系",
+      "goal": "区分 Product ID、Variant ID 和 SKU。",
+      "file": "content/lessons/l3-01.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8309,
+        "end": 8393
+      },
+      "legacy": "第-21-课product-variant-数据模型深入"
+    },
+    {
+      "id": "l3-02",
+      "label": "L3-02",
+      "level": "3",
+      "title": "Collection 数据模型",
+      "goal": "理解集合关系与人工排序的作用。",
+      "file": "content/lessons/l3-02.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8394,
+        "end": 8454
+      },
+      "legacy": "第-22-课collection-数据模型深入"
+    },
+    {
+      "id": "l3-03",
+      "label": "L3-03",
+      "level": "3",
+      "title": "Inventory / Location",
+      "goal": "理解库存商品、地点和库存关系。",
+      "file": "content/lessons/l3-03.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8455,
+        "end": 8570
+      },
+      "legacy": "第-23-课inventory-location库存为什么不是一个数字"
+    },
+    {
+      "id": "l3-04",
+      "label": "L3-04",
+      "level": "3",
+      "title": "Cart / Checkout / Order 生命周期",
+      "goal": "理解购买意图、交易确认和购买结果。",
+      "file": "content/lessons/l3-04.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8571,
+        "end": 8657
+      },
+      "legacy": "第-25-课cart-checkout-order三个阶段不要混成下单"
+    },
+    {
+      "id": "l3-05",
+      "label": "L3-05",
+      "level": "3",
+      "title": "Metafield 的建模与类型",
+      "goal": "区分 Definition、Value、Owner、Namespace、Key 和 Type。",
+      "file": "content/lessons/l3-05.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8658,
+        "end": 8844
+      },
+      "legacy": "第-27-课metafield自定义字段不是随便塞-json"
+    },
+    {
+      "id": "l3-06",
+      "label": "L3-06",
+      "level": "3",
+      "title": "Metaobject、动态来源与完整建模",
+      "goal": "把结构化的可复用内容建模为对象。",
+      "file": "content/lessons/l3-06.md",
+      "kind": "lesson",
+      "source": {
+        "start": 5549,
+        "end": 5748
+      },
+      "legacy": "134-metaobject-为什么存在"
+    },
+    {
+      "id": "l3-07",
+      "label": "L3-07",
+      "level": "3",
+      "title": "Customer、订单与履约",
+      "goal": "分清顾客资料、账户、订单、交易和履约。",
+      "file": "content/lessons/l3-07.md",
+      "kind": "lesson",
+      "source": {
+        "start": 5307,
+        "end": 5404
+      },
+      "legacy": "128-customer顾客资料-customer-account-当前-cart"
+    },
+    {
+      "id": "l4-01",
+      "label": "L4-01",
+      "level": "4",
+      "title": "App 架构与认证",
+      "goal": "理解 Embedded UI、后端、令牌和权限的边界。",
+      "file": "content/lessons/l4-01.md",
+      "kind": "lesson",
+      "source": {
+        "start": 9762,
+        "end": 10264
+      },
+      "legacy": "第-30-课shopify-app-架构与认证从页面代码进入平台应用"
+    },
+    {
+      "id": "l4-02",
+      "label": "L4-02",
+      "level": "4",
+      "title": "Admin GraphQL API",
+      "goal": "理解 Query、Mutation、GID、分页和成本。",
+      "file": "content/lessons/l4-02.md",
+      "kind": "lesson",
+      "source": {
+        "start": 10265,
+        "end": 10887
+      },
+      "legacy": "第-31-课admin-graphql-api真正进入-shopify-后台数据层"
+    },
+    {
+      "id": "l4-03",
+      "label": "L4-03",
+      "level": "4",
+      "title": "Webhooks 与事件驱动同步",
+      "goal": "理解验签、幂等、队列和最终一致性。",
+      "file": "content/lessons/l4-03.md",
+      "kind": "lesson",
+      "source": {
+        "start": 10888,
+        "end": 11339
+      },
+      "legacy": "第-32-课webhooks-与事件驱动同步让-shopify-主动告诉你的-app发生变化了"
+    },
+    {
+      "id": "l4-04",
+      "label": "L4-04",
+      "level": "4",
+      "title": "Shopify Functions",
+      "goal": "理解 Shopify 内部执行逻辑与 App 后端的区别。",
+      "file": "content/lessons/l4-04.md",
+      "kind": "lesson",
+      "source": {
+        "start": 11340,
+        "end": 11808
+      },
+      "legacy": "第-33-课shopify-functions-实战把可信业务规则放进-shopify-执行边界"
+    },
+    {
+      "id": "l5-01",
+      "label": "L5-01",
+      "level": "5",
+      "title": "Headless、Storefront API 与 Hydrogen",
+      "goal": "理解自定义店面如何连接 Shopify 商业能力。",
+      "file": "content/lessons/l5-01.md",
+      "kind": "lesson",
+      "source": {
+        "start": 12264,
+        "end": 12642
+      },
+      "legacy": "第-35-课headless-storefront-api-hydrogen如果不使用-liquid-theme-会怎样"
+    },
+    {
+      "id": "l6-01",
+      "label": "L6-01",
+      "level": "6",
+      "title": "Markets、价格与 Discount 数据模型",
+      "goal": "区分基础价格、市场上下文、展示价和实际折扣。",
+      "file": "content/lessons/l6-01.md",
+      "kind": "lesson",
+      "source": {
+        "start": 8913,
+        "end": 9761
+      },
+      "legacy": "第-29-课market-discount-数据模型先把价格拆开"
+    },
+    {
+      "id": "l6-02",
+      "label": "L6-02",
+      "level": "6",
+      "title": "Plus、企业扩展与架构决策",
+      "goal": "按能力边界评估 Checkout、B2B 与外部系统集成。",
+      "file": "content/lessons/l6-02.md",
+      "kind": "lesson",
+      "source": {
+        "start": 12643,
+        "end": 12947
+      },
+      "legacy": "第-36-课shopify-plus-enterprise-扩展能力学会判断平台能力和plan-gated-能力"
+    },
+    {
+      "id": "ref-01",
+      "label": "参考 1",
+      "level": "reference",
+      "title": "核心对象与后台入口速查",
+      "goal": "快速定位对象入口与获取方式。",
+      "file": "content/lessons/ref-01.md",
+      "kind": "reference",
+      "source": {
+        "start": 5749,
+        "end": 5866
+      },
+      "legacy": "part-14核心对象在哪里怎么建代码怎么拿速查"
+    },
+    {
+      "id": "ref-02",
+      "label": "参考 2",
+      "level": "reference",
+      "title": "技术选型决策表",
+      "goal": "比较相邻概念与实现位置。",
+      "file": "content/lessons/ref-02.md",
+      "kind": "reference",
+      "source": {
+        "start": 5867,
+        "end": 5907
+      },
+      "legacy": "part-15常见到底该用哪个决策表"
+    },
+    {
+      "id": "ref-03",
+      "label": "参考 3",
+      "level": "reference",
+      "title": "商品页集成示意",
+      "goal": "理解知识如何组合；代码是示意，需要适配主题。",
+      "file": "content/lessons/ref-03.md",
+      "kind": "reference",
+      "source": {
+        "start": 5908,
+        "end": 6072
+      },
+      "legacy": "part-16综合实战一个商品详情页如何把知识串起来"
+    },
+    {
+      "id": "ref-04",
+      "label": "参考 4",
+      "level": "reference",
+      "title": "Theme / App / Function / Headless 职责表",
+      "goal": "查阅不同实现层的职责边界。",
+      "file": "content/lessons/ref-04.md",
+      "kind": "reference",
+      "source": {
+        "start": 13031,
+        "end": 13068
+      },
+      "legacy": "附录-atheme-app-function-headless-的职责表"
+    },
+    {
+      "id": "ref-05",
+      "label": "参考 5",
+      "level": "reference",
+      "title": "Shopify 官方文档索引",
+      "goal": "查阅各主题的官方定义。",
+      "file": "content/lessons/ref-05.md",
+      "kind": "reference",
+      "source": {
+        "start": 13069,
+        "end": 13167
+      },
+      "legacy": "附录-b常用-shopify-官方文档索引"
+    },
+    {
+      "id": "ref-06",
+      "label": "参考 6",
+      "level": "reference",
+      "title": "Cart 与 Checkout 补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-06.md",
+      "kind": "reference",
+      "source": {
+        "start": 2449,
+        "end": 2941
+      },
+      "legacy": "part-4购买链路add-to-cartcart-drawercheckout"
+    },
+    {
+      "id": "ref-07",
+      "label": "参考 7",
+      "level": "reference",
+      "title": "活动价与折扣补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-07.md",
+      "kind": "reference",
+      "source": {
+        "start": 2942,
+        "end": 3152
+      },
+      "legacy": "part-5活动价discountfunction-与-app-的边界"
+    },
+    {
+      "id": "ref-08",
+      "label": "参考 8",
+      "level": "reference",
+      "title": "Collection 实现补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-08.md",
+      "kind": "reference",
+      "source": {
+        "start": 3153,
+        "end": 3415
+      },
+      "legacy": "part-6theme-深入collection"
+    },
+    {
+      "id": "ref-09",
+      "label": "参考 9",
+      "level": "reference",
+      "title": "Product Media 补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-09.md",
+      "kind": "reference",
+      "source": {
+        "start": 3416,
+        "end": 3560
+      },
+      "legacy": "part-7theme-深入product-media"
+    },
+    {
+      "id": "ref-10",
+      "label": "参考 10",
+      "level": "reference",
+      "title": "Search API 补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-10.md",
+      "kind": "reference",
+      "source": {
+        "start": 3561,
+        "end": 3768
+      },
+      "legacy": "part-8theme-深入search-与-predictive-search"
+    },
+    {
+      "id": "ref-11",
+      "label": "参考 11",
+      "level": "reference",
+      "title": "Filter / Sort API 补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-11.md",
+      "kind": "reference",
+      "source": {
+        "start": 3769,
+        "end": 4305
+      },
+      "legacy": "part-9theme-深入filteringsortpagination-与-url-state"
+    },
+    {
+      "id": "ref-12",
+      "label": "参考 12",
+      "level": "reference",
+      "title": "SEO 排查与标签参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-12.md",
+      "kind": "reference",
+      "source": {
+        "start": 4306,
+        "end": 4548
+      },
+      "legacy": "part-10theme-seo"
+    },
+    {
+      "id": "ref-13",
+      "label": "参考 13",
+      "level": "reference",
+      "title": "性能排查参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-13.md",
+      "kind": "reference",
+      "source": {
+        "start": 4549,
+        "end": 4859
+      },
+      "legacy": "part-11theme-performance"
+    },
+    {
+      "id": "ref-14",
+      "label": "参考 14",
+      "level": "reference",
+      "title": "商品与库存属性参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-14.md",
+      "kind": "reference",
+      "source": {
+        "start": 4860,
+        "end": 5306
+      },
+      "legacy": "part-12shopify-commerce-数据模型深入"
+    },
+    {
+      "id": "ref-15",
+      "label": "参考 15",
+      "level": "reference",
+      "title": "自定义数据补充参考",
+      "goal": "按需查询属性、接口和原始案例。",
+      "file": "content/lessons/ref-15.md",
+      "kind": "reference",
+      "source": {
+        "start": 5405,
+        "end": 5548
+      },
+      "legacy": "part-13metafield-与-metaobject-数据模型深入"
+    }
+  ]
+}
