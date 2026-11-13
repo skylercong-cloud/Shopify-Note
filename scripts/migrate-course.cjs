@@ -2,9 +2,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const shopify = path.join(root, 'site/shopify');
 const archive = path.join(root, 'archive/tutorial-2026-09.md');
 fs.mkdirSync(path.dirname(archive), { recursive: true });
-if (!fs.existsSync(archive)) fs.copyFileSync(path.join(root, 'site/content/tutorial.md'), archive);
+if (!fs.existsSync(archive)) fs.copyFileSync(path.join(shopify, 'content/tutorial.md'), archive);
 const lines = fs.readFileSync(archive, 'utf8').replace(/\r/g, '').split('\n');
 const slice = (start, end) => lines.slice(start - 1, end - 1).join('\n').trim();
 const groups = [
@@ -76,12 +77,12 @@ function add(level, title, body, goal, exercise, kind='lesson', source=null) {
  const label = level === 'reference' ? `参考 ${num}` : `L${level}-${String(num).padStart(2,'0')}`;
  const file = `content/lessons/${id}.md`;
  const text = `# ${label} ${title}\n\n> **本课目标：** ${goal}\n\n${body.trim()}\n\n---\n\n## ${kind==='reference'?'使用提示':'练习与验收'}\n\n${exercise}\n\n${kind==='reference'?'':'验收时记录：操作步骤、预期结果、实际结果，以及出现问题时检查的数据和文件。不要只以“页面看起来正常”作为通过依据。\n'}`;
- fs.writeFileSync(path.join(root,'site',file), text);
+ fs.writeFileSync(path.join(shopify,file), text);
  const oldTitle = source ? lines[source.start-1].replace(/^#+\s*/, '') : '';
  const legacy = oldTitle.toLowerCase().trim().replace(/<[^>]*>/g,'').replace(/[^\u4e00-\u9fff\w\s-]/g,'').replace(/\s+/g,'-');
  lessons.push({id,label,level,title,goal,file,kind,source,legacy});
 }
-fs.mkdirSync(path.join(root,'site/content/lessons'),{recursive:true});
+fs.mkdirSync(path.join(shopify,'content/lessons'),{recursive:true});
 // New foundations are inserted at deliberate points rather than appended after advanced topics.
 const additions = require('./new-lessons.cjs');
 add('0', additions.platform.title, additions.platform.body, additions.platform.goal, additions.platform.exercise);
@@ -109,7 +110,7 @@ for (const [title,start,end] of [
 ]) add('reference',title,clean(slice(start,end).replace(/^# .*\n/,'')),'按需查询属性、接口和原始案例。','此页与主线对应课程存在概念交集；需要查具体接口时再使用，无需顺序重复阅读。','reference',{start,end:end-1});
 const sort = new Map(groups.map((g,i)=>[g.id,i]));
 lessons.sort((a,b)=>sort.get(a.level)-sort.get(b.level)||a.id.localeCompare(b.id));
-fs.writeFileSync(path.join(root,'site/content/course.json'),JSON.stringify({version:'2026-10-08',groups,lessons},null,2));
-fs.writeFileSync(path.join(root,'site/content/tutorial.md'),'# 教程已按 Level 0–6 重整\n\n请从网站首页进入学习路线。课程源文件位于 `site/content/lessons/`，目录位于 `site/content/course.json`。\n\n旧稿完整保存在仓库的 `archive/tutorial-2026-09.md`，用于核对与追溯。\n');
+fs.writeFileSync(path.join(shopify,'content/course.json'),JSON.stringify({version:'2026-10-08',groups,lessons},null,2));
+fs.writeFileSync(path.join(shopify,'content/tutorial.md'),'# 教程已按 Level 0–6 重整\n\n请从网站首页进入 Shopify 学习路线。课程源文件位于 `site/shopify/content/lessons/`，目录位于 `site/shopify/content/course.json`。\n\n旧稿完整保存在仓库的 `archive/tutorial-2026-09.md`，用于核对与追溯。\n');
 fs.writeFileSync(path.join(root,'COURSE-MIGRATION.md'), '# 课程迁移记录\n\n原稿：`archive/tutorial-2026-09.md`，保留用于核对。主线采用 Level 0–6，旧 Part 17 已按主题并入主线；旧参考章节放入“开发参考”，不计入主线学习顺序。\n\n| 新课 | 标题 | 旧稿行号 |\n| --- | --- | --- |\n'+lessons.map(l=>`| ${l.label} | ${l.title} | ${l.source?`${l.source.start}–${l.source.end}`:'新增'} |`).join('\n')+'\n\n高级课程保留概念与工程案例定位，尚不等同于完整 App / Headless 可运行工程。\n');
 console.log(`Generated ${lessons.length} pages (${lessons.filter(l=>l.kind!=='reference').length} lessons).`);

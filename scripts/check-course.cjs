@@ -1,7 +1,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const assert=require('node:assert/strict');
-const root=path.resolve(__dirname,'../site');
+const root=path.resolve(__dirname,'../site/shopify');
 const course=JSON.parse(fs.readFileSync(path.join(root,'content/course.json'),'utf8'));
 assert.deepEqual(course.groups.map(g=>g.id),['0','1','2','3','4','5','6','reference']);
 const ids=new Set(), counts={};

@@ -1,14 +1,14 @@
-# Shopify 网站开发系统教程
+# 开发知识笔记
 
-这是一个面向前端工程师的 Shopify 平台开发教程网站。
+首页提供两个知识区。Shopify 笔记是面向前端工程师的 Shopify 平台开发教程。SEO 学习收录网站性能优化、Dawn 源码与结构化数据课程。
 
 ## 本地预览
 
 ```bash
-npx serve site
+node scripts/serve.cjs
 ```
 
-然后打开命令输出的地址（通常是 `http://localhost:3000`）。也可以使用 VS Code Live Server。不要直接双击 `index.html`，因为浏览器会阻止 `fetch()` 读取本地 Markdown 文件。
+打开 `http://127.0.0.1:8771/`。也可以使用 VS Code Live Server 预览 `site/`。请通过静态服务器访问，让浏览器能够读取 Shopify 课程的 Markdown 文件。
 
 ## GitHub Pages
 
@@ -18,16 +18,18 @@ npx serve site
 
 ## 内容组织
 
-- `site/content/course.json`：Level 0–6 与开发参考的目录。
-- `site/content/lessons/`：每课独立 Markdown，直接修改对应文件即可。
-- `site/content/assets/`：课程图片。
+- `site/index.html`：知识分类首页。
+- `site/shopify/content/course.json`：Shopify Level 0–6 与开发参考的目录。
+- `site/shopify/content/lessons/`：Shopify 课程 Markdown。
+- `site/shopify/content/assets/`：Shopify 课程图片。
+- `site/seo/`：SEO 课程页面、数据文件和图片，迁入自 [SEO 源仓库](https://github.com/skylercong-cloud/SEO/tree/ea03246b8f738ae91286f0a5eb1b7a74b655c775)。
 - `course-additions/`：本次新增课程的迁移输入。
 - `archive/tutorial-2026-09.md`：原稿备份，用于核对，不作为新的主线课程。
 - `COURSE-MIGRATION.md`：新课与旧稿的对应记录。
 
-网站使用 `?lesson=l0-01` 这样的地址，不需要服务器配置深层路由，适用于 GitHub Pages 与 Netlify。正文图片链接以网站根目录为基准。
+Shopify 课节使用 `shopify/?lesson=l0-01`，旧的首页课节链接会转到对应的新地址。SEO 课程支持 `seo/#turn-1` 这样的直达链接。正文图片相对于各知识区目录加载。
 
-`node scripts/migrate-course.cjs` 用于重新执行本次迁移，会覆盖生成的课程文件；日常内容更新请直接编辑 `site/content/lessons/`，不要在手工修订后无意重跑迁移。
+`node scripts/migrate-course.cjs` 会从旧稿重新生成 Shopify 课程文件。日常内容更新请直接编辑 `site/shopify/content/lessons/`，以保留手工修订。
 
 ## 本次整理
 

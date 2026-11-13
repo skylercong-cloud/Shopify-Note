@@ -1,26 +1,40 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Shopify 网站开发系统教程：从平台地图、Theme、Liquid 到 App、Headless 和 Enterprise。">
-  <title>Shopify 网站开发系统教程</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="course.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Shopify 开发、网站性能优化和 SEO 学习笔记。">
+  <title>开发知识笔记</title>
+  <link rel="stylesheet" href="home.css">
+  <script>
+    const url = new URL(location.href);
+    if (url.searchParams.has('lesson') || url.hash) {
+      const course = new URL('shopify/', url);
+      course.search = url.search;
+      course.hash = url.hash;
+      location.replace(course);
+    }
+  </script>
 </head>
 <body>
-  <header class="topbar" id="top"><a class="brand" href="?lesson=overview">Shopify<span>·</span>Dev Notes</a><div class="top-actions"><button id="menu-toggle" type="button" aria-expanded="false" aria-controls="course-sidebar">课程目录</button><button id="theme-toggle" type="button" aria-label="切换深色模式">◐</button><a href="https://github.com/skylercong-cloud/Shopify-Note" target="_blank" rel="noreferrer">GitHub</a></div></header>
-  <div class="layout">
-    <aside id="course-sidebar" class="sidebar" aria-label="课程导航"><div class="sidebar-inner"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="全文搜索课程" aria-label="全文搜索课程"></label><div class="progress"><div class="progress-label"><span>已学完课程</span><strong id="progress-text">0/0</strong></div><div class="progress-track"><i id="progress-bar"></i></div></div><div id="search-results" role="region" aria-label="搜索结果" aria-live="polite" hidden></div><nav id="toc" aria-label="全部课程"></nav></div></aside>
-    <main class="reading"><article id="article" class="article"><div class="loading">正在加载教程…</div></article><footer id="lesson-footer" hidden></footer></main>
-    <aside id="page-toc" aria-label="本课目录"></aside>
-  </div>
-  <button class="backtop" id="backtop" aria-label="返回顶部">↑</button>
-  <noscript><p>此网站需要 JavaScript 加载课程，也可以在 GitHub 仓库的 site/content/lessons 目录阅读 Markdown 原文。</p></noscript>
-  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
-  <script src="app.js"></script>
+  <main class="library">
+    <header class="masthead">
+      <h1>开发知识笔记</h1>
+      <p>Shopify 开发与网站优化的学习笔记。</p>
+    </header>
+
+    <nav class="shelves" aria-label="知识分类">
+      <a class="shelf shelf-shopify" href="shopify/">
+        <h2>Shopify 笔记</h2>
+        <p>从 Theme 和 Liquid 入门，逐步学习店面交互、数据模型、App 与 Headless。</p>
+        <span class="entry">进入 Shopify 笔记 <span aria-hidden="true">→</span></span>
+      </a>
+      <a class="shelf shelf-seo" href="seo/">
+        <h2>SEO 学习</h2>
+        <p>研读网站性能、浏览器渲染与 Dawn 源码，学习 canonical 和结构化数据。</p>
+        <span class="entry">进入 SEO 学习 <span aria-hidden="true">→</span></span>
+      </a>
+    </nav>
+  </main>
 </body>
 </html>
-
-
-
