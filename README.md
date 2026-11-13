@@ -22,12 +22,13 @@ node scripts/serve.cjs
 - `site/shopify/content/course.json`：Shopify Level 0–6 与开发参考的目录。
 - `site/shopify/content/lessons/`：Shopify 课程 Markdown。
 - `site/shopify/content/assets/`：Shopify 课程图片。
-- `site/seo/`：SEO 课程页面、数据文件和图片，迁入自 [SEO 源仓库](https://github.com/skylercong-cloud/SEO/tree/ea03246b8f738ae91286f0a5eb1b7a74b655c775)。
+- `site/seo/content/lessons/`：SEO 课程与补充笔记，整理自 [SEO 源仓库](https://github.com/skylercong-cloud/SEO/tree/ea03246b8f738ae91286f0a5eb1b7a74b655c775)。
+- `site/reader/`：两个知识区共用的阅读界面、目录、主题和站内全文搜索。
 - `course-additions/`：本次新增课程的迁移输入。
 - `archive/tutorial-2026-09.md`：原稿备份，用于核对，不作为新的主线课程。
 - `COURSE-MIGRATION.md`：新课与旧稿的对应记录。
 
-Shopify 课节使用 `shopify/?lesson=l0-01`，旧的首页课节链接会转到对应的新地址。SEO 课程支持 `seo/#turn-1` 这样的直达链接。正文图片相对于各知识区目录加载。
+Shopify 课节使用 `shopify/?lesson=l0-01`，旧的首页课节链接会转到对应的新地址。SEO 课节使用 `seo/?lesson=performance-01`，旧的 `seo/#turn-1` 链接会转到对应文章。正文图片相对于各知识区目录加载。
 
 `node scripts/migrate-course.cjs` 会从旧稿重新生成 Shopify 课程文件。日常内容更新请直接编辑 `site/shopify/content/lessons/`，以保留手工修订。
 

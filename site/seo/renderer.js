@@ -319,7 +319,7 @@
     var spec;
     try { spec = new Function('return (' + objText + ')')(); } catch (e) { spec = null; }
     if (!spec || !spec.data || !spec.data.length) {
-      return '<div class="dil-chart dil-chart-empty" data-d-component="chart">图表数据未随导出完整保存</div>';
+      return '<div class="dil-chart dil-chart-empty" data-d-component="chart">图表数据暂不可用</div>';
     }
     var meta = spec.meta || {}, rows = spec.data, series = spec.series || [], keys = [];
     series.forEach(function (s) { if (s.dataKey) keys.push(s.dataKey); });
@@ -806,7 +806,7 @@
       case 'slider':
         return '<input type="range" class="dil-slider"' + comp + ' min="' + num(a.min, 0) +
           '" max="' + num(a.max, 100) + '" step="' + num(a.step, 1) + '" value="' + num(a.value, 0) +
-          '" disabled title="静态快照：导出未保存交互状态">';
+          '" disabled>';
       case 'radio-group': {
         var gv = String(a.value === undefined ? '' : a.value);
         var radios = inner.replace(/data-radio-value="([^"]*)"/g, function (m0, val) {
@@ -833,12 +833,12 @@
       case 'label':
         return '<label class="dil-label"' + comp + '>' + inner + '</label>';
       case 'chart':
-        return '<div class="dil-chart dil-chart-empty" data-d-component="chart">图表数据未随导出完整保存</div>';
+        return '<div class="dil-chart dil-chart-empty" data-d-component="chart">图表数据暂不可用</div>';
       case 'entity':
         return '<span class="dil-entity" data-d-component="entity" title="' + esc(a.disambig || '') + '">' +
           esc(a.value || '') + (a.category ? '<span class="dil-entity-cat">' + esc(a.category) + '</span>' : '') + '</span>';
       case 'memorycite':
-        return '<span class="dil-memory" data-d-component="memorycite" title="本段引用了对话记忆">记忆</span>';
+        return '';
       case 'spacer':
         return '<div class="dil-spacer" data-d-component="spacer"></div>';
       case 'asyncimagegroup': {
@@ -849,6 +849,9 @@
           gq.map(function (q) { return '<span class="img-slot-query">' + esc(q) + '</span>'; }).join('') +
           '<span class="img-slot-note">原图未随导出保存</span></div></div>';
       }
+      case 'lessonimage':
+        if (!/^assets\/(?:cached|fill)\/[\w-]+\.jpg$/.test(a.src)) return '';
+        return '<img loading="lazy" src="' + esc(a.src) + '" alt="' + esc(a.alt || '') + '">';
       case 'asyncimage':
         return imgSlot(a, ctx);
       case 'image':

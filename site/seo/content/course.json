@@ -1,0 +1,418 @@
+{
+  "groups": [
+    {
+      "id": "performance",
+      "title": "网站性能优化",
+      "description": "浏览器渲染、资源加载、缓存与 Shopify 性能实战。"
+    },
+    {
+      "id": "dawn",
+      "title": "Dawn 源码研读",
+      "description": "商品页、购物车、搜索、导航和结构化数据的源码分析。"
+    },
+    {
+      "id": "notes",
+      "title": "补充笔记",
+      "description": "图片渲染、Shopify Markets 及进阶学习主题。"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "performance-overview",
+      "label": "",
+      "level": "notes",
+      "title": "网站性能优化的方法与指标",
+      "file": "content/lessons/performance-overview.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-0"
+      ]
+    },
+    {
+      "id": "performance-01",
+      "label": "第 1 课",
+      "level": "performance",
+      "title": "从输入 URL 到页面完整渲染，浏览器到底经历了什么？",
+      "file": "content/lessons/performance-01.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-1"
+      ]
+    },
+    {
+      "id": "performance-02",
+      "label": "第 2 课",
+      "level": "performance",
+      "title": "深入浏览器关键渲染路径：CSS、JavaScript、DOM 如何相互阻塞？",
+      "file": "content/lessons/performance-02.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-2"
+      ]
+    },
+    {
+      "id": "performance-03",
+      "label": "第 3 课",
+      "level": "performance",
+      "title": "浏览器渲染流水线与 JavaScript 性能优化",
+      "file": "content/lessons/performance-03.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-3"
+      ]
+    },
+    {
+      "id": "performance-04",
+      "label": "第 4 课",
+      "level": "performance",
+      "title": "深入浏览器事件循环、主线程调度与 JavaScript 长任务优化",
+      "file": "content/lessons/performance-04.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-4"
+      ]
+    },
+    {
+      "id": "performance-05",
+      "label": "第 5 课",
+      "level": "performance",
+      "title": "Chrome DevTools Performance 性能诊断实战",
+      "file": "content/lessons/performance-05.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-5"
+      ]
+    },
+    {
+      "id": "performance-06",
+      "label": "第 6 课",
+      "level": "performance",
+      "title": "浏览器资源加载、请求优先级与首屏性能优化",
+      "file": "content/lessons/performance-06.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-6"
+      ]
+    },
+    {
+      "id": "image-rendering",
+      "label": "",
+      "level": "notes",
+      "title": "浏览器图片加载、解码与渲染",
+      "file": "content/lessons/image-rendering.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-7"
+      ]
+    },
+    {
+      "id": "performance-07",
+      "label": "第 7 课",
+      "level": "performance",
+      "title": "深入 HTTP 缓存、强缓存、协商缓存与 CDN",
+      "file": "content/lessons/performance-07.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-8"
+      ]
+    },
+    {
+      "id": "performance-08",
+      "label": "第 8 课",
+      "level": "performance",
+      "title": "JavaScript 资源优化：Tree Shaking、Code Splitting、动态加载与执行性能",
+      "file": "content/lessons/performance-08.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-9"
+      ]
+    },
+    {
+      "id": "performance-09",
+      "label": "第 9 课",
+      "level": "performance",
+      "title": "Shopify 商品详情页性能优化综合实战",
+      "file": "content/lessons/performance-09.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-10"
+      ]
+    },
+    {
+      "id": "advanced-performance",
+      "label": "",
+      "level": "notes",
+      "title": "网站性能优化进阶主题",
+      "file": "content/lessons/advanced-performance.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-11"
+      ]
+    },
+    {
+      "id": "performance-10",
+      "label": "第 10 课",
+      "level": "performance",
+      "title": "CSS 深度性能优化：样式计算、渲染隔离与动画",
+      "file": "content/lessons/performance-10.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-12"
+      ]
+    },
+    {
+      "id": "performance-11",
+      "label": "第 11 课",
+      "level": "performance",
+      "title": "图片与字体深度优化：DPR、响应式图片、解码与字体渲染",
+      "file": "content/lessons/performance-11.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-13"
+      ]
+    },
+    {
+      "id": "performance-14",
+      "label": "第 14 课",
+      "level": "performance",
+      "title": "大型页面与列表性能优化：分页、无限滚动、虚拟列表与 Shopify 集合页",
+      "file": "content/lessons/performance-14.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-14"
+      ]
+    },
+    {
+      "id": "performance-16",
+      "label": "第 16 课",
+      "level": "performance",
+      "title": "Shopify Theme 高级性能优化：Liquid、Section Rendering、生命周期与复杂商品",
+      "file": "content/lessons/performance-16.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-15"
+      ]
+    },
+    {
+      "id": "theme-engineering",
+      "label": "",
+      "level": "notes",
+      "title": "Shopify Theme 工程化进阶方向",
+      "file": "content/lessons/theme-engineering.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-16"
+      ]
+    },
+    {
+      "id": "dawn-roadmap",
+      "label": "",
+      "level": "notes",
+      "title": "Dawn 源码研读路线",
+      "file": "content/lessons/dawn-roadmap.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-17"
+      ]
+    },
+    {
+      "id": "dawn-01",
+      "label": "第 1 课",
+      "level": "dawn",
+      "title": "深入 sections/main-product.liquid：商品详情页是如何组装出来的？",
+      "file": "content/lessons/dawn-01.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-18"
+      ]
+    },
+    {
+      "id": "dawn-02",
+      "label": "第 2 课",
+      "level": "dawn",
+      "title": "深入 product-variant-picker.liquid：Shopify 如何实现商品变体选择？",
+      "file": "content/lessons/dawn-02.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-19"
+      ]
+    },
+    {
+      "id": "dawn-03",
+      "label": "第 3 课",
+      "level": "dawn",
+      "title": "Section Rendering API 与 product-info.js：Dawn 如何实现局部更新？",
+      "file": "content/lessons/dawn-03.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-20"
+      ]
+    },
+    {
+      "id": "dawn-04",
+      "label": "第 4 课",
+      "level": "dawn",
+      "title": "ProductForm 与 CartDrawer：从点击加购到购物车抽屉更新",
+      "file": "content/lessons/dawn-04.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-21"
+      ]
+    },
+    {
+      "id": "dawn-05",
+      "label": "第 5 课",
+      "level": "dawn",
+      "title": "Product Media Gallery：深入商品媒体画廊的实现",
+      "file": "content/lessons/dawn-05.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-22"
+      ]
+    },
+    {
+      "id": "dawn-06",
+      "label": "第 6 课",
+      "level": "dawn",
+      "title": "Product Recommendations：商品推荐与异步 Section 加载",
+      "file": "content/lessons/dawn-06.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-23"
+      ]
+    },
+    {
+      "id": "dawn-07",
+      "label": "第 7 课",
+      "level": "dawn",
+      "title": "Product Card & Quick Add：商品卡片与快速加购机制",
+      "file": "content/lessons/dawn-07.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-24"
+      ]
+    },
+    {
+      "id": "dawn-08",
+      "label": "第 8 课",
+      "level": "dawn",
+      "title": "Cart Drawer & Cart：购物车抽屉与购物车更新机制",
+      "file": "content/lessons/dawn-08.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-25"
+      ]
+    },
+    {
+      "id": "dawn-09",
+      "label": "第 9 课",
+      "level": "dawn",
+      "title": "Cart 数据模型与 Checkout：购物车中的数据是如何传递到订单的？",
+      "file": "content/lessons/dawn-09.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-26"
+      ]
+    },
+    {
+      "id": "dawn-10",
+      "label": "第 10 课",
+      "level": "dawn",
+      "title": "Collection：集合页筛选、排序与分页机制",
+      "file": "content/lessons/dawn-10.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-27"
+      ]
+    },
+    {
+      "id": "dawn-11",
+      "label": "第 11 课",
+      "level": "dawn",
+      "title": "Predictive Search：实时搜索建议的完整实现",
+      "file": "content/lessons/dawn-11.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-28"
+      ]
+    },
+    {
+      "id": "dawn-12",
+      "label": "第 12 课",
+      "level": "dawn",
+      "title": "Product 页面核心架构：从选择 Variant 到完成加购",
+      "file": "content/lessons/dawn-12.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-29"
+      ]
+    },
+    {
+      "id": "inventory-and-pickup",
+      "label": "",
+      "level": "notes",
+      "title": "Dawn 商品库存、数量规则与门店自提",
+      "file": "content/lessons/inventory-and-pickup.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-30"
+      ]
+    },
+    {
+      "id": "dawn-14",
+      "label": "第 14 课",
+      "level": "dawn",
+      "title": "Header 与导航系统：Mega Menu、移动端多级菜单、Sticky Header",
+      "file": "content/lessons/dawn-14.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-31"
+      ]
+    },
+    {
+      "id": "advanced-dawn",
+      "label": "",
+      "level": "notes",
+      "title": "Dawn 源码研读的进阶主题",
+      "file": "content/lessons/advanced-dawn.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-32"
+      ]
+    },
+    {
+      "id": "dawn-15",
+      "label": "第 15 课",
+      "level": "dawn",
+      "title": "Theme Editor 与 Section 生命周期：动态渲染、组件初始化和资源清理",
+      "file": "content/lessons/dawn-15.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-33"
+      ]
+    },
+    {
+      "id": "markets-localization",
+      "label": "",
+      "level": "notes",
+      "title": "Shopify Markets 的定价、翻译与国际化 URL",
+      "file": "content/lessons/markets-localization.md",
+      "kind": "reference",
+      "legacy": [
+        "turn-35",
+        "turn-34"
+      ]
+    },
+    {
+      "id": "dawn-17",
+      "label": "第 17 课",
+      "level": "dawn",
+      "title": "SEO 与结构化数据：深入 canonical_url、content_for_header、JSON-LD",
+      "file": "content/lessons/dawn-17.md",
+      "kind": "lesson",
+      "legacy": [
+        "turn-36"
+      ]
+    }
+  ]
+}
