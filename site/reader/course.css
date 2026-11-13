@@ -1,7 +1,10 @@
 [hidden] { display: none !important; }
 .layout { grid-template-columns: 270px minmax(0, 1fr) 210px; max-width: 1600px; }
 .reading { min-width: 0; }
+.sidebar { border-inline: 0; }
+.sidebar-inner { scrollbar-gutter: stable; }
 .article { padding: 42px clamp(20px, 4vw, 56px) 28px; }
+.article:focus { outline: none; }
 .article > h1 { font-size: clamp(28px, 3vw, 40px); line-height: 1.3; }
 .article :is(h1,h2,h3,h4) { scroll-margin-top: 86px; overflow-wrap: anywhere; }
 .article pre { max-width: 100%; }
@@ -22,8 +25,14 @@
 #toc details { border-bottom: 1px solid var(--line); }
 #toc a { padding: 8px 10px; }
 #toc a.completed::before { content: '✓ '; color: var(--brand); }
-#toc .overview-link { color: var(--brand); font-weight: 700; margin-bottom: 8px; }
-#page-toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 64px); overflow: auto; padding: 28px 16px; border-left: 1px solid var(--line); }
+#toc { margin: 0; }
+.course-section + .course-section { margin-top: 20px; }
+.course-section h2 { margin: 0 0 4px; }
+#toc .overview-link { color: var(--ink); font-size: 15px; font-weight: 700; }
+#toc .overview-link.current-area { color: var(--accent); }
+.overview-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; color: var(--muted); }
+.overview-progress progress { max-width: 100%; accent-color: var(--accent); }
+#page-toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 64px); overflow: auto; padding: 28px 16px; }
 #page-toc:empty { visibility: hidden; }
 #page-toc h2 { font-size: 13px; margin: 0 0 12px; }
 #page-toc a { display: block; text-decoration: none; color: var(--muted); font-size: 12px; padding: 5px 0; line-height: 1.5; overflow-wrap: anywhere; }
@@ -48,26 +57,7 @@
   border-radius: 8px;
 }
 .top-actions button:hover { background: var(--brand-soft); }
-.areas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  padding: 3px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-.areas a {
-  padding: 7px 4px;
-  color: var(--muted);
-  text-align: center;
-  text-decoration: none;
-  font-size: 13px;
-  border-radius: 5px;
-}
-.areas a:hover, .areas a[aria-current] { background: var(--brand-soft); color: var(--accent); }
-.areas a[aria-current] { font-weight: 700; }
-.article a, .lesson-pager a, #toc .overview-link, #toc a.active,
+.article a, .lesson-pager a, #toc a.active,
 .search-result a, .complete-button { color: var(--accent); }
 .article hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 .article { overflow-wrap: anywhere; }
@@ -108,7 +98,6 @@
   .sidebar { display: none; position: fixed; inset: 64px 0 0; z-index: 9; background: var(--panel); overflow: auto; }
   .sidebar.is-open { display: block; }
   .sidebar #toc { display: block; }
-  .sidebar .areas { display: grid; }
   .sidebar-inner { padding: 20px; }
   .article { padding: 28px 18px; }
   .level-card { padding: 18px; }

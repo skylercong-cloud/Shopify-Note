@@ -30,15 +30,7 @@
     <div class="layout">
       <aside id="course-sidebar" class="sidebar" aria-label="课程导航">
         <div class="sidebar-inner">
-          <nav class="areas" aria-label="知识区">
-            <a href="../shopify/" data-area="shopify">Shopify 笔记</a>
-            <a href="../seo/" data-area="seo">SEO 学习</a>
-          </nav>
-          <div id="progress" class="progress" hidden>
-            <div class="progress-label"><span>已学完课程</span><strong id="progress-text"></strong></div>
-            <div class="progress-track"><i id="progress-bar"></i></div>
-          </div>
-          <nav id="toc" aria-label="本区课程"></nav>
+          <nav id="toc" aria-label="全部课程"></nav>
         </div>
       </aside>
       <main class="reading" id="reading">
@@ -129,18 +121,12 @@
   }
 
   const lessonTitle = lesson => [lesson.label, lesson.title].filter(Boolean).join(' ');
-  const groupTitle = group => currentArea === 'shopify' && group.id !== 'reference'
+  const groupTitle = (group, name = currentArea) => name === 'shopify' && group.id !== 'reference'
     ? 'Level ' + group.id + ' · ' + group.title
     : group.title;
 
   function updateCompletion() {
-    if (currentArea !== 'shopify') return;
-    const main = course.lessons.filter(lesson => lesson.kind !== 'reference');
-    const count = main.filter(lesson => completed.has(lesson.id)).length;
-    query('#progress').hidden = false;
-    query('#progress-text').textContent = count + '/' + main.length;
-    query('#progress-bar').style.width = Math.round(count / main.length * 100) + '%';
-    for (const entry of toc.querySelectorAll('a[data-lesson]')) {
+    for (const entry of toc.querySelectorAll('[data-area="shopify"] a[data-lesson]')) {
       const done = completed.has(entry.dataset.lesson);
       entry.classList.toggle('completed', done);
       entry.setAttribute('aria-label', entry.textContent + (done ? '，已学完' : ''));
@@ -148,22 +134,46 @@
   }
 
   function buildNav() {
-    query('[data-area="' + currentArea + '"]').setAttribute('aria-current', 'page');
-    const overview = link('学习路线', 'overview', 'overview-link');
-    overview.dataset.lesson = 'overview';
-    toc.append(overview);
-    for (const [index, group] of course.groups.entries()) {
-      const details = node('details');
-      details.open = index === 0;
-      details.append(node('summary', groupTitle(group)));
-      for (const lesson of course.lessons.filter(item => item.level === group.id)) {
-        const entry = link(lessonTitle(lesson), lesson.id);
-        entry.dataset.lesson = lesson.id;
-        details.append(entry);
-      }
-      toc.append(details);
+    for (const [name, info] of Object.entries(areas)) {
+      const section = node('section', undefined, 'course-section');
+      section.dataset.area = name;
+      const overview = link(info.label, 'overview', 'overview-link', name);
+      overview.dataset.lesson = 'overview';
+      const title = node('h2');
+      title.append(overview);
+      section.append(title);
+      toc.append(section);
+      catalog(name).then(data => {
+        for (const group of data.groups) {
+          const details = node('details');
+          details.append(node('summary', groupTitle(group, name)));
+          for (const lesson of data.lessons.filter(item => item.level === group.id)) {
+            const entry = link(lessonTitle(lesson), lesson.id, undefined, name);
+            entry.dataset.lesson = lesson.id;
+            details.append(entry);
+          }
+          section.append(details);
+        }
+        updateCompletion();
+        updateActiveNav();
+      }).catch(() => {
+        section.append(node('p', '暂时无法加载目录', 'muted'));
+      });
     }
-    updateCompletion();
+  }
+
+  function updateActiveNav() {
+    const section = toc.querySelector('[data-area="' + currentArea + '"]');
+    section.querySelector('.overview-link').classList.toggle('current-area', Boolean(current));
+    for (const entry of section.querySelectorAll('a[data-lesson]')) {
+      const active = entry.dataset.lesson === (current?.id || 'overview');
+      entry.classList.toggle('active', active);
+      if (active) {
+        entry.setAttribute('aria-current', 'page');
+        const group = entry.closest('details');
+        if (group) group.open = true;
+      } else entry.removeAttribute('aria-current');
+    }
   }
 
   function localToc() {
@@ -198,6 +208,15 @@
     if (currentArea === 'shopify') {
       const note = node('div', undefined, 'course-note');
       note.append(node('strong', '如何使用'), node('p', '每课先读目标，再理解原理和示例，最后完成练习。点击“标记已学完”记录进度，记录仅保存在当前浏览器。高级章节中的概念示例不等于已经运行验证的完整工程。'));
+      const main = course.lessons.filter(lesson => lesson.kind !== 'reference');
+      const count = main.filter(lesson => completed.has(lesson.id)).length;
+      const progress = node('progress');
+      progress.max = main.length;
+      progress.value = count;
+      progress.setAttribute('aria-label', '已学完课程');
+      const progressRow = node('p', undefined, 'overview-progress');
+      progressRow.append(node('span', '已学完课程 ' + count + '/' + main.length), progress);
+      note.append(progressRow);
       article.append(note);
     }
     for (const group of course.groups) {
@@ -270,14 +289,7 @@
     observer?.disconnect();
     pageToc.replaceChildren();
     footer.hidden = true;
-    for (const entry of toc.querySelectorAll('a[data-lesson]')) {
-      const active = entry.dataset.lesson === (current?.id || 'overview');
-      entry.classList.toggle('active', active);
-      if (active) {
-        entry.setAttribute('aria-current', 'page');
-        if (entry.parentElement.tagName === 'DETAILS') entry.parentElement.open = true;
-      } else entry.removeAttribute('aria-current');
-    }
+    updateActiveNav();
     closeMenu();
     if (!current) {
       showOverview();
@@ -467,9 +479,9 @@
   backtop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
   addEventListener('scroll', () => backtop.classList.toggle('show', scrollY > 500), { passive: true });
 
+  buildNav();
   catalog(currentArea).then(data => {
     course = data;
-    buildNav();
     return showRoute();
   }).catch(error => {
     article.replaceChildren(node('h1', '课程目录加载失败'), node('p', error.message));
