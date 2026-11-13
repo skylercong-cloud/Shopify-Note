@@ -26,10 +26,8 @@
 #toc a { padding: 8px 10px; }
 #toc a.completed::before { content: '✓ '; color: var(--brand); }
 #toc { margin: 0; }
-.course-section + .course-section { margin-top: 20px; }
-.course-section h2 { margin: 0 0 4px; }
+#toc h2 { margin: 0 0 4px; }
 #toc .overview-link { color: var(--ink); font-size: 15px; font-weight: 700; }
-#toc .overview-link.current-area { color: var(--accent); }
 .overview-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; color: var(--muted); }
 .overview-progress progress { max-width: 100%; accent-color: var(--accent); }
 #page-toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 64px); overflow: auto; padding: 28px 16px; }
@@ -50,13 +48,54 @@
 :root { --accent: #146b56; }
 .dark { --accent: #8edfc4; }
 .brand { white-space: nowrap; }
-.top-actions button {
+.top-actions button, .categories summary {
   min-height: 36px;
   padding: 2px 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
-.top-actions button:hover { background: var(--brand-soft); }
+.top-actions button:hover, .categories summary:hover, .categories[open] summary { background: var(--brand-soft); }
+.categories { position: relative; }
+.categories summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+.categories summary::-webkit-details-marker { display: none; }
+.categories summary::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border: solid currentColor;
+  border-width: 0 1px 1px 0;
+  transform: translateY(-2px) rotate(45deg);
+}
+.categories nav {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  min-width: 152px;
+  padding: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.top-actions .categories a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 5px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.top-actions .categories a:hover, .top-actions .categories a[aria-current] {
+  background: var(--brand-soft);
+  color: var(--accent);
+}
 .article a, .lesson-pager a, #toc a.active,
 .search-result a, .complete-button { color: var(--accent); }
 .article hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
@@ -95,6 +134,7 @@
   .topbar { padding: 0 12px; gap: 10px; }
   .brand { font-size: 15px; }
   .top-actions { gap: 10px; font-size: 13px; }
+  .categories nav { inset-inline-start: auto; inset-inline-end: 0; }
   .sidebar { display: none; position: fixed; inset: 64px 0 0; z-index: 9; background: var(--panel); overflow: auto; }
   .sidebar.is-open { display: block; }
   .sidebar #toc { display: block; }
@@ -103,9 +143,10 @@
   .level-card { padding: 18px; }
   #lesson-footer { padding: 0 18px 60px; }
 }
-@media (max-width: 360px) {
+@media (max-width: 400px) {
   .top-actions { gap: 5px; }
-  .top-actions button { padding-inline: 8px; }
+  .top-actions button, .categories summary { padding-inline: 7px; }
+  .topbar { gap: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

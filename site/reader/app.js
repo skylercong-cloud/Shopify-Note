@@ -22,6 +22,13 @@
     <header class="topbar">
       <a class="brand" href="../">开发知识笔记</a>
       <div class="top-actions">
+        <details class="categories">
+          <summary>分类</summary>
+          <nav aria-label="知识分类">
+            <a href="../shopify/" data-category="shopify">Shopify 笔记</a>
+            <a href="../seo/" data-category="seo">SEO 学习</a>
+          </nav>
+        </details>
         <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="course-sidebar">目录</button>
         <button id="search-toggle" type="button" aria-label="搜索全部课程" aria-haspopup="dialog">⌕ 搜索</button>
         <button id="theme-toggle" type="button" aria-label="深色模式" aria-pressed="false">◐</button>
@@ -30,7 +37,7 @@
     <div class="layout">
       <aside id="course-sidebar" class="sidebar" aria-label="课程导航">
         <div class="sidebar-inner">
-          <nav id="toc" aria-label="全部课程"></nav>
+          <nav id="toc" aria-label="当前知识区课程"></nav>
         </div>
       </aside>
       <main class="reading" id="reading">
@@ -56,6 +63,9 @@
   const pageToc = query('#page-toc');
   const sidebar = query('#course-sidebar');
   const menu = query('#menu-toggle');
+  const categories = query('.categories');
+  const categoryTrigger = categories.querySelector('summary');
+  query('[data-category="' + currentArea + '"]').setAttribute('aria-current', 'true');
   const search = query('#search');
   const searchDialog = query('#search-dialog');
   const results = query('#search-results');
@@ -121,12 +131,13 @@
   }
 
   const lessonTitle = lesson => [lesson.label, lesson.title].filter(Boolean).join(' ');
-  const groupTitle = (group, name = currentArea) => name === 'shopify' && group.id !== 'reference'
+  const groupTitle = group => currentArea === 'shopify' && group.id !== 'reference'
     ? 'Level ' + group.id + ' · ' + group.title
     : group.title;
 
   function updateCompletion() {
-    for (const entry of toc.querySelectorAll('[data-area="shopify"] a[data-lesson]')) {
+    if (currentArea !== 'shopify') return;
+    for (const entry of toc.querySelectorAll('details a[data-lesson]')) {
       const done = completed.has(entry.dataset.lesson);
       entry.classList.toggle('completed', done);
       entry.setAttribute('aria-label', entry.textContent + (done ? '，已学完' : ''));
@@ -134,38 +145,26 @@
   }
 
   function buildNav() {
-    for (const [name, info] of Object.entries(areas)) {
-      const section = node('section', undefined, 'course-section');
-      section.dataset.area = name;
-      const overview = link(info.label, 'overview', 'overview-link', name);
-      overview.dataset.lesson = 'overview';
-      const title = node('h2');
-      title.append(overview);
-      section.append(title);
-      toc.append(section);
-      catalog(name).then(data => {
-        for (const group of data.groups) {
-          const details = node('details');
-          details.append(node('summary', groupTitle(group, name)));
-          for (const lesson of data.lessons.filter(item => item.level === group.id)) {
-            const entry = link(lessonTitle(lesson), lesson.id, undefined, name);
-            entry.dataset.lesson = lesson.id;
-            details.append(entry);
-          }
-          section.append(details);
-        }
-        updateCompletion();
-        updateActiveNav();
-      }).catch(() => {
-        section.append(node('p', '暂时无法加载目录', 'muted'));
-      });
+    const overview = link(area.label, 'overview', 'overview-link');
+    overview.dataset.lesson = 'overview';
+    const title = node('h2');
+    title.append(overview);
+    toc.append(title);
+    for (const group of course.groups) {
+      const details = node('details');
+      details.append(node('summary', groupTitle(group)));
+      for (const lesson of course.lessons.filter(item => item.level === group.id)) {
+        const entry = link(lessonTitle(lesson), lesson.id);
+        entry.dataset.lesson = lesson.id;
+        details.append(entry);
+      }
+      toc.append(details);
     }
+    updateCompletion();
   }
 
   function updateActiveNav() {
-    const section = toc.querySelector('[data-area="' + currentArea + '"]');
-    section.querySelector('.overview-link').classList.toggle('current-area', Boolean(current));
-    for (const entry of section.querySelectorAll('a[data-lesson]')) {
+    for (const entry of toc.querySelectorAll('a[data-lesson]')) {
       const active = entry.dataset.lesson === (current?.id || 'overview');
       entry.classList.toggle('active', active);
       if (active) {
@@ -357,17 +356,31 @@
   }
 
   menu.addEventListener('click', () => {
+    categories.open = false;
     menu.setAttribute('aria-expanded', String(sidebar.classList.toggle('is-open')));
   });
 
   function openSearch() {
     closeMenu();
+    categories.open = false;
     if (!searchDialog.open) searchDialog.showModal();
     search.focus();
     search.select();
   }
 
   query('#search-toggle').addEventListener('click', openSearch);
+  categories.addEventListener('pointerenter', event => {
+    if (event.pointerType === 'mouse') categories.open = true;
+  });
+  categories.addEventListener('pointerleave', event => {
+    if (event.pointerType === 'mouse' && !categories.contains(document.activeElement)) categories.open = false;
+  });
+  categories.addEventListener('focusout', event => {
+    if (!categories.contains(event.relatedTarget)) categories.open = false;
+  });
+  categoryTrigger.addEventListener('click', event => {
+    if (event.pointerType === 'mouse' && categories.open) event.preventDefault();
+  });
   document.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
@@ -376,6 +389,9 @@
     if (event.key === 'Escape' && searchDialog.open) {
       event.preventDefault();
       searchDialog.close();
+    } else if (event.key === 'Escape' && categories.open) {
+      categories.open = false;
+      if (categories.contains(document.activeElement)) categoryTrigger.focus();
     } else if (event.key === 'Escape' && sidebar.classList.contains('is-open')) {
       closeMenu();
       menu.focus();
@@ -438,6 +454,7 @@
   }
 
   document.addEventListener('click', event => {
+    if (!categories.contains(event.target)) categories.open = false;
     const entry = event.target.closest('a[href]');
     if (!entry || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
     const url = new URL(entry.href);
@@ -479,9 +496,9 @@
   backtop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
   addEventListener('scroll', () => backtop.classList.toggle('show', scrollY > 500), { passive: true });
 
-  buildNav();
   catalog(currentArea).then(data => {
     course = data;
+    buildNav();
     return showRoute();
   }).catch(error => {
     article.replaceChildren(node('h1', '课程目录加载失败'), node('p', error.message));
