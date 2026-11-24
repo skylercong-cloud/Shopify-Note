@@ -45,7 +45,7 @@ body {
 
 .shelves {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   gap: 20px;
   margin-top: 26px;
 }
@@ -74,9 +74,15 @@ body {
   --edge: #dda57e;
 }
 
+.shelf-ada {
+  --cover: #303e59;
+  --cover-hover: #3b4d6a;
+  --edge: #adc4eb;
+}
+
 .shelf:hover { background-color: var(--cover-hover); }
 .shelf:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
-.shelf h2 { font-size: clamp(1.85rem, 4vw, 2.75rem); }
+.shelf h2 { font-size: clamp(1.65rem, 3vw, 2.25rem); }
 .shelf p { margin: 14px 0 30px; }
 
 .entry {

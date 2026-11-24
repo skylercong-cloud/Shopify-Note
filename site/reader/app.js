@@ -5,14 +5,22 @@
       label: 'Shopify 笔记',
       title: 'Shopify 网站开发系统教程',
       description: '从认识平台开始，逐步掌握 Theme、前端交互、数据模型、App 与 Headless。',
+      trackProgress: true,
     },
     seo: {
       label: 'SEO 学习',
       title: 'SEO 学习',
       description: '学习网站性能优化、Dawn 源码与结构化数据。',
     },
+    ada: {
+      label: 'ADA 无障碍',
+      title: 'ADA 与 Web 无障碍',
+      description: '用 Dreame 德国站的商品页、配件弹窗与图片对比案例，学习如何实现和验证无障碍交互。',
+      trackProgress: true,
+    },
   };
   const area = areas[currentArea];
+  const progressKey = area.trackProgress ? currentArea + '-completed' : null;
   const courseUrl = (name, lesson, hash = '') => {
     const path = name === currentArea ? location.pathname : '../' + name + '/';
     return path + (lesson ? '?lesson=' + encodeURIComponent(lesson) : '') + hash;
@@ -25,8 +33,9 @@
         <details class="categories">
           <summary>分类</summary>
           <nav aria-label="知识分类">
-            <a href="../shopify/" data-category="shopify">Shopify 笔记</a>
-            <a href="../seo/" data-category="seo">SEO 学习</a>
+            ${Object.entries(areas).map(([name, item]) =>
+              `<a href="${courseUrl(name)}" data-category="${name}">${item.label}</a>`
+            ).join('')}
           </nav>
         </details>
         <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="course-sidebar">目录</button>
@@ -83,10 +92,12 @@
     try { localStorage.setItem(key, value); } catch {}
   }
 
-  try {
-    const saved = JSON.parse(readStorage('shopify-completed') || '[]');
-    if (Array.isArray(saved)) completed = new Set(saved);
-  } catch {}
+  if (progressKey) {
+    try {
+      const saved = JSON.parse(readStorage(progressKey) || '[]');
+      if (Array.isArray(saved)) completed = new Set(saved);
+    } catch {}
+  }
 
   const slug = text => text.toLowerCase().trim().replace(/<[^>]*>/g, '').replace(/[^\u4e00-\u9fff\w\s-]/g, '').replace(/\s+/g, '-') || 'section';
   function node(tag, text, className) {
@@ -131,12 +142,12 @@
   }
 
   const lessonTitle = lesson => [lesson.label, lesson.title].filter(Boolean).join(' ');
-  const groupTitle = group => currentArea === 'shopify' && group.id !== 'reference'
+  const groupTitle = group => progressKey && group.id !== 'reference'
     ? 'Level ' + group.id + ' · ' + group.title
     : group.title;
 
   function updateCompletion() {
-    if (currentArea !== 'shopify') return;
+    if (!progressKey) return;
     for (const entry of toc.querySelectorAll('details a[data-lesson]')) {
       const done = completed.has(entry.dataset.lesson);
       entry.classList.toggle('completed', done);
@@ -204,7 +215,7 @@
 
   function showOverview() {
     article.replaceChildren(node('h1', area.title), node('p', area.description, 'lead'));
-    if (currentArea === 'shopify') {
+    if (progressKey) {
       const note = node('div', undefined, 'course-note');
       note.append(node('strong', '如何使用'), node('p', '每课先读目标，再理解原理和示例，最后完成练习。点击“标记已学完”记录进度，记录仅保存在当前浏览器。高级章节中的概念示例不等于已经运行验证的完整工程。'));
       const main = course.lessons.filter(lesson => lesson.kind !== 'reference');
@@ -325,21 +336,21 @@
   function setupFooter(lesson) {
     footer.replaceChildren();
     footer.hidden = false;
-    if (currentArea === 'shopify' && lesson.kind !== 'reference') {
+    if (progressKey && lesson.kind !== 'reference') {
       const done = node('button', completed.has(lesson.id) ? '已学完 · 取消标记' : '标记已学完', 'complete-button');
       done.type = 'button';
       done.setAttribute('aria-pressed', String(completed.has(lesson.id)));
       done.addEventListener('click', () => {
         if (completed.has(lesson.id)) completed.delete(lesson.id);
         else completed.add(lesson.id);
-        writeStorage('shopify-completed', JSON.stringify([...completed]));
+        writeStorage(progressKey, JSON.stringify([...completed]));
         updateCompletion();
         setupFooter(lesson);
         footer.querySelector('button').focus();
       });
       footer.append(done);
     }
-    const sequence = course.lessons.filter(item => currentArea === 'shopify'
+    const sequence = course.lessons.filter(item => progressKey
       ? (item.kind === 'reference') === (lesson.kind === 'reference')
       : item.level === lesson.level);
     const index = sequence.findIndex(item => item.id === lesson.id);

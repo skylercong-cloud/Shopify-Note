@@ -1,0 +1,186 @@
+{
+  "version": "2026-11-24",
+  "groups": [
+    {
+      "id": "0",
+      "title": "认识 Web 无障碍",
+      "description": "从电商用户的任务理解 ADA、WCAG 和 ARIA。"
+    },
+    {
+      "id": "1",
+      "title": "HTML 语义与读屏",
+      "description": "掌握控件名称、页面结构和表头关系。"
+    },
+    {
+      "id": "2",
+      "title": "键盘与焦点",
+      "description": "练习可达性、焦点反馈和顺序。"
+    },
+    {
+      "id": "3",
+      "title": "组件状态与交互反馈",
+      "description": "拆解模态弹窗、选项卡、折叠区和加购反馈。"
+    },
+    {
+      "id": "4",
+      "title": "视觉、媒体与触屏",
+      "description": "学习对比度、重排、媒体替代和手势替代。"
+    },
+    {
+      "id": "5",
+      "title": "整改、测试与结课实战",
+      "description": "用实际用户任务复现、修复和验收。"
+    },
+    {
+      "id": "reference",
+      "title": "开发参考",
+      "description": "查阅常用原生 HTML 语义和键盘行为。"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "l0-01",
+      "label": "L0-01",
+      "level": "0",
+      "title": "同一个商品页，用户是怎么用的？",
+      "goal": "区分 ADA、WCAG、ARIA，并用商品页理解键盘、视觉和无障碍树。",
+      "file": "content/lessons/l0-01.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l1-01",
+      "label": "L1-01",
+      "level": "1",
+      "title": "为什么读屏只说「按钮」？",
+      "goal": "知道浏览器从哪里获得控件名称，并为图标按钮、输入框与弹窗命名。",
+      "file": "content/lessons/l1-01.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l1-02",
+      "label": "L1-02",
+      "level": "1",
+      "title": "为什么读屏知道数值，却不知道是哪款商品？",
+      "goal": "用语义表格关联商品、参数和数据，验证读屏表格导航。",
+      "file": "content/lessons/l1-02.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l2-01",
+      "label": "L2-01",
+      "level": "2",
+      "title": "键盘按 Tab 时，焦点到底去哪了？",
+      "goal": "分别检查键盘可达性、焦点可见性和实际激活结果。",
+      "file": "content/lessons/l2-01.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l2-02",
+      "label": "L2-02",
+      "level": "2",
+      "title": "为什么每个按钮都能 Tab 到，顺序还是不对？",
+      "goal": "区分视觉、Tab 和读屏阅读顺序，用 DOM 表达用户任务。",
+      "file": "content/lessons/l2-02.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l3-01",
+      "label": "L3-01",
+      "level": "3",
+      "title": "打开配件弹窗后，焦点应该去哪儿？",
+      "goal": "验证弹窗的初始焦点、背景隔离、退出和恢复焦点。",
+      "file": "content/lessons/l3-01.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l3-02",
+      "label": "L3-02",
+      "level": "3",
+      "title": "展开、选中和按下，怎么表达组件状态？",
+      "goal": "为折叠区、选项卡和切换按钮选择对应状态。",
+      "file": "content/lessons/l3-02.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l3-03",
+      "label": "L3-03",
+      "level": "3",
+      "title": "加购成功了，读屏用户怎么知道？",
+      "goal": "用状态消息报告操作结果，并在适当位置保留焦点。",
+      "file": "content/lessons/l3-03.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l4-01",
+      "label": "L4-01",
+      "level": "4",
+      "title": "浅灰字能看见，为什么对比度还是不够？",
+      "goal": "检查文字和控件对比度，并让状态有颜色之外的视觉线索。",
+      "file": "content/lessons/l4-01.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l4-02",
+      "label": "L4-02",
+      "level": "4",
+      "title": "页面放大后，为什么文字会重叠？",
+      "goal": "区分文字放大和重排，排查窄屏与短视口的重叠和遮挡。",
+      "file": "content/lessons/l4-02.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l4-03",
+      "label": "L4-03",
+      "level": "4",
+      "title": "同一张商品图，为什么 alt 会写得不一样？",
+      "goal": "按用途写替代文本，区分字幕与音频描述的职责。",
+      "file": "content/lessons/l4-03.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l4-04",
+      "label": "L4-04",
+      "level": "4",
+      "title": "图片对比能拖了，为什么还要提供点击操作？",
+      "goal": "为拖动和触屏手势提供可用替代，并验证各条输入路径。",
+      "file": "content/lessons/l4-04.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l5-01",
+      "label": "L5-01",
+      "level": "5",
+      "title": "收到一个无障碍缺陷，第一步查哪里？",
+      "goal": "从复现步骤和用户任务定位 HTML、CSS、交互或媒体问题。",
+      "file": "content/lessons/l5-01.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l5-02",
+      "label": "L5-02",
+      "level": "5",
+      "title": "自动扫描通过了，商品页还要怎么验收？",
+      "goal": "组合自动扫描、交互断言、键盘、桌面读屏和手机真机。",
+      "file": "content/lessons/l5-02.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "l5-03",
+      "label": "L5-03",
+      "level": "5",
+      "title": "结课实战：把商品卡片改到能用键盘和读屏买东西",
+      "goal": "从代码定位障碍，并用一条购物任务验证修复。",
+      "file": "content/lessons/l5-03.md",
+      "kind": "lesson"
+    },
+    {
+      "id": "ref-01",
+      "label": "REF-01",
+      "level": "reference",
+      "title": "有哪些 HTML 元素自带无障碍能力？",
+      "goal": "按操作目的选择具有原生语义和键盘行为的 HTML 元素。",
+      "file": "content/lessons/ref-01.md",
+      "kind": "reference"
+    }
+  ]
+}
