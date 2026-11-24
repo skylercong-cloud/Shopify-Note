@@ -34,7 +34,7 @@
     {
       "id": "reference",
       "title": "开发参考",
-      "description": "查阅常用原生 HTML 语义和键盘行为。"
+      "description": "查阅原生 HTML 语义、焦点规则和常用 ARIA 属性及取值。"
     }
   ],
   "lessons": [
@@ -180,6 +180,15 @@
       "title": "有哪些 HTML 元素自带无障碍能力？",
       "goal": "按操作目的选择具有原生语义和键盘行为的 HTML 元素。",
       "file": "content/lessons/ref-01.md",
+      "kind": "reference"
+    },
+    {
+      "id": "ref-02",
+      "label": "REF-02",
+      "level": "reference",
+      "title": "常用 HTML 与 ARIA 属性速查",
+      "goal": "按常见组件查找焦点、名称、状态和反馈属性的取值、场景与限制。",
+      "file": "content/lessons/ref-02.md",
       "kind": "reference"
     }
   ]
