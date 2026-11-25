@@ -21,9 +21,13 @@
   };
   const area = areas[currentArea];
   const progressKey = area.trackProgress ? currentArea + '-completed' : null;
+  const adaVersion = 'training-6';
   const courseUrl = (name, lesson, hash = '') => {
     const path = name === currentArea ? location.pathname : '../' + name + '/';
-    return path + (lesson ? '?lesson=' + encodeURIComponent(lesson) : '') + hash;
+    const params = new URLSearchParams();
+    if (lesson) params.set('lesson', lesson);
+    if (name === 'ada') params.set('v', adaVersion);
+    return path + (params.size ? '?' + params : '') + hash;
   };
 
   document.body.insertAdjacentHTML('afterbegin', `
@@ -122,7 +126,8 @@
 
   function catalog(name) {
     if (!catalogs.has(name)) {
-      catalogs.set(name, fetchAsset('../' + name + '/content/course.json', 'json').catch(error => {
+      const version = name === 'ada' ? '?v=' + adaVersion : '';
+      catalogs.set(name, fetchAsset('../' + name + '/content/course.json' + version, 'json').catch(error => {
         catalogs.delete(name);
         throw error;
       }));
