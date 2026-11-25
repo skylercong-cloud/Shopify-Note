@@ -4,7 +4,7 @@
 
 <p><span>前四课已经介绍了日常无障碍整改需要的主要技术。本课将这些知识应用到公司实际的 Shopify 电商项目中。</span></p>
 
-<p><span>Shopify 官方也提供了 </span><span><a href="https://shopify.dev/docs/storefronts/themes/best-practices/accessibility?utm_source=chatgpt.com"><span><span>Theme Accessibility Best Practices</span></span></a></span><span>，可以作为日常开发的参考。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-e02bfd934cc3.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>Shopify</span></span></span></div></span></span></span></p>
+<p><span>Shopify 官方也提供了 </span><span><a href="https://shopify.dev/docs/storefronts/themes/best-practices/accessibility?utm_source=chatgpt.com"><span><span>Theme Accessibility Best Practices</span></span></a></span><span>，可以作为日常开发的参考。</span> <a class="training-source" href="https://shopify.dev/docs/storefronts/themes/best-practices/accessibility" aria-label="Shopify：Accessibility best practices for Shopify themes"><img src="content/training-assets/image-e02bfd934cc3.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>Shopify</span><span class="training-source-preview" aria-hidden="true"><small>Shopify</small><strong>Accessibility best practices for Shopify themes</strong><small>shopify.dev</small></span></a></p>
 
 <h2><span><strong>5.1 Header 与导航</strong></span></h2>
 
@@ -12,7 +12,7 @@
 
 <h3><span><strong>Header 整改重点</strong></span></h3>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>元素</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Skip Link</span></p></td><td><p><span>是否能够跳过重复导航</span></p></td></tr><tr><td><p><span>Logo</span></p></td><td><p><span>图片 alt、首页链接名称</span></p></td></tr><tr><td><p><span>Navigation</span></p></td><td><p><span>nav 语义、当前页面状态</span></p></td></tr><tr><td><p><span>Mega Menu</span></p></td><td><p><span>键盘操作、展开状态</span></p></td></tr><tr><td><p><span>Search</span></p></td><td><p><span>按钮名称、搜索弹窗焦点</span></p></td></tr><tr><td><p><span>Account</span></p></td><td><p><span>链接名称</span></p></td></tr><tr><td><p><span>Cart Icon</span></p></td><td><p><span>按钮名称、购物车数量</span></p></td></tr><tr><td><p><span>Announcement Bar</span></p></td><td><p><span>对比度、自动滚动控制</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="Header 整改重点"><table><tbody><tr><th scope="row"><p><span>元素</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Skip Link</span></p></td><td><p><span>是否能够跳过重复导航</span></p></td></tr><tr><td><p><span>Logo</span></p></td><td><p><span>图片 alt、首页链接名称</span></p></td></tr><tr><td><p><span>Navigation</span></p></td><td><p><span>nav 语义、当前页面状态</span></p></td></tr><tr><td><p><span>Mega Menu</span></p></td><td><p><span>键盘操作、展开状态</span></p></td></tr><tr><td><p><span>Search</span></p></td><td><p><span>按钮名称、搜索弹窗焦点</span></p></td></tr><tr><td><p><span>Account</span></p></td><td><p><span>链接名称</span></p></td></tr><tr><td><p><span>Cart Icon</span></p></td><td><p><span>按钮名称、购物车数量</span></p></td></tr><tr><td><p><span>Announcement Bar</span></p></td><td><p><span>对比度、自动滚动控制</span></p></td></tr></tbody></table></div></div></div>
 
 <h3><span><strong>实战一：Skip Link</strong></span></h3>
 
@@ -83,7 +83,7 @@
 
 <p><span>重点整改：</span></p>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>常见问题</span></p></th><th scope="row"><p><span>修复方案</span></p></th></tr><tr><td><p><span>Banner 中的促销信息只有图片</span></p></td><td><p><span>提供等效文字信息</span></p></td></tr><tr><td><p><span>白色文字覆盖浅色图片</span></p></td><td><p><span>调整文字、背景或遮罩</span></p></td></tr><tr><td><p><span>Shop now 链接没有明确上下文</span></p></td><td><p><span>补充目的地信息</span></p></td></tr><tr><td><p><span>自动轮播无法暂停</span></p></td><td><p><span>提供暂停控制</span></p></td></tr><tr><td><p><span>轮播隐藏内容仍可聚焦</span></p></td><td><p><span>隔离非活动内容</span></p></td></tr><tr><td><p><span>自动播放视频</span></p></td><td><p><span>提供适用的媒体控制及字幕</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="5.2 Homepage 首页"><table><tbody><tr><th scope="row"><p><span>常见问题</span></p></th><th scope="row"><p><span>修复方案</span></p></th></tr><tr><td><p><span>Banner 中的促销信息只有图片</span></p></td><td><p><span>提供等效文字信息</span></p></td></tr><tr><td><p><span>白色文字覆盖浅色图片</span></p></td><td><p><span>调整文字、背景或遮罩</span></p></td></tr><tr><td><p><span>Shop now 链接没有明确上下文</span></p></td><td><p><span>补充目的地信息</span></p></td></tr><tr><td><p><span>自动轮播无法暂停</span></p></td><td><p><span>提供暂停控制</span></p></td></tr><tr><td><p><span>轮播隐藏内容仍可聚焦</span></p></td><td><p><span>隔离非活动内容</span></p></td></tr><tr><td><p><span>自动播放视频</span></p></td><td><p><span>提供适用的媒体控制及字幕</span></p></td></tr></tbody></table></div></div></div>
 
 <p><span>例如商家上传了一张带有文字的促销 Banner：</span></p>
 
@@ -162,7 +162,7 @@
 
 <h3><span><strong>Collection 整改重点</strong></span></h3>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>模块</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Product Card</span></p></td><td><p><span>链接名称、图片 alt、Quick Add 名称</span></p></td></tr><tr><td><p><span>Filter</span></p></td><td><p><span>Checkbox、分组名称、键盘操作</span></p></td></tr><tr><td><p><span>Price Range</span></p></td><td><p><span>输入框标签、拖拽替代操作</span></p></td></tr><tr><td><p><span>Sort By</span></p></td><td><p><span>原生 Select、明确名称</span></p></td></tr><tr><td><p><span>Active Filter</span></p></td><td><p><span>删除操作名称、删除后焦点</span></p></td></tr><tr><td><p><span>Filter Drawer</span></p></td><td><p><span>模态隔离、焦点恢复</span></p></td></tr><tr><td><p><span>Product Count</span></p></td><td><p><span>动态结果通知</span></p></td></tr><tr><td><p><span>Pagination</span></p></td><td><p><span>链接语义、aria-current</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="Collection 整改重点"><table><tbody><tr><th scope="row"><p><span>模块</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Product Card</span></p></td><td><p><span>链接名称、图片 alt、Quick Add 名称</span></p></td></tr><tr><td><p><span>Filter</span></p></td><td><p><span>Checkbox、分组名称、键盘操作</span></p></td></tr><tr><td><p><span>Price Range</span></p></td><td><p><span>输入框标签、拖拽替代操作</span></p></td></tr><tr><td><p><span>Sort By</span></p></td><td><p><span>原生 Select、明确名称</span></p></td></tr><tr><td><p><span>Active Filter</span></p></td><td><p><span>删除操作名称、删除后焦点</span></p></td></tr><tr><td><p><span>Filter Drawer</span></p></td><td><p><span>模态隔离、焦点恢复</span></p></td></tr><tr><td><p><span>Product Count</span></p></td><td><p><span>动态结果通知</span></p></td></tr><tr><td><p><span>Pagination</span></p></td><td><p><span>链接语义、aria-current</span></p></td></tr></tbody></table></div></div></div>
 
 <hr>
 
@@ -285,7 +285,7 @@
 
 <h3><span><strong>PDP 整改重点</strong></span></h3>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>模块</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Product Gallery</span></p></td><td><p><span>图片 alt、缩略图名称</span></p></td></tr><tr><td><p><span>Image Zoom</span></p></td><td><p><span>Modal 焦点管理</span></p></td></tr><tr><td><p><span>Price</span></p></td><td><p><span>原价、现价的文字含义</span></p></td></tr><tr><td><p><span>Rating</span></p></td><td><p><span>评分数值及评论数量</span></p></td></tr><tr><td><p><span>Color Swatch</span></p></td><td><p><span>颜色名称、选中状态</span></p></td></tr><tr><td><p><span>Variant Picker</span></p></td><td><p><span>单选语义、键盘操作</span></p></td></tr><tr><td><p><span>Inventory</span></p></td><td><p><span>库存说明、变化通知</span></p></td></tr><tr><td><p><span>Quantity</span></p></td><td><p><span>标签、范围限制</span></p></td></tr><tr><td><p><span>Add to cart</span></p></td><td><p><span>加购状态、错误反馈</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="PDP 整改重点"><table><tbody><tr><th scope="row"><p><span>模块</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Product Gallery</span></p></td><td><p><span>图片 alt、缩略图名称</span></p></td></tr><tr><td><p><span>Image Zoom</span></p></td><td><p><span>Modal 焦点管理</span></p></td></tr><tr><td><p><span>Price</span></p></td><td><p><span>原价、现价的文字含义</span></p></td></tr><tr><td><p><span>Rating</span></p></td><td><p><span>评分数值及评论数量</span></p></td></tr><tr><td><p><span>Color Swatch</span></p></td><td><p><span>颜色名称、选中状态</span></p></td></tr><tr><td><p><span>Variant Picker</span></p></td><td><p><span>单选语义、键盘操作</span></p></td></tr><tr><td><p><span>Inventory</span></p></td><td><p><span>库存说明、变化通知</span></p></td></tr><tr><td><p><span>Quantity</span></p></td><td><p><span>标签、范围限制</span></p></td></tr><tr><td><p><span>Add to cart</span></p></td><td><p><span>加购状态、错误反馈</span></p></td></tr></tbody></table></div></div></div>
 
 <hr>
 
@@ -352,7 +352,7 @@
 
 <h3><span><strong>Cart 整改重点</strong></span></h3>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>模块</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Cart Drawer</span></p></td><td><p><span>Dialog 语义、焦点隔离</span></p></td></tr><tr><td><p><span>Close Button</span></p></td><td><p><span>名称、焦点恢复</span></p></td></tr><tr><td><p><span>Quantity</span></p></td><td><p><span>名称、限制、错误反馈</span></p></td></tr><tr><td><p><span>Remove</span></p></td><td><p><span>商品上下文、删除后焦点</span></p></td></tr><tr><td><p><span>Cart Total</span></p></td><td><p><span>金额含义、重要变化通知</span></p></td></tr><tr><td><p><span>Empty Cart</span></p></td><td><p><span>明确空状态及后续入口</span></p></td></tr><tr><td><p><span>Checkout</span></p></td><td><p><span>键盘操作、更新完成后提交</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="Cart 整改重点"><table><tbody><tr><th scope="row"><p><span>模块</span></p></th><th scope="row"><p><span>检查内容</span></p></th></tr><tr><td><p><span>Cart Drawer</span></p></td><td><p><span>Dialog 语义、焦点隔离</span></p></td></tr><tr><td><p><span>Close Button</span></p></td><td><p><span>名称、焦点恢复</span></p></td></tr><tr><td><p><span>Quantity</span></p></td><td><p><span>名称、限制、错误反馈</span></p></td></tr><tr><td><p><span>Remove</span></p></td><td><p><span>商品上下文、删除后焦点</span></p></td></tr><tr><td><p><span>Cart Total</span></p></td><td><p><span>金额含义、重要变化通知</span></p></td></tr><tr><td><p><span>Empty Cart</span></p></td><td><p><span>明确空状态及后续入口</span></p></td></tr><tr><td><p><span>Checkout</span></p></td><td><p><span>键盘操作、更新完成后提交</span></p></td></tr></tbody></table></div></div></div>
 
 <hr>
 
@@ -360,7 +360,7 @@
 
 <p><span>这是公司 Shopify 项目整改时尤其需要掌握的知识。</span></p>
 
-<p><span>Shopify Section Rendering API 可以返回服务器渲染后的 HTML，供前端局部更新页面，无需整个浏览器页面刷新。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-e02bfd934cc3.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>Shopify</span></span></span></div></span></span></span></p>
+<p><span>Shopify Section Rendering API 可以返回服务器渲染后的 HTML，供前端局部更新页面，无需整个浏览器页面刷新。</span> <a class="training-source" href="https://shopify.dev/docs/api/ajax/section-rendering" aria-label="Shopify：Section Rendering API"><img src="content/training-assets/image-e02bfd934cc3.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>Shopify</span><span class="training-source-preview" aria-hidden="true"><small>Shopify</small><strong>Section Rendering API</strong><small>shopify.dev</small></span></a></p>
 
 <div class="training-box"><div class="training-box">用户勾选 Black 筛选项</div><div class="training-box">请求 Shopify Section HTML</div><div class="training-box">JavaScript 替换商品和筛选器 DOM</div><div class="training-grid"><div class="training-box"><div class="training-box"><p><span>未处理焦点</span></p><span><span>原 Checkbox 被销毁，用户可能失去操作位置。</span></span></div></div><div class="training-box"><div class="training-box"><p><span>正确处理焦点</span></p><span><span>找到对应的新 Checkbox，继续原来的操作。</span></span></div></div></div></div>
 

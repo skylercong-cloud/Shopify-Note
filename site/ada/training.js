@@ -180,4 +180,48 @@
     selectTab(demo, tabs[next]);
     tabs[next].focus();
   });
+
+  function positionSourcePreview(link) {
+    const preview = link.querySelector('.training-source-preview');
+    const rect = link.getBoundingClientRect();
+    const width = preview.getBoundingClientRect().width || Math.min(320, innerWidth - 32);
+    const left = Math.max(16, Math.min(rect.left, document.documentElement.clientWidth - width - 16));
+    link.style.setProperty('--training-source-offset', (left - rect.left) + 'px');
+  }
+
+  for (const eventName of ['pointerover', 'focusin']) {
+    document.addEventListener(eventName, event => {
+      const source = event.target.closest('.training-source');
+      if (source) positionSourcePreview(source);
+    });
+  }
+  for (const eventName of ['pointerout', 'focusout']) {
+    document.addEventListener(eventName, event => {
+      const source = event.target.closest('.training-source');
+      if (source && !source.contains(event.relatedTarget)) source.removeAttribute('data-preview-dismissed');
+    });
+  }
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    for (const link of document.querySelectorAll('.training-source:is(:hover, :focus)')) {
+      link.setAttribute('data-preview-dismissed', '');
+    }
+  });
+
+  const article = document.getElementById('article');
+  function updateTableScroll() {
+    for (const region of article.querySelectorAll('[data-table-label]')) {
+      if (region.scrollWidth > region.clientWidth + 1) {
+        region.tabIndex = 0;
+        region.setAttribute('role', 'region');
+        region.setAttribute('aria-label', region.dataset.tableLabel + '表格，可横向滚动');
+      } else {
+        region.removeAttribute('tabindex');
+        region.removeAttribute('role');
+        region.removeAttribute('aria-label');
+      }
+    }
+  }
+  new MutationObserver(updateTableScroll).observe(article, { childList: true });
+  new ResizeObserver(updateTableScroll).observe(article);
 })();

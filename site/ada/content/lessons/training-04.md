@@ -4,15 +4,15 @@
 
 <p><span>这一课不要求员工从零开发所有组件，而是需要学会判断现有组件存在哪些问题，以及应该如何整改。</span></p>
 
-<p><span>对于复杂组件，推荐参考 W3C 的 </span><span><a href="https://www.w3.org/WAI/ARIA/apg/patterns/?utm_source=chatgpt.com"><span><span>ARIA Authoring Practices Guide（APG）</span></span></a></span><span>，其中提供了常见组件的语义与键盘交互模式。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>W3C</span></span></span></div></span></span></span></p>
+<p><span>对于复杂组件，推荐参考 W3C 的 </span><span><a href="https://www.w3.org/WAI/ARIA/apg/patterns/?utm_source=chatgpt.com"><span><span>ARIA Authoring Practices Guide（APG）</span></span></a></span><span>，其中提供了常见组件的语义与键盘交互模式。</span> <a class="training-source" href="https://www.w3.org/WAI/ARIA/apg/patterns/" aria-label="W3C：ARIA Authoring Practices Guide · Patterns"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>W3C</span><span class="training-source-preview" aria-hidden="true"><small>W3C</small><strong>ARIA Authoring Practices Guide · Patterns</strong><small>www.w3.org</small></span></a></p>
 
 <h2><span><strong>4.1 Modal / Drawer 弹窗组件</strong></span></h2>
 
-<div class="training-grid"><div class="training-box"><div class="training-box"><div class="training-box"><p><span>STORE</span></p></div><div class="training-box"><div class="training-box"><p><span><span><strong>Size guide</strong></span></span></p></div><p><span>Find your perfect fit.</span></p><div class="training-box">Close</div></div><div class="training-box">Add to cart</div></div><span><span>错误：焦点仍然能够进入背景页面。</span></span></div><div class="training-box"><div class="training-box"><div class="training-box"><p><span>STORE</span></p></div><div class="training-box"><div class="training-box"><p><span><span><strong>Size guide</strong></span></span></p></div><p><span>Find your perfect fit.</span></p><div class="training-box">Close</div></div><div class="training-box"><p><span>Add to cart</span></p></div></div><span><span>正确：焦点位于当前活动弹窗内部。</span></span></div></div>
+<div class="training-grid" data-columns="2" data-training-cards><div class="training-box"><div class="training-box"><div class="training-box"><p><span>STORE</span></p></div><div class="training-box"><div class="training-box"><p><span><span><strong>Size guide</strong></span></span></p></div><p><span>Find your perfect fit.</span></p><div class="training-box">Close</div></div><div class="training-box">Add to cart</div></div><span><span>错误：焦点仍然能够进入背景页面。</span></span></div><div class="training-box"><div class="training-box"><div class="training-box"><p><span>STORE</span></p></div><div class="training-box"><div class="training-box"><p><span><span><strong>Size guide</strong></span></span></p></div><p><span>Find your perfect fit.</span></p><div class="training-box">Close</div></div><div class="training-box"><p><span>Add to cart</span></p></div></div><span><span>正确：焦点位于当前活动弹窗内部。</span></span></div></div>
 
 <h3><span><strong>常见问题</strong></span></h3>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>问题</span></p></th><th scope="row"><p><span>整改方式</span></p></th></tr><tr><td><p><span>弹窗没有 Dialog 语义</span></p></td><td><p><span>使用原生 dialog 或正确的 role</span></p></td></tr><tr><td><p><span>弹窗没有名称</span></p></td><td><p><span>aria-labelledby</span></p></td></tr><tr><td><p><span>打开后焦点仍停留在背景</span></p></td><td><p><span>设置初始焦点</span></p></td></tr><tr><td><p><span>Tab 可以进入背景页面</span></p></td><td><p><span>模态隔离及焦点管理</span></p></td></tr><tr><td><p><span>Esc 无法关闭</span></p></td><td><p><span>提供合理的键盘退出机制</span></p></td></tr><tr><td><p><span>关闭后焦点丢失</span></p></td><td><p><span>恢复到触发控件</span></p></td></tr><tr><td><p><span>关闭后内部元素仍可访问</span></p></td><td><p><span>hidden、inert 等</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="常见问题"><table><tbody><tr><th scope="row"><p><span>问题</span></p></th><th scope="row"><p><span>整改方式</span></p></th></tr><tr><td><p><span>弹窗没有 Dialog 语义</span></p></td><td><p><span>使用原生 dialog 或正确的 role</span></p></td></tr><tr><td><p><span>弹窗没有名称</span></p></td><td><p><span>aria-labelledby</span></p></td></tr><tr><td><p><span>打开后焦点仍停留在背景</span></p></td><td><p><span>设置初始焦点</span></p></td></tr><tr><td><p><span>Tab 可以进入背景页面</span></p></td><td><p><span>模态隔离及焦点管理</span></p></td></tr><tr><td><p><span>Esc 无法关闭</span></p></td><td><p><span>提供合理的键盘退出机制</span></p></td></tr><tr><td><p><span>关闭后焦点丢失</span></p></td><td><p><span>恢复到触发控件</span></p></td></tr><tr><td><p><span>关闭后内部元素仍可访问</span></p></td><td><p><span>hidden、inert 等</span></p></td></tr></tbody></table></div></div></div>
 
 <h3><span><strong>推荐方案：原生 dialog</strong></span></h3>
 
@@ -85,7 +85,7 @@ dialog.addEventListener('close', () =&gt; {
 
 <p><span>普通网站导航的下拉菜单，通常不需要使用复杂的 ARIA Menu 模式。</span></p>
 
-<p><span>推荐使用 button 控制普通链接列表的显示和隐藏。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>W3C</span></span></span></div></span></span></span></p>
+<p><span>推荐使用 button 控制普通链接列表的显示和隐藏。</span> <a class="training-source" href="https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/" aria-label="W3C：Example Disclosure Navigation Menu"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>W3C</span><span class="training-source-preview" aria-hidden="true"><small>W3C</small><strong>Example Disclosure Navigation Menu</strong><small>www.w3.org</small></span></a></p>
 
 <div class="training-code-bar"><span>plain text</span><button type="button" data-training-copy>复制代码</button></div>
 
@@ -219,7 +219,7 @@ button.closest('nav').addEventListener('keydown', event =&gt; {
 
 <p><span>JavaScript 切换 Tab 时，需要同时更新：</span></p>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>属性或行为</span></p></th><th scope="row"><p><span>当前 Tab</span></p></th><th scope="row"><p><span>非当前 Tab</span></p></th></tr><tr><td><p><span>aria-selected</span></p></td><td><p><span>true</span></p></td><td><p><span>false</span></p></td></tr><tr><td><p><span>对应 Panel</span></p></td><td><p><span>显示</span></p></td><td><p><span>隐藏</span></p></td></tr><tr><td><p><span>常规 Tab 入口</span></p></td><td><p><span>tabindex="0"</span></p></td><td><p><span>tabindex="-1"</span></p></td></tr><tr><td><p><span>视觉选中样式</span></p></td><td><p><span>有</span></p></td><td><p><span>无</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="4.4 Tabs 标签页"><table><tbody><tr><th scope="row"><p><span>属性或行为</span></p></th><th scope="row"><p><span>当前 Tab</span></p></th><th scope="row"><p><span>非当前 Tab</span></p></th></tr><tr><td><p><span>aria-selected</span></p></td><td><p><span>true</span></p></td><td><p><span>false</span></p></td></tr><tr><td><p><span>对应 Panel</span></p></td><td><p><span>显示</span></p></td><td><p><span>隐藏</span></p></td></tr><tr><td><p><span>常规 Tab 入口</span></p></td><td><p><span>tabindex="0"</span></p></td><td><p><span>tabindex="-1"</span></p></td></tr><tr><td><p><span>视觉选中样式</span></p></td><td><p><span>有</span></p></td><td><p><span>无</span></p></td></tr></tbody></table></div></div></div>
 
 <p><span>以上 Tab 入口对应自动激活的常见实现。手动激活模式还需区分当前焦点与实际选中项。</span></p>
 
@@ -235,7 +235,7 @@ button.closest('nav').addEventListener('keydown', event =&gt; {
 
 <p><span>实际项目中的常见问题：</span></p>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>问题</span></p></th><th scope="row"><p><span>整改方法</span></p></th></tr><tr><td><p><span>上一张、下一张没有名称</span></p></td><td><p><span>添加准确的 Accessible Name</span></p></td></tr><tr><td><p><span>只能通过滑动或拖拽切换</span></p></td><td><p><span>提供按钮等替代操作</span></p></td></tr><tr><td><p><span>自动轮播无法暂停</span></p></td><td><p><span>提供暂停、停止等机制</span></p></td></tr><tr><td><p><span>隐藏 Slide 仍可被 Tab 访问</span></p></td><td><p><span>hidden 或适当的 inert 隔离</span></p></td></tr><tr><td><p><span>分页圆点没有名称</span></p></td><td><p><span>Show slide 1 等</span></p></td></tr><tr><td><p><span>自动轮播不断打断阅读</span></p></td><td><p><span>避免持续 Live Region 播报</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="4.5 Carousel 轮播组件"><table><tbody><tr><th scope="row"><p><span>问题</span></p></th><th scope="row"><p><span>整改方法</span></p></th></tr><tr><td><p><span>上一张、下一张没有名称</span></p></td><td><p><span>添加准确的 Accessible Name</span></p></td></tr><tr><td><p><span>只能通过滑动或拖拽切换</span></p></td><td><p><span>提供按钮等替代操作</span></p></td></tr><tr><td><p><span>自动轮播无法暂停</span></p></td><td><p><span>提供暂停、停止等机制</span></p></td></tr><tr><td><p><span>隐藏 Slide 仍可被 Tab 访问</span></p></td><td><p><span>hidden 或适当的 inert 隔离</span></p></td></tr><tr><td><p><span>分页圆点没有名称</span></p></td><td><p><span>Show slide 1 等</span></p></td></tr><tr><td><p><span>自动轮播不断打断阅读</span></p></td><td><p><span>避免持续 Live Region 播报</span></p></td></tr></tbody></table></div></div></div>
 
 <h3><span><strong>常见代码修改</strong></span></h3>
 
@@ -259,9 +259,9 @@ button.closest('nav').addEventListener('keydown', event =&gt; {
 
 <p><span>实际 JavaScript 需要同步控制当前 Slide、分页状态和自动播放定时器。</span></p>
 
-<p><span>对于自动开始、持续超过 5 秒、与其他内容同时呈现的非必要运动内容，WCAG 2.2.2 要求提供暂停、停止或隐藏机制。自动更新内容还有相应要求，不能一律套用五秒条件。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>W3C</span></span></span></div></span></span></span></p>
+<p><span>对于自动开始、持续超过 5 秒、与其他内容同时呈现的非必要运动内容，WCAG 2.2.2 要求提供暂停、停止或隐藏机制。自动更新内容还有相应要求，不能一律套用五秒条件。</span> <a class="training-source" href="https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html" aria-label="W3C：Understanding 2.2.2: Pause, Stop, Hide"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>W3C</span><span class="training-source-preview" aria-hidden="true"><small>W3C</small><strong>Understanding 2.2.2: Pause, Stop, Hide</strong><small>www.w3.org</small></span></a></p>
 
-<p><span>推荐在键盘焦点进入轮播时停止自动播放，用户明确请求后再恢复；鼠标悬停时也应暂停。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>W3C</span></span></span></div></span></span></span></p>
+<p><span>推荐在键盘焦点进入轮播时停止自动播放，用户明确请求后再恢复；鼠标悬停时也应暂停。</span> <a class="training-source" href="https://www.w3.org/WAI/ARIA/apg/patterns/carousel/" aria-label="W3C：APG · Carousel Pattern"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>W3C</span><span class="training-source-preview" aria-hidden="true"><small>W3C</small><strong>APG · Carousel Pattern</strong><small>www.w3.org</small></span></a></p>
 
 <p><span>如果使用 Swiper 等组件库，不要只开启 A11y 配置就认为整改已经完成。仍然需要测试隐藏 Slide、循环节点、键盘操作和暂停功能。</span></p>
 
@@ -303,7 +303,7 @@ button.closest('nav').addEventListener('keydown', event =&gt; {
 
 <p><span>需要实现的实际行为：</span></p>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>按键</span></p></th><th scope="row"><p><span>行为</span></p></th></tr><tr><td><p><span>ArrowDown</span></p></td><td><p><span>选择下一条建议</span></p></td></tr><tr><td><p><span>ArrowUp</span></p></td><td><p><span>选择上一条建议</span></p></td></tr><tr><td><p><span>Enter</span></p></td><td><p><span>确认当前建议</span></p></td></tr><tr><td><p><span>Esc</span></p></td><td><p><span>关闭建议列表</span></p></td></tr><tr><td><p><span>Tab</span></p></td><td><p><span>离开当前组件</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="4.6 Search / Combobox 搜索建议组件"><table><tbody><tr><th scope="row"><p><span>按键</span></p></th><th scope="row"><p><span>行为</span></p></th></tr><tr><td><p><span>ArrowDown</span></p></td><td><p><span>选择下一条建议</span></p></td></tr><tr><td><p><span>ArrowUp</span></p></td><td><p><span>选择上一条建议</span></p></td></tr><tr><td><p><span>Enter</span></p></td><td><p><span>确认当前建议</span></p></td></tr><tr><td><p><span>Esc</span></p></td><td><p><span>关闭建议列表</span></p></td></tr><tr><td><p><span>Tab</span></p></td><td><p><span>离开当前组件</span></p></td></tr></tbody></table></div></div></div>
 
 <p><span>DOM 焦点可以保留在输入框，通过 aria-activedescendant 指向当前活动建议。</span></p>
 
@@ -311,11 +311,11 @@ button.closest('nav').addEventListener('keydown', event =&gt; {
 
 <p><span>注意：如果搜索结果是包含商品链接、价格、加购按钮等多个交互控件的复杂区域，就不应该直接将整个区域强行套用 Listbox 模式。</span></p>
 
-<p><span>详细交互参考：</span><span><a href="https://www.w3.org/WAI/ARIA/apg/patterns/combobox/?utm_source=chatgpt.com"><span><span>Combobox Pattern</span></span></a></span><span>。</span><span><span><span><div><span><div class="training-box"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"></div></span><span><span><span>W3C</span></span></span></div></span></span></span></p>
+<p><span>详细交互参考：</span><span><a href="https://www.w3.org/WAI/ARIA/apg/patterns/combobox/?utm_source=chatgpt.com"><span><span>Combobox Pattern</span></span></a></span><span>。</span> <a class="training-source" href="https://www.w3.org/WAI/ARIA/apg/patterns/combobox/" aria-label="W3C：APG · Combobox Pattern"><img src="content/training-assets/image-b85f2b7b5066.png" alt="" class="training-source-icon" loading="lazy" decoding="async"><span>W3C</span><span class="training-source-preview" aria-hidden="true"><small>W3C</small><strong>APG · Combobox Pattern</strong><small>www.w3.org</small></span></a></p>
 
 <h2><span><strong>4.7 公共组件整改速查表</strong></span></h2>
 
-<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>组件</span></p></th><th scope="row"><p><span>核心整改重点</span></p></th></tr><tr><td><p><span>Modal / Drawer</span></p></td><td><p><span>名称、模态隔离、焦点恢复</span></p></td></tr><tr><td><p><span>Dropdown</span></p></td><td><p><span>展开状态、键盘进入、关闭</span></p></td></tr><tr><td><p><span>Accordion</span></p></td><td><p><span>展开状态、隐藏内容</span></p></td></tr><tr><td><p><span>Tabs</span></p></td><td><p><span>角色、选中状态、方向键</span></p></td></tr><tr><td><p><span>Carousel</span></p></td><td><p><span>切换按钮、暂停、隐藏内容</span></p></td></tr><tr><td><p><span>Combobox</span></p></td><td><p><span>输入名称、建议状态、键盘交互</span></p></td></tr><tr><td><p><span>Tooltip</span></p></td><td><p><span>Hover、Focus、Esc、描述关联</span></p></td></tr><tr><td><p><span>Quantity Selector</span></p></td><td><p><span>控件名称、数值限制</span></p></td></tr></tbody></table></div></div>
+<div class="training-table"><div><div class="training-table-scroll" data-table-label="4.7 公共组件整改速查表"><table><tbody><tr><th scope="row"><p><span>组件</span></p></th><th scope="row"><p><span>核心整改重点</span></p></th></tr><tr><td><p><span>Modal / Drawer</span></p></td><td><p><span>名称、模态隔离、焦点恢复</span></p></td></tr><tr><td><p><span>Dropdown</span></p></td><td><p><span>展开状态、键盘进入、关闭</span></p></td></tr><tr><td><p><span>Accordion</span></p></td><td><p><span>展开状态、隐藏内容</span></p></td></tr><tr><td><p><span>Tabs</span></p></td><td><p><span>角色、选中状态、方向键</span></p></td></tr><tr><td><p><span>Carousel</span></p></td><td><p><span>切换按钮、暂停、隐藏内容</span></p></td></tr><tr><td><p><span>Combobox</span></p></td><td><p><span>输入名称、建议状态、键盘交互</span></p></td></tr><tr><td><p><span>Tooltip</span></p></td><td><p><span>Hover、Focus、Esc、描述关联</span></p></td></tr><tr><td><p><span>Quantity Selector</span></p></td><td><p><span>控件名称、数值限制</span></p></td></tr></tbody></table></div></div></div>
 
 <h2><span><strong>4.8 本课实操任务</strong></span></h2>
 

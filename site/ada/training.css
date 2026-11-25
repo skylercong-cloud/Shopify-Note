@@ -91,3 +91,174 @@
   outline-offset: -2px;
 }
 .training-example-heading { margin-block: 8px; }
+
+html[data-course="ada"] .article {
+  container: ada-lesson / inline-size;
+}
+
+.article .training-grid[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.article .training-grid[data-columns="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.training-figure-card,
+.training-grid[data-training-cards] > :not(:has(> .training-card)) {
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.training-figure-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.article .training-figure-card p,
+.article .training-figure-caption,
+.article .training-image-example p { margin: 0; }
+
+.training-figure-caption { color: var(--muted); }
+
+.training-figure-icon {
+  display: block;
+  flex: none;
+  inline-size: 21px;
+  block-size: 21px;
+}
+
+.article .training-flow,
+.training-image-examples {
+  margin: 18px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.training-flow-stage { min-width: 0; padding: 12px 14px; border-radius: 9px; }
+.training-flow-dom, .training-flow-result { border: 1px solid var(--line); }
+.training-flow-dom { display: grid; justify-items: center; gap: 6px; text-align: center; }
+.training-flow-dom code { max-width: 100%; overflow-wrap: anywhere; }
+.training-flow-arrow { display: grid; place-items: center; padding: 5px; color: var(--muted); }
+.training-flow-arrow .training-figure-icon { width: 16px; height: 16px; }
+.training-flow-tree { background: var(--brand-soft); }
+.training-flow-tree dl { display: grid; gap: 7px; margin: 7px 0 0; }
+.training-flow-tree dt { color: var(--muted); }
+.training-flow-tree dd { margin: 0; }
+.training-flow-result { display: flex; align-items: center; gap: 10px; }
+
+.training-image-example {
+  --example-size: clamp(62px, 12vw, 92px);
+  display: grid;
+  grid-template-columns: var(--example-size) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.training-image-example + .training-image-example {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.training-example-media {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--brand-soft);
+}
+.article .training-example-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  object-fit: cover;
+}
+.article .training-image-example:nth-child(2) img { width: 72%; height: auto; object-fit: contain; }
+.training-example-media .training-figure-icon { width: 25px; height: 25px; }
+
+.article .training-source {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 0.75em;
+  line-height: 1.6;
+  vertical-align: 0.08em;
+  text-decoration: none;
+}
+.article .training-source img {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+}
+.article .training-source:hover { text-decoration: underline; }
+.training-source:focus-visible, .training-table-scroll:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.training-source-preview {
+  position: absolute;
+  z-index: 4;
+  top: 100%;
+  left: var(--training-source-offset, 0);
+  display: none;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  text-align: start;
+}
+.training-source-preview small { color: var(--muted); overflow-wrap: anywhere; }
+.training-source:not([data-preview-dismissed]):is(:hover, :focus) .training-source-preview {
+  display: grid;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.training-table-scroll {
+  max-inline-size: 100%;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+.article .training-table-scroll table {
+  display: table;
+  width: 100%;
+  margin: 0;
+  table-layout: auto;
+  overflow: visible;
+}
+.article .training-table-scroll :is(th, td) {
+  padding: 9px 12px;
+  overflow-wrap: anywhere;
+}
+.training-table-scroll :is(th, td) > :first-child { margin-block-start: 0; }
+.training-table-scroll :is(th, td) > :last-child { margin-block-end: 0; }
+.training-table-scroll :is(td, th) code { white-space: normal; }
+.training-table-wide table { min-inline-size: 29rem; }
+
+@container ada-lesson (max-width: 580px) {
+  .article .training-grid[data-columns="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container ada-lesson (max-width: 420px) {
+  .article .training-grid[data-columns] { grid-template-columns: minmax(0, 1fr); }
+  .article .training-table-scroll :is(th, td) { padding: 7px 8px; }
+}

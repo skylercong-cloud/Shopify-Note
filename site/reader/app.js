@@ -21,7 +21,7 @@
   };
   const area = areas[currentArea];
   const progressKey = area.trackProgress ? currentArea + '-completed' : null;
-  const adaVersion = 'training-6';
+  const adaVersion = 'training-layout-6';
   const courseUrl = (name, lesson, hash = '') => {
     const path = name === currentArea ? location.pathname : '../' + name + '/';
     const params = new URLSearchParams();
@@ -124,10 +124,11 @@
     });
   }
 
+  const assetUrl = (name, file) => '../' + name + '/' + file + (name === 'ada' ? '?v=' + adaVersion : '');
+
   function catalog(name) {
     if (!catalogs.has(name)) {
-      const version = name === 'ada' ? '?v=' + adaVersion : '';
-      catalogs.set(name, fetchAsset('../' + name + '/content/course.json' + version, 'json').catch(error => {
+      catalogs.set(name, fetchAsset(assetUrl(name, 'content/course.json'), 'json').catch(error => {
         catalogs.delete(name);
         throw error;
       }));
@@ -136,7 +137,7 @@
   }
 
   function content(name, lesson) {
-    const url = '../' + name + '/' + lesson.file;
+    const url = assetUrl(name, lesson.file);
     if (!contentCache.has(url)) {
       contentCache.set(url, fetchAsset(url, 'text').catch(error => {
         contentCache.delete(url);
