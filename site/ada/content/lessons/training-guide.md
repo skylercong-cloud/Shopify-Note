@@ -1,0 +1,15 @@
+<h1><span><strong>ADA 网站无障碍开发与整改实战</strong></span></h1>
+
+<h2><span><strong>企业内部培训 · 快速上手版</strong></span></h2>
+
+<p><span><span><strong>Website Accessibility — Practical Training for Front-end Developers</strong></span></span></p>
+
+<div class="training-table"><div><table><tbody><tr><th scope="row"><p><span>培训项目</span></p></th><th scope="row"><p><span>说明</span></p></th></tr><tr><td><p><span>培训对象</span></p></td><td><p><span>公司新入职前端工程师、项目开发及 ADA 整改人员</span></p></td></tr><tr><td><p><span>前置知识</span></p></td><td><p><span>HTML、CSS、JavaScript 基础</span></p></td></tr><tr><td><p><span>培训目标</span></p></td><td><p><span>快速掌握常见无障碍知识，独立完成项目整改</span></p></td></tr><tr><td><p><span>技术标准</span></p></td><td><p><span>WCAG 2.2 AA</span></p></td></tr><tr><td><p><span>业务场景</span></p></td><td><p><span>通用 Web 网站、Shopify 跨境电商网站</span></p></td></tr><tr><td><p><span>培训时长</span></p></td><td><p><span>约 5 小时，包含演示与实操</span></p></td></tr><tr><td><p><span>教学方式</span></p></td><td><p><span>问题分析、错误代码、修复方案、效果验证</span></p></td></tr></tbody></table></div></div>
+
+<p><span>本课程不追求无障碍理论知识的全面性，而是以实际开发和整改任务为导向。所有知识点尽量对应真实开发场景，代码示例以原生 HTML、CSS、JavaScript 和 Liquid 为主。</span></p>
+
+<h2><span><strong>课程目录</strong></span></h2>
+
+<div class="training-box"><div class="training-box"><div class="training-box"><p><span><span><strong>第 </strong></span><span><strong>01</strong></span><span><strong> 课 · </strong></span><span><strong>快速认识 ADA 与无障碍检测</strong></span></span></p><span><span>建立认知，学会使用检测工具</span></span><span><span>40 分钟</span></span></div></div><hr><div class="training-box"><div class="training-box"><p><span><span><strong>第 </strong></span><span><strong>02</strong></span><span><strong> 课 · </strong></span><span><strong>HTML、CSS 常见无障碍问题与修复</strong></span></span></p><span><span>图片、按钮、表单、对比度、语义</span></span><span><span>55 分钟</span></span></div></div><hr><div class="training-box"><div class="training-box"><p><span><span><strong>第 </strong></span><span><strong>03</strong></span><span><strong> 课 · </strong></span><span><strong>常用 ARIA、键盘交互与焦点管理</strong></span></span></p><span><span>掌握交互组件整改的核心技术</span></span><span><span>55 分钟</span></span></div></div><hr><div class="training-box"><div class="training-box"><p><span><span><strong>第 </strong></span><span><strong>04</strong></span><span><strong> 课 · </strong></span><span><strong>常见 UI 组件无障碍整改实战</strong></span></span></p><span><span>Modal、Dropdown、Tabs、Carousel 等</span></span><span><span>60 分钟</span></span></div></div><hr><div class="training-box"><div class="training-box"><p><span><span><strong>第 </strong></span><span><strong>05</strong></span><span><strong> 课 · </strong></span><span><strong>Shopify 电商网站无障碍整改实战</strong></span></span></p><span><span>Header、PDP、Collection、Cart</span></span><span><span>50 分钟</span></span></div></div><hr><div class="training-box"><div class="training-box"><p><span><span><strong>第 </strong></span><span><strong>06</strong></span><span><strong> 课 · </strong></span><span><strong>无障碍检测、整改与验收完整流程</strong></span></span></p><span><span>从接收整改任务到完成交付</span></span><span><span>40 分钟</span></span></div></div></div>
+
+<hr>

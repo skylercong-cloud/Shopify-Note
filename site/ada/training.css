@@ -1,0 +1,93 @@
+.article .training-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+  gap: 12px;
+  margin-block: 12px;
+}
+
+.training-card, .training-demo {
+  padding: 16px 20px;
+  margin-block: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.training-grid > .training-card { margin-block: 0; }
+.training-card > :first-child, .training-demo > :first-child { margin-top: 0; }
+.training-card > :last-child, .training-demo > :last-child { margin-bottom: 0; }
+.training-table { min-width: 0; }
+.article .training-source-icon { width: 16px; height: 16px; margin-inline: 4px; vertical-align: text-bottom; }
+.article .training-product-image { max-width: min(100%, 340px); height: auto; }
+.training-badge, .training-sample-control {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--brand-soft);
+}
+
+.training-code-bar { margin-top: 16px; }
+.article .training-snippet { margin: 0 0 16px; border-radius: 0 0 10px 10px; }
+.training-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px 10px 0 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.training-code-bar button, .training-demo button, .training-demo summary {
+  color: var(--ink);
+  background: var(--brand-soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 12px;
+  min-height: 34px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.training-demo :is(button, input, summary, [tabindex]):focus-visible,
+.training-code-bar button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+.training-demo fieldset { padding: 8px 12px; margin-block: 12px; min-width: 0; border: 1px solid var(--line); }
+.training-demo legend { padding-inline: 6px; font-weight: 650; }
+.training-demo ul { list-style: none; padding-inline-start: 0; margin-block: 8px; }
+.training-demo li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 8px;
+  margin: 2px 0;
+  border-radius: 6px;
+}
+
+.training-demo label { cursor: pointer; }
+.training-demo textarea, .training-code-bar textarea { width: 100%; margin-top: 8px; color: var(--ink); background: var(--panel); }
+.training-demo details + details { margin-top: 8px; }
+.training-demo summary { display: list-item; }
+.training-demo [role="status"]:empty { margin: 0; }
+.training-demo [aria-pressed="true"], .training-demo [aria-selected="true"] { border-color: var(--brand); font-weight: 700; }
+.training-demo [role="tabpanel"] { padding-inline: 8px; }
+.training-contrast-sample { border-radius: 8px; border: 1px solid #888; padding: 12px 16px; }
+.training-state { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; }
+.training-state dd { margin: 0; font-family: monospace; }
+.training-tabs, .training-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.training-swatch { display: inline-flex; align-items: center; gap: 4px; font: 13px monospace; padding: 3px; }
+.training-swatch span { width: 20px; height: 20px; background: var(--swatch); border: 1px solid #888; border-radius: 50%; }
+.training-simulated-focus, [data-training="cart"]:not(:has(.training-simulated-focus)) li:has([data-item="Linen shirt"]:not([hidden])) {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.training-example-heading { margin-block: 8px; }

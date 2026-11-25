@@ -14,8 +14,8 @@
     },
     ada: {
       label: 'ADA 无障碍',
-      title: 'ADA 与 Web 无障碍',
-      description: '用 Dreame 德国站的商品页、配件弹窗与图片对比案例，学习如何实现和验证无障碍交互。',
+      title: 'ADA 网站无障碍开发与整改实战',
+      description: '企业培训版共 6 课。通过常见页面和 Shopify 组件学习 ADA 基础、键盘与读屏操作、项目整改和验收。',
       trackProgress: true,
     },
   };
@@ -142,7 +142,7 @@
   }
 
   const lessonTitle = lesson => [lesson.label, lesson.title].filter(Boolean).join(' ');
-  const groupTitle = group => progressKey && group.id !== 'reference'
+  const groupTitle = group => progressKey && /^\d+$/.test(group.id)
     ? 'Level ' + group.id + ' · ' + group.title
     : group.title;
 
