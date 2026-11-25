@@ -262,3 +262,102 @@ html[data-course="ada"] .article {
   .article .training-grid[data-columns] { grid-template-columns: minmax(0, 1fr); }
   .article .training-table-scroll :is(th, td) { padding: 7px 8px; }
 }
+
+
+.training-rich {
+  --training-rich-soft: color-mix(in srgb, var(--panel), var(--ink) 6%);
+  --training-rich-danger: #b42318;
+  --training-rich-success: #067647;
+  min-width: 0;
+  margin-block: 16px;
+}
+.dark .training-rich {
+  --training-rich-danger: #ff9b94;
+  --training-rich-success: #8edfc4;
+}
+.training-rich-box {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+.training-rich-row { flex-direction: row; }
+.training-rich-wrap { flex-wrap: wrap; }
+.training-rich-grid > .training-rich-box > .training-rich-box:only-child { flex: auto; }
+.article .training-rich :is(p, .training-rich-title) {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.training-rich-caption {
+  color: var(--muted);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+.training-rich-title { font-size: 1.22em; }
+.training-rich-icon {
+  --rich-icon-size: 20;
+  display: inline-block;
+  width: calc(var(--rich-icon-size) * 1px);
+  height: calc(var(--rich-icon-size) * 1px);
+  flex: none;
+  vertical-align: -0.15em;
+}
+.training-rich :is(p, a) > .training-rich-icon:first-child { margin-inline-end: 5px; }
+.training-rich :is(p,a) > .training-rich-icon:last-child { margin-inline-start: 4px; }
+.training-rich-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--training-rich-soft);
+  font-size: 0.85em;
+}
+.training-rich-danger {
+  color: var(--training-rich-danger);
+  background: color-mix(in srgb, var(--panel), var(--training-rich-danger) 12%);
+}
+.training-rich-success {
+  color: var(--training-rich-success);
+  background: color-mix(in srgb, var(--panel), var(--training-rich-success) 12%);
+}
+.article .training-rich-divider {
+  width: 100%;
+  height: 1px;
+  margin: 5px 0;
+  border: 0;
+  background: var(--line);
+}
+.article .training-rich-image {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+}
+.article .training-rich-source {
+  display: block;
+  padding: 0;
+  background: transparent;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.training-rich[data-rich-example="tool"] { padding-block: 3px; }
+.training-rich[data-rich-example="tool"] .training-rich-row { gap: 10px !important; }
+.training-rich[data-rich-example="tool"] p:first-child,
+.training-rich[data-rich-example="axe-report"] strong,
+.training-rich[data-rich-example="form-error"] strong { font-size: 1.09em; }
+.training-rich[data-rich-example="form-error"] p:has(> .training-rich-icon:first-child) > .training-rich-icon {
+  display: block;
+  margin: 0 0 3px;
+}
+@container ada-lesson (max-width: 420px) {
+  .training-rich-row { flex-wrap: wrap; }
+  .training-rich[data-rich-example="tool"] .training-rich-row { flex-wrap: nowrap; }
+}
+
+.training-rich[data-rich-example="axe-report"] > .training-rich-box > .training-rich-row:first-child p {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

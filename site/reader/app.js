@@ -21,7 +21,7 @@
   };
   const area = areas[currentArea];
   const progressKey = area.trackProgress ? currentArea + '-completed' : null;
-  const adaVersion = 'training-layout-6';
+  const adaVersion = 'training-rich-6';
   const courseUrl = (name, lesson, hash = '') => {
     const path = name === currentArea ? location.pathname : '../' + name + '/';
     const params = new URLSearchParams();
