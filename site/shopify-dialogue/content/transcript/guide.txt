@@ -1,0 +1,77 @@
+# 开场问答 · Grill Me 与 Teach Me
+
+## 我的提问 · 2026-09-15 Tue 21:06
+
+你知道grill me吗
+
+## ChatGPT · 2026-09-15 Tue 21:06
+
+知道，不过 **“Grill Me” 这个名字对应好几个不同的产品/项目**。
+
+我查到目前比较明显的有：
+
+- **Grill Me（AI 模拟面试/提问系统）**：会针对你选择的主题逐题提问，对回答按 0–10 分评分，给反馈、标准答案，并记录 XP、连续答题、徽章等。 [GitHub - ManeRutu/grill-me · GitHub](https://github.com/ManeRutu/grill-me?utm_source=chatgpt.com)
+- **Grill Me（AI 项目规划工具/Agent Skill）**：在真正开始开发之前，通过连续提问把需求、目标和细节“盘问”清楚，避免 AI 做出来的东西和用户想要的不一样。 [/grill-me — agent skill | Agentropic](https://agentropic.ai/skills/grill-me/?utm_source=chatgpt.com)
+- 另外还有叫 Grill Me 的烧烤用品/烧烤设备品牌，以及餐饮类 App。 [grill me – אתר מכירת גרילים ומעשנות](https://grillme.co.il/?utm_source=chatgpt.com) [Grill - me | Ижевск - Apps on Google Play](https://play.google.com/store/apps/details?id=ru.FoodSoul.IjevskGrillMe&utm_source=chatgpt.com)
+
+如果你说的是**你之前提到想开发类似美柚的 App**，而你现在说的 Grill Me 是一个**具体的 App/AI 产品**，我可以帮你把它查清楚，包括它的**功能、界面、商业模式和技术实现**。
+
+你说的是 **AI 面试那个 Grill Me，还是另一个 App**？
+
+---
+
+## 我的提问 · 2026-09-15 Tue 21:07
+
+我指的是skill，他里面有一个teach me是吧
+
+## ChatGPT · 2026-09-15 Tue 21:07
+
+对，你说的应该就是 **Matt Pocock 那套 Agent Skills 里的 `teach` / `teach-me`**。
+
+我刚确认了一下：它和 **`grill-me` 是两个方向相反、但可以配合使用的 Skill**。`grill-me` 更像是“我不断问你，把你的想法问清楚”；而 `teach` 是“我来教你，让你真正理解一个主题/项目”。Matt Pocock 也把 `teach` 描述成一个**有状态（stateful）的教学 Skill**，会记住你学到了哪里、下一步应该学什么。 [Rewiz](https://rewiz.app/channels/%40matt-pocock/learn-anything-with-the-teach-skill?utm_source=chatgpt.com) [Matt Pocock breaks down the skills repo every AI coder is using — The Next New Thing · Modern Creator](https://moderncreator.app/2026-08-17-the-next-new-thing-matt-pocock-breaks-down-the-skills-repo-every-ai-coder-is-using?utm_source=chatgpt.com)
+
+可以简单理解成：
+
+| Skill | 核心作用 |
+|---|---|
+| **Grill Me** | 🧐 我问你 → 把需求/想法逼清楚 |
+| **Teach Me** | 👨‍🏫 我教你 → 让你真正理解 |
+| **Grill With Docs** | 📚 基于项目文档一起推敲 |
+| **Quiz Me** | 📝 我考你 → 验证你是不是真的会 |
+
+尤其是 `Teach`，不是普通的“给你讲一遍”。它更强调**互动式学习**：先了解你想学什么，然后逐步教学、提问、检查理解，并在后续继续你的学习进度。 [Rewiz](https://rewiz.app/channels/%40matt-pocock/learn-anything-with-the-teach-skill?utm_source=chatgpt.com)
+
+### 而且这对你现在做 App 特别有用
+
+比如你之前说想做一个**类似美柚的 App**。
+
+我们完全可以把这个思路用在这里：
+
+**Grill Me：**
+> “你为什么要做这个 App？”  
+> “目标用户是谁？”  
+> “第一版到底要不要经期预测？”  
+> “社区功能第一版做不做？”  
+> “你准备怎么盈利？”  
+> “iOS、Android 还是跨平台？”  
+> ……  
+> → 最终把产品需求逼成一个清晰的 Spec。
+
+然后 **Teach Me：**
+> “现在我来教你怎么把这个 App 做出来。”  
+>   
+> 第 1 课：App 整体架构  
+> 第 2 课：数据库怎么设计  
+> 第 3 课：用户系统  
+> 第 4 课：经期/周期算法  
+> 第 5 课：后端 API  
+> 第 6 课：App 前端  
+> 第 7 课：AI 功能  
+> 第 8 课：部署上线  
+> ……  
+>   
+> 每一节不是单纯给答案，而是**讲 → 问你 → 根据你的回答调整 → 再继续**。
+
+甚至可以做到 **“你不会的地方停下来，直到你真的理解”**，而不是 AI 一口气生成几千行代码然后你完全不知道它在干什么。
+
+如果你愿意，我甚至可以**现在就按照 `Teach Me` 这种方式，带你从 0 开始学习并开发你那个类似美柚的 App**。

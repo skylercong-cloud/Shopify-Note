@@ -1,0 +1,1094 @@
+# 第 21 课：Shopify Product / Variant 数据模型深入
+
+## 我的提问 · 2026-09-20 Sun 08:25
+
+继续
+
+## ChatGPT · 2026-09-20 Sun 08:25
+
+好，我们正式进入第二阶段。
+
+# 第 21 课：Shopify Product / Variant 数据模型深入
+
+这一课先不要急着写代码。
+
+我们先把 Shopify 最核心的商品数据模型彻底搞明白。
+
+如果把 Shopify 比作一个电商数据库，那么：
+
+> **Product 是商品主体，Variant 是可购买的具体商品单元。**
+
+而后面我们还会继续把它连接到：
+
+```text
+Inventory
+Location
+Cart
+Order
+Fulfillment
+Metafield
+Metaobject
+```
+
+---
+
+# 一、先看整体关系
+
+先看这张图：
+
+```text id="q3m8b1"
+                         Product
+                            │
+             ┌──────────────┼──────────────┐
+             │              │              │
+             ▼              ▼              ▼
+          Options        Variants         Media
+             │              │
+             │              │
+             │      ┌───────┼────────┐
+             │      │       │        │
+             │      ▼       ▼        ▼
+             │     SKU     Price   Inventory
+             │                       │
+             │                       ▼
+             │                    Location
+             │
+             ▼
+       Color / Size / ...
+```
+
+例如：
+
+```text id="0kj5o2"
+Product
+Nike Air Max
+│
+├── Option: Color
+│     ├── Black
+│     └── White
+│
+├── Option: Size
+│     ├── 8
+│     ├── 9
+│     └── 10
+│
+└── Variants
+      ├── Black / 8
+      ├── Black / 9
+      ├── Black / 10
+      ├── White / 8
+      ├── White / 9
+      └── White / 10
+```
+
+---
+
+# 二、Product 到底是什么？
+
+你可以把 Product 理解成：
+
+> **消费者眼中的“一个商品”。**
+
+例如：
+
+```text id="j1u6wd"
+Nike Air Max
+```
+
+它可能有：
+
+```text id="3h9c2a"
+Title:
+Nike Air Max
+
+Description:
+Running shoes...
+
+Vendor:
+Nike
+
+Product Type:
+Running Shoes
+
+Tags:
+running, nike, shoes
+
+Options:
+Color
+Size
+
+Variants:
+6 个
+
+Media:
+8 张图片
+2 个视频
+
+Collections:
+Running Shoes
+Nike
+Featured
+```
+
+所以 Product 是一个**商品容器 / 商品主体**。
+
+---
+
+# 三、Variant 是什么？
+
+Variant 是：
+
+> **这个 Product 下真正可以购买的具体规格组合。**
+
+例如：
+
+```text id="8h3u2x"
+Product:
+T-Shirt
+
+Options:
+Color
+Size
+```
+
+有：
+
+```text id="2d7r1c"
+Color:
+Black
+White
+
+Size:
+S
+M
+L
+```
+
+最终 Variant：
+
+```text id="sm8j2p"
+Black / S
+Black / M
+Black / L
+
+White / S
+White / M
+White / L
+```
+
+每一个 Variant 都是一个独立的可购买实体。
+
+---
+
+# 四、为什么 Shopify 要把 Product 和 Variant 分开？
+
+这是理解 Shopify 数据模型最关键的一步。
+
+假设：
+
+```text id="v5j1a8"
+Nike Air Max
+```
+
+有：
+
+```text id="6q0r8c"
+Black / 8   $100
+Black / 9   $105
+Black / 10  $110
+```
+
+如果没有 Variant：
+
+```text id="xj4s9n"
+Nike Air Max
+```
+
+只能有：
+
+```text id="e5a1v7"
+price = ?
+sku = ?
+inventory = ?
+```
+
+问题来了：
+
+> 到底哪个价格？
+
+> 到底哪个库存？
+
+> 到底哪个 SKU？
+
+所以：
+
+```text id="4a2kq7"
+Product
+   │
+   ├── Variant A
+   │     price
+   │     sku
+   │     inventory
+   │
+   ├── Variant B
+   │     price
+   │     sku
+   │     inventory
+   │
+   └── Variant C
+         price
+         sku
+         inventory
+```
+
+这些具体商业属性应该落到 Variant。
+
+---
+
+# 五、Product Option 和 Variant 的关系
+
+这是另一个很容易混的地方。
+
+例如：
+
+```text id="4e9k2m"
+Product
+│
+├── Option 1: Color
+│      ├── Black
+│      └── White
+│
+└── Option 2: Size
+       ├── S
+       ├── M
+       └── L
+```
+
+Option 是：
+
+> **规格维度。**
+
+而 Variant 是：
+
+> **规格维度的具体组合。**
+
+所以：
+
+```text id="2u7b3d"
+Color = Black
+Size = M
+```
+
+组合起来：
+
+```text id="3c8v1a"
+Black / M
+```
+
+这才是一个 Variant。
+
+---
+
+# 六、从前端角度看 Variant
+
+这就是我们之前写过的：
+
+```liquid id="7ck1q4"
+{% for variant in product.variants %}
+
+  {{ variant.id }}
+  {{ variant.title }}
+  {{ variant.price }}
+  {{ variant.available }}
+
+{% endfor %}
+```
+
+例如：
+
+```text id="8sd5n2"
+Variant
+├── id: 123456
+├── title: Black / M
+├── price: $29.99
+├── sku: TS-BLK-M
+└── available: true
+```
+
+前端真正 Add to Cart 的时候：
+
+```text id="qk5m8s"
+User
+ ↓
+选择 Black
+ ↓
+选择 M
+ ↓
+找到 Black/M Variant
+ ↓
+Variant ID
+ ↓
+Cart
+```
+
+所以：
+
+> **购物车加的不是 Product，而是 Variant。**
+
+这是非常重要的一句话。
+
+---
+
+# 七、Product ID 和 Variant ID 是两个不同 ID
+
+例如：
+
+```text id="p4s8w2"
+Product ID
+= 1001
+
+Variant ID
+= 2001
+```
+
+关系：
+
+```text id="x1k7q9"
+Product 1001
+│
+├── Variant 2001
+├── Variant 2002
+└── Variant 2003
+```
+
+所以不要写：
+
+```js id="x8b1o4"
+addToCart(product.id)
+```
+
+而应该：
+
+```js id="m7r3k9"
+addToCart(variant.id)
+```
+
+这就是为什么我们之前的 Product Form：
+
+```liquid id="a2w6s9"
+<select name="id">
+  {% for variant in product.variants %}
+    <option value="{{ variant.id }}">
+      {{ variant.title }}
+    </option>
+  {% endfor %}
+</select>
+```
+
+里面：
+
+```html id="7c2p9x"
+name="id"
+```
+
+实际上提交的是：
+
+> **Variant ID**
+
+---
+
+# 八、Variant 最重要的几个字段
+
+你现在重点记这些：
+
+```text id="0v3m7s"
+Variant
+│
+├── id
+├── title
+├── sku
+├── barcode
+├── price
+├── compare_at_price
+├── available
+├── options
+├── featured_image / media
+└── inventory
+```
+
+其中：
+
+### `id`
+
+Variant 唯一标识。
+
+---
+
+### `title`
+
+例如：
+
+```text id="d8q3r1"
+Black / M
+```
+
+它通常是 Variant 的规格组合展示名称。
+
+---
+
+### `sku`
+
+库存管理 / ERP / OMS 等系统经常使用：
+
+```text id="2y8f1m"
+TS-BLK-M
+```
+
+SKU 和 Shopify Variant ID 不是一个概念。
+
+---
+
+### `barcode`
+
+例如：
+
+```text id="k6v9s2"
+6901234567890
+```
+
+可能用于：
+
+```text
+商品条码
+仓库扫描
+POS
+物流
+```
+
+---
+
+### `price`
+
+Variant 的价格。
+
+---
+
+### `compare_at_price`
+
+例如：
+
+```text id="8s3p0w"
+compare_at_price = $59.99
+price = $39.99
+```
+
+Theme 可能展示：
+
+```text id="5a7d1x"
+$59.99  ~~$39.99~~
+```
+
+具体展示逻辑由 Theme 决定。
+
+---
+
+# 九、`available` 不等于“库存数量”
+
+这是一个非常重要的区别。
+
+例如：
+
+```liquid id="j2x8n4"
+{{ variant.available }}
+```
+
+得到：
+
+```text id="x4s9m1"
+true
+```
+
+这只能告诉 Theme：
+
+> 当前 Variant 是否可购买。
+
+它不是：
+
+```text id="7n2k5a"
+inventory_quantity = 37
+```
+
+所以不要理解成：
+
+```js id="d1m8x2"
+variant.available === true
+```
+
+意味着：
+
+```text
+库存 = 1+
+```
+
+它是更高层次的可购买状态。
+
+后面我们专门学 Inventory 时再把：
+
+```text id="m7w2q6"
+InventoryItem
+InventoryLevel
+Location
+available
+```
+
+全部拆开。
+
+---
+
+# 十、Variant 和 Media
+
+Variant 也可以和商品图片/媒体产生关联。
+
+例如：
+
+```text id="3z8x5c"
+Product
+│
+├── Black
+│    └── Black Product Image
+│
+└── White
+     └── White Product Image
+```
+
+用户：
+
+```text id="f5a2s9"
+选择 Black
+```
+
+Theme：
+
+```text id="x6q1n7"
+Variant selected
+ ↓
+Variant Media
+ ↓
+Gallery switch
+```
+
+所以我们之前学 Product Media 时：
+
+```text id="j8v3q0"
+Product Media
++
+Variant
+```
+
+实际上已经开始接触这个数据模型。
+
+---
+
+# 十一、Product 和 Collection 的关系
+
+这个也非常重要。
+
+很多初学者容易想成：
+
+```text id="s2f7m9"
+Collection
+   │
+   └── Product
+```
+
+好像 Product 只能属于一个 Collection。
+
+实际上不是。
+
+一个 Product 可以属于多个 Collection：
+
+```text id="k9r4p2"
+Nike Air Max
+   │
+   ├── Running Shoes
+   ├── Nike
+   ├── Best Sellers
+   └── Men's Shoes
+```
+
+所以：
+
+```text id="q5d1z8"
+Product
+ ↕
+Collections
+```
+
+更接近：
+
+> **多对多关系。**
+
+这也是为什么我们之前讲 Collection 时说：
+
+> Collection 不是 Product 的父对象。
+
+---
+
+# 十二、Product 和 Metafield
+
+再连接我们之前学过的 Metafield：
+
+```text id="j6w4s8"
+Product
+│
+├── title
+├── description
+├── vendor
+├── tags
+│
+└── metafields
+      ├── custom.material
+      ├── custom.origin
+      ├── custom.size_guide
+      └── custom.rating
+```
+
+所以：
+
+```text id="x7m2v5"
+Product
++
+Metafield
+```
+
+可以扩展 Shopify 原生 Product 数据。
+
+例如：
+
+```text id="r8k3q1"
+custom.material = Cotton
+custom.origin = China
+```
+
+Theme：
+
+```liquid id="b4w7s2"
+{{ product.metafields.custom.material.value }}
+```
+
+---
+
+# 十三、Product / Variant / Metafield 的层级
+
+现在非常值得记住：
+
+```text id="f8n2m6"
+Product
+│
+├── Product-level data
+│   ├── title
+│   ├── description
+│   ├── vendor
+│   └── ...
+│
+├── Product Metafields
+│   ├── material
+│   ├── origin
+│   └── ...
+│
+└── Variants
+    │
+    ├── Variant A
+    │   ├── price
+    │   ├── sku
+    │   └── ...
+    │
+    ├── Variant B
+    │   ├── price
+    │   ├── sku
+    │   └── ...
+    │
+    └── Variant C
+```
+
+这是后面学习 API 非常重要的基础。
+
+---
+
+# 十四、一个真实商品模型
+
+假设我们有：
+
+```text id="y6c2m8"
+Product:
+Classic T-Shirt
+```
+
+数据：
+
+```text id="u4s7p9"
+Title:
+Classic T-Shirt
+
+Vendor:
+ABC Brand
+
+Type:
+T-Shirt
+
+Options:
+1. Color
+2. Size
+```
+
+Variant：
+
+```text id="n3k8w2"
+Variant 1
+Black / S
+SKU: TS-BLK-S
+Price: $29
+
+Variant 2
+Black / M
+SKU: TS-BLK-M
+Price: $29
+
+Variant 3
+White / S
+SKU: TS-WHT-S
+Price: $29
+
+Variant 4
+White / M
+SKU: TS-WHT-M
+Price: $31
+```
+
+你就会发现：
+
+```text id="r7m1c5"
+Product
+  ├── 产品描述
+  ├── 品牌
+  ├── 类型
+  ├── 图片
+  └── Variants
+        ├── SKU
+        ├── Price
+        └── Inventory
+```
+
+---
+
+# 十五、为什么 Variant 会影响前端这么多功能？
+
+因为 Variant 是整个电商购买链路的核心。
+
+```text id="k2w9v4"
+Product
+   │
+   ▼
+用户选择 Option
+   │
+   ▼
+匹配 Variant
+   │
+   ├── Price
+   ├── Compare Price
+   ├── SKU
+   ├── Availability
+   ├── Media
+   └── Inventory
+   │
+   ▼
+Variant ID
+   │
+   ▼
+Cart
+   │
+   ▼
+Checkout
+   │
+   ▼
+Order
+```
+
+所以你以后看到：
+
+```text
+Product
+Variant
+Cart
+Order
+Inventory
+```
+
+千万不要把它们当成孤立的数据。
+
+它们是一条链。
+
+---
+
+# 十六、最重要的概念：购买单位
+
+我们可以用一个非常简单的问题判断 Product 和 Variant：
+
+> **客户最终买的到底是什么？**
+
+例如：
+
+```text id="q4m8z1"
+客户：
+我要买 Nike Air Max
+```
+
+实际上系统需要知道：
+
+```text id="r9v2k6"
+Nike Air Max
+Color = Black
+Size = 9
+```
+
+于是系统找到：
+
+```text id="c7s3x8"
+Variant ID = 987654
+```
+
+然后：
+
+```text id="h5n1w4"
+Variant 987654
+Quantity = 1
+```
+
+进入 Cart。
+
+所以：
+
+> **Variant 才是购物交易中的具体购买单位。**
+
+---
+
+# 十七、这和数据库设计很像
+
+如果你有数据库经验，可以粗略理解：
+
+```text id="p1r7x3"
+products
+────────────
+id
+title
+description
+vendor
+...
+
+        1
+        │
+        │
+        │ N
+
+product_variants
+────────────────
+id
+product_id
+sku
+price
+barcode
+...
+```
+
+关系：
+
+```text id="z8m4q2"
+products
+   1
+   │
+   └────── N
+          variants
+```
+
+但是 Shopify 内部真实的数据模型远比这个复杂，尤其是 Inventory、Media、Metafield、Selling Plans 等，所以这里先用这个模型建立认知。
+
+---
+
+# 十八、为什么 Shopify API 用 GraphQL 后会感觉复杂？
+
+因为你之后会看到类似：
+
+```graphql id="w3q9k7"
+product(id: "...") {
+  id
+  title
+
+  variants(first: 10) {
+    nodes {
+      id
+      title
+      price
+      sku
+    }
+  }
+}
+```
+
+这个时候你就不会觉得奇怪：
+
+```text id="j6s2v8"
+Product
+   │
+   └── variants
+           │
+           ├── Variant
+           ├── Variant
+           └── Variant
+```
+
+这就是我们现在建立的数据模型。
+
+---
+
+# 十九、GraphQL mental model
+
+以后你学习 Shopify Admin GraphQL API 时：
+
+```graphql id="v9k2d4"
+product {
+  title
+  variants {
+    nodes {
+      id
+      sku
+      price
+    }
+  }
+}
+```
+
+你应该脑子里马上出现：
+
+```text id="q3m7s1"
+Product
+│
+├── title
+│
+└── Variants
+     ├── id
+     ├── sku
+     └── price
+```
+
+而不是把 GraphQL 当成一堆陌生语法。
+
+---
+
+# 二十、今天先记住这张关系图
+
+这是第 21 课最重要的一张图：
+
+```text id="n8c4w6"
+                         Product
+                            │
+          ┌─────────────────┼─────────────────┐
+          │                 │                 │
+          ▼                 ▼                 ▼
+      Product Data       Options            Media
+          │                 │
+          │                 ▼
+          │          Color / Size
+          │                 │
+          │                 ▼
+          │              Variants
+          │                 │
+          │       ┌─────────┼──────────┐
+          │       │         │          │
+          │       ▼         ▼          ▼
+          │     Price      SKU      Availability
+          │                            │
+          │                            ▼
+          │                        Inventory
+          │                            │
+          │                            ▼
+          │                         Location
+          │
+          ▼
+      Metafields
+```
+
+你现在可以把 Shopify 商品体系理解成：
+
+```text
+Product
+  ↓
+“这是什么商品？”
+
+Variant
+  ↓
+“具体买哪一个规格？”
+
+Inventory
+  ↓
+“这个规格还有多少？”
+
+Location
+  ↓
+“库存在哪个仓库？”
+
+Cart
+  ↓
+“客户准备买什么？”
+
+Order
+  ↓
+“客户最终买了什么？”
+
+Fulfillment
+  ↓
+“这笔订单从哪里发货？”
+```
+
+这条链就是 Shopify Commerce 数据模型的主干。
+
+---
+
+## 下一课：第 22 课 —— Collection 数据模型
+
+下一课我们会专门解决一个很容易被误解的问题：
+
+> **Collection 到底是数据库里的什么东西？**
+
+会继续深入：
+
+```text
+Collection
+├── id
+├── title
+├── handle
+├── description
+├── image
+├── products
+├── sort order
+├── manual
+├── smart collection
+└── conditions
+```
+
+尤其会讲清楚：
+
+**Manual Collection 和 Smart Collection 到底有什么区别，以及 Shopify 是怎么根据条件自动把 Product 放进 Collection 的。**
+
+这会直接连接你前面学过的：
+
+```text
+Collection
++
+Filter
++
+Sort
++
+Product
+```
+
+然后再进入 **第 23 课 Inventory / Location**，把库存模型真正搞明白。

@@ -1,0 +1,1340 @@
+# 第 25 课：Cart / Checkout / Order —— Shopify 购物链路
+
+## 我的提问 · 2026-09-20 Sun 08:33
+
+跳过24课，开始25课
+
+## ChatGPT · 2026-09-20 Sun 08:33
+
+好，我们跳过第 24 课，直接进入。
+
+# 第 25 课：Cart / Checkout / Order —— Shopify 购物链路
+
+这一课是 Shopify 数据模型里非常核心的一课。
+
+你前面已经学了：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+```
+
+现在把「购买流程」接起来：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+   ↓
+Fulfillment
+```
+
+这条链你以后做 Shopify Theme、App、ERP、订单同步，都会反复遇到。
+
+---
+
+# 一、先把 4 个概念分清楚
+
+最容易混淆的是：
+
+```text
+Cart
+Checkout
+Order
+Fulfillment
+```
+
+它们分别代表：
+
+| 对象 | 核心含义 |
+|---|---|
+| Cart | 用户准备买什么 |
+| Checkout | 用户正在完成购买 |
+| Order | 购买已经形成的订单 |
+| Fulfillment | 订单怎么发货/履约 |
+
+可以先记成：
+
+```text
+Cart
+= 想买
+
+Checkout
+= 正在买
+
+Order
+= 买成功了
+
+Fulfillment
+= 怎么发出去
+```
+
+Shopify 官方对购物旅程的定义也是类似的：Cart 保存买家准备购买的商品，Checkout 用于最终确认并完成交易。 [Cart](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart?utm_source=chatgpt.com)
+
+---
+
+# 二、Cart：购物车
+
+假设用户进入：
+
+```text
+Nike Air Max
+Black / 9
+$129
+```
+
+点击：
+
+```text
+Add to Cart
+```
+
+这时候发生的不是：
+
+```text
+创建 Order
+```
+
+而是：
+
+```text
+创建/修改 Cart
+```
+
+例如：
+
+```text
+Cart
+├── Nike Air Max / Black / 9 × 1
+├── T-Shirt / White / M × 2
+└── Socks × 1
+```
+
+Shopify 的 Cart 本质上就是：
+
+> **一个买家准备购买的商品集合，以及当前购物过程中的相关信息。**
+
+Storefront API 当前的 Cart 模型还包含 buyer identity、cost、preferences 等信息。 [Create and update a cart with the Storefront API](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/manage?utm_source=chatgpt.com) [Cart](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart?utm_source=chatgpt.com)
+
+---
+
+# 三、Cart 里面最重要的是 Line
+
+你之前已经接触过这个概念：
+
+```text
+Cart
+  ↓
+Cart Lines
+```
+
+例如：
+
+```text
+Cart
+│
+├── Line 1
+│     └── Variant A × 1
+│
+├── Line 2
+│     └── Variant B × 2
+│
+└── Line 3
+      └── Variant C × 1
+```
+
+在 Theme Liquid 中：
+
+```liquid
+{% for item in cart.items %}
+  {{ item.product.title }}
+  {{ item.quantity }}
+{% endfor %}
+```
+
+这里的：
+
+```liquid
+cart.items
+```
+
+实际上就是购物车里的 line items。
+
+Shopify 当前 Theme 文档也明确把 line item 定义为购物车中的一条商品记录，其中记录了加入购物车的 Variant 和数量。 [cart](https://shopify.dev/docs/storefronts/themes/architecture/templates/cart?utm_source=chatgpt.com)
+
+---
+
+# 四、为什么 Cart Line ≠ Variant？
+
+这个非常重要。
+
+例如：
+
+```text
+Variant
+Nike Air Max / Black / 9
+```
+
+用户可能加入：
+
+```text
+Line 1
+Nike Air Max / Black / 9
+quantity = 1
+```
+
+另外又加入了一条带有不同自定义属性的同一 Variant：
+
+```text
+Line 2
+Nike Air Max / Black / 9
+quantity = 1
+properties:
+  gift = "yes"
+```
+
+所以：
+
+```text
+Variant
+```
+
+是商品规格。
+
+而：
+
+```text
+Cart Line
+```
+
+是：
+
+> **这个 Variant 以某种购买上下文进入当前 Cart 的一条记录。**
+
+这也是为什么以后做 Cart Drawer 时，不应该简单地认为：
+
+```text
+Variant ID = Cart Line ID
+```
+
+它们是不同层次的数据。
+
+---
+
+# 五、Cart 的典型结构
+
+可以把它理解成：
+
+```text
+Cart
+│
+├── id
+│
+├── lines
+│    ├── line 1
+│    │     ├── merchandise → Variant
+│    │     └── quantity
+│    │
+│    ├── line 2
+│    │     ├── merchandise → Variant
+│    │     └── quantity
+│    │
+│    └── line 3
+│
+├── buyerIdentity
+│
+├── cost
+│
+└── checkoutUrl
+```
+
+其中：
+
+### `lines`
+
+买了什么。
+
+### `quantity`
+
+买多少。
+
+### `buyerIdentity`
+
+谁在买/买家上下文。
+
+### `cost`
+
+购物车当前估算金额。
+
+### `checkoutUrl`
+
+准备进入 Shopify Checkout 的地址。
+
+当前 Storefront API 文档明确支持从 Cart 获取 `checkoutUrl`，然后把买家导向 Shopify Web Checkout。 [Create and update a cart with the Storefront API](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/manage?utm_source=chatgpt.com)
+
+---
+
+# 六、Theme 里的 Cart
+
+如果你做 Shopify Theme：
+
+```text
+templates/cart.json
+```
+
+通常对应：
+
+```text
+/cart
+```
+
+页面。
+
+Theme 里可以直接使用：
+
+```liquid
+{{ cart.item_count }}
+```
+
+以及：
+
+```liquid
+{% for item in cart.items %}
+
+  {{ item.product.title }}
+
+  {{ item.variant.title }}
+
+  {{ item.quantity }}
+
+{% endfor %}
+```
+
+Shopify 官方 Theme 文档当前仍然以 `cart` Liquid 对象作为 `/cart` 页面的核心数据来源。 [cart](https://shopify.dev/docs/storefronts/themes/architecture/templates/cart?utm_source=chatgpt.com)
+
+---
+
+# 七、Cart Drawer 又是什么？
+
+你之前已经学过 Cart Drawer。
+
+现在从数据模型角度看就很清楚了：
+
+```text
+Cart
+│
+└── Cart Drawer
+       ↑
+       │
+    Theme UI
+```
+
+Cart Drawer **不是 Shopify 的一个独立业务对象**。
+
+它只是：
+
+> Theme 用来展示 Cart 的一种 UI。
+
+例如：
+
+```text
+Shopify Cart
+      ↓
+cart.items
+      ↓
+Theme
+      ↓
+Cart Drawer
+```
+
+所以：
+
+```text
+Cart Drawer ≠ Cart
+```
+
+这一点一定要记住。
+
+---
+
+# 八、Ajax Cart API 在这里干什么？
+
+如果是 Shopify Theme：
+
+```text
+Browser
+   ↓
+JavaScript
+   ↓
+Ajax Cart API
+   ↓
+Shopify Cart
+```
+
+例如添加商品：
+
+```js
+const response = await fetch(
+  window.Shopify.routes.root + 'cart/add.js',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      items: [
+        {
+          id: variantId,
+          quantity: 1
+        }
+      ]
+    })
+  }
+);
+```
+
+这里：
+
+```text
+id
+```
+
+是 Variant ID。
+
+然后：
+
+```text
+Variant
+↓
+Cart Line
+↓
+Cart
+```
+
+Shopify 当前文档明确说明 Ajax API 是面向 Shopify-hosted Theme 的轻量 API，可用于添加商品到 Cart、更新购物车等。 [About the Shopify Ajax API](https://shopify.dev/docs/api/ajax?utm_source=chatgpt.com)
+
+---
+
+# 九、Checkout 到底是什么？
+
+这是非常容易误解的地方。
+
+很多前端开发者第一反应是：
+
+> Checkout 不就是 Cart 页面吗？
+
+不是。
+
+可以这样理解：
+
+```text
+Cart
+↓
+"我要买这些东西"
+```
+
+然后：
+
+```text
+Checkout
+↓
+"我要正式完成这笔购买"
+```
+
+Checkout 会涉及：
+
+```text
+商品
++
+数量
++
+价格
++
+折扣
++
+税
++
+运费
++
+收货地址
++
+联系方式
++
+支付
+```
+
+所以：
+
+```text
+Cart
+```
+
+更偏向：
+
+> 购物篮。
+
+而：
+
+```text
+Checkout
+```
+
+更偏向：
+
+> 交易确认流程。
+
+---
+
+# 十、Cart → Checkout
+
+整个过程：
+
+```text
+Product Page
+      ↓
+Add to Cart
+      ↓
+Cart
+      ↓
+Checkout
+      ↓
+Payment
+      ↓
+Order
+```
+
+例如：
+
+```text
+Nike Air Max
+$129
+    ↓
+Add to Cart
+    ↓
+Cart
+Subtotal: $129
+    ↓
+Checkout
+    ↓
+Shipping
+$10
+    ↓
+Tax
+$11
+    ↓
+Total
+$150
+    ↓
+Payment
+    ↓
+Order
+```
+
+这里你会发现一个重要区别：
+
+```text
+Cart total
+```
+
+并不一定等于：
+
+```text
+最终 Order total
+```
+
+因为 Checkout 阶段可能涉及：
+
+```text
+Shipping
+Tax
+Discount
+Market pricing
+Payment
+```
+
+Shopify 当前 Cart 文档也明确指出 Cart 的 cost 是估算值，最终结算金额可能在 Checkout 中变化。 [Create and update a cart with the Storefront API](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/manage?utm_source=chatgpt.com)
+
+---
+
+# 十一、现在的 Shopify 不应该再用旧 Checkout API 思维
+
+这个对你以后开发 App 非常重要。
+
+以前 Shopify 有：
+
+```text
+Checkout API
+```
+
+例如：
+
+```text
+checkoutCreate
+```
+
+但 Shopify 已经推进到：
+
+```text
+Storefront Cart API
+```
+
+当前官方文档说明：
+
+- Checkout APIs 在 Storefront API 中已经弃用
+- 2025-04 起 Checkout APIs sunset
+- 推荐迁移到 Storefront Cart API
+- Native Mobile 可以考虑 Checkout Kit。 [Migrate to the Storefront Cart API](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/migrate-to-cart-api?utm_source=chatgpt.com) [Migrate your app](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/migrate-to-cart-api/migrate-your-app?utm_source=chatgpt.com)
+
+所以你现在学习 Shopify，应该建立这个新模型：
+
+```text
+旧：
+
+Product
+ ↓
+Checkout API
+ ↓
+Checkout
+
+
+现在：
+
+Product
+ ↓
+Cart API
+ ↓
+Cart
+ ↓
+checkoutUrl
+ ↓
+Shopify Checkout
+```
+
+这个变化非常重要。
+
+---
+
+# 十二、为什么 Shopify 不让你自己实现 Checkout？
+
+因为 Checkout 涉及非常复杂的商业基础设施：
+
+```text
+Payment
+Tax
+Shipping
+Discount
+Fraud
+Inventory
+Address
+Currency
+Market
+Order
+Compliance
+```
+
+Shopify 的思路是：
+
+```text
+你负责：
+
+Storefront
+Cart UI
+商品展示
+购物体验
+
+Shopify 负责：
+
+Checkout
+Payment
+Order
+Commerce infrastructure
+```
+
+所以通常：
+
+```text
+Cart
+↓
+checkoutUrl
+↓
+Shopify Checkout
+```
+
+而不是：
+
+```text
+Cart
+↓
+自己写一个支付页面
+↓
+自己创建订单
+```
+
+---
+
+# 十三、Checkout 完成以后才产生 Order
+
+这是整个数据模型最关键的一条：
+
+```text
+Cart
+   ↓
+Checkout
+   ↓
+Purchase completed
+   ↓
+Order
+```
+
+所以：
+
+> **Cart 不是 Order。**
+
+例如：
+
+```text
+用户把 iPhone 放进购物车
+```
+
+并不意味着：
+
+```text
+产生订单
+```
+
+用户可能：
+
+```text
+加入购物车
+↓
+关闭浏览器
+```
+
+此时没有完成购买。
+
+---
+
+# 十四、Order 是什么？
+
+Shopify 官方当前把 `Order` 定义为：
+
+> Customer 向商店购买一个或多个商品的请求。
+
+并且 Order 是整个购买生命周期的重要中心对象，连接：
+
+```text
+Customer
+Product
+Payment
+Fulfillment
+Returns
+Refunds
+```
+
+ [Order - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/2026-01/objects/Order?utm_source=chatgpt.com)
+
+所以：
+
+```text
+Order
+│
+├── Customer
+│
+├── Line Items
+│      ├── Product
+│      └── Variant
+│
+├── Payment
+│
+├── Shipping Address
+│
+├── Transactions
+│
+├── Fulfillment
+│
+└── Refund
+```
+
+---
+
+# 十五、Order Line Item 又是什么？
+
+和 Cart 一样：
+
+```text
+Order
+ ↓
+Order Line Items
+```
+
+例如：
+
+```text
+Order #1001
+
+Line 1
+Nike Air Max
+Black / 9
+× 1
+
+Line 2
+T-Shirt
+White / M
+× 2
+```
+
+注意：
+
+```text
+Cart Line
+```
+
+和：
+
+```text
+Order Line Item
+```
+
+也不是同一个对象。
+
+它们处于不同生命周期。
+
+```text
+Cart Line
+   ↓
+Checkout
+   ↓
+Order Line Item
+```
+
+可以理解成：
+
+```text
+购物阶段：
+Cart Line
+
+成交以后：
+Order Line Item
+```
+
+---
+
+# 十六、Order 是 Shopify 后台真正的「交易记录」
+
+例如：
+
+```text
+Order #1001
+
+Customer:
+John
+
+Items:
+Nike Air Max × 1
+
+Subtotal:
+$129
+
+Shipping:
+$10
+
+Tax:
+$11
+
+Total:
+$150
+
+Payment:
+Paid
+
+Fulfillment:
+Unfulfilled
+```
+
+然后可能发生：
+
+```text
+Order
+ ↓
+Fulfillment
+ ↓
+Shipped
+ ↓
+Delivered
+```
+
+或者：
+
+```text
+Order
+ ↓
+Refund
+```
+
+所以 Order 会成为后续业务的核心。
+
+---
+
+# 十七、Order 和 Inventory 又怎么连接？
+
+现在把上一课接回来：
+
+```text
+Product
+ ↓
+Variant
+ ↓
+Inventory
+ ↓
+Cart
+ ↓
+Checkout
+ ↓
+Order
+ ↓
+Fulfillment
+```
+
+例如：
+
+```text
+Variant:
+Nike / Black / 9
+```
+
+库存：
+
+```text
+San Jose = 20
+```
+
+用户购买：
+
+```text
+quantity = 2
+```
+
+最终形成：
+
+```text
+Order
+└── Nike / Black / 9 × 2
+```
+
+然后库存相关状态会随着订单和履约流程变化。
+
+因此：
+
+```text
+Order
+```
+
+不是库存本身。
+
+它是：
+
+> **购买交易记录。**
+
+---
+
+# 十八、Order 和 Fulfillment 也不要混
+
+比如：
+
+```text
+Order #1001
+Paid
+```
+
+不代表：
+
+```text
+已经发货
+```
+
+可能是：
+
+```text
+Order
+↓
+Paid
+↓
+Unfulfilled
+```
+
+然后仓库开始处理：
+
+```text
+Order
+↓
+Fulfillment
+↓
+Fulfilled
+↓
+Tracking Number
+```
+
+所以：
+
+```text
+Order
+```
+
+解决：
+
+> 买了什么？
+
+而：
+
+```text
+Fulfillment
+```
+
+解决：
+
+> 怎么履约、发出去？
+
+---
+
+# 十九、你可以把整个系统想象成一个状态机
+
+非常适合你这种前端开发者理解。
+
+```text
+          Add to Cart
+               ↓
+            [ CART ]
+               ↓
+        Start Checkout
+               ↓
+          [ CHECKOUT ]
+               ↓
+       Payment Complete
+               ↓
+            [ ORDER ]
+               ↓
+          Fulfillment
+               ↓
+         [ FULFILLED ]
+```
+
+中间可能发生：
+
+```text
+CART
+ ↓
+abandoned
+```
+
+或者：
+
+```text
+ORDER
+ ↓
+refund
+```
+
+或者：
+
+```text
+ORDER
+ ↓
+partial fulfillment
+```
+
+---
+
+# 二十、Theme 和 App 在这条链上的职责
+
+这时候你已经可以非常清楚地区分了。
+
+### Theme
+
+```text
+Product
+ ↓
+Variant
+ ↓
+Cart UI
+ ↓
+Cart Drawer
+ ↓
+Cart Page
+ ↓
+Checkout Button
+```
+
+Theme 主要负责消费者看到的 storefront UI。Shopify Theme 本身由 Liquid、CSS、JavaScript 等构成，并通过模板、Sections、Blocks 等组织页面。 [Theme architecture](https://shopify.dev/docs/storefronts/themes/architecture?utm_source=chatgpt.com)
+
+---
+
+### Storefront API / Headless
+
+如果你以后做：
+
+```text
+Next.js
+React
+Hydrogen
+Mobile App
+```
+
+则：
+
+```text
+React
+ ↓
+Storefront API
+ ↓
+Product
+ ↓
+Cart
+ ↓
+checkoutUrl
+ ↓
+Shopify Checkout
+```
+
+当前 Shopify 官方也把 Storefront API 定位为构建自定义 storefront 的基础层，可用于 Products、Collections、Cart、搜索等能力。 [Building with the Storefront API](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api?utm_source=chatgpt.com)
+
+---
+
+### App / Admin API
+
+如果你做：
+
+```text
+ERP
+OMS
+WMS
+CRM
+订单同步
+库存同步
+售后系统
+```
+
+则：
+
+```text
+Shopify
+ ↓
+Admin API
+ ↓
+Order
+ ↓
+Inventory
+ ↓
+Fulfillment
+```
+
+---
+
+# 二十一、最终形成完整 Shopify Commerce 数据图
+
+现在把前面 21～25 课全部连接起来：
+
+```text
+                         Product
+                            │
+                            ↓
+                         Variant
+                            │
+             ┌──────────────┴──────────────┐
+             ↓                             ↓
+       InventoryItem                   Collections
+             │
+             ↓
+      InventoryLevel
+             │
+             ↓
+          Location
+
+
+Variant
+   │
+   ↓
+  Cart
+   │
+   ├── Cart Lines
+   │
+   ├── Buyer Identity
+   │
+   ├── Cost
+   │
+   └── checkoutUrl
+           │
+           ↓
+       Checkout
+           │
+           ├── Shipping
+           ├── Tax
+           ├── Discount
+           ├── Payment
+           │
+           ↓
+          Order
+           │
+           ├── Order Lines
+           ├── Transactions
+           ├── Fulfillment
+           ├── Refund
+           └── Returns
+```
+
+这张图建议你真正记住。
+
+---
+
+# 二十二、用一个真实购物场景再走一遍
+
+假设用户购买：
+
+```text
+Nike Air Max
+Black / 9
+× 2
+```
+
+### 第一步：Product
+
+```text
+Nike Air Max
+```
+
+↓
+
+### 第二步：Variant
+
+```text
+Black / 9
+```
+
+↓
+
+### 第三步：Inventory
+
+```text
+San Jose
+available = 20
+```
+
+↓
+
+### 第四步：Cart
+
+```text
+Nike Air Max
+Black / 9
+quantity = 2
+```
+
+↓
+
+### 第五步：Checkout
+
+```text
+Product = $258
+Shipping = $10
+Tax = $20
+Total = $288
+```
+
+↓
+
+### 第六步：Payment
+
+```text
+Paid
+```
+
+↓
+
+### 第七步：Order
+
+```text
+Order #1001
+
+Nike Air Max
+Black / 9
+× 2
+
+Total: $288
+```
+
+↓
+
+### 第八步：Fulfillment
+
+```text
+San Jose Warehouse
+      ↓
+Pick
+      ↓
+Pack
+      ↓
+Ship
+      ↓
+Tracking
+```
+
+这就是 Shopify 最核心的商业闭环。
+
+---
+
+# 二十三、最后记住这张「生命周期图」
+
+```text
+                  商品阶段
+                     │
+                  Product
+                     ↓
+                  Variant
+                     │
+                     │
+                     ↓
+                  Inventory
+                     │
+                     ↓
+                 ┌───────┐
+                 │ Cart  │
+                 └───┬───┘
+                     │
+                用户准备购买
+                     ↓
+                ┌──────────┐
+                │ Checkout │
+                └────┬─────┘
+                     │
+                  支付成功
+                     ↓
+                ┌─────────┐
+                │  Order  │
+                └────┬────┘
+                     │
+                  履约处理
+                     ↓
+              ┌──────────────┐
+              │ Fulfillment  │
+              └──────┬───────┘
+                     │
+                  发货/完成
+```
+
+**第 25 课最重要的不是记 API，而是理解生命周期：**
+
+> **Variant 是卖什么 → Cart 是想买什么 → Checkout 是完成购买 → Order 是购买结果 → Fulfillment 是怎么履约。**
+
+下一步第 26 课就是 **Fulfillment / Transaction**，我们会把 **Order、Payment、Transaction、Fulfillment、Refund、Return** 这几个最容易混淆的对象彻底拆开。

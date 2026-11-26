@@ -1,0 +1,2031 @@
+# 第 19 课：Shopify Theme SEO
+
+## 我的提问 · 2026-09-19 Sat 23:10
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 23:10
+
+好，我们继续。
+
+# 第 19 课：Shopify Theme SEO
+
+这一课非常重要，因为你已经开始接触：
+
+- Collection
+- Product
+- Search
+- Filter
+- Sort
+- Pagination
+- URL State
+
+这些东西最后都会和 **SEO** 产生关系。
+
+对于一个 Shopify 前端开发来说，我建议你把 SEO 理解成：
+
+> **不是“给页面加几个 meta 标签”，而是让搜索引擎正确理解：这个 URL 是什么页面、页面的核心内容是什么、哪个 URL 才是这个内容的正式地址。**
+
+Shopify 官方目前把 Theme SEO 的核心 metadata 归纳为 **title、meta description、canonical URL**，并且还涉及 robots.txt、hreflang 等。 [SEO](https://shopify.dev/docs/storefronts/themes/seo?utm_source=chatgpt.com) [Add SEO metadata to your theme](https://shopify.dev/docs/storefronts/themes/seo/metadata?utm_source=chatgpt.com)
+
+---
+
+# 一、先建立 SEO 整体模型
+
+一个 Shopify 页面可以理解成：
+
+```text
+                    Shopify
+                       │
+                       ▼
+                Liquid Server Render
+                       │
+                       ▼
+                     HTML
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+      Title       Description      Canonical
+        │              │              │
+        └──────────────┼──────────────┘
+                       ▼
+                 Search Engine
+```
+
+SEO 主要解决三个问题：
+
+### 1. 这个页面叫什么？
+
+```html
+<title>Black Running Shoes | My Store</title>
+```
+
+### 2. 这个页面讲什么？
+
+```html
+<meta
+  name="description"
+  content="Shop our collection of black running shoes..."
+>
+```
+
+### 3. 这个页面的正式 URL 是哪个？
+
+```html
+<link
+  rel="canonical"
+  href="https://example.com/products/black-running-shoes"
+>
+```
+
+---
+
+# 二、`<title>`
+
+Shopify 提供了：
+
+```liquid
+{{ page_title }}
+```
+
+它会根据当前页面得到相应标题。
+
+比如：
+
+```text
+/products/air-max
+```
+
+可能得到：
+
+```text
+Nike Air Max
+```
+
+Collection：
+
+```text
+/collections/shoes
+```
+
+可能得到：
+
+```text
+Shoes
+```
+
+Search：
+
+```text
+/search?q=running
+```
+
+可能得到：
+
+```text
+Search
+```
+
+所以 Theme 通常会在：
+
+```text
+layout/theme.liquid
+```
+
+里面处理。
+
+Shopify 官方示例：
+
+```liquid
+<head>
+
+  <title>
+    {{ page_title }}
+
+    {% if current_tags %}
+      – tagged "{{ current_tags | join: ', ' }}"
+    {% endif %}
+
+    {% if current_page != 1 %}
+      – Page {{ current_page }}
+    {% endif %}
+
+    {% unless page_title contains shop.name %}
+      – {{ shop.name }}
+    {% endunless %}
+  </title>
+
+</head>
+```
+
+这段逻辑有几个很重要的地方。 [Add SEO metadata to your theme](https://shopify.dev/docs/storefronts/themes/seo/metadata?utm_source=chatgpt.com)
+
+---
+
+# 三、为什么 Pagination 会影响 SEO？
+
+我们上一课讲了：
+
+```text
+/collections/shoes?page=1
+/collections/shoes?page=2
+/collections/shoes?page=3
+```
+
+如果你的 title 永远都是：
+
+```text
+Shoes
+```
+
+那么：
+
+```text
+Shoes
+Shoes
+Shoes
+```
+
+搜索引擎看到多个页面标题完全一样。
+
+所以 Shopify 官方示例会考虑：
+
+```liquid
+{% if current_page != 1 %}
+  – Page {{ current_page }}
+{% endif %}
+```
+
+最终：
+
+```text
+Shoes
+Shoes – Page 2
+Shoes – Page 3
+```
+
+这就是为什么我们前面学 Pagination 时，要开始关注 SEO。
+
+---
+
+# 四、`meta description`
+
+第二个核心：
+
+```html
+<meta name="description">
+```
+
+Shopify 提供：
+
+```liquid
+{{ page_description }}
+```
+
+所以：
+
+```liquid
+{% if page_description %}
+  <meta
+    name="description"
+    content="{{ page_description | escape }}"
+  >
+{% endif %}
+```
+
+官方目前也是这个思路。 [Add SEO metadata to your theme](https://shopify.dev/docs/storefronts/themes/seo/metadata?utm_source=chatgpt.com)
+
+例如商品：
+
+```text
+Product:
+Nike Air Max
+```
+
+管理员可以设置商品的 SEO description：
+
+```text
+Shop Nike Air Max running shoes with lightweight cushioning...
+```
+
+Theme：
+
+```liquid
+{{ page_description }}
+```
+
+最后输出：
+
+```html
+<meta
+  name="description"
+  content="Shop Nike Air Max running shoes with lightweight cushioning..."
+>
+```
+
+---
+
+# 五、Canonical 是这一课最重要的知识点
+
+这个对于你这个前端开发来说非常值得深入理解。
+
+假设：
+
+```text
+/collections/shoes
+```
+
+是一个 Collection。
+
+现在用户进行了筛选：
+
+```text
+/collections/shoes?filter.v.option.color=black
+```
+
+又进行了排序：
+
+```text
+/collections/shoes?sort_by=price-ascending
+```
+
+又分页：
+
+```text
+/collections/shoes?sort_by=price-ascending&page=2
+```
+
+那么实际上出现了很多 URL：
+
+```text
+/collections/shoes
+
+/collections/shoes?filter.v.option.color=black
+
+/collections/shoes?sort_by=price-ascending
+
+/collections/shoes?page=2
+
+/collections/shoes?sort_by=price-ascending&page=2
+```
+
+但是：
+
+> **这些 URL 不一定都应该被搜索引擎当成独立的核心页面。**
+
+这时候 Canonical 就非常重要。
+
+---
+
+# 六、Canonical 是什么？
+
+可以简单理解：
+
+> **告诉搜索引擎：这个页面的“标准版本”是谁。**
+
+例如：
+
+```html
+<link
+  rel="canonical"
+  href="https://example.com/collections/shoes"
+/>
+```
+
+即使当前 URL 是：
+
+```text
+/collections/shoes?sort_by=price-ascending
+```
+
+Canonical 仍然可以指向：
+
+```text
+/collections/shoes
+```
+
+Shopify 提供：
+
+```liquid
+{{ canonical_url }}
+```
+
+官方推荐直接使用这个全局 Liquid 对象。 [Add SEO metadata to your theme](https://shopify.dev/docs/storefronts/themes/seo/metadata?utm_source=chatgpt.com)
+
+因此：
+
+```liquid
+<link
+  rel="canonical"
+  href="{{ canonical_url }}"
+>
+```
+
+是非常重要的一行。
+
+---
+
+# 七、把 Filter / Sort / Pagination 和 SEO 联系起来
+
+现在你应该能把上一课和这一课串起来了：
+
+```text
+Collection
+    │
+    ├── Filter
+    │
+    ├── Sort
+    │
+    ├── Pagination
+    │
+    ▼
+     URL
+    │
+    ▼
+ SEO
+ ├── title
+ ├── description
+ └── canonical
+```
+
+这也是为什么 Shopify Theme 开发不能只会写 UI。
+
+---
+
+# 八、一个标准的 `<head>`
+
+我们现在把前面的东西组合起来：
+
+```liquid
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    {{ page_title }}
+
+    {% if current_tags %}
+      – tagged "{{ current_tags | join: ', ' }}"
+    {% endif %}
+
+    {% if current_page != 1 %}
+      – Page {{ current_page }}
+    {% endif %}
+
+    {% unless page_title contains shop.name %}
+      – {{ shop.name }}
+    {% endunless %}
+  </title>
+
+  {% if page_description %}
+    <meta
+      name="description"
+      content="{{ page_description | escape }}"
+    >
+  {% endif %}
+
+  <link
+    rel="canonical"
+    href="{{ canonical_url }}"
+  >
+
+  {{ content_for_header }}
+
+</head>
+```
+
+这就是你以后看 Shopify Theme 时非常常见的一块核心代码。
+
+---
+
+# 九、Product SEO
+
+Product 页面是电商 SEO 的重点。
+
+例如：
+
+```text
+/products/nike-air-max
+```
+
+页面至少应该有：
+
+```text
+Title
+Description
+Product content
+Image
+Structured Data
+Canonical
+```
+
+页面结构可以理解：
+
+```text
+Product Page
+│
+├── <title>
+│
+├── meta description
+│
+├── canonical
+│
+├── H1
+│   └── Product Title
+│
+├── Product Description
+│
+├── Product Images
+│
+├── Price
+│
+├── Availability
+│
+└── JSON-LD
+```
+
+---
+
+# 十、H1 和 `<title>` 不是一回事
+
+这是很多前端开发容易混淆的地方。
+
+例如：
+
+```html
+<title>
+  Nike Air Max Running Shoes | My Store
+</title>
+```
+
+而页面：
+
+```html
+<h1>
+  Nike Air Max
+</h1>
+```
+
+两者作用不同。
+
+### `<title>`
+
+主要属于：
+
+```text
+HTML document metadata
+```
+
+### `<h1>`
+
+属于：
+
+```text
+页面内容结构
+```
+
+所以不要简单理解成：
+
+```text
+title = h1
+```
+
+而应该理解：
+
+```text
+SEO metadata
+    │
+    └── <title>
+
+Visible page content
+    │
+    └── <h1>
+```
+
+---
+
+# 十一、Collection SEO
+
+Collection 页面同样如此。
+
+例如：
+
+```text
+/collections/running-shoes
+```
+
+页面：
+
+```liquid
+<h1>
+  {{ collection.title }}
+</h1>
+
+{% if collection.description != blank %}
+  <div class="collection-description">
+    {{ collection.description }}
+  </div>
+{% endif %}
+```
+
+最终：
+
+```text
+<title>
+Running Shoes | My Store
+</title>
+
+<h1>
+Running Shoes
+</h1>
+
+description:
+Best running shoes for...
+```
+
+这三个东西承担不同职责。
+
+---
+
+# 十二、Product Structured Data
+
+这一块是 Shopify Theme SEO 非常重要的知识。
+
+你经常会看到：
+
+```html
+<script type="application/ld+json">
+{
+  ...
+}
+</script>
+```
+
+这叫：
+
+> **JSON-LD Structured Data**
+
+它不是给用户看的，而是给搜索引擎理解页面数据的。
+
+例如 Product：
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Nike Air Max",
+  "image": [
+    "https://example.com/image.jpg"
+  ],
+  "description": "Running shoes",
+  "sku": "AIR-001"
+}
+```
+
+还可以描述：
+
+```text
+Product
+├── name
+├── image
+├── description
+├── sku
+└── offers
+    ├── price
+    ├── currency
+    └── availability
+```
+
+Shopify 官方 Theme Store 的 SEO 要求中明确要求 Theme 包含 Google rich product snippets。 [Theme store requirements](https://shopify.dev/docs/storefronts/themes/store/requirements?utm_source=chatgpt.com)
+
+---
+
+# 十三、为什么 Structured Data 很重要？
+
+假设普通 HTML：
+
+```html
+<h1>Nike Air Max</h1>
+
+<p>$129.99</p>
+```
+
+人类很容易理解：
+
+```text
+产品 = Nike Air Max
+价格 = $129.99
+```
+
+但 Structured Data 可以更加明确地告诉机器：
+
+```json
+{
+  "@type": "Product",
+  "name": "Nike Air Max",
+  "offers": {
+    "@type": "Offer",
+    "price": "129.99"
+  }
+}
+```
+
+也就是：
+
+```text
+HTML
+↓
+给人看
+
+JSON-LD
+↓
+给机器理解
+```
+
+---
+
+# 十四、不要把 JSON-LD 和 Liquid 混为一谈
+
+你会经常看到：
+
+```liquid
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": {{ product.title | json }},
+  "description": {{ product.description | strip_html | json }}
+}
+</script>
+```
+
+这里发生了：
+
+```text
+Liquid
+↓
+Shopify Server
+↓
+生成 JSON-LD
+↓
+HTML
+↓
+Search Engine
+```
+
+所以：
+
+```liquid
+{{ product.title | json }}
+```
+
+并不是 JavaScript 在执行。
+
+仍然是：
+
+> **Liquid Server Rendering**
+
+---
+
+# 十五、Image SEO
+
+我们之前学 Product Media 的时候写过：
+
+```liquid
+{{
+  media
+  | image_url: width: 1000
+  | image_tag:
+    loading: 'lazy',
+    alt: media.alt
+}}
+```
+
+这里：
+
+```html
+alt="Nike Air Max black running shoes"
+```
+
+非常重要。
+
+因为：
+
+```text
+Image
+  │
+  ├── visual information → 用户
+  │
+  └── alt text → accessibility / search understanding
+```
+
+所以不要：
+
+```html
+alt="image"
+```
+
+也不要：
+
+```html
+alt="123456"
+```
+
+更不要把大量关键词硬塞进去。
+
+应该描述图片实际内容。
+
+---
+
+# 十六、Open Graph
+
+还有一组经常看到：
+
+```html
+<meta property="og:title">
+<meta property="og:description">
+<meta property="og:image">
+<meta property="og:url">
+```
+
+它们主要服务于：
+
+```text
+Social Sharing
+```
+
+例如用户把：
+
+```text
+/products/nike-air-max
+```
+
+分享到某个社交平台。
+
+平台读取：
+
+```text
+og:title
+og:description
+og:image
+```
+
+然后生成：
+
+```text
+┌─────────────────────────────┐
+│                             │
+│       Product Image         │
+│                             │
+├─────────────────────────────┤
+│ Nike Air Max                │
+│ Running shoes...            │
+│ example.com                 │
+└─────────────────────────────┘
+```
+
+它和：
+
+```text
+<title>
+```
+
+不是完全一回事。
+
+可以这样记：
+
+```text
+<title>
+   ↓
+搜索 / 浏览器
+
+<meta description>
+   ↓
+搜索结果摘要等
+
+Open Graph
+   ↓
+社交分享预览
+
+JSON-LD
+   ↓
+机器理解结构化数据
+```
+
+---
+
+# 十七、robots.txt
+
+另外一个重要概念：
+
+```text
+/robots.txt
+```
+
+它告诉 crawler：
+
+```text
+哪些 URL 可以抓
+哪些 URL 不应该抓
+```
+
+Shopify 默认会生成 robots.txt，并且如果确实需要自定义，可以创建：
+
+```text
+templates/robots.txt.liquid
+```
+
+Shopify 官方也特别建议尽量利用它提供的 `robots` Liquid 对象，因为默认规则会随着 Shopify 的 SEO 最佳实践更新。 [Customize robots.txt](https://shopify.dev/docs/storefronts/themes/seo/robots-txt?utm_source=chatgpt.com) [robots.txt.liquid](https://shopify.dev/docs/storefronts/themes/architecture/templates/robots-txt-liquid?utm_source=chatgpt.com)
+
+例如：
+
+```liquid
+{% for group in robots.default_groups %}
+
+  {{- group.user_agent -}}
+
+  {% for rule in group.rules %}
+    {{- rule -}}
+  {% endfor %}
+
+  {% if group.sitemap != blank %}
+    {{ group.sitemap }}
+  {% endif %}
+
+{% endfor %}
+```
+
+不过：
+
+> **不要为了“学 SEO”就随便修改 robots.txt。**
+
+错误配置可能导致搜索引擎无法抓取本来应该被收录的页面。
+
+---
+
+# 十八、hreflang
+
+这个对你以后做跨境电商 Shopify 特别重要。
+
+例如：
+
+```text
+美国
+example.com/en-us
+
+加拿大
+example.com/en-ca
+
+法国
+example.com/fr-fr
+```
+
+搜索引擎需要知道：
+
+```text
+这些页面不是三个完全无关的页面
+而是不同地区/语言版本
+```
+
+这时候就是：
+
+```html
+<link
+  rel="alternate"
+  hreflang="en-us"
+  ...
+>
+```
+
+但现在 Shopify Markets 会通过：
+
+```liquid
+{{ content_for_header }}
+```
+
+自动加入相关 hreflang 标签。官方文档明确建议不要再额外重复添加，否则可能产生重复或冲突。 [Use hreflang tags in your theme](https://shopify.dev/docs/storefronts/themes/seo/hreflang?utm_source=chatgpt.com)
+
+这个对于你以后学习：
+
+```text
+Markets
+多语言
+多货币
+跨境电商
+```
+
+会非常重要。
+
+---
+
+# 十九、Filter SEO 是我们现在最应该理解的部分
+
+回到上一课。
+
+假设：
+
+```text
+/collections/shoes
+```
+
+用户筛选：
+
+```text
+Color = Black
+```
+
+URL：
+
+```text
+/collections/shoes?filter.v.option.color=black
+```
+
+然后：
+
+```text
+Sort = Price low → high
+```
+
+URL：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&sort_by=price-ascending
+```
+
+再：
+
+```text
+Page 2
+```
+
+变成：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&sort_by=price-ascending
+&page=2
+```
+
+这就是为什么：
+
+> **Filter、Sort、Pagination 不只是前端 UI 问题，它们同时是 SEO / URL 架构问题。**
+
+---
+
+# 二十、SEO 中最容易犯的错误
+
+### 错误 1：每个页面都写死 title
+
+例如：
+
+```html
+<title>My Store</title>
+```
+
+那么：
+
+```text
+Product A
+Product B
+Product C
+Collection A
+Collection B
+```
+
+全部一样。
+
+❌ 不好。
+
+---
+
+### 错误 2：没有 canonical
+
+```text
+/product/a
+/product/a?variant=123
+/product/a?foo=bar
+/product/a?campaign=test
+```
+
+可能产生大量 URL 变体。
+
+Canonical 用来告诉搜索引擎标准 URL。
+
+---
+
+### 错误 3：Filter / Sort / Pagination 完全不考虑 URL
+
+比如：
+
+```js
+fetch(...)
+```
+
+然后只更新：
+
+```text
+DOM
+```
+
+却不更新 URL。
+
+那么用户：
+
+```text
+复制 URL
+刷新
+浏览器后退
+搜索引擎访问
+```
+
+都可能出现问题。
+
+这也是为什么上一课我们一直强调：
+
+> **URL 是 Shopify Theme 的外部状态。**
+
+---
+
+### 错误 4：所有东西都依赖 JavaScript
+
+例如 Collection 初始 HTML：
+
+```html
+<div id="products"></div>
+```
+
+然后 JS：
+
+```js
+fetch('/api/products')
+```
+
+再：
+
+```js
+products.forEach(...)
+```
+
+这并不是 Shopify Theme 推荐的核心架构。
+
+Shopify 当前主题最佳实践强调性能，并建议尽量减少 JavaScript、利用服务器渲染和现代浏览器能力。 [Best practices for building Shopify themes](https://shopify.dev/docs/storefronts/themes/best-practices?utm_source=chatgpt.com) [Performance best practices for Shopify themes](https://shopify.dev/docs/storefronts/themes/best-practices/performance?utm_source=chatgpt.com)
+
+更合理：
+
+```text
+Shopify
+ ↓
+Liquid
+ ↓
+初始 Product HTML
+ ↓
+Browser
+ ↓
+JS 增强交互
+```
+
+而不是：
+
+```text
+Browser
+ ↓
+JS
+ ↓
+API
+ ↓
+Products
+ ↓
+Render Everything
+```
+
+---
+
+# 二十一、如果你是 React 开发者，可以这样理解
+
+这是这一课我最希望你记住的对照。
+
+### React/Next.js
+
+```text
+SEO
+│
+├── <title>
+├── metadata
+├── canonical
+├── JSON-LD
+└── SSR
+```
+
+### Shopify Theme
+
+```text
+SEO
+│
+├── page_title
+├── page_description
+├── canonical_url
+├── Liquid
+├── JSON-LD
+└── Server Rendered HTML
+```
+
+所以你完全可以用 Next.js 的思维去理解 Shopify：
+
+```text
+Next.js SSR
+≈
+Shopify Liquid SSR
+```
+
+但 Shopify 的数据源不是：
+
+```text
+your own DB
+```
+
+而是：
+
+```text
+Shopify Commerce Data
+```
+
+---
+
+# 二十二、把整个 Theme SEO 串起来
+
+现在你已经学过：
+
+```text
+Product
+Variant
+Collection
+Search
+Predictive Search
+Filter
+Sort
+Pagination
+```
+
+再加入 SEO：
+
+```text
+                    Shopify
+                       │
+                       ▼
+                    Liquid
+                       │
+        ┌──────────────┼───────────────┐
+        ▼              ▼               ▼
+     Product       Collection        Search
+        │              │               │
+        └──────────────┼───────────────┘
+                       ▼
+                      URL
+                       │
+       ┌───────────────┼────────────────┐
+       ▼               ▼                ▼
+     Filter           Sort          Pagination
+       │               │                │
+       └───────────────┼────────────────┘
+                       ▼
+                      SEO
+               ┌───────┼────────┐
+               ▼       ▼        ▼
+             Title Description Canonical
+                       │
+                       ▼
+                   Structured Data
+                       │
+                       ▼
+                 Search Engines
+```
+
+这张图你以后做 Shopify Theme 时会非常有用。
+
+---
+
+# 二十三、这一课你需要掌握的核心
+
+如果让我把第 19 课压缩成 **8 个知识点**：
+
+```text
+① page_title
+      ↓
+   <title>
+
+② page_description
+      ↓
+   meta description
+
+③ canonical_url
+      ↓
+   canonical
+
+④ H1
+      ↓
+   页面主体语义
+
+⑤ alt
+      ↓
+   图片语义 + accessibility
+
+⑥ JSON-LD
+      ↓
+   Structured Data
+
+⑦ robots.txt
+      ↓
+   crawler 控制
+
+⑧ hreflang
+      ↓
+   多语言 / 多市场
+```
+
+其中你现在最应该牢牢记住的是：
+
+> **Title / Description / Canonical 是 Theme SEO 的基础三件套。**
+
+Shopify 官方的 SEO metadata 文档也是围绕这三项展开的。 [Add SEO metadata to your theme](https://shopify.dev/docs/storefronts/themes/seo/metadata?utm_source=chatgpt.com)
+
+---
+
+# 下一课：第 20 课 —— Theme Performance
+
+下一课我们把 **性能**彻底讲清楚。
+
+会重点讲：
+
+```text
+LCP
+CLS
+INP
+```
+
+以及 Shopify Theme 中最实际的：
+
+```text
+image_url
+image_tag
+lazy loading
+preload
+JavaScript
+CSS
+font
+section
+Liquid payload
+App
+Third-party scripts
+Section Rendering API
+```
+
+尤其是你作为前端开发，我会把它和：
+
+```text
+React
+Next.js
+SSR
+Hydration
+Code Splitting
+Lazy Loading
+Core Web Vitals
+```
+
+对应起来。
+
+这一课学完，你会开始真正理解：
+
+> **为什么一个 Shopify Theme 看起来功能完全一样，但性能可以差很多。**
+
+---
+
+## 我的提问 · 2026-09-19 Sat 23:19
+
+{{ canonical_url }}在哪配置呢
+
+## ChatGPT · 2026-09-19 Sat 23:19
+
+`{{ canonical_url }}` **不是你在 Shopify 后台某个地方配置的变量**。
+
+它是 Shopify Theme 里的一个 **Liquid 全局对象**，Shopify 会根据当前页面自动计算它的 canonical URL。
+
+你要做的是：**在 Theme 的 `<head>` 里使用它。**
+
+通常位置：
+
+```text
+layout/
+└── theme.liquid
+```
+
+找到：
+
+```liquid
+<head>
+```
+
+然后加入：
+
+```liquid
+<link rel="canonical" href="{{ canonical_url }}">
+```
+
+例如：
+
+```liquid
+<head>
+  <meta charset="utf-8">
+
+  <title>{{ page_title }}</title>
+
+  {% if page_description %}
+    <meta
+      name="description"
+      content="{{ page_description | escape }}"
+    >
+  {% endif %}
+
+  <link
+    rel="canonical"
+    href="{{ canonical_url }}"
+  >
+
+  {{ content_for_header }}
+</head>
+```
+
+### 它是怎么工作的？
+
+假设当前访问：
+
+```text
+/products/nike-air-max
+```
+
+那么：
+
+```liquid
+{{ canonical_url }}
+```
+
+Shopify 会渲染成类似：
+
+```html
+<link
+  rel="canonical"
+  href="https://example.com/products/nike-air-max"
+>
+```
+
+如果当前是：
+
+```text
+/collections/shoes
+```
+
+就会对应当前 Collection 的 canonical URL。
+
+所以你可以把它理解成：
+
+```text
+{{ canonical_url }}
+        ↓
+Shopify 根据当前页面自动计算
+        ↓
+当前页面的标准 URL
+```
+
+### 一个很容易踩的坑
+
+**不要自己写死：**
+
+```liquid
+<link
+  rel="canonical"
+  href="https://example.com/products/xxx"
+>
+```
+
+因为 `theme.liquid` 会被很多页面共用。
+
+正确思路是：
+
+```liquid
+<link rel="canonical" href="{{ canonical_url }}">
+```
+
+让 Shopify 根据当前页面动态生成。
+
+---
+
+还有一个细节很重要：
+
+如果你使用的是 Shopify 的主流 Online Store 2.0 Theme，**你的 Theme 可能本来就已经有这行代码了**。
+
+所以你现在可以打开：
+
+```text
+Shopify Admin
+→ Online Store
+→ Themes
+→ Edit code
+→ layout
+→ theme.liquid
+```
+
+然后搜索：
+
+```text
+canonical
+```
+
+如果已经看到：
+
+```liquid
+<link rel="canonical" href="{{ canonical_url }}">
+```
+
+**就不要再添加第二个。**
+
+否则一个页面可能出现两个 canonical。
+
+如果你愿意，下一步我可以直接带你把 **`theme.liquid` 的 `<head>` 从头到尾拆开讲一遍**，包括 `content_for_header`、favicon、CSS、JS、SEO、Google/第三方脚本分别是干什么的。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 23:22
+
+那{{ content_for_header }}呢
+
+## ChatGPT · 2026-09-19 Sat 23:22
+
+这个比 `{{ canonical_url }}` 更重要，而且是 Shopify Theme 里一个**非常特殊的 Liquid 对象**。
+
+你可以先记住一句话：
+
+> **`{{ content_for_header }}` 是 Shopify 向你的 Theme 的 `<head>` 注入 Shopify 平台和 App 所需内容的入口。**
+
+---
+
+# 1. 它一般放在哪里？
+
+还是：
+
+```text
+layout/
+└── theme.liquid
+```
+
+通常：
+
+```liquid
+<head>
+
+  <meta charset="utf-8">
+
+  <title>{{ page_title }}</title>
+
+  <link
+    rel="canonical"
+    href="{{ canonical_url }}"
+  >
+
+  {{ content_for_header }}
+
+</head>
+```
+
+它一般放在 `<head>` 里面。
+
+---
+
+# 2. 它到底是什么？
+
+你可以把：
+
+```liquid
+{{ content_for_header }}
+```
+
+理解成一个：
+
+> **Shopify 平台预留的动态注入点。**
+
+它不是一个普通变量，比如：
+
+```liquid
+{{ product.title }}
+```
+
+这种变量是：
+
+```text
+Product
+ ↓
+title
+ ↓
+字符串
+```
+
+而：
+
+```liquid
+{{ content_for_header }}
+```
+
+更像：
+
+```text
+Shopify Platform
+       │
+       ├── Shopify 自己需要的内容
+       ├── App 需要注入的内容
+       ├── Tracking / Analytics 相关内容
+       ├── 某些平台功能
+       └── 其他运行时内容
+              │
+              ▼
+      content_for_header
+              │
+              ▼
+         <head>
+```
+
+所以它是 Shopify Theme 和 Shopify 平台之间非常重要的一个连接点。
+
+---
+
+# 3. 为什么 Shopify 要这样设计？
+
+假设你的 Theme 是：
+
+```text
+theme.liquid
+```
+
+但是你的店铺安装了很多东西：
+
+```text
+Shopify
+├── Shopify 本身
+├── Review App
+├── Analytics
+├── Marketing App
+├── Search App
+├── Subscription App
+└── 其他 App
+```
+
+这些东西可能都需要往页面里注入一些：
+
+```html
+<script>
+<link>
+<meta>
+...
+```
+
+如果 Shopify 要求你手动写：
+
+```liquid
+<script>Shopify stuff...</script>
+```
+
+那 Theme 开发会非常麻烦。
+
+所以 Shopify 提供：
+
+```liquid
+{{ content_for_header }}
+```
+
+作为平台注入点。
+
+---
+
+# 4. 一个非常重要的区别
+
+你可能会看到：
+
+```liquid
+{{ content_for_header }}
+```
+
+然后产生疑问：
+
+> “它到底输出什么 HTML？”
+
+这里要注意：
+
+**你不应该依赖它当前具体输出什么。**
+
+因为它是 Shopify 动态生成的内容。
+
+也就是说，不要写这种逻辑：
+
+```liquid
+{{ content_for_header }}
+
+{% if content_for_header contains 'xxx' %}
+...
+{% endif %}
+```
+
+也不要去修改它输出的内容。
+
+你应该把它当成：
+
+```text
+Shopify reserved area
+```
+
+---
+
+# 5. 为什么不能删？
+
+这个非常重要。
+
+如果你把：
+
+```liquid
+{{ content_for_header }}
+```
+
+删掉：
+
+```liquid
+<head>
+
+  <title>{{ page_title }}</title>
+
+  <!-- 没有 content_for_header -->
+
+</head>
+```
+
+你的 Theme 可能出现各种问题。
+
+因为 Shopify / App 依赖的某些内容可能无法正常注入。
+
+所以正常 Theme 应该保留：
+
+```liquid
+{{ content_for_header }}
+```
+
+Shopify 的 Theme 检查要求也涉及 `content_for_header` 的存在。官方文档明确说明它必须出现在 `theme.liquid` 的 `<head>` 中。  [Liquid objects: content_for_header](https://shopify.dev/docs/api/liquid/objects/content_for_header)
+
+---
+
+# 6. 它和 `{{ canonical_url }}` 有什么区别？
+
+这个区别非常重要。
+
+### `canonical_url`
+
+```liquid
+{{ canonical_url }}
+```
+
+是：
+
+```text
+Shopify 数据
+    ↓
+计算当前页面 canonical URL
+    ↓
+给你一个值
+```
+
+例如：
+
+```html
+<link
+  rel="canonical"
+  href="https://example.com/products/shoes"
+>
+```
+
+---
+
+### `content_for_header`
+
+则是：
+
+```text
+Shopify Platform
+       ↓
+动态生成一堆需要注入 Theme 的内容
+       ↓
+content_for_header
+       ↓
+<head>
+```
+
+所以：
+
+```text
+canonical_url
+    ↓
+一个 Liquid 数据
+
+content_for_header
+    ↓
+Shopify 平台注入机制
+```
+
+---
+
+# 7. 你可以把它类比成 Next.js
+
+如果你熟悉 React / Next.js，可以粗略理解成：
+
+```text
+Shopify Theme
+────────────────────
+
+theme.liquid
+    │
+    ├── {{ page_title }}
+    ├── {{ canonical_url }}
+    ├── {{ page_description }}
+    │
+    └── {{ content_for_header }}
+              │
+              ▼
+       Shopify Platform
+```
+
+有点类似：
+
+```text
+Next.js
+    │
+    ├── metadata
+    ├── scripts
+    └── framework/runtime integrations
+```
+
+当然两者不是一一对应，但这个思维模型比较容易理解。
+
+---
+
+# 8. 为什么 `hreflang` 也和它有关？
+
+这正好和我们上一课讲的 SEO 联系起来。
+
+Shopify Markets 涉及：
+
+```text
+美国
+加拿大
+法国
+德国
+...
+```
+
+不同语言/市场可能需要：
+
+```html
+<link
+  rel="alternate"
+  hreflang="en-us"
+  ...
+>
+```
+
+Shopify 会处理部分相关内容。
+
+所以你在 Theme 里不要看到：
+
+```liquid
+{{ content_for_header }}
+```
+
+就想着：
+
+> “我要把它替换成我自己的 SEO 代码。”
+
+不是这个思路。
+
+应该是：
+
+```text
+你负责：
+├── title
+├── description
+├── canonical
+├── 页面结构
+├── JSON-LD
+└── 图片 alt
+
+Shopify 负责：
+└── 平台级动态注入
+```
+
+---
+
+# 9. `content_for_header` 和 `content_for_layout`
+
+顺便给你讲一个经常一起出现的东西：
+
+```liquid
+{{ content_for_header }}
+```
+
+和：
+
+```liquid
+{{ content_for_layout }}
+```
+
+这两个名字非常容易混。
+
+### `content_for_header`
+
+位置：
+
+```html
+<head>
+  {{ content_for_header }}
+</head>
+```
+
+作用：
+
+```text
+Shopify / App
+        ↓
+<head>
+```
+
+---
+
+### `content_for_layout`
+
+通常：
+
+```html
+<body>
+
+  {{ content_for_layout }}
+
+</body>
+```
+
+作用：
+
+```text
+当前页面 Template
+        ↓
+Section
+        ↓
+content_for_layout
+        ↓
+<body>
+```
+
+所以你可以这样记：
+
+```text
+              theme.liquid
+                   │
+       ┌───────────┴───────────┐
+       │                       │
+      <head>                 <body>
+       │                       │
+       ▼                       ▼
+content_for_header     content_for_layout
+       │                       │
+       ▼                       ▼
+Shopify / App          当前页面内容
+平台注入                Template / Sections
+```
+
+这个图非常重要。
+
+---
+
+# 10. 所以一个 Shopify Theme 的骨架
+
+你现在应该开始能看懂：
+
+```liquid
+<!doctype html>
+
+<html>
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    {{ page_title }}
+  </title>
+
+  {% if page_description %}
+    <meta
+      name="description"
+      content="{{ page_description | escape }}"
+    >
+  {% endif %}
+
+  <link
+    rel="canonical"
+    href="{{ canonical_url }}"
+  >
+
+  {{ content_for_header }}
+
+</head>
+
+<body>
+
+  {% sections 'header-group' %}
+
+  <main>
+    {{ content_for_layout }}
+  </main>
+
+  {% sections 'footer-group' %}
+
+</body>
+</html>
+```
+
+你现在看到这份代码，实际上已经把我们前面学的很多东西串起来了：
+
+```text
+theme.liquid
+│
+├── SEO
+│   ├── page_title
+│   ├── page_description
+│   └── canonical_url
+│
+├── Shopify Platform
+│   └── content_for_header
+│
+├── Header
+│
+├── 当前页面
+│   └── content_for_layout
+│
+└── Footer
+```
+
+**这就是 Shopify Theme 的“总入口”。**
+
+下一步我们继续学第 20 课性能时，你会发现 `content_for_header` 也是理解 **Shopify Theme 为什么容易被 App 拖慢** 的关键之一。

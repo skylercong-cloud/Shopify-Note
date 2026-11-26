@@ -1,0 +1,981 @@
+<h1>第 4 课：Shopify Theme 的真实运行机制</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-15T21:41:00+08:00">09-15 21:41</time></div><p>进入第4课</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-15T21:41:00+08:00">09-15 21:41</time></div>
+<p>好，我们进入 <strong>第 4 课：Theme、Liquid、JavaScript 到底是怎么运行的</strong>。</p>
+<p>这一课开始真正进入 Shopify 前端开发。你已经有 2–3 年前端经验，所以我会尽量用你熟悉的 <strong>浏览器、SSR、组件、HTTP、JS</strong> 来解释，而不是把 Shopify 当成一个完全陌生的体系。</p>
+<hr>
+<h3>一、先解决一个最核心的问题</h3>
+<p>你以后开发 Shopify Theme，可能会看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+HTML
+CSS
+JavaScript
+JSON
+</code></pre></div>
+<p>第一反应可能是：</p>
+<blockquote>
+<p>“这不就是前端吗？”</p>
+</blockquote>
+<p><strong>对，但它和 React/Vue 的运行方式完全不同。</strong></p>
+<p>你可以先记住：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React/Vue
+
+服务器
+  ↓
+API / 数据
+  ↓
+浏览器
+  ↓
+React/Vue
+  ↓
+DOM
+</code></pre></div>
+<p>而 Shopify Theme 更接近：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+  ↓
+Liquid
+  ↓
+HTML
+  ↓
+浏览器
+  ↓
+JavaScript
+  ↓
+DOM 交互
+</code></pre></div>
+<p>也就是说：</p>
+<blockquote>
+<p><strong>Liquid 主要负责“服务器端生成页面”，JavaScript 主要负责“浏览器端交互”。</strong></p>
+</blockquote>
+<p>这是今天最重要的知识。</p>
+<hr>
+<h2>二、如果你是 React 工程师，可以这样类比</h2>
+<p>假设我们做一个商品详情页。</p>
+<p>React 可能写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">function ProductPage({ product }) {
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{product.title}&lt;/h1&gt;
+      &lt;p&gt;{product.description}&lt;/p&gt;
+    &lt;/div&gt;
+  )
+}
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product
+   ↓
+React
+   ↓
+HTML
+</code></pre></div>
+<p>Shopify Theme 则可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;div&gt;
+  &lt;h1&gt;{{ product.title }}&lt;/h1&gt;
+  &lt;p&gt;{{ product.description }}&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Product
+       ↓
+Liquid
+       ↓
+HTML
+</code></pre></div>
+<p>所以你可以暂时把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.title }}
+</code></pre></div>
+<p>理解成类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">{product.title}
+</code></pre></div>
+<p>但<strong>不要把 Liquid 当成 React</strong>。</p>
+<p>这是两个完全不同的东西。</p>
+<hr>
+<h2>三、Liquid 到底是什么？</h2>
+<p>Liquid 是 Shopify 使用的模板语言。</p>
+<p>你可以把它理解成：</p>
+<blockquote>
+<p><strong>“Shopify 服务端模板层”。</strong></p>
+</blockquote>
+<p>最简单的 Liquid：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ product.title }}&lt;/h1&gt;
+</code></pre></div>
+<p>如果商品叫：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Classic T-Shirt
+</code></pre></div>
+<p>Shopify 在生成 HTML 时，会把它变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;h1&gt;Classic T-Shirt&lt;/h1&gt;
+</code></pre></div>
+<p>浏览器最终看到的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;h1&gt;Classic T-Shirt&lt;/h1&gt;
+</code></pre></div>
+<p>浏览器<strong>不知道 Liquid 是什么</strong>。</p>
+<p>这点非常重要。</p>
+<hr>
+<h2>四、浏览器不会执行 Liquid</h2>
+<p>比如你写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ product.title }}&lt;/h1&gt;
+</code></pre></div>
+<p>浏览器不会：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">解析 Liquid
+ ↓
+寻找 product
+ ↓
+读取 title
+</code></pre></div>
+<p>实际上是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Server
+     ↓
+解析 Liquid
+     ↓
+生成 HTML
+     ↓
+发送给浏览器
+     ↓
+Browser
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid → Server
+JavaScript → Browser
+</code></pre></div>
+<p>这是 Shopify Theme 开发最重要的边界之一。</p>
+<hr>
+<h2>五、那 JavaScript 干什么？</h2>
+<p>假设商品页面有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">颜色：
+🔴 Red
+🔵 Blue
+
+尺码：
+S
+M
+L
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Blue
+</code></pre></div>
+<p>然后页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">价格
+库存
+图片
+Variant ID
+</code></pre></div>
+<p>发生变化。</p>
+<p>这种<strong>浏览器交互</strong>一般由 JavaScript 完成。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">document.querySelectorAll(&#39;.color-option&#39;)
+</code></pre></div>
+<p>然后监听：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">button.addEventListener(&#39;click&#39;, ...)
+</code></pre></div>
+<p>所以可以简单理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+ ↓
+把“初始页面”渲染出来
+
+JavaScript
+ ↓
+让页面“动起来”
+</code></pre></div>
+<hr>
+<h2>六、一个非常经典的 Shopify 页面</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Title: Classic T-Shirt
+Price: $29.99
+</code></pre></div>
+<p>Liquid：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ product.title }}&lt;/h1&gt;
+
+&lt;div class=&quot;price&quot;&gt;
+  {{ product.price | money }}
+&lt;/div&gt;
+</code></pre></div>
+<p>Shopify 服务器处理：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.title
+     ↓
+Classic T-Shirt
+
+product.price
+     ↓
+2999
+</code></pre></div>
+<p>最终浏览器收到类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;h1&gt;Classic T-Shirt&lt;/h1&gt;
+
+&lt;div class=&quot;price&quot;&gt;
+  $29.99
+&lt;/div&gt;
+</code></pre></div>
+<p>然后 JavaScript 再接管交互。</p>
+<hr>
+<h2>七、Liquid 的三个核心语法</h2>
+<p>你现在先掌握三个。</p>
+<h3>① 输出变量</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.title }}
+</code></pre></div>
+<p>意思：</p>
+<blockquote>
+<p>把值输出到 HTML。</p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.vendor }}
+</code></pre></div>
+<hr>
+<h3>② 条件</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% if product.available %}
+  &lt;button&gt;Add to cart&lt;/button&gt;
+{% else %}
+  &lt;button disabled&gt;Sold out&lt;/button&gt;
+{% endif %}
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">{{ }}
+</code></pre></div>
+<p>主要用于：</p>
+<blockquote>
+<p>输出数据</p>
+</blockquote>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">{% %}
+</code></pre></div>
+<p>主要用于：</p>
+<blockquote>
+<p>执行 Liquid 逻辑</p>
+</blockquote>
+<hr>
+<h3>③ 循环</h3>
+<p>例如一个商品有多个 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for variant in product.variants %}
+  &lt;div&gt;
+    {{ variant.title }}
+  &lt;/div&gt;
+{% endfor %}
+</code></pre></div>
+<p>逻辑类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">product.variants.forEach(variant =&gt; {
+  ...
+})
+</code></pre></div>
+<p>但还是那句话：</p>
+<blockquote>
+<p><strong>Liquid 不是 JavaScript。</strong></p>
+</blockquote>
+<p>只是语法上的某些思维方式类似。</p>
+<hr>
+<h2>八、Filter —— Liquid 一个非常重要的概念</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.price | money }}
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.price
+      ↓
+    money
+      ↓
+格式化价格
+</code></pre></div>
+<p>你可以把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ value | filter }}
+</code></pre></div>
+<p>暂时理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">format(value)
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.title | upcase }}
+</code></pre></div>
+<p>可以把文字转换成大写。</p>
+<p>还有很多 Filter：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">money
+upcase
+downcase
+escape
+default
+image_url
+asset_url
+json
+</code></pre></div>
+<p>以后你会大量使用。</p>
+<hr>
+<h2>九、现在进入 Theme 的核心结构</h2>
+<p>你前面已经知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+</code></pre></div>
+<p>负责 Storefront 的 UI。</p>
+<p>但是一个 Theme 到底由什么组成？</p>
+<p>可以先建立这个结构：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+│
+├── layout
+│
+├── templates
+│
+├── sections
+│
+├── snippets
+│
+├── assets
+│
+├── config
+│
+└── locales
+</code></pre></div>
+<p>今天我们重点理解前 5 个。</p>
+<hr>
+<h2>十、Layout —— 整个网站的“外壳”</h2>
+<p>最重要的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">layout/theme.liquid
+</code></pre></div>
+<p>你可以把它类比成 React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">&lt;App&gt;
+  &lt;Header /&gt;
+  {children}
+  &lt;Footer /&gt;
+&lt;/App&gt;
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;!doctype html&gt;
+
+&lt;html&gt;
+&lt;head&gt;
+  ...
+&lt;/head&gt;
+
+&lt;body&gt;
+
+  {% section &#39;header&#39; %}
+
+  {{ content_for_layout }}
+
+  {% section &#39;footer&#39; %}
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>这里最关键的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ content_for_layout }}
+</code></pre></div>
+<p>你可以暂时理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">当前页面内容
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">theme.liquid
+      │
+      ├── Header
+      │
+      ├── 当前页面
+      │
+      └── Footer
+</code></pre></div>
+<hr>
+<h2>十一、Template —— “页面类型”</h2>
+<p>假设用户访问：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/products/shoes
+</code></pre></div>
+<p>Shopify 需要知道：</p>
+<blockquote>
+<p>这是一个什么类型的页面？</p>
+</blockquote>
+<p>可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Collection
+Cart
+Search
+Page
+Blog
+Article
+</code></pre></div>
+<p>于是就有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates/
+├── product.json
+├── collection.json
+├── cart.json
+├── page.json
+└── index.json
+</code></pre></div>
+<p>你可以暂时理解成：</p>
+<blockquote>
+<p><strong>Template = 页面类型。</strong></p>
+</blockquote>
+<p>类似你在前端项目里定义：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ProductPage
+CollectionPage
+CartPage
+HomePage
+</code></pre></div>
+<p>但 Shopify 的机制更特殊。</p>
+<hr>
+<h2>十二、Section —— Shopify Theme 的“超级组件”</h2>
+<p>这是你作为前端工程师必须重点理解的。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+├── header.liquid
+├── footer.liquid
+├── product-main.liquid
+├── featured-products.liquid
+└── image-banner.liquid
+</code></pre></div>
+<p>Section 可以理解成：</p>
+<blockquote>
+<p><strong>可以被商家在 Theme Editor 中配置的页面模块。</strong></p>
+</blockquote>
+<p>比如首页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Home
+│
+├── Announcement Bar
+├── Header
+├── Hero Banner
+├── Featured Products
+├── Image Banner
+├── Newsletter
+└── Footer
+</code></pre></div>
+<p>这些就非常适合做成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Section
+</code></pre></div>
+<hr>
+<h2>十三、为什么 Section 和 React Component 不完全一样？</h2>
+<p>React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">&lt;HeroBanner
+  title=&quot;Summer Sale&quot;
+  image=&quot;xxx.jpg&quot;
+/&gt;
+</code></pre></div>
+<p>Shopify Section 更强调：</p>
+<blockquote>
+<p><strong>商家可以在后台 Theme Editor 自己配置。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Hero Banner
+
+标题：
+[ Summer Sale ]
+
+按钮：
+[ Shop Now ]
+
+图片：
+[ xxx.jpg ]
+
+背景：
+[ xxx.jpg ]
+</code></pre></div>
+<p>所以 Section 本质上不仅是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">UI Component
+</code></pre></div>
+<p>还包括：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">UI
++
+Schema
++
+Theme Editor 配置能力
+</code></pre></div>
+<hr>
+<h2>十四、Schema —— Section 为什么能被后台配置？</h2>
+<p>这就是 Shopify Theme 一个非常关键的设计。</p>
+<p>一个 Section 可以定义：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% schema %}
+{
+  &quot;name&quot;: &quot;Hero Banner&quot;,
+  &quot;settings&quot;: [
+    {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;id&quot;: &quot;title&quot;,
+      &quot;label&quot;: &quot;Title&quot;
+    }
+  ]
+}
+{% endschema %}
+</code></pre></div>
+<p>那么 Theme Editor 就可以出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Hero Banner
+
+Title:
+[ Summer Sale          ]
+</code></pre></div>
+<p>商家修改：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+</code></pre></div>
+<p>Liquid 就可以读取：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ section.settings.title }}
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;h1&gt;Summer Sale&lt;/h1&gt;
+</code></pre></div>
+<hr>
+<h2>十五、这其实是 Shopify Theme 最有意思的地方</h2>
+<p>你作为 React 工程师可能习惯：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">开发者写代码
+      ↓
+Component Props
+      ↓
+Component
+</code></pre></div>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">开发者
+ ↓
+Section Schema
+ ↓
+Theme Editor
+ ↓
+商家配置
+ ↓
+Section Settings
+ ↓
+Liquid
+ ↓
+HTML
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Theme 开发不仅是在写页面，更是在设计“商家可以怎么配置页面”。</strong></p>
+</blockquote>
+<p>这是 Shopify 前端和普通网站前端一个非常大的区别。</p>
+<hr>
+<h2>十六、Snippet —— 小型可复用组件</h2>
+<p>还有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">snippets
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">snippets/
+├── product-card.liquid
+├── price.liquid
+├── icon-cart.liquid
+└── button.liquid
+</code></pre></div>
+<p>它更接近：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React Component
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% render &#39;product-card&#39;, product: product %}
+</code></pre></div>
+<p>可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">&lt;ProductCard product={product} /&gt;
+</code></pre></div>
+<p>所以暂时记：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Section
+= 页面级 / 可配置模块
+
+Snippet
+= 小型可复用 UI
+</code></pre></div>
+<hr>
+<h2>十七、把 Theme 文件结构串起来</h2>
+<p>现在你应该能看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+│
+├── layout
+│    └── theme.liquid
+│
+├── templates
+│    └── product.json
+│
+├── sections
+│    └── product-main.liquid
+│
+├── snippets
+│    └── product-card.liquid
+│
+├── assets
+│    ├── theme.css
+│    └── theme.js
+│
+└── config
+     └── settings_schema.json
+</code></pre></div>
+<p>可以这样理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Layout
+ ↓
+整个网站外壳
+
+Template
+ ↓
+页面类型
+
+Section
+ ↓
+页面模块
+
+Snippet
+ ↓
+可复用小组件
+
+Asset
+ ↓
+CSS / JS / 图片等资源
+</code></pre></div>
+<hr>
+<h2>十八、现在讲一个非常关键的真实请求流程</h2>
+<p>假设用户打开：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/products/t-shirt
+</code></pre></div>
+<p>发生什么？</p>
+<h4>Step 1</h4>
+<p>浏览器发送：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>http</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-http">GET /products/t-shirt
+</code></pre></div>
+<p>↓</p>
+<h4>Step 2</h4>
+<p>Shopify 找到对应 Product。</p>
+<p>↓</p>
+<h4>Step 3</h4>
+<p>Shopify 根据 Theme 和页面类型找到对应 Template。</p>
+<p>↓</p>
+<h4>Step 4</h4>
+<p>Template 组合 Sections。</p>
+<p>↓</p>
+<h4>Step 5</h4>
+<p>Liquid 读取 Shopify 数据。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.title }}
+{{ product.description }}
+{{ product.variants }}
+</code></pre></div>
+<p>↓</p>
+<h4>Step 6</h4>
+<p>Shopify 服务器生成 HTML。</p>
+<p>↓</p>
+<h4>Step 7</h4>
+<p>HTML 返回浏览器。</p>
+<p>↓</p>
+<h4>Step 8</h4>
+<p>浏览器加载：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">CSS
+JavaScript
+Images
+</code></pre></div>
+<p>↓</p>
+<h4>Step 9</h4>
+<p>JavaScript 开始处理用户交互。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant 选择
+Add to Cart
+Cart Drawer
+数量增加
+数量减少
+商品图片切换
+</code></pre></div>
+<hr>
+<h2>十九、你现在应该形成这个架构图</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                   Shopify
+                      │
+                      │
+                Shopify Data
+                      │
+                      ↓
+                  Liquid
+                      │
+                      ↓
+                    HTML
+                      │
+                      ↓
+                  Browser
+                      │
+              ┌───────┴───────┐
+              ↓               ↓
+             CSS             JS
+              │               │
+              └───────┬───────┘
+                      ↓
+                    DOM
+                      ↓
+                   用户交互
+</code></pre></div>
+<p>这就是 Shopify Theme 最核心的运行模型。</p>
+<hr>
+<h2>二十、那么 AJAX Cart 是怎么回事？</h2>
+<p>现在我们进入 Shopify 前端开发非常重要的一部分。</p>
+<p>假设用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>你当然不希望：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击
+ ↓
+整个页面刷新
+ ↓
+Cart 页面
+</code></pre></div>
+<p>现代 Shopify Theme 通常会通过浏览器 JS 请求 Cart API。</p>
+<p>概念上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">User
+ ↓
+Click Add to Cart
+ ↓
+JavaScript
+ ↓
+Shopify Cart API
+ ↓
+Cart 更新
+ ↓
+返回 JSON
+ ↓
+JavaScript 更新 DOM
+ ↓
+Cart Drawer 打开
+</code></pre></div>
+<p>例如概念代码：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/add.js&#39;, {
+  method: &#39;POST&#39;,
+  headers: {
+    &#39;Content-Type&#39;: &#39;application/json&#39;
+  },
+  body: JSON.stringify({
+    items: [
+      {
+        id: variantId,
+        quantity: 1
+      }
+    ]
+  })
+})
+</code></pre></div>
+<p>注意这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">variantId
+</code></pre></div>
+<p>还记得第 3 课吗？</p>
+<p><strong>购物车添加的是 Variant，而不是简单的 Product。</strong></p>
+<p>这就是为什么第 3 课的数据模型非常重要。</p>
+<hr>
+<h2>二十一、所以 Shopify Theme 实际上是“两套世界”</h2>
+<p>这一点你一定要建立起来。</p>
+<h4>服务端世界</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Liquid
+ ↓
+HTML
+</code></pre></div>
+<p>负责：</p>
+<ul>
+<li>页面初始渲染</li>
+<li>Shopify 数据展示</li>
+<li>SEO</li>
+<li>模板</li>
+<li>Section</li>
+<li>Theme Editor</li>
+</ul>
+<hr>
+<h4>浏览器世界</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+ ↓
+JavaScript
+ ↓
+Shopify APIs
+ ↓
+DOM
+</code></pre></div>
+<p>负责：</p>
+<ul>
+<li>点击</li>
+<li>弹窗</li>
+<li>Variant 切换</li>
+<li>Add to Cart</li>
+<li>Cart Drawer</li>
+<li>Ajax</li>
+<li>动态更新</li>
+<li>页面交互</li>
+</ul>
+<hr>
+<h2>二十二、一个真实的 Product Page 会是什么样？</h2>
+<p>最终你可以把它想成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Product Page
+                         │
+             ┌───────────┴───────────┐
+             ↓                       ↓
+          Liquid                    JS
+             │                       │
+       初始页面渲染                动态交互
+             │                       │
+       ┌─────┼─────┐           ┌─────┼─────┐
+       ↓     ↓     ↓           ↓     ↓     ↓
+     Title  Price  Image     Variant  Cart  Gallery
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Liquid 不是用来替代 JavaScript 的。</strong></p>
+</blockquote>
+<p>它们是两个不同阶段。</p>
+<hr>
+<h2>二十三、作为前端工程师，最容易踩的 3 个坑</h2>
+<h4>坑 1：把 Liquid 当 JavaScript</h4>
+<p>错误思维：</p>
+<blockquote>
+<p>“我能不能在 Liquid 里面做浏览器交互？”</p>
+</blockquote>
+<p>不能这样理解。</p>
+<p>Liquid：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">服务器渲染阶段
+</code></pre></div>
+<p>JS：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器运行阶段
+</code></pre></div>
+<hr>
+<h4>坑 2：以为 Shopify Theme 就是传统 SSR React</h4>
+<p>也不能完全这么理解。</p>
+<p>Shopify Theme 是 Shopify 自己的一套：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Template
++
+Liquid
++
+Section
++
+Snippet
++
+Schema
++
+Theme Editor
+</code></pre></div>
+<p>生态。</p>
+<hr>
+<h4>坑 3：所有东西都用 JavaScript 做</h4>
+<p>例如商品标题：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(...)
+</code></pre></div>
+<p>然后 JS 再渲染：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product title
+</code></pre></div>
+<p>通常没有必要。</p>
+<p>如果 Shopify Liquid 已经能直接得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.title }}
+</code></pre></div>
+<p>就应该优先利用 Theme 的服务器渲染能力。</p>
+<hr>
+<h2>二十四、今天真正需要掌握的东西</h2>
+<p>如果这一课结束后你能理解下面这张表，就已经非常不错了：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>东西</th>
+<th>作用</th>
+</tr>
+</thead><tbody><tr>
+<td><strong>Liquid</strong></td>
+<td>Shopify 模板语言</td>
+</tr>
+<tr>
+<td><strong>HTML</strong></td>
+<td>页面结构</td>
+</tr>
+<tr>
+<td><strong>CSS</strong></td>
+<td>样式</td>
+</tr>
+<tr>
+<td><strong>JavaScript</strong></td>
+<td>浏览器交互</td>
+</tr>
+<tr>
+<td><strong>Layout</strong></td>
+<td>整个网站外壳</td>
+</tr>
+<tr>
+<td><strong>Template</strong></td>
+<td>页面类型</td>
+</tr>
+<tr>
+<td><strong>Section</strong></td>
+<td>可配置页面模块</td>
+</tr>
+<tr>
+<td><strong>Schema</strong></td>
+<td>定义 Section 如何配置</td>
+</tr>
+<tr>
+<td><strong>Snippet</strong></td>
+<td>可复用小组件</td>
+</tr>
+<tr>
+<td><strong>Asset</strong></td>
+<td>CSS/JS/图片等资源</td>
+</tr>
+<tr>
+<td><strong>Cart API</strong></td>
+<td>浏览器操作购物车</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>🧠 Teach Me 第 4 课测验</h2>
+<p>这次我不要求你背语法，而是检查你有没有真正理解<strong>运行机制</strong>。</p>
+<h4>题 1</h4>
+<p>下面这段：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ product.title }}&lt;/h1&gt;
+</code></pre></div>
+<p>是谁执行的？</p>
+<p><strong>A. 浏览器 JavaScript</strong></p>
+<p><strong>B. Shopify / Liquid</strong></p>
+<p><strong>C. React</strong></p>
+<p>为什么？</p>
+<hr>
+<h4>题 2</h4>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>你希望<strong>不刷新整个页面</strong>，直接打开 Cart Drawer。</p>
+<p>那么这个过程应该主要由谁负责？</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+还是
+JavaScript？
+</code></pre></div>
+<p>为什么？</p>
+<hr>
+<h4>题 3</h4>
+<p>请解释下面四者的区别：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Layout
+Template
+Section
+Snippet
+</code></pre></div>
+<p>不用专业术语，用你自己的话解释就行。</p>
+<hr>
+<h4>题 4 ⭐</h4>
+<p>假设 PM 提出：</p>
+<blockquote>
+<p>“首页做一个 Banner，运营人员以后可以在 Shopify 后台修改标题、图片和按钮文字，不需要开发人员改代码。”</p>
+</blockquote>
+<p>你会怎么设计？</p>
+<p>提示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Section
+？
+Schema
+？
+Liquid
+？
+Theme Editor
+？
+</code></pre></div>
+<hr>
+<h4>题 5 ⭐⭐</h4>
+<p>最后一个真实工程场景：</p>
+<p>用户打开：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/products/t-shirt
+</code></pre></div>
+<p>然后选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Blue / M
+</code></pre></div>
+<p>页面价格变成 <code>$39.99</code>，接着点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>Cart Drawer 出现商品。</p>
+<p>请你尝试描述整个过程：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器请求商品页
+        ↓
+？
+        ↓
+？
+        ↓
+用户选择 Variant
+        ↓
+？
+        ↓
+Add to Cart
+        ↓
+？
+        ↓
+Cart Drawer
+</code></pre></div>
+<p><strong>不用担心答错。</strong></p>
+<p>这道题的目的，是检查你是否已经把 <strong>第 3 课的数据模型 + 第 4 课的 Theme 运行机制</strong> 串起来。</p>
+<p>你答完后，我会根据你的答案决定是直接进入 <strong>第 5 课：Shopify Theme 开发模式与项目结构</strong>，还是针对你没真正理解的部分补一层。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-04.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

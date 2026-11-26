@@ -1,0 +1,783 @@
+<h1>第 12 课：Metafield + Shopify Functions，让活动规则配置化</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T21:52:00+08:00">09-19 21:52</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T21:52:00+08:00">09-19 21:52</time></div>
+<p>好，我们继续第 12 课。今天把你刚才问到的核心问题彻底打通：</p>
+<h2>第 12 课：Metafield + Shopify Functions —— 让活动规则“配置化”</h2>
+<p>上一课我们有一个活动：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+T-Shirt
+$29.99 → $19.99
+</code></pre></div>
+<p>我们已经知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+  ↓
+展示活动页
+  ↓
+Cart API
+  ↓
+Cart
+  ↓
+Discount Function
+  ↓
+最终优惠
+</code></pre></div>
+<p>但还有一个问题：</p>
+<blockquote>
+<p><strong>Discount Function 怎么知道哪个商品参加活动、活动价格是多少、什么时候开始结束？</strong></p>
+</blockquote>
+<p>答案就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">配置数据
+   ↓
+Metafield
+   ↓
+Function
+</code></pre></div>
+<p>Shopify 官方现在也明确支持把 Discount Function 的配置存储在 discount 对象的 metafield 中，然后 Function 在运行时读取这些配置。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a><a href="https://shopify.dev/docs/api/admin-graphql/2026-01/input-objects/DiscountAutomaticAppInput?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="DiscountAutomaticAppInput - GraphQL Admin" aria-label="DiscountAutomaticAppInput - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>一、先建立一个完整的数据模型</h2>
+<p>我们设计一个活动：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动名称：
+Summer Sale
+
+活动时间：
+2026-09-01
+~
+2026-09-30
+
+活动商品：
+T-Shirt
+
+活动价格：
+$19.99
+</code></pre></div>
+<p>我们可以把它抽象成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  &quot;campaign&quot;: &quot;summer_sale&quot;,
+  &quot;startsAt&quot;: &quot;2026-09-01T00:00:00Z&quot;,
+  &quot;endsAt&quot;: &quot;2026-09-30T23:59:59Z&quot;,
+  &quot;targetVariantIds&quot;: [
+    &quot;gid://shopify/ProductVariant/123&quot;
+  ],
+  &quot;price&quot;: &quot;19.99&quot;
+}
+</code></pre></div>
+<p>注意：</p>
+<p><strong>这不是让浏览器传给 Shopify 的数据。</strong></p>
+<p>而是：</p>
+<blockquote>
+<p><strong>商家/你的 App 配置在 Shopify 后台的数据。</strong></p>
+</blockquote>
+<hr>
+<h2>二、为什么要放 Metafield？</h2>
+<p>假设你直接写死：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">if (variantId === &#39;123&#39;) {
+  price = 19.99;
+}
+</code></pre></div>
+<p>那以后活动改商品怎么办？</p>
+<p>改价格怎么办？</p>
+<p>改日期怎么办？</p>
+<p>你只能：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">修改代码
+↓
+重新部署 Function
+</code></pre></div>
+<p>这显然不适合运营。</p>
+<hr>
+<h3>配置化以后</h3>
+<p>变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Admin
+      ↓
+活动配置
+      ↓
+Metafield
+      ↓
+Function
+</code></pre></div>
+<p>运营人员可以修改：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动价格：19.99
+</code></pre></div>
+<p>Function 不需要重新部署。</p>
+<hr>
+<h2>三、一个非常重要的概念</h2>
+<p>这里其实有两种 Metafield：</p>
+<h4>普通业务数据</h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── custom.material
+</code></pre></div>
+<p>这是我们之前学习的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material.value }}
+</code></pre></div>
+<hr>
+<h4>Function Configuration</h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount
+└── function-configuration
+</code></pre></div>
+<p>它不是简单拿来给 Theme 显示的。</p>
+<p>它的目的主要是：</p>
+<blockquote>
+<p><strong>给 Function 提供运行时配置。</strong></p>
+</blockquote>
+<p>Shopify 官方的 Discount Function 示例就是从 discount metafield 中读取 JSON 配置，例如目标 SKU 和折扣百分比。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a></span></p>
+<hr>
+<h2>四、为什么配置通常是 JSON？</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;percentage&quot;: 20,
+  &quot;skus&quot;: [
+    &quot;TSHIRT-BLACK&quot;,
+    &quot;TSHIRT-WHITE&quot;
+  ]
+}
+</code></pre></div>
+<p>Function 读取：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>graphql</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-graphql">discount {
+  metafield(
+    namespace: &quot;$app&quot;,
+    key: &quot;function-configuration&quot;
+  ) {
+    jsonValue
+  }
+}
+</code></pre></div>
+<p>然后 Function：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const configuration =
+  input.discount?.metafield?.jsonValue ?? {};
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  percentage: 20,
+  skus: [
+    &quot;TSHIRT-BLACK&quot;,
+    &quot;TSHIRT-WHITE&quot;
+  ]
+}
+</code></pre></div>
+<p>官方文档现在也推荐复杂 Function 配置使用 JSON metafield，因为活动规则经常是嵌套结构。<span class="dialogue-cites"><a href="https://shopify.dev/docs/apps/build/functions/input-queries/metafields-for-input-queries?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Metafields for input queries" aria-label="Metafields for input queries">Shopify</a></span></p>
+<hr>
+<h2>五、这样 Function 就变成“通用引擎”</h2>
+<p>这是今天最重要的思想。</p>
+<p>不要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Function
+↓
+写死 Summer Sale
+</code></pre></div>
+<p>而应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Function
+↓
+读取 Configuration
+↓
+执行通用规则
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;percentage&quot;: 20,
+  &quot;targetVariantIds&quot;: [
+    &quot;gid://shopify/ProductVariant/123&quot;,
+    &quot;gid://shopify/ProductVariant/456&quot;
+  ]
+}
+</code></pre></div>
+<p>Function：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">读取配置
+   ↓
+遍历 Cart Lines
+   ↓
+Variant 是否匹配？
+   ↓
+是
+   ↓
+20% Discount
+</code></pre></div>
+<p>这样同一个 Function 可以服务：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+Black Friday
+Christmas Sale
+VIP Sale
+Flash Sale
+</code></pre></div>
+<p>只需要不同的配置。</p>
+<hr>
+<h2>六、把它类比成 React</h2>
+<p>你作为前端开发，可以这样理解：</p>
+<p>传统写法：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">function Product({ product }) {
+  if (product.id === 123) {
+    return &lt;SalePrice /&gt;;
+  }
+
+  return &lt;NormalPrice /&gt;;
+}
+</code></pre></div>
+<p>这是：</p>
+<blockquote>
+<p><strong>业务规则硬编码。</strong></p>
+</blockquote>
+<p>配置化：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const config = {
+  saleProductIds: [123, 456],
+  discount: 20
+};
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">function Product({ product, config }) {
+  if (config.saleProductIds.includes(product.id)) {
+    return &lt;SalePrice /&gt;;
+  }
+
+  return &lt;NormalPrice /&gt;;
+}
+</code></pre></div>
+<p>这就是：</p>
+<blockquote>
+<p><strong>业务逻辑 + 配置分离。</strong></p>
+</blockquote>
+<p>Shopify Functions 也是同样的思想。</p>
+<hr>
+<h2>七、现在我们把活动完整设计出来</h2>
+<p>我们的 Discount 配置：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;campaign&quot;: &quot;summer_sale&quot;,
+
+  &quot;startsAt&quot;: &quot;2026-09-01T00:00:00Z&quot;,
+
+  &quot;endsAt&quot;: &quot;2026-09-30T23:59:59Z&quot;,
+
+  &quot;targetVariantIds&quot;: [
+    &quot;gid://shopify/ProductVariant/123&quot;
+  ],
+
+  &quot;discountType&quot;: &quot;fixed_price&quot;,
+
+  &quot;price&quot;: &quot;19.99&quot;
+}
+</code></pre></div>
+<p>注意这里我故意设计成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">discountType = fixed_price
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">percentage = 20
+</code></pre></div>
+<p>因为我们的业务需求是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">正常：
+$29.99
+
+活动：
+$19.99
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">打八折
+</code></pre></div>
+<hr>
+<h2>八、但 Discount Function 的思路更适合“计算折扣”</h2>
+<p>这时候出现一个非常重要的设计问题。</p>
+<p>原价：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$29.99
+</code></pre></div>
+<p>活动价：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$19.99
+</code></pre></div>
+<p>实际上等价于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount
+=
+$29.99 - $19.99
+
+=
+$10.00
+</code></pre></div>
+<p>所以 Function 可以计算：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">discountAmount = originalPrice - campaignPrice
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const originalPrice = 29.99;
+const campaignPrice = 19.99;
+
+const discount = originalPrice - campaignPrice;
+// 10.00
+</code></pre></div>
+<p>然后给 Cart Line：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">-$10
+</code></pre></div>
+<p>这样最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$29.99
+- $10.00
+──────────
+$19.99
+</code></pre></div>
+<hr>
+<h2>九、Function 真正看到什么？</h2>
+<p>我们可以让 input query 请求：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>graphql</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-graphql">query Input {
+  cart {
+    lines {
+      id
+      quantity
+
+      merchandise {
+        __typename
+
+        ... on ProductVariant {
+          id
+          product {
+            id
+          }
+        }
+      }
+
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+    }
+  }
+
+  discount {
+    metafield(
+      namespace: &quot;$app&quot;,
+      key: &quot;function-configuration&quot;
+    ) {
+      jsonValue
+    }
+  }
+}
+</code></pre></div>
+<p>于是 Function 拿到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  cart: {
+    lines: [
+      {
+        id: &quot;gid://shopify/CartLine/1&quot;,
+
+        quantity: 1,
+
+        merchandise: {
+          id: &quot;gid://shopify/ProductVariant/123&quot;
+        },
+
+        cost: {
+          amountPerQuantity: {
+            amount: &quot;29.99&quot;
+          }
+        }
+      }
+    ]
+  },
+
+  discount: {
+    metafield: {
+      jsonValue: {
+        campaign: &quot;summer_sale&quot;,
+        price: &quot;19.99&quot;,
+        targetVariantIds: [
+          &quot;gid://shopify/ProductVariant/123&quot;
+        ]
+      }
+    }
+  }
+}
+</code></pre></div>
+<p>这正是 Shopify 官方 Discount Function 当前支持的模式：Input Query 可以同时读取 Cart Lines 和 discount 上的 metafield 配置。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a><a href="https://shopify.dev/docs/api/functions/unstable/discount?contentToggled=true&amp;utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a></span></p>
+<hr>
+<h2>十、然后 Function 做判断</h2>
+<p>伪代码：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">for (const line of input.cart.lines) {
+
+  const variantId = line.merchandise.id;
+
+  const isTarget =
+    config.targetVariantIds.includes(variantId);
+
+  if (!isTarget) {
+    continue;
+  }
+
+  const originalPrice =
+    Number(line.cost.amountPerQuantity.amount);
+
+  const campaignPrice =
+    Number(config.price);
+
+  const discount =
+    originalPrice - campaignPrice;
+
+  if (discount &lt;= 0) {
+    continue;
+  }
+
+  // 创建 discount candidate
+}
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+123
+
+原价
+29.99
+
+活动价
+19.99
+
+↓
+
+Discount
+10.00
+</code></pre></div>
+<hr>
+<h2>十一、这时候活动价格就真正安全了</h2>
+<p>用户可以在浏览器里改：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  price: 0.01
+}
+</code></pre></div>
+<p>但是没关系。</p>
+<p>因为 Function <strong>不信任这个 price</strong>。</p>
+<p>真正的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">19.99
+</code></pre></div>
+<p>来自：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Discount
+    ↓
+Metafield
+    ↓
+Function
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+    ↓
+price: 19.99
+</code></pre></div>
+<p>这是我们前面讨论的安全边界。</p>
+<hr>
+<h2>十二、那么活动页 Theme 怎么知道 $19.99？</h2>
+<p>这里出现一个很有意思的问题：</p>
+<blockquote>
+<p>Function 能读配置，那 Theme 怎么读？</p>
+</blockquote>
+<p>这里要根据你的架构选择。</p>
+<p>例如你的活动数据可以存放在：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+</code></pre></div>
+<p>而不是只放在：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount Function configuration
+</code></pre></div>
+<p>于是我们可以设计：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Campaign
+                       │
+                ┌──────┴──────┐
+                ↓             ↓
+             Theme         Function
+                │             │
+                ↓             ↓
+             UI价格        最终折扣
+</code></pre></div>
+<p>这就非常漂亮。</p>
+<hr>
+<h2>十三、为什么 Metaobject 很适合活动？</h2>
+<p>我们之前学过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+</code></pre></div>
+<p>更像：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">一个字段
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+</code></pre></div>
+<p>更像：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">一个完整的数据结构
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign Metaobject
+
+id
+name
+handle
+start_at
+end_at
+banner_image
+target_products
+sale_price
+description
+</code></pre></div>
+<p>可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  id,
+  name,
+  handle,
+  startAt,
+  endAt,
+  bannerImage,
+  targetProducts,
+  salePrice,
+  description
+}
+</code></pre></div>
+<p>这已经非常像你平时在前端/后端设计的数据模型了。</p>
+<hr>
+<h2>十四、于是我们的最终架构可以升级成这样</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 Campaign Metaobject
+                         │
+              ┌──────────┴──────────┐
+              ↓                     ↓
+            Theme                App / Function
+              │                     │
+              ↓                     ↓
+         活动页 UI              活动规则
+         活动价格                商品匹配
+         Banner                  时间判断
+              │                     │
+              ↓                     ↓
+           Cart API            Discount
+              │                     │
+              └──────────┬──────────┘
+                         ↓
+                       Checkout
+</code></pre></div>
+<p>这就是开始接近<strong>真正的 Shopify 商业项目架构</strong>了。</p>
+<hr>
+<h2>十五、Theme 不一定要直接读取 Function 的配置</h2>
+<p>这一点也非常重要。</p>
+<p>你可能会想：</p>
+<blockquote>
+<p>“既然 Function 有配置，Theme 直接读取 Function 配置不就行了？”</p>
+</blockquote>
+<p>不一定。</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Function Configuration
+</code></pre></div>
+<p>的主要责任是：</p>
+<blockquote>
+<p><strong>Function runtime configuration</strong></p>
+</blockquote>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign Metaobject
+</code></pre></div>
+<p>的责任是：</p>
+<blockquote>
+<p><strong>业务内容/活动数据</strong></p>
+</blockquote>
+<p>这两个概念最好不要混在一起。</p>
+<hr>
+<h2>十六、我推荐你这样设计</h2>
+<p>例如：</p>
+<h3>Campaign Metaobject</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign
+├── title
+├── handle
+├── start_at
+├── end_at
+├── banner
+├── description
+├── target_variants
+└── sale_price
+</code></pre></div>
+<p>Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign
+ ↓
+Liquid
+ ↓
+活动页面
+</code></pre></div>
+<p>App：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign
+ ↓
+创建/管理 Discount
+ ↓
+写入 Function Configuration
+</code></pre></div>
+<p>Function：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount Configuration
+ ↓
+读取
+ ↓
+计算
+ ↓
+Apply Discount
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+=
+业务数据
+
+Function Metafield
+=
+Function 配置
+</code></pre></div>
+<p>这是一个很好的架构分层。</p>
+<hr>
+<h2>十七、如果活动有 1000 个商品怎么办？</h2>
+<p>这个问题就开始有意思了。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+</code></pre></div>
+<p>有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">10,000 个 Variant
+</code></pre></div>
+<p>你不能简单在 Function 配置里塞一个超大的数组。</p>
+<p>因为 Shopify Functions 的 input query、metafield 和运行时都有相应的大小/复杂度限制；官方也建议复杂配置合理使用 JSON，并注意输入大小和查询复杂度。<span class="dialogue-cites"><a href="https://shopify.dev/docs/apps/build/functions/input-queries/use-variables-input-queries?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Use variables in input queries" aria-label="Use variables in input queries">Shopify</a><a href="https://shopify.dev/docs/api/functions/unstable?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Function APIs" aria-label="Function APIs">Shopify</a></span></p>
+<p>这时候通常要考虑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product / Variant Metafield
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+custom.campaign_price
+
+= 19.99
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+custom.campaign_id
+
+= summer_sale
+</code></pre></div>
+<p>Function 直接读取目标 Variant 的相关数据。</p>
+<hr>
+<h2>十八、所以现在出现三个层级</h2>
+<p>你应该开始建立这个认知：</p>
+<h4>Level 1：简单字段</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.metafields.custom.material
+</code></pre></div>
+<hr>
+<h4>Level 2：复杂业务对象</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign
+</code></pre></div>
+<hr>
+<h4>Level 3：Function Runtime Configuration</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount Metafield
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;percentage&quot;: 20,
+  &quot;targetVariantIds&quot;: [...]
+}
+</code></pre></div>
+<p>三者虽然都叫：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield / Metaobject
+</code></pre></div>
+<p>但<strong>职责不同</strong>。</p>
+<hr>
+<h2>十九、最后再看一次完整架构</h2>
+<p>现在你已经可以理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Shopify Admin
+                         │
+                         ↓
+                 Campaign Metaobject
+                         │
+             ┌───────────┴───────────┐
+             ↓                       ↓
+          Theme                     App
+             ↓                       ↓
+         活动页面               创建 Discount
+             ↓                       ↓
+         Variant              Function Config
+             │                       │
+             └───────────┬───────────┘
+                         ↓
+                     Cart API
+                         ↓
+                       Cart
+                         ↓
+                 Discount Function
+                         ↓
+                   Final Discount
+                         ↓
+                      Checkout
+                         ↓
+                       Order
+</code></pre></div>
+<p>这条链路你现在已经能完整讲出来了。</p>
+<hr>
+<h2>二十、一个非常重要的架构判断</h2>
+<p>以后产品经理告诉你：</p>
+<blockquote>
+<p>“我要做一个双十一活动。”</p>
+</blockquote>
+<p>不要马上开始写 Liquid。</p>
+<p>先拆：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">① 活动数据
+      ↓
+Metaobject
+
+② 活动页面
+      ↓
+Theme
+
+③ 加购
+      ↓
+Cart API
+
+④ 活动规则
+      ↓
+Discount Function
+
+⑤ 商家配置
+      ↓
+App / Admin UI
+
+⑥ 最终价格
+      ↓
+Shopify Checkout
+</code></pre></div>
+<p>这就是一个完整的 Shopify 电商功能。</p>
+<hr>
+<h3>🧠 今天最重要的 5 个结论</h3>
+<p>你把下面这 5 个记住，第 12 课就算真正掌握了：</p>
+<p><strong>1. Metafield 不只是给商品加字段。</strong></p>
+<p>它也可以作为 Shopify Functions 的配置数据。<span class="dialogue-cites"><a href="https://shopify.dev/docs/apps/build/functions/input-queries/metafields-for-input-queries?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Metafields for input queries" aria-label="Metafields for input queries">Shopify</a></span></p>
+<p><strong>2. Function 不应该把活动规则硬编码。</strong></p>
+<p>应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Function Logic
++
+Configuration
+</code></pre></div>
+<p><strong>3. 活动业务数据和 Function 配置可以分开。</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+=
+Campaign Business Data
+
+Discount Metafield
+=
+Function Configuration
+</code></pre></div>
+<p><strong>4. 浏览器永远不是最终价格的可信来源。</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+→ 提出购买请求
+
+Shopify
+→ 决定最终交易结果
+</code></pre></div>
+<p><strong>5. Discount Function 是“计算优惠”的核心能力。</strong></p>
+<p>Shopify 当前 Discount Function API 支持商品、订单和配送三类折扣，并可通过 metafield 配置 Function 行为。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a><a href="https://shopify.dev/docs/api/admin-graphql/2026-01/input-objects/DiscountAutomaticAppInput?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="DiscountAutomaticAppInput - GraphQL Admin" aria-label="DiscountAutomaticAppInput - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<p>下一课我们就不再停留在概念层了，直接开始<strong>真正写一个 Shopify Function</strong>：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">第 13 课
+Shopify Function 实战
+
+shopify app init
+      ↓
+创建 Discount Function
+      ↓
+GraphQL Input Query
+      ↓
+读取 Cart Line
+      ↓
+读取 Metafield Configuration
+      ↓
+匹配 Variant
+      ↓
+生成 Discount Candidate
+      ↓
+返回 Discount
+</code></pre></div>
+<p>这会是你从 <strong>Theme Developer → Shopify App/Functions Developer</strong> 的第一个真正跨越。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Discount Function API</a></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-12.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

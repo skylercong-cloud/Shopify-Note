@@ -1,0 +1,682 @@
+<h1>第 7 课：Variant Selector 实战</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T20:33:00+08:00">09-19 20:33</time></div><p>好了，我问完了。按计划进行下一课吧</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T20:33:00+08:00">09-19 20:33</time></div>
+<p>好，我们按计划继续。前面你刚好把 <strong>Product → Variant → Cart → Checkout</strong> 这条链路问透了，所以现在进入下一课非常合适。</p>
+<figure class="dialogue-figure"><img src="assets/product-variants.jpg" alt="黑、白、绿三件同款纯棉 T 恤，展示同一商品的颜色变体。" decoding="async" width="506" height="506"><figcaption>示意配图 · 同一款 T 恤可以有不同颜色。变体还可以由颜色与尺寸共同决定。</figcaption></figure>
+
+<p>这一课我们暂时<strong>不急着做完整 Cart Drawer</strong>，先把商品详情页最核心的一段彻底搞明白：</p>
+<blockquote>
+<p><strong>用户选择 Color / Size → 找到对应 Variant → 更新价格/图片/库存 → 拿到 Variant ID → 为加购做准备。</strong></p>
+</blockquote>
+<p>这其实是 Shopify Theme 前端开发里非常核心的一块。</p>
+<hr>
+<h2>一、先回顾我们已经学过的东西</h2>
+<p>假设 Shopify 有一个商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Classic T-Shirt
+</code></pre></div>
+<p>它有两个 Options：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color:
+Black
+White
+
+Size:
+S
+M
+L
+</code></pre></div>
+<p>那么 Shopify 最终会生成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Options
+│   ├── Color
+│   └── Size
+│
+└── Variants
+    ├── Black / S
+    ├── Black / M
+    ├── Black / L
+    ├── White / S
+    ├── White / M
+    └── White / L
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Option
+↓
+用户选择
+↓
+Variant
+↓
+Variant ID
+</code></pre></div>
+<p>这是今天的核心。</p>
+<hr>
+<h2>二、React 开发者应该怎么理解？</h2>
+<p>如果你用 React，可能会写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">const [color, setColor] = useState(&#39;Black&#39;);
+const [size, setSize] = useState(&#39;M&#39;);
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">const variant = variants.find(
+  variant =&gt;
+    variant.options[0] === color &amp;&amp;
+    variant.options[1] === size
+);
+</code></pre></div>
+<p>最后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">variant.id
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">addToCart(variant.id);
+</code></pre></div>
+<p>Shopify Theme 做的事情其实非常类似。</p>
+<p>只是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React
+↓
+State
+↓
+JS
+↓
+API
+</code></pre></div>
+<p>换成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+↓
+HTML
+↓
+JavaScript
+↓
+Shopify Cart API
+</code></pre></div>
+<hr>
+<h2>三、第一步：Liquid 把 Variants 输出给前端</h2>
+<p>商品页面里，我们可以先把所有 Variant 输出出来。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;script type=&quot;application/json&quot; id=&quot;ProductJSON&quot;&gt;
+  {{ product.variants | json }}
+&lt;/script&gt;
+</code></pre></div>
+<p>假设 Shopify 商品有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / S
+Black / M
+Black / L
+White / S
+White / M
+White / L
+</code></pre></div>
+<p>浏览器拿到的 JSON 可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">[
+  {
+    &quot;id&quot;: 101,
+    &quot;title&quot;: &quot;Black / S&quot;,
+    &quot;options&quot;: [&quot;Black&quot;, &quot;S&quot;],
+    &quot;available&quot;: true,
+    &quot;price&quot;: 2999
+  },
+  {
+    &quot;id&quot;: 102,
+    &quot;title&quot;: &quot;Black / M&quot;,
+    &quot;options&quot;: [&quot;Black&quot;, &quot;M&quot;],
+    &quot;available&quot;: true,
+    &quot;price&quot;: 2999
+  }
+]
+</code></pre></div>
+<p>这里我继续用简化后的结构帮助你理解。</p>
+<p>真正开发时，你应该以 Shopify 实际返回的数据结构为准。</p>
+<hr>
+<h2>四、第二步：渲染 Option Selector</h2>
+<p>Liquid 可以根据：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">product.options_with_values
+</code></pre></div>
+<p>生成选择器。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for option in product.options_with_values %}
+
+  &lt;div class=&quot;product-option&quot;&gt;
+    &lt;p&gt;{{ option.name }}&lt;/p&gt;
+
+    {% for value in option.values %}
+      &lt;button
+        type=&quot;button&quot;
+        data-option-value=&quot;{{ value }}&quot;
+      &gt;
+        {{ value }}
+      &lt;/button&gt;
+    {% endfor %}
+
+  &lt;/div&gt;
+
+{% endfor %}
+</code></pre></div>
+<p>最终可能生成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+
+[ Black ] [ White ]
+
+
+Size
+
+[ S ] [ M ] [ L ]
+</code></pre></div>
+<p>这里非常值得你注意：</p>
+<h4>Liquid 负责“生成选择器”</h4>
+<p>而：</p>
+<h4>JavaScript 负责“用户选择之后发生什么”。</h4>
+<p>这就是我们之前反复强调的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+=
+Server-side rendering
+
+JavaScript
+=
+Browser interaction
+</code></pre></div>
+<hr>
+<h2>五、第三步：JavaScript 保存用户选择</h2>
+<p>例如用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black
+</code></pre></div>
+<p>我们可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">let selectedOptions = {
+  Color: &#39;Black&#39;,
+  Size: null
+};
+</code></pre></div>
+<p>用户继续点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">M
+</code></pre></div>
+<p>变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">let selectedOptions = {
+  Color: &#39;Black&#39;,
+  Size: &#39;M&#39;
+};
+</code></pre></div>
+<p>这和 React 的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">const [selectedColor, setSelectedColor] = useState();
+</code></pre></div>
+<p>其实非常类似。</p>
+<hr>
+<h2>六、第四步：根据选择寻找 Variant</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">variants = [
+  {
+    id: 101,
+    options: [&#39;Black&#39;, &#39;S&#39;]
+  },
+  {
+    id: 102,
+    options: [&#39;Black&#39;, &#39;M&#39;]
+  },
+  {
+    id: 103,
+    options: [&#39;Black&#39;, &#39;L&#39;]
+  },
+  {
+    id: 104,
+    options: [&#39;White&#39;, &#39;S&#39;]
+  },
+  {
+    id: 105,
+    options: [&#39;White&#39;, &#39;M&#39;]
+  }
+];
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black
+M
+</code></pre></div>
+<p>我们需要找到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">[&#39;Black&#39;, &#39;M&#39;]
+</code></pre></div>
+<p>对应的 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">id = 102
+</code></pre></div>
+<p>JS 可以这样理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">const selected = [&#39;Black&#39;, &#39;M&#39;];
+
+const variant = variants.find(variant =&gt; {
+  return variant.options.every(
+    (value, index) =&gt; value === selected[index]
+  );
+});
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">console.log(variant.id);
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">102
+</code></pre></div>
+<hr>
+<h2>七、这一步是整个 Variant Selector 的灵魂</h2>
+<p>你一定要理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户选择
+
+Color = Black
+Size = M
+
+        ↓
+
+[&#39;Black&#39;, &#39;M&#39;]
+
+        ↓
+
+遍历 product.variants
+
+        ↓
+
+找到
+
+Black / M
+
+        ↓
+
+Variant ID = 102
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Variant Selector 本质上就是一个“根据用户选择找到 Variant”的匹配系统。</strong></p>
+</blockquote>
+<hr>
+<h2>八、找到 Variant 后，我们可以做什么？</h2>
+<p>这才开始有意思。</p>
+<p>假设找到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">variant = {
+  id: 102,
+  price: 2999,
+  available: true,
+  featured_image: ...
+}
+</code></pre></div>
+<p>我们就可以更新商品页面。</p>
+<hr>
+<h3>① 更新价格</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / M
+
+$29.99
+</code></pre></div>
+<p>如果用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Premium / L
+</code></pre></div>
+<p>可能变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$39.99
+</code></pre></div>
+<p>JS：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">priceElement.textContent = formatMoney(
+  variant.price
+);
+</code></pre></div>
+<hr>
+<h2>九、② 更新库存状态</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">variant.available
+</code></pre></div>
+<p>如果：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">variant.available === true
+</code></pre></div>
+<p>显示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">[ Add to Cart ]
+</code></pre></div>
+<p>如果：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">variant.available === false
+</code></pre></div>
+<p>显示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sold Out
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+   │
+   ├── price
+   ├── available
+   ├── sku
+   ├── image
+   └── id
+</code></pre></div>
+<p>决定了商品当前购买状态。</p>
+<hr>
+<h2>十、③ 更新商品图片</h2>
+<p>这是 Shopify 商品页非常常见的交互。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black
+↓
+显示黑色 T-Shirt 图片
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">White
+↓
+切换到白色 T-Shirt 图片
+</code></pre></div>
+<p>Variant 可以关联自己的图片。</p>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">if (variant.featured_image) {
+  productImage.src = variant.featured_image.src;
+}
+</code></pre></div>
+<hr>
+<h2>十一、④ 更新 SKU</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">SKU: TS-BLK-M
+</code></pre></div>
+<p>换成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">SKU: TS-WHT-M
+</code></pre></div>
+<p>JS：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">skuElement.textContent = variant.sku;
+</code></pre></div>
+<hr>
+<h2>十二、最终形成完整的 Variant Selector</h2>
+<p>整个过程：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                  Product
+                     │
+                     ↓
+              product.options
+                     │
+                     ↓
+             Render Selectors
+                     │
+                     ↓
+              User Selection
+                     │
+                     ↓
+             Selected Options
+                     │
+                     ↓
+              Find Variant
+                     │
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+        Price      Image      Stock
+          │          │          │
+          └──────────┼──────────┘
+                     ↓
+                 Variant ID
+                     │
+                     ↓
+                 Add Cart
+</code></pre></div>
+<p>这张图你建议记住。</p>
+<hr>
+<h2>十三、为什么我们不能只用 <code>product.selected_or_first_available_variant</code>？</h2>
+<p>这是 Shopify Liquid 里面一个很容易遇到的概念。</p>
+<p>你可能看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.selected_or_first_available_variant.id }}
+</code></pre></div>
+<p>它非常有用。</p>
+<p>它可以帮助你获取：</p>
+<blockquote>
+<p>当前选中的 Variant，或者默认第一个可购买 Variant。</p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;input
+  type=&quot;hidden&quot;
+  name=&quot;id&quot;
+  value=&quot;{{ product.selected_or_first_available_variant.id }}&quot;
+&gt;
+</code></pre></div>
+<p>这对于 Product Form 特别有用。</p>
+<p>但是注意：</p>
+<blockquote>
+<p><strong>用户在浏览器里改变 Color / Size 后，Liquid 不会重新执行。</strong></p>
+</blockquote>
+<p>因为 Liquid 是服务器端渲染。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">第一次打开页面
+       ↓
+Liquid
+       ↓
+HTML
+</code></pre></div>
+<p>之后用户：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black → White
+</code></pre></div>
+<p>浏览器里发生的事情需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JavaScript
+</code></pre></div>
+<p>来处理。</p>
+<p>这就是为什么 Variant Selector 通常是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid + JavaScript
+</code></pre></div>
+<p>而不是只用 Liquid。</p>
+<hr>
+<h2>十四、这里你应该再次建立 Shopify 的“两个世界”</h2>
+<p>这是 Shopify Theme 开发最重要的思维之一。</p>
+<h4>页面第一次打开</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+</code></pre></div>
+<p>Liquid 可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product
+product.variants
+product.options
+product.featured_image
+</code></pre></div>
+<hr>
+<h4>用户操作以后</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+ ↓
+JavaScript
+ ↓
+DOM
+ ↓
+Shopify API
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户点击 Size M
+       ↓
+JavaScript
+       ↓
+找到 Variant
+       ↓
+更新价格
+       ↓
+用户点击 Add to Cart
+       ↓
+Cart API
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Liquid 负责把 Shopify 数据带到浏览器，JavaScript 负责用户交互。</strong></p>
+</blockquote>
+<hr>
+<h2>十五、现在做一个小型实战</h2>
+<p>我们暂时不考虑漂亮 UI，只考虑逻辑。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product:
+
+Color:
+Black
+White
+
+Size:
+S
+M
+L
+</code></pre></div>
+<p>Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">101 Black / S
+102 Black / M
+103 Black / L
+104 White / S
+105 White / M
+106 White / L
+</code></pre></div>
+<p>HTML：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;div&gt;
+  &lt;button data-color=&quot;Black&quot;&gt;Black&lt;/button&gt;
+  &lt;button data-color=&quot;White&quot;&gt;White&lt;/button&gt;
+&lt;/div&gt;
+
+&lt;div&gt;
+  &lt;button data-size=&quot;S&quot;&gt;S&lt;/button&gt;
+  &lt;button data-size=&quot;M&quot;&gt;M&lt;/button&gt;
+  &lt;button data-size=&quot;L&quot;&gt;L&lt;/button&gt;
+&lt;/div&gt;
+
+&lt;div id=&quot;price&quot;&gt;&lt;/div&gt;
+
+&lt;button id=&quot;add-to-cart&quot;&gt;
+  Add to Cart
+&lt;/button&gt;
+</code></pre></div>
+<p>JavaScript：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">const variants = [
+  {
+    id: 101,
+    options: [&#39;Black&#39;, &#39;S&#39;],
+    price: 2999,
+    available: true
+  },
+  {
+    id: 102,
+    options: [&#39;Black&#39;, &#39;M&#39;],
+    price: 2999,
+    available: true
+  },
+  {
+    id: 103,
+    options: [&#39;Black&#39;, &#39;L&#39;],
+    price: 2999,
+    available: false
+  },
+  {
+    id: 104,
+    options: [&#39;White&#39;, &#39;S&#39;],
+    price: 3499,
+    available: true
+  },
+  {
+    id: 105,
+    options: [&#39;White&#39;, &#39;M&#39;],
+    price: 3499,
+    available: true
+  },
+  {
+    id: 106,
+    options: [&#39;White&#39;, &#39;L&#39;],
+    price: 3499,
+    available: true
+  }
+];
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">let selectedColor = &#39;Black&#39;;
+let selectedSize = &#39;M&#39;;
+</code></pre></div>
+<p>寻找 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">const variant = variants.find(variant =&gt; {
+  return (
+    variant.options[0] === selectedColor &amp;&amp;
+    variant.options[1] === selectedSize
+  );
+});
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">{
+  id: 102,
+  options: [&#39;Black&#39;, &#39;M&#39;],
+  price: 2999,
+  available: true
+}
+</code></pre></div>
+<p>那么我们现在已经获得了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID
+Price
+Available
+</code></pre></div>
+<p>接下来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID
+     ↓
+Add to Cart
+</code></pre></div>
+<p>就和我们上一课讲的 Cart API 接起来了。</p>
+<hr>
+<h2>十六、这一课最重要的不是代码</h2>
+<p>而是这条思维链：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Options
+   ↓
+Option Values
+   ↓
+User Selection
+   ↓
+Match Variant
+   ↓
+Variant ID
+   ↓
+Cart
+</code></pre></div>
+<p>如果你把这个流程理解透，之后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color Selector
+Size Selector
+Material Selector
+Storage Selector
+Bundle Selector
+</code></pre></div>
+<p>本质上都是同一个问题。</p>
+<hr>
+<h2>十七、课后小练习</h2>
+<p>你作为前端开发，我建议这次不要只看。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product:
+Sneaker
+
+Options:
+Color: Red / Blue
+Size: 40 / 41 / 42
+</code></pre></div>
+<p>Variants：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Red / 40 → ID 1
+Red / 41 → ID 2
+Red / 42 → ID 3
+
+Blue / 40 → ID 4
+Blue / 41 → ID 5
+Blue / 42 → ID 6
+</code></pre></div>
+<p>请你思考三个问题：</p>
+<h4>问题 1</h4>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Blue
+41
+</code></pre></div>
+<p>最终应该得到哪个 Variant ID？</p>
+<h4>问题 2</h4>
+<p>如果：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Blue / 41
+</code></pre></div>
+<p>这个 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">available = false
+</code></pre></div>
+<p>页面上的 Add to Cart 应该怎么变化？</p>
+<h4>问题 3</h4>
+<p>为什么用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color: Blue
+</code></pre></div>
+<p>以后，我们不能指望 Liquid 自动重新执行：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.variants }}
+</code></pre></div>
+<p>而必须使用 JavaScript？</p>
+<hr>
+<p>下一节我们就可以在这个 Variant Selector 的基础上继续往下走：</p>
+<p><strong>第 8 课：Add to Cart 实战</strong></p>
+<p>到时候会把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant Selector
+      ↓
+Variant ID
+      ↓
+Product Form
+      ↓
+Ajax Cart API
+      ↓
+Cart
+      ↓
+Cart Drawer
+</code></pre></div>
+<p>真正串起来。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-07.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

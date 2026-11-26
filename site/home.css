@@ -86,6 +86,14 @@ body {
   --edge: #c7afd8;
 }
 
+.shelf-shopify-dialogue {
+  --cover: #32452a;
+  --cover-hover: #405737;
+  --edge: #c4cf9c;
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
 .shelf:hover { background-color: var(--cover-hover); }
 .shelf:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
 .shelf h2 { font-size: clamp(1.65rem, 3vw, 2.25rem); }

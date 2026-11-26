@@ -1,0 +1,923 @@
+# 第 11 课：活动页特殊价格到底怎么实现？
+
+## 我的提问 · 2026-09-19 Sat 21:40
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 21:40
+
+好，我们就沿着你刚才的问题，做一个**真正的“活动页 → 特殊价格 → 加购 → Cart Drawer → Checkout”实战**。
+
+而且我先纠正/补充上一课里一个很重要的点：
+
+> **如果你的目标只是“活动价”，优先考虑 Discount Function；如果你需要直接改变 Cart Line 的展示/价格，才考虑 Cart Transform。**
+
+Shopify 现在的 Discount Function 专门用于生成商品、订单、配送折扣；Cart Transform 则用于改变购物车商品的价格/展示、Bundle 等。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com) [Cart Transform Function API](https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com)
+
+---
+
+# 第 11 课：活动页特殊价格到底怎么实现？
+
+假设我们现在有一个真实需求。
+
+后台商品：
+
+```text
+Product
+└── T-Shirt
+
+Variant
+├── Black / M
+├── Black / L
+└── White / M
+
+正常价格：
+$29.99
+```
+
+现在市场部门说：
+
+> “我要做一个 Summer Sale 活动页，只有从这个活动进入，并且购买 T-Shirt 的用户，可以 $19.99 买。”
+
+活动页面：
+
+```text
+/summer-sale
+```
+
+页面显示：
+
+```text
+Summer Sale
+
+T-Shirt
+
+$19.99
+
+[ Add to Cart ]
+```
+
+---
+
+# 一、第一反应不要直接改 Variant Price
+
+千万不要：
+
+```text
+Variant
+price = 19.99
+```
+
+因为这样会影响整个商品。
+
+普通商品页：
+
+```text
+/products/t-shirt
+
+$19.99
+```
+
+也会变。
+
+我们真正需要的是：
+
+```text
+普通场景：
+
+T-Shirt
+$29.99
+
+
+Summer Sale：
+
+T-Shirt
+$19.99
+```
+
+也就是说：
+
+> **Variant 原价仍然是 $29.99，活动规则在购买流程中产生优惠。**
+
+---
+
+# 二、整个架构
+
+我们先画最终架构：
+
+```text
+                    活动页
+                      │
+                      ↓
+                用户选择 Variant
+                      │
+                      ↓
+                Add to Cart
+                      │
+                      ↓
+                Cart API
+                      │
+                      ↓
+              Shopify Cart
+                      │
+                      ↓
+              Discount Function
+                      │
+               判断活动规则
+                      │
+                      ↓
+                应用 $10 Discount
+                      │
+                      ↓
+                  Checkout
+```
+
+注意这里：
+
+```text
+Theme
+```
+
+负责：
+
+```text
+UI
+Variant
+Add to Cart
+Cart Drawer
+```
+
+而：
+
+```text
+Function
+```
+
+负责：
+
+```text
+真正的促销规则
+真正的价格优惠
+```
+
+Shopify Functions 本身就是用于扩展 Shopify 后端逻辑，包括自定义折扣和购物车/结账逻辑。 [Function APIs](https://shopify.dev/docs/api/functions/latest?utm_source=chatgpt.com)
+
+---
+
+# 三、活动页怎么告诉 Shopify“这是活动商品”？
+
+这里就涉及我们上一课讲的：
+
+## Line Item Properties
+
+加购的时候：
+
+```js
+{
+  id: variantId,
+  quantity: 1,
+
+  properties: {
+    "_campaign": "summer_sale"
+  }
+}
+```
+
+Shopify Ajax Cart API 支持给 line item 添加 `properties`。以下划线 `_` 开头的 property 可以作为 private line item property，在结账界面隐藏。 [Cart API reference](https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com)
+
+所以：
+
+```text
+Variant ID
++
+Quantity
++
+_campaign
+```
+
+进入 Cart。
+
+---
+
+# 四、但是这里有一个非常重要的安全问题
+
+假设我们写：
+
+```js
+properties: {
+  "_campaign": "summer_sale"
+}
+```
+
+你可能会想：
+
+> “那 Function 看到 `_campaign=summer_sale`，就给 $19.99。”
+
+这还不够安全。
+
+因为用户完全可以自己发送：
+
+```js
+fetch('/cart/add.js', {
+  ...
+  properties: {
+    "_campaign": "summer_sale"
+  }
+})
+```
+
+所以：
+
+```text
+_campaign = summer_sale
+```
+
+**只能作为活动上下文/信号，不能天然当成授权凭证。**
+
+真正的业务规则应该在 Shopify 后端执行。
+
+---
+
+# 五、一个更合理的活动规则
+
+我们定义：
+
+```text
+活动：
+SUMMER_SALE
+
+活动商品：
+Variant 123
+
+活动时间：
+2026-09-01
+~
+2026-09-30
+
+活动价格：
+$19.99
+```
+
+Function 判断：
+
+```text
+是否是活动商品？
+        ↓
+是否在活动时间？
+        ↓
+是否符合活动条件？
+        ↓
+是
+ ↓
+给予 $10 discount
+```
+
+而不是：
+
+```text
+浏览器说：
+“我是活动用户”
+
+        ↓
+
+Shopify：
+“好，那你 $19.99”
+```
+
+---
+
+# 六、为什么我更推荐 Discount Function？
+
+因为你的需求本质上是：
+
+```text
+原价 $29.99
+
+活动优惠 -$10
+
+最终 $19.99
+```
+
+这本质上就是：
+
+> **Discount**
+
+而 Shopify 的 Discount Function 就是为这种逻辑设计的。
+
+官方当前 Discount Function API 支持：
+
+- Product discounts
+- Order discounts
+- Shipping discounts
+
+并且 Function 可以根据 Cart context、商品、数量、Buyer Identity、配置数据等生成折扣。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com)
+
+所以架构应该是：
+
+```text
+$29.99
+   ↓
+Discount Function
+   ↓
+-$10
+   ↓
+$19.99
+```
+
+而不是直接偷偷把 Variant 原价改成：
+
+```text
+$19.99
+```
+
+---
+
+# 七、那么活动页 Theme 做什么？
+
+我们先写活动页。
+
+例如：
+
+```liquid
+<div class="summer-sale">
+  <h1>Summer Sale</h1>
+
+  <h2>{{ product.title }}</h2>
+
+  <div class="sale-price">
+    $19.99
+  </div>
+
+  {% form 'product', product %}
+    <input
+      type="hidden"
+      name="id"
+      value="{{ product.selected_or_first_available_variant.id }}"
+    >
+
+    <input
+      type="hidden"
+      name="properties[_campaign]"
+      value="summer_sale"
+    >
+
+    <button type="submit">
+      Add to Cart
+    </button>
+  {% endform %}
+</div>
+```
+
+这里发生了什么？
+
+```text
+Liquid
+ ↓
+生成 HTML
+ ↓
+用户点击 Add to Cart
+ ↓
+Shopify Product Form
+ ↓
+Variant ID
++
+_campaign
+ ↓
+Cart
+```
+
+---
+
+# 八、如果我们使用 Ajax Cart API
+
+那么 JS 可以这样：
+
+```js
+async function addCampaignProduct(variantId) {
+  const response = await fetch(
+    window.Shopify.routes.root + 'cart/add.js',
+    {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        items: [
+          {
+            id: variantId,
+            quantity: 1,
+
+            properties: {
+              "_campaign": "summer_sale"
+            }
+          }
+        ],
+
+        sections: [
+          'cart-drawer',
+          'cart-icon-bubble'
+        ]
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Add to cart failed');
+  }
+
+  return response.json();
+}
+```
+
+这里同时完成了：
+
+```text
+① 添加 Variant
+② 添加活动上下文
+③ 请求 Cart Drawer
+④ 请求 Cart Count
+```
+
+Bundled Section Rendering 可以让 Cart API 操作和指定 Sections 的 HTML 渲染在同一次请求里完成；当前文档支持 add/change/clear/update 这些 Cart API endpoint，并最多请求 5 个 sections。 [Cart API reference](https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com)
+
+---
+
+# 九、Cart 里是什么样？
+
+最终 Cart Line 可以理解成：
+
+```text
+Cart
+└── Line Item
+    ├── Variant
+    │   └── T-Shirt Black / M
+    │
+    ├── Quantity
+    │   └── 1
+    │
+    └── Properties
+        └── _campaign = summer_sale
+```
+
+所以：
+
+```text
+Variant
+```
+
+负责：
+
+```text
+卖的是什么
+```
+
+而：
+
+```text
+properties
+```
+
+可以携带：
+
+```text
+这次购买附带了什么业务上下文
+```
+
+Line item properties 正是 Shopify 提供的自定义 line-level 数据机制。 [Cart API reference](https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com) [Liquid objects: line_item](https://shopify.dev/docs/api/liquid/objects/line_item?utm_source=chatgpt.com)
+
+---
+
+# 十、然后进入 Function
+
+这里就是 Theme 和 Shopify Backend 的分界线。
+
+你的 Theme：
+
+```text
+“这是 summer_sale”
+```
+
+Function：
+
+```text
+“我来判断它是否真的应该获得优惠。”
+```
+
+例如伪代码：
+
+```js
+function run(input) {
+  const operations = [];
+
+  for (const line of input.cart.lines) {
+
+    const campaign =
+      getProperty(line, "_campaign");
+
+    const variantId =
+      line.merchandise.id;
+
+    if (
+      campaign === "summer_sale" &&
+      variantId === SUMMER_VARIANT_ID
+    ) {
+
+      operations.push({
+        productDiscount: {
+          targets: [
+            {
+              cartLine: {
+                id: line.id
+              }
+            }
+          ],
+
+          value: {
+            fixedAmount: {
+              amount: "10.00"
+            }
+          }
+        }
+      });
+    }
+  }
+
+  return {
+    operations
+  };
+}
+```
+
+这只是帮助你理解架构的**伪代码**，不是可以直接部署的 Function 完整实现。
+
+真正的 Function 会按照 Shopify Functions 的 GraphQL input/output schema 编写。当前 Discount Function 的 cart target 是 `cart.lines.discounts.generate.run`。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com)
+
+---
+
+# 十一、最终价格
+
+于是：
+
+```text
+Variant 原价
+
+$29.99
+```
+
+进入 Cart：
+
+```text
+T-Shirt
+$29.99
+```
+
+Function：
+
+```text
+Campaign = summer_sale
+
+Discount = -$10
+```
+
+最终：
+
+```text
+Subtotal
+$19.99
+```
+
+Checkout：
+
+```text
+T-Shirt
+$19.99
+```
+
+这时候价格才是真正进入 Shopify 购买流程的优惠价格。
+
+---
+
+# 十二、这里你可能会问
+
+> “那活动页为什么一开始显示 $19.99？”
+
+非常好的问题。
+
+因为：
+
+```text
+活动页显示价格
+```
+
+和：
+
+```text
+Shopify 最终结算价格
+```
+
+是两个问题。
+
+活动页可以：
+
+```liquid
+<span>$19.99</span>
+```
+
+或者：
+
+```text
+$29.99
+↓
+$19.99
+```
+
+但是这个只是：
+
+> **UI Presentation**
+
+真正结账时：
+
+```text
+Shopify Discount Function
+```
+
+才决定：
+
+> **实际优惠**
+
+所以生产级系统一定要保证：
+
+```text
+UI 显示
+        ↓
+和
+实际结算
+        ↓
+使用同一套业务规则
+```
+
+否则会出现：
+
+```text
+活动页：
+
+$19.99
+
+↓
+
+Cart：
+
+$29.99
+
+↓
+
+用户：
+
+？？？
+```
+
+这是电商项目非常典型的坑。
+
+---
+
+# 十三、那如果我要的是“直接把价格改成 $19.99”呢？
+
+这时候就进入：
+
+## Cart Transform
+
+Shopify 当前 Cart Transform API 可以对 Cart Line 的价格、标题、图片等展示进行修改，也可以用于 Bundle 等场景。 [Cart Transform Function API](https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com) [Cart Transform Function API](https://shopify.dev/docs/api/functions/2026-01/cart-transform?utm_source=chatgpt.com)
+
+概念上：
+
+```text
+Variant
+$29.99
+
+        ↓
+
+Cart Transform
+
+        ↓
+
+Cart Line
+$19.99
+```
+
+所以：
+
+```text
+Discount Function
+```
+
+更偏向：
+
+```text
+“给你一个优惠”
+```
+
+而：
+
+```text
+Cart Transform
+```
+
+更偏向：
+
+```text
+“改变 Cart Line 的价格/呈现”
+```
+
+这两个不要混为一谈。
+
+而且当前 Cart Transform 的 `lineUpdate` 有 Shopify Plus / development store 等限制，因此具体选择时一定要结合商店类型和目标能力确认。 [Cart Transform Function API](https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com)
+
+---
+
+# 十四、现在重新看 Shopify 的分层
+
+你已经可以开始用“架构师视角”看这个问题了。
+
+```text
+┌─────────────────────────────┐
+│          Theme              │
+│                             │
+│ 页面 / UI / Variant / JS    │
+│ Cart Drawer / 活动页        │
+└──────────────┬──────────────┘
+               │
+               │ Cart API
+               ↓
+┌─────────────────────────────┐
+│           Cart              │
+│                             │
+│ Variant + Quantity          │
+│ Line Item Properties        │
+└──────────────┬──────────────┘
+               │
+               ↓
+┌─────────────────────────────┐
+│      Shopify Functions      │
+│                             │
+│ Discount                    │
+│ Cart Transform              │
+│ Validation / 其他规则       │
+└──────────────┬──────────────┘
+               │
+               ↓
+┌─────────────────────────────┐
+│          Checkout           │
+└─────────────────────────────┘
+```
+
+这张图你要记住。
+
+---
+
+# 十五、再回到你最开始的问题
+
+你之前问：
+
+> “加购的时候只把 Variant ID 和数量作为参数，如果活动页想自定义售价怎么办？”
+
+现在答案就很清晰了：
+
+### ❌ 不应该
+
+```text
+Variant ID
++
+Quantity
++
+price = 19.99
+```
+
+因为浏览器不能成为可信价格来源。
+
+### ✅ 可以
+
+```text
+Variant ID
++
+Quantity
++
+Campaign Context
+        ↓
+Shopify Cart
+        ↓
+后端促销规则
+        ↓
+Discount / Cart Transform
+        ↓
+最终价格
+```
+
+这就是 Shopify Commerce 的核心思想：
+
+> **客户端负责“提出购买意图”，Shopify 服务端负责“决定最终交易结果”。**
+
+---
+
+# 十六、你现在已经碰到一个非常重要的架构边界
+
+以后你看到一个需求：
+
+> “活动页要怎么样？”
+
+不要马上想：
+
+```text
+Liquid 怎么写？
+JS 怎么写？
+```
+
+先问：
+
+### ① 这是 UI 问题吗？
+
+```text
+Theme
+```
+
+### ② 这是购物车操作吗？
+
+```text
+Cart API
+```
+
+### ③ 这是价格/折扣规则吗？
+
+```text
+Discount / Functions
+```
+
+### ④ 这是商品数据吗？
+
+```text
+Product / Variant / Metafield
+```
+
+### ⑤ 这是商家后台业务逻辑吗？
+
+```text
+App
+```
+
+这才是 Shopify 开发真正重要的能力。
+
+---
+
+## 下一步我们进入一个更关键的问题
+
+现在你应该已经能理解：
+
+```text
+活动页
+   ↓
+Add to Cart
+   ↓
+Cart API
+   ↓
+Function
+   ↓
+Discount
+```
+
+但还有一个问题：
+
+> **Function 到底从哪里知道“这个活动是什么、活动商品是谁、活动价格是多少”？**
+
+难道把：
+
+```js
+SUMMER_VARIANT_ID
+19.99
+```
+
+硬编码进 Function？
+
+当然不是。
+
+下一课我们就进入：
+
+# 第 12 课：Metafield + Function
+
+我们会做：
+
+```text
+Shopify Admin
+      ↓
+Metafield
+      ↓
+定义活动
+      ↓
+Function 读取活动配置
+      ↓
+计算活动价格
+      ↓
+Theme 活动页读取同一份配置
+```
+
+这时候你会真正看到 **Metafield、Theme、Function、App** 是怎么组成一个完整电商系统的。

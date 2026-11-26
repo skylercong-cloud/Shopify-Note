@@ -1,0 +1,645 @@
+<h1>第 15 课：Shopify Search</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T22:27:00+08:00">09-19 22:27</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:27:00+08:00">09-19 22:27</time></div>
+<p>好，继续进入 <strong>第 15 课：Shopify Search 搜索系统</strong>。</p>
+<p>这一课非常适合你，因为它会把你熟悉的前端概念：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+↓
+Query Params
+↓
+Server Data
+↓
+Rendering
+↓
+Pagination
+</code></pre></div>
+<p>和 Shopify Theme 结合起来。</p>
+<hr>
+<h3>1. 先看完整流程</h3>
+<p>用户在搜索框输入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shirt
+</code></pre></div>
+<p>点击搜索后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+        ↓
+Shopify
+        ↓
+Search Template
+        ↓
+search 对象
+        ↓
+search.results
+        ↓
+搜索结果
+        ↓
+Product Card
+</code></pre></div>
+<p>所以最核心的一句话：</p>
+<blockquote>
+<p><strong>Shopify Search 页面，本质上就是 Shopify 根据 URL 中的搜索关键词生成 <code>search</code> 对象，然后 Theme 把搜索结果渲染出来。</strong></p>
+</blockquote>
+<hr>
+<h2>2. Search URL</h2>
+<p>Shopify 默认搜索 URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">search
+</code></pre></div>
+<p>是搜索页面。</p>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">q=shirt
+</code></pre></div>
+<p>是搜索关键词。</p>
+<p>你作为 React 开发者，可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const params = new URLSearchParams(
+  window.location.search
+);
+
+const query = params.get(&#39;q&#39;);
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shirt
+</code></pre></div>
+<p>Shopify 则会把这个搜索请求转换成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">search.terms
+</code></pre></div>
+<hr>
+<h2>3. Search 对象</h2>
+<p>进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+</code></pre></div>
+<p>Liquid 中就可以访问：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ search.terms }}
+</code></pre></div>
+<p>结果：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shirt
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ search.results_count }}
+</code></pre></div>
+<p>可以得到搜索结果数量。</p>
+<p>还有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">search.performed
+</code></pre></div>
+<p>它可以帮助判断用户是否真的执行了搜索。</p>
+<hr>
+<h2>4. 第一个搜索页面</h2>
+<p>我们先写一个最基础版本：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;
+  Search
+&lt;/h1&gt;
+
+{% if search.performed %}
+
+  &lt;p&gt;
+    Results for:
+    &quot;{{ search.terms }}&quot;
+  &lt;/p&gt;
+
+  {% if search.results_count &gt; 0 %}
+
+    &lt;div class=&quot;search-results&quot;&gt;
+
+      {% for result in search.results %}
+
+        &lt;div class=&quot;search-result&quot;&gt;
+
+          &lt;a href=&quot;{{ result.url }}&quot;&gt;
+            {{ result.title }}
+          &lt;/a&gt;
+
+        &lt;/div&gt;
+
+      {% endfor %}
+
+    &lt;/div&gt;
+
+  {% else %}
+
+    &lt;p&gt;
+      No results found.
+    &lt;/p&gt;
+
+  {% endif %}
+
+{% endif %}
+</code></pre></div>
+<hr>
+<h2>5. search.results 是什么？</h2>
+<p>这里非常重要。</p>
+<p>不要一看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">search.results
+</code></pre></div>
+<p>就认为它一定是 Product。</p>
+<p>它是：</p>
+<blockquote>
+<p><strong>Shopify 搜索返回的结果集合。</strong></p>
+</blockquote>
+<p>结果可能包含不同类型的资源。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">search.results
+│
+├── Product
+├── Page
+├── Article
+└── Collection
+</code></pre></div>
+<p>具体搜索结果类型和可搜索内容会受到 Shopify 搜索配置、资源状态等影响。</p>
+<p>所以你要建立这个概念：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+   ↓
+Results
+   ↓
+不同资源
+</code></pre></div>
+<hr>
+<h2>6. 这和 Collection 有什么区别？</h2>
+<p>这是一个非常重要的区别。</p>
+<h4>Collection</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+   ↓
+明确的一组 Product
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes
+├── Nike
+├── Adidas
+└── New Balance
+</code></pre></div>
+<hr>
+<h4>Search</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+   ↓
+用户输入关键词
+   ↓
+Shopify 搜索
+   ↓
+返回匹配结果
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shirt
+   ↓
+T-Shirt
+Shirt Jacket
+Dress Shirt
+Shirt Accessories
+...
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Collection 是“预先定义的一组商品”，Search 是“根据用户查询动态产生的结果”。</strong></p>
+</blockquote>
+<hr>
+<h2>7. Search Result Card</h2>
+<p>实际项目中我们也不会把所有 HTML 都写在 Search Template。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">snippets/
+├── product-card.liquid
+└── search-result-card.liquid
+</code></pre></div>
+<p>Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for result in search.results %}
+
+  {% render &#39;search-result-card&#39;,
+    result: result
+  %}
+
+{% endfor %}
+</code></pre></div>
+<p>这样结构就非常清晰：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search Page
+    ↓
+Search Results
+    ↓
+Search Result Card
+</code></pre></div>
+<hr>
+<h2>8. 如果结果是 Product</h2>
+<p>我们可以判断：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for result in search.results %}
+
+  {% if result.object_type == &#39;product&#39; %}
+
+    {% render &#39;product-card&#39;,
+      product: result
+    %}
+
+  {% endif %}
+
+{% endfor %}
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+ ↓
+Product Result
+ ↓
+Product Card
+</code></pre></div>
+<p>这样就可以复用我们上一课写的 Product Card。</p>
+<hr>
+<h2>9. Search Form</h2>
+<p>现在问题来了：</p>
+<blockquote>
+<p>用户怎么输入搜索关键词？</p>
+</blockquote>
+<p>Theme 通常会有 Search Form。</p>
+<p>最简单可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;form action=&quot;/search&quot; method=&quot;get&quot;&gt;
+
+  &lt;input
+    type=&quot;search&quot;
+    name=&quot;q&quot;
+    placeholder=&quot;Search products&quot;
+  &gt;
+
+  &lt;button type=&quot;submit&quot;&gt;
+    Search
+  &lt;/button&gt;
+
+&lt;/form&gt;
+</code></pre></div>
+<p>用户输入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shirt
+</code></pre></div>
+<p>提交之后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+</code></pre></div>
+<p>Shopify 接下来处理搜索。</p>
+<hr>
+<h2>10. 这里你应该看到一个非常典型的 Web 模式</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Form
+ ↓
+GET
+ ↓
+URL Query
+ ↓
+Shopify
+ ↓
+Liquid
+</code></pre></div>
+<p>和普通 Web 开发完全一样。</p>
+<p>React/Next.js 里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+        ↓
+searchParams.q
+</code></pre></div>
+<p>Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+        ↓
+search.terms
+</code></pre></div>
+<p>这个对应关系非常值得记。</p>
+<hr>
+<h2>11. Search Pagination</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">搜索结果
+100 个
+</code></pre></div>
+<p>当然不能一次全部渲染。</p>
+<p>所以和 Collection 一样：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate search.results by 24 %}
+
+  {% for result in search.results %}
+
+    {% render &#39;search-result-card&#39;,
+      result: result
+    %}
+
+  {% endfor %}
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+</code></pre></div>
+<p>第一页。</p>
+<p>第二页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt&amp;page=2
+</code></pre></div>
+<hr>
+<h2>12. Search 和 Collection 的共同结构</h2>
+<p>现在把两个页面放在一起：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+   ↓
+collection.products
+   ↓
+Pagination
+   ↓
+Product Card
+</code></pre></div>
+<p>Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+   ↓
+search.results
+   ↓
+Pagination
+   ↓
+Search Result Card
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Collection 和 Search 的 Theme 开发模式非常相似。</strong></p>
+</blockquote>
+<hr>
+<h2>13. 但是 Search 更复杂</h2>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection.products
+</code></pre></div>
+<p>基本就是 Product。</p>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">search.results
+</code></pre></div>
+<p>可能是不同资源类型。</p>
+<p>所以实际项目通常会：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">search.results
+      │
+      ├── Product
+      │     ↓
+      │  Product Card
+      │
+      ├── Page
+      │     ↓
+      │  Page Card
+      │
+      └── Article
+            ↓
+        Article Card
+</code></pre></div>
+<p>这就是 Search 和 Collection 一个非常核心的区别。</p>
+<hr>
+<h2>14. Search Template</h2>
+<p>Theme 中通常有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates/
+└── search.json
+</code></pre></div>
+<p>它负责搜索页面的 Section 组合。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;sections&quot;: {
+    &quot;main&quot;: {
+      &quot;type&quot;: &quot;main-search&quot;
+    }
+  },
+  &quot;order&quot;: [
+    &quot;main&quot;
+  ]
+}
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+       ↓
+search.json
+       ↓
+main-search.liquid
+       ↓
+search
+       ↓
+search.results
+</code></pre></div>
+<p>和 Collection 完全可以类比：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+ ↓
+collection.json
+ ↓
+main-collection
+</code></pre></div>
+<p>Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+ ↓
+search.json
+ ↓
+main-search
+</code></pre></div>
+<hr>
+<h2>15. Search Page 的完整架构</h2>
+<p>现在把它完整画出来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 /search?q=shirt
+                         │
+                         ↓
+                    search.json
+                         │
+                         ↓
+                    main-search
+                         │
+              ┌──────────┴──────────┐
+              ↓                     ↓
+        Search Header          Search Results
+              │                     │
+              ↓                     ↓
+       search.terms          search.results
+                                    │
+                           ┌────────┼────────┐
+                           ↓        ↓        ↓
+                        Product   Page    Article
+                           │
+                           ↓
+                     Product Card
+                                   
+                         ↓
+                    Pagination
+</code></pre></div>
+<p>这张图你可以和上一课 Collection 的图放在一起。</p>
+<hr>
+<h2>16. Search Input 和 Predictive Search</h2>
+<p>这里开始进入下一阶段。</p>
+<p>普通 Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户输入
+   ↓
+点击 Search
+   ↓
+/search?q=shirt
+   ↓
+完整页面加载
+</code></pre></div>
+<p>Predictive Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户输入：
+
+s
+ ↓
+sh
+ ↓
+shi
+ ↓
+shir
+ ↓
+shirt
+
+每输入一次
+      ↓
+请求 Shopify
+      ↓
+返回预测结果
+      ↓
+更新下拉框
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌───────────────────────────┐
+│ shirt                     │
+├───────────────────────────┤
+│ Products                  │
+│                           │
+│ 👕 Classic T-Shirt  $29   │
+│ 👕 Oversized Shirt $39    │
+│                           │
+│ Collections               │
+│                           │
+│ Shirts                    │
+│                           │
+│ Search for &quot;shirt&quot; →      │
+└───────────────────────────┘
+</code></pre></div>
+<p>这个就是我们下一课要学的：</p>
+<h2>Predictive Search</h2>
+<hr>
+<h2>17. 为什么 Predictive Search 对你很重要？</h2>
+<p>因为它第一次真正把 Shopify Theme 里的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
++
+JavaScript
++
+Shopify API
+</code></pre></div>
+<p>组合起来。</p>
+<p>传统 Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">HTML Form
+ ↓
+GET /search
+ ↓
+Shopify
+ ↓
+Liquid
+</code></pre></div>
+<p>Predictive Search：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JavaScript
+ ↓
+请求 Shopify
+ ↓
+JSON
+ ↓
+JavaScript
+ ↓
+DOM
+</code></pre></div>
+<p>这就更接近你熟悉的 React 前端开发。</p>
+<hr>
+<h2>18. 你现在应该掌握的核心知识</h2>
+<p>这一课先记住下面这张表：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>概念</th>
+<th>作用</th>
+</tr>
+</thead><tbody><tr>
+<td><code>/search</code></td>
+<td>Search 页面</td>
+</tr>
+<tr>
+<td><code>q</code></td>
+<td>搜索关键词 URL 参数</td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td>当前搜索对象</td>
+</tr>
+<tr>
+<td><code>search.terms</code></td>
+<td>搜索关键词</td>
+</tr>
+<tr>
+<td><code>search.results</code></td>
+<td>搜索结果</td>
+</tr>
+<tr>
+<td><code>search.results_count</code></td>
+<td>结果数量</td>
+</tr>
+<tr>
+<td><code>search.performed</code></td>
+<td>是否执行过搜索</td>
+</tr>
+<tr>
+<td><code>search.json</code></td>
+<td>Search Template</td>
+</tr>
+<tr>
+<td><code>paginate</code></td>
+<td>搜索结果分页</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>19. 一个小练习</h2>
+<p>现在你可以自己实现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+</code></pre></div>
+<p>页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+
+Search results for &quot;shirt&quot;
+
+┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Product  │ │ Product  │ │ Product  │
+│          │ │          │ │          │
+│ T-Shirt  │ │ Shirt    │ │ Polo     │
+│ $29      │ │ $39      │ │ $49      │
+└──────────┘ └──────────┘ └──────────┘
+
+Previous  1  2  3  Next
+</code></pre></div>
+<p>要求：</p>
+<ol>
+<li>使用 <code>search.terms</code></li>
+<li>使用 <code>search.results</code></li>
+<li>使用 <code>paginate</code></li>
+<li>Product 结果复用 <code>product-card</code></li>
+<li>没有结果时显示：
+<code>No products found</code></li>
+</ol>
+<hr>
+<h2>20. 我们现在的位置</h2>
+<p>我们的 Theme 主线已经变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+    ↓
+Product Card
+    ↓
+Pagination
+    ↓
+Product Media
+    ↓
+Variant + Media
+    ↓
+Search
+    ↓
+Predictive Search ← 下一课
+    ↓
+Filtering
+    ↓
+Sort / URL
+    ↓
+SEO
+    ↓
+Performance
+</code></pre></div>
+<p>而数据模型线会同步往下走：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↓
+Variant
+ ↓
+Media
+ ↓
+Collection
+ ↓
+Inventory
+ ↓
+Customer
+ ↓
+Order
+ ↓
+Metafield
+ ↓
+Metaobject
+</code></pre></div>
+<p>**下一课直接进入第 16 课：Predictive Search。**这一课会开始真正写 <code>fetch()</code>、处理 JSON、做搜索下拉框，并把 <strong>Shopify Search API + Theme JavaScript</strong> 串起来。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-15.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

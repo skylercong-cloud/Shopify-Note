@@ -1,0 +1,657 @@
+<h1>第 11 课：活动页特殊价格到底怎么实现？</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T21:40:00+08:00">09-19 21:40</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T21:40:00+08:00">09-19 21:40</time></div>
+<p>好，我们就沿着你刚才的问题，做一个<strong>真正的“活动页 → 特殊价格 → 加购 → Cart Drawer → Checkout”实战</strong>。</p>
+<p>而且我先纠正/补充上一课里一个很重要的点：</p>
+<blockquote>
+<p><strong>如果你的目标只是“活动价”，优先考虑 Discount Function；如果你需要直接改变 Cart Line 的展示/价格，才考虑 Cart Transform。</strong></p>
+</blockquote>
+<p>Shopify 现在的 Discount Function 专门用于生成商品、订单、配送折扣；Cart Transform 则用于改变购物车商品的价格/展示、Bundle 等。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a><a href="https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart Transform Function API" aria-label="Cart Transform Function API">Shopify</a></span></p>
+<hr>
+<p>假设我们现在有一个真实需求。</p>
+<p>后台商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── T-Shirt
+
+Variant
+├── Black / M
+├── Black / L
+└── White / M
+
+正常价格：
+$29.99
+</code></pre></div>
+<p>现在市场部门说：</p>
+<blockquote>
+<p>“我要做一个 Summer Sale 活动页，只有从这个活动进入，并且购买 T-Shirt 的用户，可以 $19.99 买。”</p>
+</blockquote>
+<p>活动页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/summer-sale
+</code></pre></div>
+<p>页面显示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+
+T-Shirt
+
+$19.99
+
+[ Add to Cart ]
+</code></pre></div>
+<hr>
+<h2>一、第一反应不要直接改 Variant Price</h2>
+<p>千万不要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+price = 19.99
+</code></pre></div>
+<p>因为这样会影响整个商品。</p>
+<p>普通商品页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/products/t-shirt
+
+$19.99
+</code></pre></div>
+<p>也会变。</p>
+<p>我们真正需要的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">普通场景：
+
+T-Shirt
+$29.99
+
+
+Summer Sale：
+
+T-Shirt
+$19.99
+</code></pre></div>
+<p>也就是说：</p>
+<blockquote>
+<p><strong>Variant 原价仍然是 $29.99，活动规则在购买流程中产生优惠。</strong></p>
+</blockquote>
+<hr>
+<h2>二、整个架构</h2>
+<p>我们先画最终架构：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    活动页
+                      │
+                      ↓
+                用户选择 Variant
+                      │
+                      ↓
+                Add to Cart
+                      │
+                      ↓
+                Cart API
+                      │
+                      ↓
+              Shopify Cart
+                      │
+                      ↓
+              Discount Function
+                      │
+               判断活动规则
+                      │
+                      ↓
+                应用 $10 Discount
+                      │
+                      ↓
+                  Checkout
+</code></pre></div>
+<p>注意这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+</code></pre></div>
+<p>负责：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">UI
+Variant
+Add to Cart
+Cart Drawer
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Function
+</code></pre></div>
+<p>负责：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">真正的促销规则
+真正的价格优惠
+</code></pre></div>
+<p>Shopify Functions 本身就是用于扩展 Shopify 后端逻辑，包括自定义折扣和购物车/结账逻辑。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/latest?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Function APIs" aria-label="Function APIs">Shopify</a></span></p>
+<hr>
+<h2>三、活动页怎么告诉 Shopify“这是活动商品”？</h2>
+<p>这里就涉及我们上一课讲的：</p>
+<h3>Line Item Properties</h3>
+<p>加购的时候：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  id: variantId,
+  quantity: 1,
+
+  properties: {
+    &quot;_campaign&quot;: &quot;summer_sale&quot;
+  }
+}
+</code></pre></div>
+<p>Shopify Ajax Cart API 支持给 line item 添加 <code>properties</code>。以下划线 <code>_</code> 开头的 property 可以作为 private line item property，在结账界面隐藏。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID
++
+Quantity
++
+_campaign
+</code></pre></div>
+<p>进入 Cart。</p>
+<hr>
+<h2>四、但是这里有一个非常重要的安全问题</h2>
+<p>假设我们写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">properties: {
+  &quot;_campaign&quot;: &quot;summer_sale&quot;
+}
+</code></pre></div>
+<p>你可能会想：</p>
+<blockquote>
+<p>“那 Function 看到 <code>_campaign=summer_sale</code>，就给 $19.99。”</p>
+</blockquote>
+<p>这还不够安全。</p>
+<p>因为用户完全可以自己发送：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">fetch(&#39;/cart/add.js&#39;, {
+  ...
+  properties: {
+    &quot;_campaign&quot;: &quot;summer_sale&quot;
+  }
+})
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">_campaign = summer_sale
+</code></pre></div>
+<p><strong>只能作为活动上下文/信号，不能天然当成授权凭证。</strong></p>
+<p>真正的业务规则应该在 Shopify 后端执行。</p>
+<hr>
+<h2>五、一个更合理的活动规则</h2>
+<p>我们定义：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动：
+SUMMER_SALE
+
+活动商品：
+Variant 123
+
+活动时间：
+2026-09-01
+~
+2026-09-30
+
+活动价格：
+$19.99
+</code></pre></div>
+<p>Function 判断：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">是否是活动商品？
+        ↓
+是否在活动时间？
+        ↓
+是否符合活动条件？
+        ↓
+是
+ ↓
+给予 $10 discount
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器说：
+“我是活动用户”
+
+        ↓
+
+Shopify：
+“好，那你 $19.99”
+</code></pre></div>
+<hr>
+<h2>六、为什么我更推荐 Discount Function？</h2>
+<p>因为你的需求本质上是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">原价 $29.99
+
+活动优惠 -$10
+
+最终 $19.99
+</code></pre></div>
+<p>这本质上就是：</p>
+<blockquote>
+<p><strong>Discount</strong></p>
+</blockquote>
+<p>而 Shopify 的 Discount Function 就是为这种逻辑设计的。</p>
+<p>官方当前 Discount Function API 支持：</p>
+<ul>
+<li>Product discounts</li>
+<li>Order discounts</li>
+<li>Shipping discounts</li>
+</ul>
+<p>并且 Function 可以根据 Cart context、商品、数量、Buyer Identity、配置数据等生成折扣。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a></span></p>
+<p>所以架构应该是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$29.99
+   ↓
+Discount Function
+   ↓
+-$10
+   ↓
+$19.99
+</code></pre></div>
+<p>而不是直接偷偷把 Variant 原价改成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$19.99
+</code></pre></div>
+<hr>
+<h2>七、那么活动页 Theme 做什么？</h2>
+<p>我们先写活动页。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;div class=&quot;summer-sale&quot;&gt;
+  &lt;h1&gt;Summer Sale&lt;/h1&gt;
+
+  &lt;h2&gt;{{ product.title }}&lt;/h2&gt;
+
+  &lt;div class=&quot;sale-price&quot;&gt;
+    $19.99
+  &lt;/div&gt;
+
+  {% form &#39;product&#39;, product %}
+    &lt;input
+      type=&quot;hidden&quot;
+      name=&quot;id&quot;
+      value=&quot;{{ product.selected_or_first_available_variant.id }}&quot;
+    &gt;
+
+    &lt;input
+      type=&quot;hidden&quot;
+      name=&quot;properties[_campaign]&quot;
+      value=&quot;summer_sale&quot;
+    &gt;
+
+    &lt;button type=&quot;submit&quot;&gt;
+      Add to Cart
+    &lt;/button&gt;
+  {% endform %}
+&lt;/div&gt;
+</code></pre></div>
+<p>这里发生了什么？</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+ ↓
+生成 HTML
+ ↓
+用户点击 Add to Cart
+ ↓
+Shopify Product Form
+ ↓
+Variant ID
++
+_campaign
+ ↓
+Cart
+</code></pre></div>
+<hr>
+<h2>八、如果我们使用 Ajax Cart API</h2>
+<p>那么 JS 可以这样：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function addCampaignProduct(variantId) {
+  const response = await fetch(
+    window.Shopify.routes.root + &#39;cart/add.js&#39;,
+    {
+      method: &#39;POST&#39;,
+
+      headers: {
+        &#39;Content-Type&#39;: &#39;application/json&#39;
+      },
+
+      body: JSON.stringify({
+        items: [
+          {
+            id: variantId,
+            quantity: 1,
+
+            properties: {
+              &quot;_campaign&quot;: &quot;summer_sale&quot;
+            }
+          }
+        ],
+
+        sections: [
+          &#39;cart-drawer&#39;,
+          &#39;cart-icon-bubble&#39;
+        ]
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(&#39;Add to cart failed&#39;);
+  }
+
+  return response.json();
+}
+</code></pre></div>
+<p>这里同时完成了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">① 添加 Variant
+② 添加活动上下文
+③ 请求 Cart Drawer
+④ 请求 Cart Count
+</code></pre></div>
+<p>Bundled Section Rendering 可以让 Cart API 操作和指定 Sections 的 HTML 渲染在同一次请求里完成；当前文档支持 add/change/clear/update 这些 Cart API endpoint，并最多请求 5 个 sections。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>九、Cart 里是什么样？</h2>
+<p>最终 Cart Line 可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+└── Line Item
+    ├── Variant
+    │   └── T-Shirt Black / M
+    │
+    ├── Quantity
+    │   └── 1
+    │
+    └── Properties
+        └── _campaign = summer_sale
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+</code></pre></div>
+<p>负责：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">卖的是什么
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">properties
+</code></pre></div>
+<p>可以携带：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">这次购买附带了什么业务上下文
+</code></pre></div>
+<p>Line item properties 正是 Shopify 提供的自定义 line-level 数据机制。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a><a href="https://shopify.dev/docs/api/liquid/objects/line_item?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: line_item" aria-label="Liquid objects: line_item">Shopify</a></span></p>
+<hr>
+<h2>十、然后进入 Function</h2>
+<p>这里就是 Theme 和 Shopify Backend 的分界线。</p>
+<p>你的 Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“这是 summer_sale”
+</code></pre></div>
+<p>Function：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“我来判断它是否真的应该获得优惠。”
+</code></pre></div>
+<p>例如伪代码：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">function run(input) {
+  const operations = [];
+
+  for (const line of input.cart.lines) {
+
+    const campaign =
+      getProperty(line, &quot;_campaign&quot;);
+
+    const variantId =
+      line.merchandise.id;
+
+    if (
+      campaign === &quot;summer_sale&quot; &amp;&amp;
+      variantId === SUMMER_VARIANT_ID
+    ) {
+
+      operations.push({
+        productDiscount: {
+          targets: [
+            {
+              cartLine: {
+                id: line.id
+              }
+            }
+          ],
+
+          value: {
+            fixedAmount: {
+              amount: &quot;10.00&quot;
+            }
+          }
+        }
+      });
+    }
+  }
+
+  return {
+    operations
+  };
+}
+</code></pre></div>
+<p>这只是帮助你理解架构的<strong>伪代码</strong>，不是可以直接部署的 Function 完整实现。</p>
+<p>真正的 Function 会按照 Shopify Functions 的 GraphQL input/output schema 编写。当前 Discount Function 的 cart target 是 <code>cart.lines.discounts.generate.run</code>。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Discount Function API" aria-label="Discount Function API">Shopify</a></span></p>
+<hr>
+<h2>十一、最终价格</h2>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant 原价
+
+$29.99
+</code></pre></div>
+<p>进入 Cart：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
+$29.99
+</code></pre></div>
+<p>Function：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Campaign = summer_sale
+
+Discount = -$10
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Subtotal
+$19.99
+</code></pre></div>
+<p>Checkout：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
+$19.99
+</code></pre></div>
+<p>这时候价格才是真正进入 Shopify 购买流程的优惠价格。</p>
+<hr>
+<h2>十二、这里你可能会问</h2>
+<blockquote>
+<p>“那活动页为什么一开始显示 $19.99？”</p>
+</blockquote>
+<p>非常好的问题。</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动页显示价格
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify 最终结算价格
+</code></pre></div>
+<p>是两个问题。</p>
+<p>活动页可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;span&gt;$19.99&lt;/span&gt;
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$29.99
+↓
+$19.99
+</code></pre></div>
+<p>但是这个只是：</p>
+<blockquote>
+<p><strong>UI Presentation</strong></p>
+</blockquote>
+<p>真正结账时：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Discount Function
+</code></pre></div>
+<p>才决定：</p>
+<blockquote>
+<p><strong>实际优惠</strong></p>
+</blockquote>
+<p>所以生产级系统一定要保证：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">UI 显示
+        ↓
+和
+实际结算
+        ↓
+使用同一套业务规则
+</code></pre></div>
+<p>否则会出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动页：
+
+$19.99
+
+↓
+
+Cart：
+
+$29.99
+
+↓
+
+用户：
+
+？？？
+</code></pre></div>
+<p>这是电商项目非常典型的坑。</p>
+<hr>
+<h2>十三、那如果我要的是“直接把价格改成 $19.99”呢？</h2>
+<p>这时候就进入：</p>
+<h3>Cart Transform</h3>
+<p>Shopify 当前 Cart Transform API 可以对 Cart Line 的价格、标题、图片等展示进行修改，也可以用于 Bundle 等场景。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart Transform Function API" aria-label="Cart Transform Function API">Shopify</a><a href="https://shopify.dev/docs/api/functions/2026-01/cart-transform?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart Transform Function API" aria-label="Cart Transform Function API">Shopify</a></span></p>
+<p>概念上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+$29.99
+
+        ↓
+
+Cart Transform
+
+        ↓
+
+Cart Line
+$19.99
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount Function
+</code></pre></div>
+<p>更偏向：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“给你一个优惠”
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Transform
+</code></pre></div>
+<p>更偏向：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“改变 Cart Line 的价格/呈现”
+</code></pre></div>
+<p>这两个不要混为一谈。</p>
+<p>而且当前 Cart Transform 的 <code>lineUpdate</code> 有 Shopify Plus / development store 等限制，因此具体选择时一定要结合商店类型和目标能力确认。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart Transform Function API" aria-label="Cart Transform Function API">Shopify</a></span></p>
+<hr>
+<h2>十四、现在重新看 Shopify 的分层</h2>
+<p>你已经可以开始用“架构师视角”看这个问题了。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌─────────────────────────────┐
+│          Theme              │
+│                             │
+│ 页面 / UI / Variant / JS    │
+│ Cart Drawer / 活动页        │
+└──────────────┬──────────────┘
+               │
+               │ Cart API
+               ↓
+┌─────────────────────────────┐
+│           Cart              │
+│                             │
+│ Variant + Quantity          │
+│ Line Item Properties        │
+└──────────────┬──────────────┘
+               │
+               ↓
+┌─────────────────────────────┐
+│      Shopify Functions      │
+│                             │
+│ Discount                    │
+│ Cart Transform              │
+│ Validation / 其他规则       │
+└──────────────┬──────────────┘
+               │
+               ↓
+┌─────────────────────────────┐
+│          Checkout           │
+└─────────────────────────────┘
+</code></pre></div>
+<p>这张图你要记住。</p>
+<hr>
+<h2>十五、再回到你最开始的问题</h2>
+<p>你之前问：</p>
+<blockquote>
+<p>“加购的时候只把 Variant ID 和数量作为参数，如果活动页想自定义售价怎么办？”</p>
+</blockquote>
+<p>现在答案就很清晰了：</p>
+<h4>❌ 不应该</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID
++
+Quantity
++
+price = 19.99
+</code></pre></div>
+<p>因为浏览器不能成为可信价格来源。</p>
+<h4>✅ 可以</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID
++
+Quantity
++
+Campaign Context
+        ↓
+Shopify Cart
+        ↓
+后端促销规则
+        ↓
+Discount / Cart Transform
+        ↓
+最终价格
+</code></pre></div>
+<p>这就是 Shopify Commerce 的核心思想：</p>
+<blockquote>
+<p><strong>客户端负责“提出购买意图”，Shopify 服务端负责“决定最终交易结果”。</strong></p>
+</blockquote>
+<hr>
+<h2>十六、你现在已经碰到一个非常重要的架构边界</h2>
+<p>以后你看到一个需求：</p>
+<blockquote>
+<p>“活动页要怎么样？”</p>
+</blockquote>
+<p>不要马上想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid 怎么写？
+JS 怎么写？
+</code></pre></div>
+<p>先问：</p>
+<h4>① 这是 UI 问题吗？</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+</code></pre></div>
+<h4>② 这是购物车操作吗？</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart API
+</code></pre></div>
+<h4>③ 这是价格/折扣规则吗？</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Discount / Functions
+</code></pre></div>
+<h4>④ 这是商品数据吗？</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product / Variant / Metafield
+</code></pre></div>
+<h4>⑤ 这是商家后台业务逻辑吗？</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App
+</code></pre></div>
+<p>这才是 Shopify 开发真正重要的能力。</p>
+<hr>
+<h3>下一步我们进入一个更关键的问题</h3>
+<p>现在你应该已经能理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动页
+   ↓
+Add to Cart
+   ↓
+Cart API
+   ↓
+Function
+   ↓
+Discount
+</code></pre></div>
+<p>但还有一个问题：</p>
+<blockquote>
+<p><strong>Function 到底从哪里知道“这个活动是什么、活动商品是谁、活动价格是多少”？</strong></p>
+</blockquote>
+<p>难道把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">SUMMER_VARIANT_ID
+19.99
+</code></pre></div>
+<p>硬编码进 Function？</p>
+<p>当然不是。</p>
+<p>下一课我们就进入：</p>
+<h2>第 12 课：Metafield + Function</h2>
+<p>我们会做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Admin
+      ↓
+Metafield
+      ↓
+定义活动
+      ↓
+Function 读取活动配置
+      ↓
+计算活动价格
+      ↓
+Theme 活动页读取同一份配置
+</code></pre></div>
+<p>这时候你会真正看到 <strong>Metafield、Theme、Function、App</strong> 是怎么组成一个完整电商系统的。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Discount Function API</a></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-11.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

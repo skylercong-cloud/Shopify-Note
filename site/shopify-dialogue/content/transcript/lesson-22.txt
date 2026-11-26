@@ -1,0 +1,1162 @@
+# 第 22 课：Shopify Collection 数据模型
+
+## 我的提问 · 2026-09-20 Sun 08:28
+
+继续
+
+## ChatGPT · 2026-09-20 Sun 08:28
+
+好，我们继续。
+
+# 第 22 课：Shopify Collection 数据模型
+
+上一课我们建立了：
+
+```text
+Product
+   │
+   └── Variant
+          │
+          └── Inventory
+```
+
+这一课把 **Collection** 放进整个数据模型。
+
+最重要的一句话：
+
+> **Collection 不是 Product 的父级目录，而是一个“产品集合”。**
+
+一个 Product 可以进入多个 Collection。
+
+---
+
+# 一、Collection 到底是什么？
+
+例如你的店铺有：
+
+```text
+1000 个 Product
+```
+
+你可能希望建立：
+
+```text
+Running Shoes
+Nike
+Men's Shoes
+Best Sellers
+Summer Sale
+New Arrivals
+```
+
+这些都是 Collection。
+
+可以理解成：
+
+```text
+                         Products
+                            │
+       ┌────────────────────┼────────────────────┐
+       ▼                    ▼                    ▼
+Running Shoes              Nike             New Arrivals
+       │                    │                    │
+       ├── Product A        ├── Product A        ├── Product C
+       ├── Product B        ├── Product D        ├── Product E
+       └── Product C        └── Product F        └── Product A
+```
+
+注意：
+
+```text
+Product A
+```
+
+同时存在于：
+
+```text
+Running Shoes
+Nike
+New Arrivals
+```
+
+所以这是典型的：
+
+> **Product ↔ Collection 多对多关系**
+
+---
+
+# 二、Collection 和 Product 的关系
+
+数据库思维可以粗略理解：
+
+```text
+Product
+   ↕
+Collection
+```
+
+而不是：
+
+```text
+Collection
+   │
+   ├── Product
+   ├── Product
+   └── Product
+```
+
+后者容易让你误以为：
+
+> 一个 Product 只能属于一个 Collection。
+
+实际上不是。
+
+---
+
+# 三、Shopify 有两种核心 Collection
+
+你需要记住：
+
+```text
+Collection
+├── Manual Collection
+└── Smart Collection
+```
+
+也可以理解成：
+
+```text
+手动 Collection
+自动 Collection
+```
+
+---
+
+# 四、Manual Collection
+
+Manual Collection：
+
+> **商家自己决定哪些 Product 加进去。**
+
+例如：
+
+```text
+New Arrivals
+```
+
+管理员选择：
+
+```text
+Product A
+Product B
+Product C
+Product D
+```
+
+那么：
+
+```text
+New Arrivals
+├── A
+├── B
+├── C
+└── D
+```
+
+你可以把它理解成：
+
+```text
+Merchant
+   ↓
+手动选择 Product
+   ↓
+Collection
+```
+
+---
+
+# 五、Manual Collection 适合什么？
+
+非常适合：
+
+### 精选商品
+
+```text
+Featured Products
+```
+
+### 首页推荐
+
+```text
+Homepage Picks
+```
+
+### 节日专题
+
+```text
+Black Friday
+```
+
+### 编辑精选
+
+```text
+Editor's Choice
+```
+
+### 营销活动
+
+```text
+Summer Sale
+```
+
+例如市场团队说：
+
+> “我们挑 30 个商品作为首页精选。”
+
+那就非常适合 Manual Collection。
+
+---
+
+# 六、Smart Collection
+
+Smart Collection 的思路完全不同。
+
+它不是：
+
+```text
+Merchant
+ ↓
+一个个选择 Product
+```
+
+而是：
+
+```text
+定义条件
+ ↓
+Shopify 自动判断
+ ↓
+符合条件的 Product
+ ↓
+进入 Collection
+```
+
+例如：
+
+```text
+Collection:
+Nike Shoes
+```
+
+条件：
+
+```text
+Vendor = Nike
+AND
+Product Type = Shoes
+```
+
+那么：
+
+```text
+Product A
+Vendor = Nike
+Type = Shoes
+      ↓
+      ✓
+
+Product B
+Vendor = Adidas
+Type = Shoes
+      ↓
+      ✗
+
+Product C
+Vendor = Nike
+Type = Bag
+      ↓
+      ✗
+```
+
+最终：
+
+```text
+Nike Shoes
+└── Product A
+```
+
+---
+
+# 七、Smart Collection 的核心思想
+
+可以把它理解成：
+
+```text
+Product Data
+      │
+      ▼
+   Conditions
+      │
+      ▼
+ Shopify evaluates
+      │
+      ▼
+Matching Products
+      │
+      ▼
+   Collection
+```
+
+所以：
+
+> **Smart Collection 本质上是一个基于 Product 数据的动态集合。**
+
+---
+
+# 八、什么数据可以成为条件？
+
+常见的商品属性包括：
+
+```text
+Vendor
+Product Type
+Tag
+Price
+...
+```
+
+例如：
+
+```text
+Vendor = Nike
+```
+
+或者：
+
+```text
+Product Type = Shoes
+```
+
+或者：
+
+```text
+Tag = sale
+```
+
+这样你就可以构造：
+
+```text
+Nike Shoes
+```
+
+```text
+Vendor = Nike
+AND
+Product Type = Shoes
+```
+
+---
+
+# 九、这和我们之前学的 Filter 有什么区别？
+
+这是一个非常重要的区别。
+
+### Collection
+
+决定：
+
+> **哪些 Product 属于这个集合。**
+
+例如：
+
+```text
+Nike Shoes
+```
+
+---
+
+### Filter
+
+决定：
+
+> **用户在这个 Collection 中进一步筛选什么。**
+
+例如：
+
+```text
+Nike Shoes
+│
+├── Color
+│   ├── Black
+│   └── White
+│
+├── Size
+│   ├── 8
+│   └── 9
+│
+└── Price
+    ├── <$50
+    └── $50-$100
+```
+
+所以：
+
+```text
+Collection
+    ↓
+定义商品范围
+
+Filter
+    ↓
+用户进一步缩小范围
+```
+
+---
+
+# 十、举一个完整例子
+
+假设店铺有：
+
+```text
+100 个鞋子 Product
+```
+
+我们创建：
+
+```text
+Collection:
+Running Shoes
+```
+
+Collection 中：
+
+```text
+50 个 Product
+```
+
+用户进入：
+
+```text
+/collections/running-shoes
+```
+
+然后选择：
+
+```text
+Color = Black
+```
+
+剩：
+
+```text
+15 个 Product
+```
+
+然后：
+
+```text
+Price < $100
+```
+
+剩：
+
+```text
+7 个 Product
+```
+
+最后：
+
+```text
+Sort = Price ascending
+```
+
+显示：
+
+```text
+$59
+$69
+$79
+$89
+...
+```
+
+整个过程：
+
+```text
+100 Products
+      │
+      ▼
+Running Shoes Collection
+      │
+      ▼
+50 Products
+      │
+      ▼
+Color = Black
+      │
+      ▼
+15 Products
+      │
+      ▼
+Price < $100
+      │
+      ▼
+7 Products
+      │
+      ▼
+Sort
+      │
+      ▼
+最终页面
+```
+
+这就是：
+
+> **Collection → Filter → Sort**
+
+---
+
+# 十一、Collection 在 Liquid 中是什么？
+
+你之前已经使用过：
+
+```liquid id="2j7h9m"
+{{ collection.title }}
+```
+
+Collection 对象有很多属性。
+
+例如：
+
+```liquid id="m9w5p3"
+{{ collection.id }}
+
+{{ collection.title }}
+
+{{ collection.handle }}
+
+{{ collection.description }}
+
+{{ collection.url }}
+```
+
+还有：
+
+```liquid id="f4q7x2"
+{{ collection.products }}
+```
+
+以及：
+
+```liquid id="j8k1v6"
+{{ collection.image }}
+```
+
+---
+
+# 十二、Collection URL
+
+Collection 最常见的 URL：
+
+```text id="e5q2w8"
+/collections/shoes
+```
+
+其中：
+
+```text id="7u3k9p"
+collections
+```
+
+是 Shopify 的 Collection 路径。
+
+而：
+
+```text id="c8m4r1"
+shoes
+```
+
+通常就是：
+
+```liquid id="v7k2m9"
+collection.handle
+```
+
+所以：
+
+```text id="8q1s5n"
+Title:
+Running Shoes
+
+Handle:
+running-shoes
+```
+
+URL：
+
+```text id="p6x3a8"
+/collections/running-shoes
+```
+
+---
+
+# 十三、Handle 是什么？
+
+Handle 是 Shopify 用来表示资源 URL 的一个字符串。
+
+例如：
+
+```text id="r5v8k2"
+Title:
+Running Shoes
+
+Handle:
+running-shoes
+```
+
+URL：
+
+```text id="f3m9q1"
+/collections/running-shoes
+```
+
+Product 也是一样：
+
+```text id="y7p2n4"
+Title:
+Nike Air Max
+
+Handle:
+nike-air-max
+```
+
+URL：
+
+```text id="k6w8s3"
+/products/nike-air-max
+```
+
+所以：
+
+```text id="x8q2m5"
+Title
+ ↓
+Handle
+ ↓
+URL
+```
+
+---
+
+# 十四、Handle 不是 ID
+
+这一点要记住。
+
+例如：
+
+```text id="r8m3v6"
+Collection ID:
+gid://shopify/Collection/123456
+
+Handle:
+running-shoes
+```
+
+两者用途不同。
+
+### ID
+
+用于：
+
+```text id="g2n7k4"
+API
+Database relationship
+GraphQL
+```
+
+### Handle
+
+主要用于：
+
+```text id="j4s9x1"
+URL
+```
+
+所以不要混淆：
+
+```text
+ID ≠ Handle
+```
+
+---
+
+# 十五、Collection 和 Sort
+
+上一阶段我们已经讲过：
+
+```text id="e7r4n8"
+collection.sort_options
+collection.sort_by
+collection.default_sort_by
+```
+
+现在从数据模型角度重新理解：
+
+Collection 有一个：
+
+```text
+排序状态
+```
+
+例如：
+
+```text id="m8c2x5"
+manual
+best-selling
+price-ascending
+price-descending
+created-descending
+...
+```
+
+其中：
+
+```text id="k1q7v3"
+manual
+```
+
+特别值得记。
+
+---
+
+# 十六、Manual Sort
+
+如果 Collection 使用：
+
+```text id="q4s8n2"
+manual
+```
+
+可以理解为：
+
+> **商家人工决定商品在 Collection 中的顺序。**
+
+例如：
+
+```text id="p7m3k9"
+Running Shoes
+
+1. Product A
+2. Product C
+3. Product F
+4. Product B
+5. Product D
+```
+
+这对于：
+
+```text id="z6w1x8"
+Featured
+Editor's Picks
+Homepage
+Campaign
+```
+
+非常有用。
+
+---
+
+# 十七、为什么不能把 Metafield 直接当 Collection Sort？
+
+这是我们上一阶段讨论过的问题。
+
+例如你定义：
+
+```text id="x3k8v5"
+custom.rating
+```
+
+数据：
+
+```text
+Product A → 4.9
+Product B → 4.5
+Product C → 4.8
+```
+
+你可能自然想：
+
+```text
+/collections/shoes?sort_by=rating
+```
+
+但 Shopify 原生 Collection sort 并不是任意 Metafield Sort。
+
+原生排序是有限的：
+
+```text id="h8q2w6"
+manual
+best-selling
+title
+price
+created
+...
+```
+
+所以：
+
+```text
+Metafield
+   ≠
+Native Collection Sort
+```
+
+这也是为什么如果你要做：
+
+```text
+Rating
+Recommendation Score
+Margin
+Priority
+AI Score
+```
+
+这种复杂排序，往往需要：
+
+```text
+App / Backend
+```
+
+参与。
+
+---
+
+# 十八、Collection 与 SEO
+
+现在再把第 19 课连接回来。
+
+例如：
+
+```text id="n5r8c2"
+/collections/running-shoes
+```
+
+它是一个非常重要的 SEO 页面。
+
+所以 Collection 通常需要：
+
+```text
+Collection
+│
+├── title
+├── description
+├── products
+├── image
+└── SEO metadata
+```
+
+Theme：
+
+```liquid id="j9m4x7"
+<h1>
+  {{ collection.title }}
+</h1>
+
+{% if collection.description != blank %}
+  <div>
+    {{ collection.description }}
+  </div>
+{% endif %}
+```
+
+然后：
+
+```text id="c8w2p6"
+canonical
+title
+description
+```
+
+一起组成 Collection SEO。
+
+---
+
+# 十九、Collection 数据模型和 Theme 页面模型
+
+现在可以把：
+
+```text id="w4q7m1"
+Collection
+```
+
+和 Theme：
+
+```text id="v8n2s5"
+templates/collection.json
+```
+
+联系起来。
+
+请求：
+
+```text id="p6k3x9"
+/collections/running-shoes
+```
+
+大致：
+
+```text
+Browser
+   │
+   ▼
+Shopify
+   │
+   ▼
+Collection
+   │
+   ▼
+collection template
+   │
+   ▼
+sections
+   │
+   ▼
+Liquid
+   │
+   ▼
+HTML
+```
+
+所以：
+
+> **Collection 是数据，Collection Template 是页面表现。**
+
+这和 React 非常像：
+
+```text
+Data
+ ↓
+Component
+ ↓
+UI
+```
+
+只是 Shopify 是：
+
+```text
+Shopify Data
+ ↓
+Liquid
+ ↓
+HTML
+```
+
+---
+
+# 二十、一个非常重要的架构区分
+
+以后你学习 Shopify App 时一定会遇到这个问题：
+
+> “Collection 是不是 Theme 的东西？”
+
+不是。
+
+Collection 属于：
+
+```text
+Shopify Commerce Data
+```
+
+Theme 只是：
+
+```text
+读取 Collection
+ ↓
+展示 Collection
+```
+
+所以：
+
+```text
+Shopify Platform
+│
+├── Product
+├── Variant
+├── Collection
+├── Customer
+├── Order
+├── Inventory
+└── ...
+        │
+        ▼
+      Theme
+        │
+        ▼
+      UI
+```
+
+这就是我们从 Theme 转向 Data Model 后最重要的思维变化。
+
+---
+
+# 二十一、Collection 的完整思维模型
+
+现在把今天全部串起来：
+
+```text id="t8w3k5"
+                    Collection
+                        │
+          ┌─────────────┼─────────────┐
+          │             │             │
+          ▼             ▼             ▼
+        Manual        Smart         Metadata
+          │             │
+          │             ▼
+          │         Conditions
+          │             │
+          │             ▼
+          │        Matching Products
+          │
+          ▼
+    Selected Products
+          │
+          └─────────────┐
+                        ▼
+                     Products
+                        │
+              ┌─────────┼─────────┐
+              ▼         ▼         ▼
+           Variant    Media    Metafield
+              │
+              ▼
+          Inventory
+```
+
+然后 Theme：
+
+```text id="j5m8q2"
+Collection
+   ↓
+/collections/:handle
+   ↓
+collection object
+   ↓
+collection.products
+   ↓
+Product Card
+   ↓
+HTML
+```
+
+---
+
+# 二十二、这一课你只需要记住 7 件事
+
+### ① Collection 是产品集合
+
+```text
+Collection ≠ Product
+```
+
+### ② 一个 Product 可以属于多个 Collection
+
+```text
+Product ↔ Collection
+```
+
+### ③ 有 Manual / Smart 两种主要思路
+
+```text
+Manual
+→ 人工选择
+
+Smart
+→ 条件匹配
+```
+
+### ④ Collection 决定商品范围
+
+```text
+Collection
+↓
+哪些商品进入页面
+```
+
+### ⑤ Filter 是用户进一步筛选
+
+```text
+Collection
+↓
+Filter
+↓
+更小的结果集
+```
+
+### ⑥ Handle 主要参与 URL
+
+```text
+running-shoes
+↓
+/collections/running-shoes
+```
+
+### ⑦ Collection 是 Shopify 数据，不是 Theme 数据
+
+```text
+Shopify Platform
+     ↓
+Collection Data
+     ↓
+Theme
+     ↓
+UI
+```
+
+---
+
+# 下一课：第 23 课 —— Inventory / Location
+
+下一课是整个 Shopify 数据模型里**非常关键的一课**。
+
+我们会解决一个实际电商问题：
+
+> **“一个 SKU 到底有多少库存？这个库存到底在哪个仓库？”**
+
+你会看到：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+```
+
+并彻底区分：
+
+```text
+Variant
+InventoryItem
+InventoryLevel
+Location
+```
+
+例如：
+
+```text
+Nike Air Max
+└── Black / 9
+      │
+      ▼
+Inventory Item
+      │
+      ├── San Jose Warehouse → 20
+      ├── Los Angeles Warehouse → 15
+      └── New York Warehouse → 8
+```
+
+**这一课会把 Shopify 的“库存模型”真正讲透。**

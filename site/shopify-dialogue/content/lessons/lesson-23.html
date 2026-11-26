@@ -1,0 +1,671 @@
+<h1>第 23 课：Inventory / Location —— Shopify 库存模型</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-20T08:30:00+08:00">09-20 08:30</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-20T08:30:00+08:00">09-20 08:30</time></div>
+<p>好，我们继续。</p>
+<figure class="dialogue-figure"><img src="assets/inventory.jpg" alt="仓库员工在存放分箱货品的货架旁用扫描器盘点。" decoding="async" width="506" height="506"><figcaption>示意配图 · Shopify 的库存记录会区分具体地点。</figcaption></figure>
+
+<p>这一课非常重要，因为你以后做 <strong>Shopify App、ERP、仓储系统、订单系统、跨境电商库存同步</strong>，都会遇到它。</p>
+<p>你先记住一条核心关系：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+</code></pre></div>
+<p>但这里有一个容易误解的地方：</p>
+<blockquote>
+<p><strong>库存数量并不是直接挂在 Variant 上的。</strong></p>
+</blockquote>
+<p>Shopify 把「商品规格」和「库存管理」拆成了不同的数据对象。</p>
+<hr>
+<h2>一、先建立整体模型</h2>
+<p>假设我们卖：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>有两个 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / 9
+Black / 10
+</code></pre></div>
+<p>其中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / 9
+</code></pre></div>
+<p>是一个真正可以购买的具体 SKU。</p>
+<p>现在公司有三个仓库：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">San Jose Warehouse
+Los Angeles Warehouse
+New York Warehouse
+</code></pre></div>
+<p>库存可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+└── Black / 9
+      │
+      ↓
+   InventoryItem
+      │
+      ├── San Jose      → 20
+      ├── Los Angeles   → 15
+      └── New York      → 8
+</code></pre></div>
+<p>这里：</p>
+<ul>
+<li><code>Variant</code>：卖的是什么规格</li>
+<li><code>InventoryItem</code>：这个 Variant 对应的库存管理对象</li>
+<li><code>Location</code>：库存在哪里</li>
+<li><code>InventoryLevel</code>：这个库存商品在这个地点有多少库存</li>
+</ul>
+<p>Shopify 官方当前的 GraphQL Admin API 也是这样建模的：<code>InventoryItem</code> 连接一个 Variant 与它在不同 Location 的库存，而 <code>InventoryLevel</code> 连接一个 InventoryItem 和一个 Location。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/objects/inventoryitem?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="InventoryItem - GraphQL Admin" aria-label="InventoryItem - GraphQL Admin">Shopify</a><a href="https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="inventoryLevel - GraphQL Admin" aria-label="inventoryLevel - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>二、Variant 和 InventoryItem 为什么要分开？</h2>
+<p>这是理解 Shopify 数据模型的关键。</p>
+<p>你可能会想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+  id
+  sku
+  price
+  inventory
+</code></pre></div>
+<p>为什么不直接这样？</p>
+<p>因为：</p>
+<blockquote>
+<p>Variant 描述的是「卖什么」，InventoryItem 描述的是「怎么管理这个东西的库存」。</p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+----------------
+Black / 9
+SKU: NK-001-BK-9
+Price: $129
+</code></pre></div>
+<p>对应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">InventoryItem
+----------------
+SKU: NK-001-BK-9
+tracked: true
+shipping information
+customs information
+inventory history
+...
+</code></pre></div>
+<p>而 InventoryItem 还可以继续关联多个库存地点。</p>
+<p>官方当前定义中，<code>InventoryItem</code> 是一个 Variant 的库存信息，并且可以通过 <code>inventoryLevels</code> 查看这个商品在不同 Location 的库存。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/objects/inventoryitem?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="InventoryItem - GraphQL Admin" aria-label="InventoryItem - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>三、InventoryLevel 才是真正的「地点库存」</h2>
+<p>这个概念一定要理解。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">InventoryItem
+    =
+Nike Air Max Black / 9
+</code></pre></div>
+<p>它有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Location A
+San Jose
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Location B
+Los Angeles
+</code></pre></div>
+<p>那么实际上存在：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">InventoryLevel #1
+InventoryItem + San Jose
+available = 20
+
+InventoryLevel #2
+InventoryItem + Los Angeles
+available = 15
+</code></pre></div>
+<p>所以可以把 <code>InventoryLevel</code> 理解成：</p>
+<blockquote>
+<p><strong>某个库存商品，在某个地点的库存记录。</strong></p>
+</blockquote>
+<p>官方文档也是这么定义的：一个 <code>InventoryLevel</code> 将一个 <code>InventoryItem</code> 与一个 <code>Location</code> 连接起来，并记录该地点的各种库存状态。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="inventoryLevel - GraphQL Admin" aria-label="inventoryLevel - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>四、Location 是什么？</h2>
+<p><code>Location</code> 不只是「仓库」。</p>
+<p>它可以代表：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Warehouse
+Retail Store
+Popup Store
+Fulfillment Center
+Dropshipper
+</code></pre></div>
+<p>也就是说，它代表一个 Shopify 中进行库存管理/履约的地点。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Locations
+├── San Jose Warehouse
+├── Los Angeles Warehouse
+├── New York Store
+└── Shopify Fulfillment Network
+</code></pre></div>
+<p>官方当前文档也明确把 Location 描述为可以存储和履行库存的实体，例如仓库、零售店、popup、dropshipper 等。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/objects/Location?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Location - GraphQL Admin" aria-label="Location - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>五、所以四个对象到底是什么关系？</h2>
+<p>我们把它画完整：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Variant A
+│      │
+│      └── InventoryItem A
+│             │
+│             ├── InventoryLevel
+│             │       └── San Jose
+│             │              available: 20
+│             │
+│             ├── InventoryLevel
+│             │       └── Los Angeles
+│             │              available: 15
+│             │
+│             └── InventoryLevel
+│                     └── New York
+│                            available: 8
+│
+└── Variant B
+       │
+       └── InventoryItem B
+              │
+              ├── San Jose
+              ├── Los Angeles
+              └── New York
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   1
+   │
+   └── N Variants
+             │
+             └── 1 InventoryItem
+                       │
+                       └── N InventoryLevels
+                                  │
+                                  └── 1 Location
+</code></pre></div>
+<hr>
+<h2>六、这和数据库设计非常像</h2>
+<p>你是前端开发，所以可以直接用数据库思维理解。</p>
+<p>假设自己设计数据库：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">products
+---------
+id
+title
+</code></pre></div>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product_variants
+----------------
+id
+product_id
+sku
+price
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">inventory_items
+---------------
+id
+variant_id
+sku
+tracked
+</code></pre></div>
+<p>再：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">locations
+---------
+id
+name
+address
+</code></pre></div>
+<p>最后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">inventory_levels
+----------------
+id
+inventory_item_id
+location_id
+available
+</code></pre></div>
+<p>关系：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">products
+   │
+   └── product_variants
+             │
+             └── inventory_items
+                       │
+                       └── inventory_levels
+                                  │
+                                  └── locations
+</code></pre></div>
+<p>这个模型就非常接近 Shopify 的思维。</p>
+<hr>
+<h2>七、为什么一个 Variant 可以有多个库存？</h2>
+<p>这就是 Shopify 多仓库能力的基础。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant:
+Nike Air Max / Black / 9
+</code></pre></div>
+<p>库存：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>Location</th>
+<th align="right">Available</th>
+</tr>
+</thead><tbody><tr>
+<td>San Jose</td>
+<td align="right">20</td>
+</tr>
+<tr>
+<td>Los Angeles</td>
+<td align="right">15</td>
+</tr>
+<tr>
+<td>New York</td>
+<td align="right">8</td>
+</tr>
+</tbody></table></div>
+<p>那么这个 Variant 并不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">inventory = 43
+</code></pre></div>
+<p>这么简单。</p>
+<p>Shopify 更关心：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">San Jose → 20
+Los Angeles → 15
+New York → 8
+</code></pre></div>
+<p>因为订单履约时必须知道：</p>
+<blockquote>
+<p><strong>这件商品到底从哪个 Location 发货？</strong></p>
+</blockquote>
+<p>Location 不只是库存数字的容器，它还参与订单履约能力和在线订单配置。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/objects/Location?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Location - GraphQL Admin" aria-label="Location - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>八、一个特别容易踩坑的地方：available ≠ on_hand</h2>
+<p>现在进入稍微高级一点的部分。</p>
+<p>现代 Shopify Inventory 不只有一个简单的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">quantity
+</code></pre></div>
+<p>而是存在多个库存状态。</p>
+<p>当前 Admin GraphQL API 的 <code>InventoryLevel.quantities</code> 可以查询例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">available
+incoming
+committed
+on_hand
+reserved
+damaged
+quality_control
+safety_stock
+</code></pre></div>
+<p>具体可用的状态取决于 Shopify 当前 API 版本和场景。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="inventoryLevel - GraphQL Admin" aria-label="inventoryLevel - GraphQL Admin">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">San Jose Warehouse
+
+on_hand       = 100
+committed     = 20
+reserved      = 10
+available     = 70
+</code></pre></div>
+<p>你可以先用非常简单的方式理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">on_hand
+↓
+物理上手里的库存
+
+committed
+↓
+已经被订单等流程占用的库存
+
+available
+↓
+当前可供销售/分配的库存
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">on_hand ≠ available
+</code></pre></div>
+<p>这也是为什么我们之前说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">variant.available
+</code></pre></div>
+<p>不能理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">库存数量 = X
+</code></pre></div>
+<p>它更接近：</p>
+<blockquote>
+<p><strong>这个 Variant 当前是否可购买/可售。</strong></p>
+</blockquote>
+<hr>
+<h2>九、为什么 <code>variant.available</code> 不等于库存？</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+Black / 9
+
+Inventory:
+San Jose = 0
+Los Angeles = 0
+New York = 5
+</code></pre></div>
+<p>如果这个商品可以从 New York 发货：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">variant.available
+=
+true
+</code></pre></div>
+<p>但你不能从：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ variant.available }}
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">5
+</code></pre></div>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">available
+</code></pre></div>
+<p>是一个布尔状态，而不是库存数量。</p>
+<p>真正详细的库存数据属于 Inventory 模型。</p>
+<hr>
+<h2>十、Theme 和 Inventory 的职责边界</h2>
+<p>这也是 Theme 学习中非常重要的一条。</p>
+<h3>Theme</h3>
+<p>主要负责：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">显示
+↓
+商品
+Variant
+价格
+库存可售状态
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% if product.selected_or_first_available_variant.available %}
+  &lt;button&gt;Add to cart&lt;/button&gt;
+{% else %}
+  &lt;button disabled&gt;
+    Sold out
+  &lt;/button&gt;
+{% endif %}
+</code></pre></div>
+<p>Theme 的职责主要是：</p>
+<blockquote>
+<p><strong>把 Shopify 的库存/可售状态展示给消费者。</strong></p>
+</blockquote>
+<hr>
+<h3>App / Admin API</h3>
+<p>如果你要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">查询仓库库存
+修改库存
+同步 ERP
+同步 WMS
+库存预警
+批量调整库存
+库存同步
+</code></pre></div>
+<p>那就属于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify App
+      ↓
+Admin GraphQL API
+      ↓
+Inventory
+</code></pre></div>
+<p>而不是 Theme。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ERP
+ ↓
+App
+ ↓
+Shopify Admin API
+ ↓
+InventoryItem
+ ↓
+InventoryLevel
+ ↓
+Location
+</code></pre></div>
+<hr>
+<h2>十一、从前端开发角度看整个流程</h2>
+<p>你可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户打开商品页
+        ↓
+Shopify Theme
+        ↓
+Product
+        ↓
+Variant
+        ↓
+可售状态
+        ↓
+显示：
+&quot;In Stock&quot;
+</code></pre></div>
+<p>而后台：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ERP
+ ↓
+Shopify App
+ ↓
+Admin API
+ ↓
+InventoryItem
+ ↓
+InventoryLevel
+ ↓
+Location
+</code></pre></div>
+<p>然后库存发生变化：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">订单
+ ↓
+库存状态变化
+ ↓
+Inventory
+ ↓
+Theme 下次渲染
+ ↓
+用户看到新的可售状态
+</code></pre></div>
+<hr>
+<h2>十二、GraphQL 里大概是什么感觉？</h2>
+<p>例如我们想查询某个 InventoryLevel：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>graphql</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-graphql">query {
+  inventoryLevel(id: &quot;...&quot;) {
+    id
+
+    quantities(names: [
+      &quot;available&quot;,
+      &quot;on_hand&quot;,
+      &quot;committed&quot;
+    ]) {
+      name
+      quantity
+    }
+
+    item {
+      id
+      sku
+    }
+
+    location {
+      id
+      name
+    }
+  }
+}
+</code></pre></div>
+<p>结果概念上类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;inventoryLevel&quot;: {
+    &quot;id&quot;: &quot;...&quot;,
+    &quot;quantities&quot;: [
+      {
+        &quot;name&quot;: &quot;available&quot;,
+        &quot;quantity&quot;: 70
+      },
+      {
+        &quot;name&quot;: &quot;on_hand&quot;,
+        &quot;quantity&quot;: 100
+      },
+      {
+        &quot;name&quot;: &quot;committed&quot;,
+        &quot;quantity&quot;: 20
+      }
+    ],
+    &quot;item&quot;: {
+      &quot;id&quot;: &quot;...&quot;,
+      &quot;sku&quot;: &quot;NK-001-BK-9&quot;
+    },
+    &quot;location&quot;: {
+      &quot;id&quot;: &quot;...&quot;,
+      &quot;name&quot;: &quot;San Jose Warehouse&quot;
+    }
+  }
+}
+</code></pre></div>
+<p>这正是 Shopify 当前 Admin GraphQL API 的数据关系：InventoryLevel → InventoryItem + Location + quantities。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="inventoryLevel - GraphQL Admin" aria-label="inventoryLevel - GraphQL Admin">Shopify</a></span></p>
+<hr>
+<h2>十三、从 React 开发者角度类比</h2>
+<p>你可以把它想象成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const product = {
+  title: &#39;Nike Air Max&#39;,
+
+  variants: [
+    {
+      id: &#39;variant-1&#39;,
+      title: &#39;Black / 9&#39;,
+      price: 129,
+
+      inventoryItem: {
+        id: &#39;inventory-item-1&#39;,
+
+        levels: [
+          {
+            location: &#39;San Jose&#39;,
+            available: 20
+          },
+          {
+            location: &#39;Los Angeles&#39;,
+            available: 15
+          },
+          {
+            location: &#39;New York&#39;,
+            available: 8
+          }
+        ]
+      }
+    }
+  ]
+};
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const variant = product.variants[0];
+
+const available =
+  variant.inventoryItem.levels
+    .reduce(
+      (total, level) =&gt; total + level.available,
+      0
+    );
+</code></pre></div>
+<p>但注意：</p>
+<p><strong>这只是帮助理解数据关系的伪代码，不代表 Shopify Theme 中可以直接这么访问。</strong></p>
+<p>因为 Theme Liquid、Storefront 数据和 Admin GraphQL 数据是不同层次。</p>
+<hr>
+<h2>十四、最重要的一个关系：Variant → InventoryItem</h2>
+<p>以后你看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ProductVariant
+</code></pre></div>
+<p>不要直接跳到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Inventory
+</code></pre></div>
+<p>而应该脑子里经过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+Black / 9
+     │
+     ↓
+InventoryItem
+SKU: NK-BK-9
+     │
+     ↓
+InventoryLevels
+     │
+     ├── San Jose: 20
+     ├── LA: 15
+     └── NY: 8
+</code></pre></div>
+<p>这条链你掌握了，Shopify 的库存模型基本就入门了。</p>
+<hr>
+<h2>十五、把目前的数据模型串起来</h2>
+<p>到现在我们已经学了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Variants
+│      │
+│      └── InventoryItem
+│              │
+│              └── InventoryLevel
+│                      │
+│                      └── Location
+│
+├── Collections
+│
+├── Media
+│
+├── Metafields
+│
+└── Metaobjects
+</code></pre></div>
+<p>再往商业流程走：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Inventory
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+   ↓
+Fulfillment
+</code></pre></div>
+<p>这实际上已经开始接近 Shopify 整个 Commerce 数据模型了。</p>
+<hr>
+<h2>十六、这一课你只需要牢牢记住 5 句话</h2>
+<h4>① Product</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">卖什么商品
+</code></pre></div>
+<h4>② Variant</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">具体卖哪个规格
+</code></pre></div>
+<h4>③ InventoryItem</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">这个 Variant 对应的库存管理对象
+</code></pre></div>
+<h4>④ InventoryLevel</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">这个 InventoryItem 在某个 Location 的库存状态
+</code></pre></div>
+<h4>⑤ Location</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">库存/履约发生在哪里
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↓
+Variant
+ ↓
+InventoryItem
+ ↓
+InventoryLevel
+ ↓
+Location
+</code></pre></div>
+<p><strong>这条链非常重要。</strong></p>
+<hr>
+<p>下一课我们继续：</p>
+<h2>第 24 课：Customer —— Shopify 用户数据模型</h2>
+<p>这一课会把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+Customer Account
+Address
+Order
+Cart
+Checkout
+</code></pre></div>
+<p>之间的关系彻底讲清楚。</p>
+<p>尤其是 <strong>Customer ≠ Account ≠ Cart ≠ Order</strong>，这是 Shopify 初学者非常容易混淆的一组概念。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/api/admin-graphql/latest/objects/inventoryitem?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">InventoryItem - GraphQL Admin</a></li></ul></details>
+<details class="dialogue-references dialogue-followups"><summary>原对话建议追问</summary><ul><li>下一课我们继续<small>告诉我关于下一课的内容</small></li><li>这一课会把<small>告诉我这一课会讲什么</small></li><li>Customer<small>告诉我关于 Customer</small></li><li>Order<small>告诉我关于 Order</small></li><li>Cart<small>告诉我关于 Cart</small></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-23.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

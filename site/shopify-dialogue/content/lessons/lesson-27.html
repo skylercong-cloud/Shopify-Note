@@ -1,0 +1,911 @@
+<h1>第 27 课：Metafield —— Shopify 的扩展字段系统</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-20T08:35:00+08:00">09-20 08:35</time></div><p>跳过26开始27课</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-20T08:35:00+08:00">09-20 08:35</time></div>
+<p>好，跳过第 26 课，直接进入 <strong>第 27 课：Metafield</strong>。</p>
+<figure class="dialogue-figure"><img src="assets/metafields.jpg" alt="折好的 T 恤与织物样卡和用来量尺寸的软尺。" decoding="async" width="506" height="506"><figcaption>示意配图 · 面料、尺寸等商品信息可以用相应类型的 Metafield 表达。</figcaption></figure>
+
+<p>这一课非常重要。实际上你前面已经接触过 Metafield，但之前更多是从 <strong>Theme 使用角度</strong>讲。现在我们从 <strong>Shopify 数据模型</strong>的角度重新系统理解它。</p>
+<h2>第 27 课：Metafield —— Shopify 的“扩展字段系统”</h2>
+<p>先记一句最核心的话：</p>
+<blockquote>
+<p><strong>Metafield = 给 Shopify 原有数据模型增加自定义字段。</strong></p>
+</blockquote>
+<p>例如 Shopify 原本的 Product 有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── title
+├── description
+├── vendor
+├── product_type
+├── tags
+├── variants
+└── ...
+</code></pre></div>
+<p>但是你的业务可能需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">材质
+产地
+品牌故事
+保修期
+供应商编码
+SEO关键词
+视频
+尺寸指南
+</code></pre></div>
+<p>这些不一定是 Shopify Product 原生字段。</p>
+<p>这时候就可以使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── Metafields
+</code></pre></div>
+<hr>
+<h2>一、为什么需要 Metafield？</h2>
+<p>假设你是一家卖服装的公司。</p>
+<p>Shopify Product 原生有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Title:
+Classic T-Shirt
+
+Description:
+100% cotton...
+
+Vendor:
+ABC
+
+Product Type:
+T-Shirt
+</code></pre></div>
+<p>但是你的业务还需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material:
+100% Cotton
+
+Origin:
+China
+
+Season:
+2026 Spring
+
+Designer:
+John
+
+Warranty:
+12 months
+</code></pre></div>
+<p>如果没有 Metafield，你可能会想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material → tags？
+Origin → tags？
+Season → tags？
+Warranty → description？
+</code></pre></div>
+<p>很快就会变得非常混乱。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">tags:
+cotton
+china
+spring
+warranty-12
+</code></pre></div>
+<p>你无法很好地表达：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">material = cotton
+origin = china
+warranty = 12 months
+</code></pre></div>
+<p>所以 Shopify 提供：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+</code></pre></div>
+<p>来解决这个问题。</p>
+<hr>
+<h2>二、Metafield 本质上是什么？</h2>
+<p>从数据库角度看：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+</code></pre></div>
+<p>本来可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">products
+----------------
+id
+title
+description
+vendor
+product_type
+</code></pre></div>
+<p>Metafield 相当于允许你扩展：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product_metafields
+------------------
+owner_id
+namespace
+key
+type
+value
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">owner:
+Product #123
+
+namespace:
+custom
+
+key:
+material
+
+type:
+single_line_text
+
+value:
+100% Cotton
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   └── Metafields
+         ├── custom.material
+         ├── custom.origin
+         ├── custom.season
+         └── custom.warranty
+</code></pre></div>
+<hr>
+<h2>三、Namespace + Key 是什么？</h2>
+<p>这是 Metafield 最重要的两个概念。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material
+</code></pre></div>
+<p>拆开：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">namespace = custom
+
+key = material
+</code></pre></div>
+<p>完整名字：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material
+</code></pre></div>
+<p>你可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">namespace
+   ↓
+文件夹
+
+key
+   ↓
+文件名
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material
+custom.origin
+custom.warranty
+</code></pre></div>
+<p>就像：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom/
+├── material
+├── origin
+└── warranty
+</code></pre></div>
+<hr>
+<h2>四、为什么不能全部叫 <code>material</code>？</h2>
+<p>因为大型 Shopify 商店可能有很多 App。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App A:
+marketing.material
+
+App B:
+custom.material
+
+App C:
+supplier.material
+</code></pre></div>
+<p>这样可以避免字段命名冲突。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">namespace + key
+</code></pre></div>
+<p>共同构成一个 Metafield 的身份。</p>
+<hr>
+<h2>五、Metafield Definition 是什么？</h2>
+<p>这里又有一个非常重要的概念：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield Definition
+</code></pre></div>
+<p>不要把它和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield Value
+</code></pre></div>
+<p>混在一起。</p>
+<p>例如你创建：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Metafield
+
+Name:
+Material
+
+Namespace:
+custom
+
+Key:
+material
+
+Type:
+Single line text
+</code></pre></div>
+<p>这个是在定义：</p>
+<blockquote>
+<p><strong>这个字段是什么、属于什么类型、叫什么。</strong></p>
+</blockquote>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Definition
+        ↓
+定义字段结构
+</code></pre></div>
+<p>而实际商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product A
+custom.material = Cotton
+
+Product B
+custom.material = Polyester
+
+Product C
+custom.material = Wool
+</code></pre></div>
+<p>这些才是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Values
+</code></pre></div>
+<hr>
+<h2>六、Definition 和 Value 的关系</h2>
+<p>可以类比 TypeScript：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>ts</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-ts">type ProductMetafield = {
+  material: string;
+}
+</code></pre></div>
+<p>这个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">type definition
+</code></pre></div>
+<p>相当于 Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield Definition
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>ts</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-ts">const product = {
+  material: &#39;Cotton&#39;
+};
+</code></pre></div>
+<p>相当于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield Value
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Definition
+    ↓
+Schema
+
+Value
+    ↓
+Actual Data
+</code></pre></div>
+<p>这个理解对你以后做 Shopify App 非常重要。</p>
+<hr>
+<h2>七、Metafield 不只有字符串</h2>
+<p>这是很多初学者容易忽略的。</p>
+<p>Metafield 支持很多不同类型。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Text
+Integer
+Decimal
+Boolean
+Date
+Date &amp; Time
+URL
+Color
+File
+JSON
+Reference
+List
+...
+</code></pre></div>
+<p>具体类型会随着 Shopify 当前 API/管理后台能力变化，因此如果以后做到 API 层，我们再按当前 API 版本逐项展开。</p>
+<hr>
+<h2>八、为什么 Type 很重要？</h2>
+<p>假设你存：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">rating = &quot;4.8&quot;
+</code></pre></div>
+<p>如果你把它存成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Single line text
+</code></pre></div>
+<p>它本质上是字符串。</p>
+<p>而如果业务上它是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Decimal
+</code></pre></div>
+<p>那么 Shopify 才知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">4.8
+</code></pre></div>
+<p>是数字。</p>
+<p>这对于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">过滤
+比较
+排序
+计算
+API 查询
+</code></pre></div>
+<p>都会产生影响。</p>
+<p>所以：</p>
+<blockquote>
+<p><strong>Metafield Type 不是装饰，它是数据模型的一部分。</strong></p>
+</blockquote>
+<hr>
+<h2>九、最常见的 Product Metafield</h2>
+<p>例如你开发一个服装商城：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── custom.material
+│      &quot;100% Cotton&quot;
+│
+├── custom.origin
+│      &quot;China&quot;
+│
+├── custom.fit
+│      &quot;Oversized&quot;
+│
+├── custom.warranty
+│      &quot;12 months&quot;
+│
+└── custom.size_guide
+       → Metaobject Reference
+</code></pre></div>
+<p>Theme 中可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material.value }}
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">100% Cotton
+</code></pre></div>
+<hr>
+<h2>十、为什么有 <code>.value</code>？</h2>
+<p>这个你之前已经看到过。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material.value }}
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.metafields.custom.material
+</code></pre></div>
+<p>是一个 Metafield 对象。</p>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">.value
+</code></pre></div>
+<p>是它实际存储的值。</p>
+<p>可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield Object
+      │
+      ├── namespace
+      ├── key
+      ├── type
+      └── value
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material }}
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material.value }}
+</code></pre></div>
+<p>在现代 Shopify Theme 开发中，不应该混为一谈。</p>
+<hr>
+<h2>十一、Metafield 可以挂在哪些对象上？</h2>
+<p>这就是数据模型真正开始变复杂的地方。</p>
+<p>Metafield 并不是只能挂 Product。</p>
+<p>概念上可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Variant
+Collection
+Customer
+Order
+Company
+Page
+Blog
+Article
+Shop
+Location
+...
+</code></pre></div>
+<p>也就是说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+   │
+   ├── Product
+   ├── Variant
+   ├── Collection
+   ├── Customer
+   ├── Order
+   └── ...
+</code></pre></div>
+<p>所以 Metafield 更准确的理解是：</p>
+<blockquote>
+<p><strong>Shopify 对多个核心资源提供的一套可扩展数据层。</strong></p>
+</blockquote>
+<hr>
+<h2>十二、Product Metafield 和 Variant Metafield 不一样</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product:
+Nike Air Max
+</code></pre></div>
+<p>可能有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material = Mesh
+custom.brand_story = ...
+</code></pre></div>
+<p>而具体 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / 9
+</code></pre></div>
+<p>可能需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.weight = 320g
+custom.barcode = ...
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   └── Product Metafields
+
+
+Variant
+   │
+   └── Variant Metafields
+</code></pre></div>
+<p>它们是两个不同的 owner。</p>
+<p>这一点以后做 API 查询时尤其重要。</p>
+<hr>
+<h2>十三、Metafield Reference：真正有意思的地方</h2>
+<p>前面我们说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material
+=
+&quot;100% Cotton&quot;
+</code></pre></div>
+<p>这属于简单字段。</p>
+<p>但是假设你有一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Size Guide
+</code></pre></div>
+<p>里面不是一个字符串，而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Size Guide
+├── title
+├── unit
+├── chest
+├── waist
+├── hip
+└── instructions
+</code></pre></div>
+<p>这时候你不应该把整个东西塞成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JSON String
+</code></pre></div>
+<p>更适合的模型是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   └── custom.size_guide
+            │
+            ↓
+        Metaobject
+            │
+            ├── title
+            ├── chest
+            ├── waist
+            └── hip
+</code></pre></div>
+<p>这就进入：</p>
+<h2>Metaobject</h2>
+<p>也就是下一课我们会重点讲的内容。</p>
+<hr>
+<h2>十四、Metafield + Metaobject 是什么关系？</h2>
+<p>可以简单理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+=
+字段
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+=
+结构化对象
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+└── custom.material
+       ↓
+      Text
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+└── custom.size_guide
+       ↓
+   Metaobject Reference
+       ↓
+   Size Guide
+       ├── title
+       ├── chest
+       ├── waist
+       └── hip
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">简单业务数据
+→ Metafield
+
+复杂结构化业务对象
+→ Metaobject
+</code></pre></div>
+<hr>
+<h2>十五、Metafield 和 Tag 有什么区别？</h2>
+<p>这个非常值得记。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">tags:
+cotton
+summer
+men
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material:
+Cotton
+</code></pre></div>
+<p>不是一回事。</p>
+<h4>Tag</h4>
+<p>更适合：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">分类
+标记
+简单分组
+</code></pre></div>
+<h4>Metafield</h4>
+<p>更适合：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">结构化业务属性
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">origin = China
+warranty = 12 months
+rating = 4.8
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Tag
+=
+标签
+
+Metafield
+=
+业务字段
+</code></pre></div>
+<hr>
+<h2>十六、Metafield 和 Product Option 也不一样</h2>
+<p>这个也很重要。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+Size
+</code></pre></div>
+<p>这些决定 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / M
+White / M
+Black / L
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Option
+</code></pre></div>
+<p>属于：</p>
+<blockquote>
+<p><strong>Variant 组合维度。</strong></p>
+</blockquote>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material
+Origin
+Warranty
+</code></pre></div>
+<p>通常只是 Product 属性：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+Size
+↓
+参与生成 Variant
+
+Material
+Origin
+Warranty
+↓
+描述 Product
+</code></pre></div>
+<p>当然，业务上也可能把某些属性设计成 Variant Metafield，要根据需求决定。</p>
+<hr>
+<h2>十七、为什么 Metafield 对 Theme 特别重要？</h2>
+<p>因为 Theme 本身不是让你修改 Shopify 核心数据模型。</p>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify 原生数据
+        +
+自定义业务数据
+        ↓
+       Theme
+        ↓
+      Storefront
+</code></pre></div>
+<p>例如商品页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ product.title }}&lt;/h1&gt;
+
+&lt;p&gt;
+  Material:
+  {{ product.metafields.custom.material.value }}
+&lt;/p&gt;
+
+&lt;p&gt;
+  Origin:
+  {{ product.metafields.custom.origin.value }}
+&lt;/p&gt;
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+
+Material:
+Mesh
+
+Origin:
+Vietnam
+</code></pre></div>
+<hr>
+<h2>十八、Metafield 还可以参与 Collection Filter</h2>
+<p>这就把我们之前的 Theme 知识连接起来了。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Metafield
+
+custom.material
+</code></pre></div>
+<p>有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cotton
+Wool
+Polyester
+</code></pre></div>
+<p>然后在 Shopify 的 Search &amp; Discovery 中把它配置成 storefront filter。</p>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Data
+      ↓
+Metafield
+      ↓
+Search &amp; Discovery
+      ↓
+Collection Filter
+      ↓
+collection.filters
+      ↓
+Theme
+</code></pre></div>
+<p>所以你之前学的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for filter in collection.filters %}
+</code></pre></div>
+<p>背后其实可能就是 Metafield 在提供数据。</p>
+<p>这就是为什么 <strong>Theme 和 Data Model 一定要一起学</strong>。</p>
+<hr>
+<h2>十九、Metafield 不等于 Filter</h2>
+<p>这个一定不要混淆。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material
+</code></pre></div>
+<p>存在：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cotton
+Wool
+Polyester
+</code></pre></div>
+<p>并不意味着用户马上就能：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter:
+Material = Cotton
+</code></pre></div>
+<p>还需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+ ↓
+Search &amp; Discovery 配置
+ ↓
+Storefront Filter
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Metafield 是数据；Filter 是基于数据建立的用户筛选能力。</strong></p>
+</blockquote>
+<hr>
+<h2>二十、Metafield 也不等于 Sort</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.rating = 4.8
+</code></pre></div>
+<p>你可能会想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">?sort_by=rating-descending
+</code></pre></div>
+<p>但 Shopify 原生 Collection <code>sort_by</code> 并不会因为你创建了这个 Metafield 就自动支持这个排序。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+   ≠
+Native Sort
+</code></pre></div>
+<p>这一点和我们第 18 课讲的 Collection Sort 正好对应。</p>
+<hr>
+<h2>二十一、从 App 开发角度看 Metafield</h2>
+<p>以后你做 Shopify App，会大量使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App
+ ↓
+Admin GraphQL API
+ ↓
+Metafield
+</code></pre></div>
+<p>例如你的 App 是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Management App
+</code></pre></div>
+<p>你可能让商家填写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material
+Origin
+Supplier
+Warranty
+</code></pre></div>
+<p>然后 App 把这些数据写入 Shopify Product Metafields。</p>
+<p>整个流程：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Merchant
+   ↓
+App UI
+   ↓
+Admin GraphQL API
+   ↓
+Product Metafield
+   ↓
+Shopify
+   ↓
+Theme
+   ↓
+Customer
+</code></pre></div>
+<p>这就是一个非常典型的：</p>
+<blockquote>
+<p><strong>App 写数据，Theme 读数据。</strong></p>
+</blockquote>
+<hr>
+<h2>二十二、这其实就是 Shopify 的扩展架构</h2>
+<p>现在你可以看到一个非常漂亮的设计：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Core
+│
+├── Product
+├── Variant
+├── Order
+├── Customer
+├── Collection
+└── ...
+       │
+       ↓
+   Metafield
+       │
+       ↓
+Custom Business Data
+</code></pre></div>
+<p>所以 Shopify 不需要为了每一个商家的业务需求都修改 Product Schema。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商家 A
+需要 Material
+
+商家 B
+需要 Manufacturer
+
+商家 C
+需要 Warranty
+
+商家 D
+需要 Supplier Code
+</code></pre></div>
+<p>都可以通过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+</code></pre></div>
+<p>扩展。</p>
+<hr>
+<h2>二十三、用 TypeScript 思维总结</h2>
+<p>如果让你自己设计 Shopify Product，可以想象：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>ts</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-ts">type Product = {
+  id: string;
+  title: string;
+  description: string;
+
+  variants: Variant[];
+
+  metafields: Metafield[];
+};
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>ts</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-ts">type Metafield = {
+  namespace: string;
+  key: string;
+  type: string;
+  value: unknown;
+};
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>ts</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-ts">{
+  namespace: &#39;custom&#39;,
+  key: &#39;material&#39;,
+  type: &#39;single_line_text&#39;,
+  value: &#39;Cotton&#39;
+}
+</code></pre></div>
+<p>这不是 Shopify API 的完整 TypeScript 定义，但非常适合作为你的脑内模型。</p>
+<hr>
+<h2>二十四、把目前所有数据模型串起来</h2>
+<p>现在我们已经学到了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Shopify
+                       │
+        ┌──────────────┼──────────────┐
+        ↓              ↓              ↓
+     Product       Collection       Customer
+        │
+        ↓
+     Variant
+        │
+        ↓
+  InventoryItem
+        │
+        ↓
+  InventoryLevel
+        │
+        ↓
+     Location
+
+
+Product
+   │
+   └── Metafields
+          │
+          └── Metaobjects
+
+
+Variant
+   │
+   ↓
+ Cart
+   │
+   ↓
+Checkout
+   │
+   ↓
+Order
+</code></pre></div>
+<p>你现在已经开始真正理解：</p>
+<blockquote>
+<p><strong>Shopify 不是“商品 + 页面”，而是一整套 Commerce Data Model。</strong></p>
+</blockquote>
+<p>Theme 只是把这些数据呈现出来。</p>
+<hr>
+<h2>二十五、这一课最终记住 6 个概念</h2>
+<h4>1. Metafield</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">自定义字段
+</code></pre></div>
+<h4>2. Definition</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">定义这个字段的 Schema
+</code></pre></div>
+<h4>3. Namespace</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">字段命名空间
+</code></pre></div>
+<h4>4. Key</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">字段名称
+</code></pre></div>
+<h4>5. Value</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">实际数据
+</code></pre></div>
+<h4>6. Reference</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">让 Metafield 指向另一个 Shopify 对象
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield Definition
+       │
+       ↓
+namespace + key + type
+       │
+       ↓
+Metafield Value
+       │
+       ├── Text
+       ├── Number
+       ├── Boolean
+       ├── File
+       ├── URL
+       └── Reference
+                │
+                ↓
+            Metaobject
+</code></pre></div>
+<hr>
+<h3>下一课：第 28 课 —— Metaobject</h3>
+<p>这一课会真正把你带进 Shopify 的<strong>结构化业务数据模型</strong>。</p>
+<p>我们会做一个完整例子：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   └── Size Guide
+          ↓
+      Metaobject
+          ├── Title
+          ├── Chest
+          ├── Waist
+          ├── Hip
+          └── Description
+</code></pre></div>
+<p>然后再讲一个非常实战的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Campaign
+   ↓
+Metaobject
+   ↓
+Theme 活动页
+</code></pre></div>
+<p>这样你就会真正理解 <strong>Metafield 和 Metaobject 为什么要分成两个东西</strong>。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-27.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

@@ -1,0 +1,975 @@
+# 第 18 课：Pagination / Sort / URL State
+
+## 我的提问 · 2026-09-19 Sat 23:06
+
+好了，继续下一课吧
+
+## ChatGPT · 2026-09-19 Sat 23:07
+
+好，我们进入下一课。
+
+# 第 18 课：Pagination / Sort / URL State
+
+这一课我们把前面学的：
+
+```text
+Collection
+Filter
+Sort
+Pagination
+URL
+Section Rendering
+```
+
+真正串成一个完整的 **Collection 商品列表系统**。
+
+先看最终效果：
+
+```text
+/collections/shoes
+    │
+    ├── ?sort_by=price-ascending
+    │
+    ├── ?page=2
+    │
+    └── ?filter.v.option.color=black
+```
+
+也就是说：
+
+> **Collection 页的“状态”，本质上都可以通过 URL 表达。**
+
+Shopify 官方的 Collection 模板本身就是围绕 filtering、sorting、pagination 这几个机制设计的。 [collection](https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com) [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com)
+
+---
+
+## 一、先理解 Pagination：分页
+
+假设你的 Collection 有：
+
+```text
+500 个商品
+```
+
+我们不可能一次全部渲染。
+
+所以：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  {% for product in collection.products %}
+    {% render 'product-card', product: product %}
+  {% endfor %}
+
+{% endpaginate %}
+```
+
+意思就是：
+
+```text
+500 Products
+      ↓
+每页 24 个
+      ↓
+Page 1 → 1~24
+Page 2 → 25~48
+Page 3 → 49~72
+...
+```
+
+Shopify 当前对 Collection 商品使用 `paginate` 时，每页最多可以展示 50 个商品。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com)
+
+---
+
+# 二、`paginate` 实际上给你什么？
+
+例如：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  {{ paginate.current_page }}
+
+{% endpaginate %}
+```
+
+如果当前是第二页：
+
+```text
+paginate.current_page = 2
+```
+
+还可以得到：
+
+```text
+paginate.items
+paginate.pages
+paginate.next
+paginate.previous
+paginate.current_offset
+paginate.page_size
+```
+
+例如：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  <p>
+    Page {{ paginate.current_page }}
+    /
+    {{ paginate.pages }}
+  </p>
+
+{% endpaginate %}
+```
+
+`paginate.page_param` 默认就是：
+
+```text
+page
+```
+
+所以 URL 通常就是：
+
+```text
+? page=2
+```
+
+即：
+
+```text
+? page=2
+```
+
+实际 URL：
+
+```text
+/collections/shoes?page=2
+```
+
+ [Liquid objects: paginate](https://shopify.dev/docs/api/liquid/objects/paginate?utm_source=chatgpt.com)
+
+---
+
+# 三、最简单的 Pagination
+
+你可以直接：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  <div class="product-grid">
+
+    {% for product in collection.products %}
+      {% render 'product-card', product: product %}
+    {% endfor %}
+
+  </div>
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+```
+
+Shopify 会帮你生成类似：
+
+```text
+1  2  3  4  5  Next
+```
+
+`default_pagination` 就是 Shopify 提供的默认分页 HTML 生成器。 [Liquid filters: default_pagination](https://shopify.dev/docs/api/liquid/filters/default_pagination?utm_source=chatgpt.com)
+
+---
+
+# 四、但现在出现一个问题
+
+假设：
+
+```text
+第一页：
+/collections/shoes
+```
+
+用户选择：
+
+```text
+Sort = Price Low → High
+```
+
+URL：
+
+```text
+/collections/shoes?sort_by=price-ascending
+```
+
+然后点击第二页：
+
+```text
+/collections/shoes?sort_by=price-ascending&page=2
+```
+
+这非常重要。
+
+因为：
+
+```text
+page=2
+```
+
+不能把：
+
+```text
+sort_by=price-ascending
+```
+
+弄丢。
+
+否则：
+
+```text
+Page 1
+↓
+Price Low → High
+↓
+Page 2
+↓
+恢复默认排序
+```
+
+用户会觉得商品顺序突然乱了。
+
+---
+
+# 五、Filter 也是一样
+
+比如：
+
+```text
+Color = Black
+```
+
+URL：
+
+```text
+/collections/shoes?filter.v.option.color=black
+```
+
+再：
+
+```text
+Sort = Price Low → High
+```
+
+URL：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&sort_by=price-ascending
+```
+
+再：
+
+```text
+Page = 2
+```
+
+最终：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&sort_by=price-ascending
+&page=2
+```
+
+所以你现在应该理解：
+
+```text
+URL State
+│
+├── Filter
+├── Sort
+└── Pagination
+```
+
+它们不是三个孤立的功能。
+
+而是共同组成：
+
+> **Collection Page State**
+
+---
+
+# 六、这就是为什么我前面一直强调 URL
+
+在 React 里，你可能会这样：
+
+```js
+const [filters, setFilters] = useState(...)
+const [sort, setSort] = useState(...)
+const [page, setPage] = useState(1)
+```
+
+然后：
+
+```text
+filters
+sort
+page
+```
+
+都在 React State 里面。
+
+Shopify Theme 更接近：
+
+```text
+URL
+│
+├── filter
+├── sort_by
+└── page
+        ↓
+Shopify Server
+        ↓
+Liquid
+        ↓
+HTML
+```
+
+所以你可以把 URL 看成：
+
+> **Shopify Collection 页的外部 State。**
+
+---
+
+# 七、Sort 怎么实现？
+
+我们之前已经知道：
+
+```liquid
+collection.sort_options
+```
+
+会给你当前 Collection 可用的排序选项。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com) [Liquid objects: sort_option](https://shopify.dev/docs/api/liquid/objects/sort_option?utm_source=chatgpt.com)
+
+例如：
+
+```liquid
+{% assign current_sort = collection.sort_by
+  | default: collection.default_sort_by
+%}
+
+<select id="SortBy">
+
+  {% for option in collection.sort_options %}
+
+    <option
+      value="{{ option.value }}"
+      {% if option.value == current_sort %}
+        selected
+      {% endif %}
+    >
+      {{ option.name }}
+    </option>
+
+  {% endfor %}
+
+</select>
+```
+
+于是 Theme 不需要写死：
+
+```text
+Price
+Best Selling
+Newest
+...
+```
+
+而是：
+
+```text
+Shopify
+ ↓
+collection.sort_options
+ ↓
+Theme
+ ↓
+<select>
+```
+
+---
+
+# 八、用户改变 Sort 后怎么办？
+
+例如：
+
+```text
+当前：
+
+/collections/shoes?page=2
+```
+
+用户选择：
+
+```text
+Price Low → High
+```
+
+我们需要变成：
+
+```text
+/collections/shoes?page=2&sort_by=price-ascending
+```
+
+一个非常简单的实现：
+
+```js
+const sortSelect = document.querySelector('#SortBy');
+
+sortSelect.addEventListener('change', (event) => {
+
+  const url = new URL(window.location.href);
+
+  url.searchParams.set(
+    'sort_by',
+    event.target.value
+  );
+
+  window.location.href = url.toString();
+
+});
+```
+
+这里最重要的是：
+
+```js
+const url = new URL(window.location.href);
+```
+
+而不是自己重新拼：
+
+```js
+'/collections/shoes?sort_by=' + ...
+```
+
+因为当前 URL 可能已经有：
+
+```text
+filter
+page
+其他参数
+```
+
+我们应该：
+
+```text
+读取当前 URL
+        ↓
+只修改 sort_by
+        ↓
+保留其他参数
+```
+
+---
+
+# 九、但这里还有一个非常重要的问题：切换 Sort 时 page 要不要保留？
+
+假设：
+
+```text
+当前：
+
+Page 5
+```
+
+然后用户选择：
+
+```text
+Price Low → High
+```
+
+如果继续：
+
+```text
+page=5
+```
+
+可能会产生很奇怪的体验。
+
+因为：
+
+```text
+默认排序
+Page 5
+```
+
+和：
+
+```text
+价格排序
+Page 5
+```
+
+是完全不同的数据集合。
+
+通常我们希望：
+
+```text
+用户改变 Sort
+        ↓
+回到 Page 1
+```
+
+所以：
+
+```js
+const url = new URL(window.location.href);
+
+url.searchParams.set(
+  'sort_by',
+  event.target.value
+);
+
+url.searchParams.delete('page');
+
+window.location.href = url.toString();
+```
+
+这就是一个很典型的 URL State 管理。
+
+---
+
+# 十、Filter 也是一样
+
+例如：
+
+```text
+当前：
+
+/collections/shoes?page=3
+```
+
+用户选择：
+
+```text
+Color = Black
+```
+
+你通常也应该：
+
+```text
+page=3
+↓
+删除 page
+↓
+重新从 page=1 开始
+```
+
+因为筛选以后：
+
+```text
+500 个商品
+```
+
+可能变成：
+
+```text
+37 个商品
+```
+
+原来的第三页可能已经不存在。
+
+所以一般逻辑：
+
+```text
+Filter changed
+     ↓
+reset page
+```
+
+---
+
+# 十一、于是我们得到一套规则
+
+这是非常值得记住的：
+
+```text
+改变 Filter
+    ↓
+page = 1
+
+改变 Sort
+    ↓
+page = 1
+
+点击 Pagination
+    ↓
+保留 Filter
+保留 Sort
+只改变 page
+```
+
+也就是：
+
+```text
+Filter / Sort
+    ↓
+重新查询
+    ↓
+从第一页开始
+
+Pagination
+    ↓
+保持当前查询条件
+    ↓
+只改变 page
+```
+
+---
+
+# 十二、现在加入 Section Rendering
+
+如果我们使用：
+
+```js
+window.location.href = url
+```
+
+那么页面会完整刷新。
+
+但 Shopify 还有更高级的方式：
+
+```text
+Section Rendering API
+```
+
+我们上一课已经提过。
+
+Shopify 官方明确支持使用 Section Rendering API，通过 AJAX 请求 Section HTML，从而更新页面局部内容而不重新加载整个页面。它也可以用于 Collection 的分页。 [Section Rendering API](https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com) [Use the Section Rendering API for dynamic updates](https://shopify.dev/docs/storefronts/themes/best-practices/performance/use-section-rendering-api?utm_source=chatgpt.com)
+
+---
+
+# 十三、假设我们的 Collection Section
+
+```text
+sections/
+└── main-collection-product-grid.liquid
+```
+
+里面：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  <div
+    class="collection-grid"
+    data-section-id="{{ section.id }}"
+  >
+
+    {% for product in collection.products %}
+      {% render 'product-card', product: product %}
+    {% endfor %}
+
+  </div>
+
+  <div class="collection-pagination">
+    {{ paginate | default_pagination }}
+  </div>
+
+{% endpaginate %}
+```
+
+注意：
+
+```liquid
+{{ section.id }}
+```
+
+非常重要。
+
+因为 JSON Template 中的 Section ID 可能是动态生成的。Shopify 官方也建议通过 `section.id` 或实际 DOM wrapper 获取，而不是假设固定文件名就是 Section ID。 [Use the Section Rendering API for dynamic updates](https://shopify.dev/docs/storefronts/themes/best-practices/performance/use-section-rendering-api?utm_source=chatgpt.com) [Liquid objects: section](https://shopify.dev/docs/api/liquid/objects/section?utm_source=chatgpt.com)
+
+---
+
+# 十四、然后 JS 可以请求第二页
+
+例如：
+
+```js
+const url = new URL(window.location.href);
+
+url.searchParams.set('page', '2');
+
+const sectionId =
+  document.querySelector('[data-section-id]').dataset.sectionId;
+
+const response = await fetch(
+  `${url.pathname}?${url.searchParams.toString()}&sections=${sectionId}`
+);
+
+const data = await response.json();
+```
+
+Shopify：
+
+```text
+Browser
+   ↓
+/collections/shoes?page=2
+&sort_by=price-ascending
+&sections=xxxxx
+   ↓
+Shopify
+   ↓
+Liquid
+   ↓
+只渲染这个 Section
+   ↓
+返回 HTML
+```
+
+Section Rendering API 会返回指定 Section 的 HTML；请求 URL 上的 `page`、`sort_by` 等参数也会参与 Section 的 Liquid 渲染。 [Section Rendering API](https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com)
+
+---
+
+# 十五、然后替换 DOM
+
+比如：
+
+```js
+const html =
+  data[sectionId];
+
+const parser =
+  new DOMParser();
+
+const doc =
+  parser.parseFromString(
+    html,
+    'text/html'
+  );
+
+const newSection =
+  doc.querySelector(
+    `[data-section-id="${sectionId}"]`
+  );
+
+const currentSection =
+  document.querySelector(
+    `[data-section-id="${sectionId}"]`
+  );
+
+currentSection.replaceWith(
+  newSection
+);
+```
+
+于是：
+
+```text
+点击 Page 2
+       ↓
+Fetch
+       ↓
+Shopify
+       ↓
+Liquid
+       ↓
+Page 2 HTML
+       ↓
+替换 Product Grid
+```
+
+整个 Header：
+
+```text
+Header
+```
+
+不会重新加载。
+
+Hero：
+
+```text
+Hero
+```
+
+也不用重新加载。
+
+只更新：
+
+```text
+Product Grid
+Pagination
+```
+
+---
+
+# 十六、但是别忘了 URL
+
+如果 AJAX 成功了，我们还应该：
+
+```js
+history.pushState(
+  {},
+  '',
+  url
+);
+```
+
+于是：
+
+```text
+用户点击 Page 2
+       ↓
+AJAX 更新商品
+       ↓
+history.pushState()
+       ↓
+URL 变成 ?page=2
+```
+
+最终用户看到：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&sort_by=price-ascending
+&page=2
+```
+
+页面没有完整刷新。
+
+这就是一个非常完整的现代 Shopify Collection UX。
+
+---
+
+# 十七、整个 Collection 系统现在可以画成这样
+
+```text
+                    URL
+                     │
+          ┌──────────┼───────────┐
+          ↓          ↓           ↓
+       Filter       Sort       Page
+          │          │           │
+          └──────────┼───────────┘
+                     ↓
+               Shopify Server
+                     ↓
+                  Collection
+                     ↓
+              Liquid Rendering
+                     ↓
+                  Section
+                     ↓
+                   HTML
+                     ↓
+                Browser DOM
+```
+
+如果不开 AJAX：
+
+```text
+URL
+ ↓
+完整页面刷新
+```
+
+如果使用 Section Rendering：
+
+```text
+URL
+ ↓
+AJAX
+ ↓
+Section HTML
+ ↓
+局部 DOM 更新
+```
+
+---
+
+# 十八、这一课你真正要掌握的不是代码
+
+而是这四个东西之间的关系：
+
+```text
+Filter
+   ↓
+URL
+
+Sort
+   ↓
+URL
+
+Pagination
+   ↓
+URL
+
+URL
+   ↓
+Shopify Server
+   ↓
+Liquid
+   ↓
+Collection Products
+```
+
+然后：
+
+```text
+Section Rendering API
+```
+
+负责把：
+
+```text
+“重新渲染整个页面”
+```
+
+优化成：
+
+```text
+“只重新渲染发生变化的 Section”
+```
+
+这也是 Shopify 官方推荐的 Collection 动态更新方式：**商品核心内容仍由 Liquid/HTML 服务端渲染，Filter/Sort 等交互再通过 Section Rendering API 做增强。**  [Render essential content in Liquid and HTML, not JavaScript](https://shopify.dev/docs/storefronts/themes/best-practices/performance/render-essential-content-server-side?utm_source=chatgpt.com)
+
+---
+
+## 下一课：第 19 课 —— Shopify Theme SEO
+
+到这里，Collection 的核心功能已经基本齐了：
+
+```text
+Collection
+├── Product Grid
+├── Filter
+├── Sort
+├── Pagination
+├── URL State
+└── AJAX / Section Rendering
+```
+
+下一课我们转到 **SEO**，会讲：
+
+```text
+<title>
+<meta description>
+canonical
+robots
+Open Graph
+JSON-LD
+Product SEO
+Collection SEO
+结构化数据
+```
+
+以及一个前端开发者非常容易踩的坑：
+
+> **为什么 Shopify Theme 明明是服务端渲染，但 SEO 仍然可能做得很差？**

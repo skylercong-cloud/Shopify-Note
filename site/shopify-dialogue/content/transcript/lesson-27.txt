@@ -1,0 +1,1351 @@
+# 第 27 课：Metafield —— Shopify 的扩展字段系统
+
+## 我的提问 · 2026-09-20 Sun 08:35
+
+跳过26开始27课
+
+## ChatGPT · 2026-09-20 Sun 08:35
+
+好，跳过第 26 课，直接进入 **第 27 课：Metafield**。
+
+这一课非常重要。实际上你前面已经接触过 Metafield，但之前更多是从 **Theme 使用角度**讲。现在我们从 **Shopify 数据模型**的角度重新系统理解它。
+
+# 第 27 课：Metafield —— Shopify 的“扩展字段系统”
+
+先记一句最核心的话：
+
+> **Metafield = 给 Shopify 原有数据模型增加自定义字段。**
+
+例如 Shopify 原本的 Product 有：
+
+```text
+Product
+├── title
+├── description
+├── vendor
+├── product_type
+├── tags
+├── variants
+└── ...
+```
+
+但是你的业务可能需要：
+
+```text
+材质
+产地
+品牌故事
+保修期
+供应商编码
+SEO关键词
+视频
+尺寸指南
+```
+
+这些不一定是 Shopify Product 原生字段。
+
+这时候就可以使用：
+
+```text
+Product
+└── Metafields
+```
+
+---
+
+# 一、为什么需要 Metafield？
+
+假设你是一家卖服装的公司。
+
+Shopify Product 原生有：
+
+```text
+Title:
+Classic T-Shirt
+
+Description:
+100% cotton...
+
+Vendor:
+ABC
+
+Product Type:
+T-Shirt
+```
+
+但是你的业务还需要：
+
+```text
+Material:
+100% Cotton
+
+Origin:
+China
+
+Season:
+2026 Spring
+
+Designer:
+John
+
+Warranty:
+12 months
+```
+
+如果没有 Metafield，你可能会想：
+
+```text
+Material → tags？
+Origin → tags？
+Season → tags？
+Warranty → description？
+```
+
+很快就会变得非常混乱。
+
+例如：
+
+```text
+tags:
+cotton
+china
+spring
+warranty-12
+```
+
+你无法很好地表达：
+
+```text
+material = cotton
+origin = china
+warranty = 12 months
+```
+
+所以 Shopify 提供：
+
+```text
+Metafield
+```
+
+来解决这个问题。
+
+---
+
+# 二、Metafield 本质上是什么？
+
+从数据库角度看：
+
+```text
+Product
+```
+
+本来可能是：
+
+```text id="a6a4e4"
+products
+----------------
+id
+title
+description
+vendor
+product_type
+```
+
+Metafield 相当于允许你扩展：
+
+```text id="yj0xw7"
+product_metafields
+------------------
+owner_id
+namespace
+key
+type
+value
+```
+
+例如：
+
+```text id="0j8d8t"
+owner:
+Product #123
+
+namespace:
+custom
+
+key:
+material
+
+type:
+single_line_text
+
+value:
+100% Cotton
+```
+
+所以：
+
+```text id="2xg2lf"
+Product
+   │
+   └── Metafields
+         ├── custom.material
+         ├── custom.origin
+         ├── custom.season
+         └── custom.warranty
+```
+
+---
+
+# 三、Namespace + Key 是什么？
+
+这是 Metafield 最重要的两个概念。
+
+例如：
+
+```text id="52ag73"
+custom.material
+```
+
+拆开：
+
+```text id="s5b7r0"
+namespace = custom
+
+key = material
+```
+
+完整名字：
+
+```text id="l6b2vp"
+custom.material
+```
+
+你可以把它理解成：
+
+```text
+namespace
+   ↓
+文件夹
+
+key
+   ↓
+文件名
+```
+
+例如：
+
+```text
+custom.material
+custom.origin
+custom.warranty
+```
+
+就像：
+
+```text
+custom/
+├── material
+├── origin
+└── warranty
+```
+
+---
+
+# 四、为什么不能全部叫 `material`？
+
+因为大型 Shopify 商店可能有很多 App。
+
+假设：
+
+```text
+App A:
+marketing.material
+
+App B:
+custom.material
+
+App C:
+supplier.material
+```
+
+这样可以避免字段命名冲突。
+
+所以：
+
+```text id="l3q3x4"
+namespace + key
+```
+
+共同构成一个 Metafield 的身份。
+
+---
+
+# 五、Metafield Definition 是什么？
+
+这里又有一个非常重要的概念：
+
+```text
+Metafield Definition
+```
+
+不要把它和：
+
+```text
+Metafield Value
+```
+
+混在一起。
+
+例如你创建：
+
+```text id="b1f9j7"
+Product Metafield
+
+Name:
+Material
+
+Namespace:
+custom
+
+Key:
+material
+
+Type:
+Single line text
+```
+
+这个是在定义：
+
+> **这个字段是什么、属于什么类型、叫什么。**
+
+所以：
+
+```text id="v3qk1d"
+Definition
+        ↓
+定义字段结构
+```
+
+而实际商品：
+
+```text id="l5t4o8"
+Product A
+custom.material = Cotton
+
+Product B
+custom.material = Polyester
+
+Product C
+custom.material = Wool
+```
+
+这些才是：
+
+```text id="5f25jy"
+Values
+```
+
+---
+
+# 六、Definition 和 Value 的关系
+
+可以类比 TypeScript：
+
+```ts id="pgn1i7"
+type ProductMetafield = {
+  material: string;
+}
+```
+
+这个：
+
+```text id="t9kq0a"
+type definition
+```
+
+相当于 Shopify：
+
+```text id="9m03v3"
+Metafield Definition
+```
+
+而：
+
+```ts id="y7h5v4"
+const product = {
+  material: 'Cotton'
+};
+```
+
+相当于：
+
+```text id="0k6rjy"
+Metafield Value
+```
+
+所以：
+
+```text id="v9f1di"
+Definition
+    ↓
+Schema
+
+Value
+    ↓
+Actual Data
+```
+
+这个理解对你以后做 Shopify App 非常重要。
+
+---
+
+# 七、Metafield 不只有字符串
+
+这是很多初学者容易忽略的。
+
+Metafield 支持很多不同类型。
+
+例如：
+
+```text id="w8z8r5"
+Text
+Integer
+Decimal
+Boolean
+Date
+Date & Time
+URL
+Color
+File
+JSON
+Reference
+List
+...
+```
+
+具体类型会随着 Shopify 当前 API/管理后台能力变化，因此如果以后做到 API 层，我们再按当前 API 版本逐项展开。
+
+---
+
+# 八、为什么 Type 很重要？
+
+假设你存：
+
+```text id="w5f77y"
+rating = "4.8"
+```
+
+如果你把它存成：
+
+```text
+Single line text
+```
+
+它本质上是字符串。
+
+而如果业务上它是：
+
+```text
+Decimal
+```
+
+那么 Shopify 才知道：
+
+```text
+4.8
+```
+
+是数字。
+
+这对于：
+
+```text
+过滤
+比较
+排序
+计算
+API 查询
+```
+
+都会产生影响。
+
+所以：
+
+> **Metafield Type 不是装饰，它是数据模型的一部分。**
+
+---
+
+# 九、最常见的 Product Metafield
+
+例如你开发一个服装商城：
+
+```text id="y5sz6h"
+Product
+│
+├── custom.material
+│      "100% Cotton"
+│
+├── custom.origin
+│      "China"
+│
+├── custom.fit
+│      "Oversized"
+│
+├── custom.warranty
+│      "12 months"
+│
+└── custom.size_guide
+       → Metaobject Reference
+```
+
+Theme 中可以：
+
+```liquid id="y0ipwi"
+{{ product.metafields.custom.material.value }}
+```
+
+得到：
+
+```text
+100% Cotton
+```
+
+---
+
+# 十、为什么有 `.value`？
+
+这个你之前已经看到过。
+
+例如：
+
+```liquid id="zq2w44"
+{{ product.metafields.custom.material.value }}
+```
+
+这里：
+
+```text
+product.metafields.custom.material
+```
+
+是一个 Metafield 对象。
+
+而：
+
+```text
+.value
+```
+
+是它实际存储的值。
+
+可以理解成：
+
+```text id="c4q6qt"
+Metafield Object
+      │
+      ├── namespace
+      ├── key
+      ├── type
+      └── value
+```
+
+所以：
+
+```liquid id="k7ep5x"
+{{ product.metafields.custom.material }}
+```
+
+和：
+
+```liquid id="w1ndz0"
+{{ product.metafields.custom.material.value }}
+```
+
+在现代 Shopify Theme 开发中，不应该混为一谈。
+
+---
+
+# 十一、Metafield 可以挂在哪些对象上？
+
+这就是数据模型真正开始变复杂的地方。
+
+Metafield 并不是只能挂 Product。
+
+概念上可以：
+
+```text id="e4x8sj"
+Product
+Variant
+Collection
+Customer
+Order
+Company
+Page
+Blog
+Article
+Shop
+Location
+...
+```
+
+也就是说：
+
+```text id="d4jzpd"
+Metafield
+   │
+   ├── Product
+   ├── Variant
+   ├── Collection
+   ├── Customer
+   ├── Order
+   └── ...
+```
+
+所以 Metafield 更准确的理解是：
+
+> **Shopify 对多个核心资源提供的一套可扩展数据层。**
+
+---
+
+# 十二、Product Metafield 和 Variant Metafield 不一样
+
+例如：
+
+```text id="9g4h7e"
+Product:
+Nike Air Max
+```
+
+可能有：
+
+```text
+custom.material = Mesh
+custom.brand_story = ...
+```
+
+而具体 Variant：
+
+```text id="3k0wz5"
+Black / 9
+```
+
+可能需要：
+
+```text
+custom.weight = 320g
+custom.barcode = ...
+```
+
+所以：
+
+```text id="dyqv41"
+Product
+   │
+   └── Product Metafields
+
+
+Variant
+   │
+   └── Variant Metafields
+```
+
+它们是两个不同的 owner。
+
+这一点以后做 API 查询时尤其重要。
+
+---
+
+# 十三、Metafield Reference：真正有意思的地方
+
+前面我们说：
+
+```text
+custom.material
+=
+"100% Cotton"
+```
+
+这属于简单字段。
+
+但是假设你有一个：
+
+```text
+Size Guide
+```
+
+里面不是一个字符串，而是：
+
+```text id="h5x9m1"
+Size Guide
+├── title
+├── unit
+├── chest
+├── waist
+├── hip
+└── instructions
+```
+
+这时候你不应该把整个东西塞成：
+
+```text
+JSON String
+```
+
+更适合的模型是：
+
+```text id="c6f77g"
+Product
+   │
+   └── custom.size_guide
+            │
+            ↓
+        Metaobject
+            │
+            ├── title
+            ├── chest
+            ├── waist
+            └── hip
+```
+
+这就进入：
+
+# Metaobject
+
+也就是下一课我们会重点讲的内容。
+
+---
+
+# 十四、Metafield + Metaobject 是什么关系？
+
+可以简单理解：
+
+```text id="4f44lv"
+Metafield
+=
+字段
+```
+
+而：
+
+```text id="e6qv2z"
+Metaobject
+=
+结构化对象
+```
+
+例如：
+
+```text id="v6p1yr"
+Product
+│
+└── custom.material
+       ↓
+      Text
+```
+
+而：
+
+```text id="y6i0c5"
+Product
+│
+└── custom.size_guide
+       ↓
+   Metaobject Reference
+       ↓
+   Size Guide
+       ├── title
+       ├── chest
+       ├── waist
+       └── hip
+```
+
+所以：
+
+```text id="e8v6ls"
+简单业务数据
+→ Metafield
+
+复杂结构化业务对象
+→ Metaobject
+```
+
+---
+
+# 十五、Metafield 和 Tag 有什么区别？
+
+这个非常值得记。
+
+例如：
+
+```text id="z91p70"
+tags:
+cotton
+summer
+men
+```
+
+和：
+
+```text id="1q9lvi"
+custom.material:
+Cotton
+```
+
+不是一回事。
+
+### Tag
+
+更适合：
+
+```text id="8f6i3j"
+分类
+标记
+简单分组
+```
+
+### Metafield
+
+更适合：
+
+```text id="d9x9gl"
+结构化业务属性
+```
+
+例如：
+
+```text material = Cotton
+origin = China
+warranty = 12 months
+rating = 4.8
+```
+
+所以：
+
+```text id="w4ce4h"
+Tag
+=
+标签
+
+Metafield
+=
+业务字段
+```
+
+---
+
+# 十六、Metafield 和 Product Option 也不一样
+
+这个也很重要。
+
+假设：
+
+```text id="o1x8a6"
+Color
+Size
+```
+
+这些决定 Variant：
+
+```text
+Black / M
+White / M
+Black / L
+```
+
+所以：
+
+```text id="p4k9eg"
+Product Option
+```
+
+属于：
+
+> **Variant 组合维度。**
+
+而：
+
+```text id="n0k5m1"
+Material
+Origin
+Warranty
+```
+
+通常只是 Product 属性：
+
+```text id="f6r8w9"
+Metafield
+```
+
+所以：
+
+```text id="d5i7cm"
+Color
+Size
+↓
+参与生成 Variant
+
+Material
+Origin
+Warranty
+↓
+描述 Product
+```
+
+当然，业务上也可能把某些属性设计成 Variant Metafield，要根据需求决定。
+
+---
+
+# 十七、为什么 Metafield 对 Theme 特别重要？
+
+因为 Theme 本身不是让你修改 Shopify 核心数据模型。
+
+而是：
+
+```text id="t5sl09"
+Shopify 原生数据
+        +
+自定义业务数据
+        ↓
+       Theme
+        ↓
+      Storefront
+```
+
+例如商品页：
+
+```liquid id="l7b1e5"
+<h1>{{ product.title }}</h1>
+
+<p>
+  Material:
+  {{ product.metafields.custom.material.value }}
+</p>
+
+<p>
+  Origin:
+  {{ product.metafields.custom.origin.value }}
+</p>
+```
+
+最终：
+
+```text
+Nike Air Max
+
+Material:
+Mesh
+
+Origin:
+Vietnam
+```
+
+---
+
+# 十八、Metafield 还可以参与 Collection Filter
+
+这就把我们之前的 Theme 知识连接起来了。
+
+例如：
+
+```text id="2sz55h"
+Product Metafield
+
+custom.material
+```
+
+有：
+
+```text
+Cotton
+Wool
+Polyester
+```
+
+然后在 Shopify 的 Search & Discovery 中把它配置成 storefront filter。
+
+最终：
+
+```text id="b7c7g4"
+Product Data
+      ↓
+Metafield
+      ↓
+Search & Discovery
+      ↓
+Collection Filter
+      ↓
+collection.filters
+      ↓
+Theme
+```
+
+所以你之前学的：
+
+```liquid id="bby22h"
+{% for filter in collection.filters %}
+```
+
+背后其实可能就是 Metafield 在提供数据。
+
+这就是为什么 **Theme 和 Data Model 一定要一起学**。
+
+---
+
+# 十九、Metafield 不等于 Filter
+
+这个一定不要混淆。
+
+比如：
+
+```text id="v2r4kh"
+custom.material
+```
+
+存在：
+
+```text
+Cotton
+Wool
+Polyester
+```
+
+并不意味着用户马上就能：
+
+```text
+Filter:
+Material = Cotton
+```
+
+还需要：
+
+```text id="y8t4tj"
+Metafield
+ ↓
+Search & Discovery 配置
+ ↓
+Storefront Filter
+```
+
+所以：
+
+> **Metafield 是数据；Filter 是基于数据建立的用户筛选能力。**
+
+---
+
+# 二十、Metafield 也不等于 Sort
+
+例如：
+
+```text
+custom.rating = 4.8
+```
+
+你可能会想：
+
+```text
+?sort_by=rating-descending
+```
+
+但 Shopify 原生 Collection `sort_by` 并不会因为你创建了这个 Metafield 就自动支持这个排序。
+
+所以：
+
+```text id="bq9s8a"
+Metafield
+   ≠
+Native Sort
+```
+
+这一点和我们第 18 课讲的 Collection Sort 正好对应。
+
+---
+
+# 二十一、从 App 开发角度看 Metafield
+
+以后你做 Shopify App，会大量使用：
+
+```text id="1tq5zj"
+App
+ ↓
+Admin GraphQL API
+ ↓
+Metafield
+```
+
+例如你的 App 是：
+
+```text
+Product Management App
+```
+
+你可能让商家填写：
+
+```text
+Material
+Origin
+Supplier
+Warranty
+```
+
+然后 App 把这些数据写入 Shopify Product Metafields。
+
+整个流程：
+
+```text id="w8a8ga"
+Merchant
+   ↓
+App UI
+   ↓
+Admin GraphQL API
+   ↓
+Product Metafield
+   ↓
+Shopify
+   ↓
+Theme
+   ↓
+Customer
+```
+
+这就是一个非常典型的：
+
+> **App 写数据，Theme 读数据。**
+
+---
+
+# 二十二、这其实就是 Shopify 的扩展架构
+
+现在你可以看到一个非常漂亮的设计：
+
+```text id="w3f5sj"
+Shopify Core
+│
+├── Product
+├── Variant
+├── Order
+├── Customer
+├── Collection
+└── ...
+       │
+       ↓
+   Metafield
+       │
+       ↓
+Custom Business Data
+```
+
+所以 Shopify 不需要为了每一个商家的业务需求都修改 Product Schema。
+
+例如：
+
+```text
+商家 A
+需要 Material
+
+商家 B
+需要 Manufacturer
+
+商家 C
+需要 Warranty
+
+商家 D
+需要 Supplier Code
+```
+
+都可以通过：
+
+```text
+Metafield
+```
+
+扩展。
+
+---
+
+# 二十三、用 TypeScript 思维总结
+
+如果让你自己设计 Shopify Product，可以想象：
+
+```ts id="6r9lcv"
+type Product = {
+  id: string;
+  title: string;
+  description: string;
+
+  variants: Variant[];
+
+  metafields: Metafield[];
+};
+```
+
+然后：
+
+```ts id="q9km0f"
+type Metafield = {
+  namespace: string;
+  key: string;
+  type: string;
+  value: unknown;
+};
+```
+
+例如：
+
+```ts id="p2e8fz"
+{
+  namespace: 'custom',
+  key: 'material',
+  type: 'single_line_text',
+  value: 'Cotton'
+}
+```
+
+这不是 Shopify API 的完整 TypeScript 定义，但非常适合作为你的脑内模型。
+
+---
+
+# 二十四、把目前所有数据模型串起来
+
+现在我们已经学到了：
+
+```text id="2u1d6s"
+                    Shopify
+                       │
+        ┌──────────────┼──────────────┐
+        ↓              ↓              ↓
+     Product       Collection       Customer
+        │
+        ↓
+     Variant
+        │
+        ↓
+  InventoryItem
+        │
+        ↓
+  InventoryLevel
+        │
+        ↓
+     Location
+
+
+Product
+   │
+   └── Metafields
+          │
+          └── Metaobjects
+
+
+Variant
+   │
+   ↓
+ Cart
+   │
+   ↓
+Checkout
+   │
+   ↓
+Order
+```
+
+你现在已经开始真正理解：
+
+> **Shopify 不是“商品 + 页面”，而是一整套 Commerce Data Model。**
+
+Theme 只是把这些数据呈现出来。
+
+---
+
+# 二十五、这一课最终记住 6 个概念
+
+### 1. Metafield
+
+```text
+自定义字段
+```
+
+### 2. Definition
+
+```text
+定义这个字段的 Schema
+```
+
+### 3. Namespace
+
+```text
+字段命名空间
+```
+
+### 4. Key
+
+```text
+字段名称
+```
+
+### 5. Value
+
+```text
+实际数据
+```
+
+### 6. Reference
+
+```text
+让 Metafield 指向另一个 Shopify 对象
+```
+
+最终：
+
+```text id="q0xxfd"
+Metafield Definition
+       │
+       ↓
+namespace + key + type
+       │
+       ↓
+Metafield Value
+       │
+       ├── Text
+       ├── Number
+       ├── Boolean
+       ├── File
+       ├── URL
+       └── Reference
+                │
+                ↓
+            Metaobject
+```
+
+---
+
+## 下一课：第 28 课 —— Metaobject
+
+这一课会真正把你带进 Shopify 的**结构化业务数据模型**。
+
+我们会做一个完整例子：
+
+```text
+Product
+   │
+   └── Size Guide
+          ↓
+      Metaobject
+          ├── Title
+          ├── Chest
+          ├── Waist
+          ├── Hip
+          └── Description
+```
+
+然后再讲一个非常实战的：
+
+```text
+Product
+   ↓
+Campaign
+   ↓
+Metaobject
+   ↓
+Theme 活动页
+```
+
+这样你就会真正理解 **Metafield 和 Metaobject 为什么要分成两个东西**。

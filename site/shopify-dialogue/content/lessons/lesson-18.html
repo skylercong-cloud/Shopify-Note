@@ -1,0 +1,659 @@
+<h1>第 18 课：Pagination / Sort / URL State</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T23:06:00+08:00">09-19 23:06</time></div><p>好了，继续下一课吧</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T23:07:00+08:00">09-19 23:07</time></div>
+<p>好，我们进入下一课。</p>
+<p>这一课我们把前面学的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+Filter
+Sort
+Pagination
+URL
+Section Rendering
+</code></pre></div>
+<p>真正串成一个完整的 <strong>Collection 商品列表系统</strong>。</p>
+<p>先看最终效果：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+    │
+    ├── ?sort_by=price-ascending
+    │
+    ├── ?page=2
+    │
+    └── ?filter.v.option.color=black
+</code></pre></div>
+<p>也就是说：</p>
+<blockquote>
+<p><strong>Collection 页的“状态”，本质上都可以通过 URL 表达。</strong></p>
+</blockquote>
+<p>Shopify 官方的 Collection 模板本身就是围绕 filtering、sorting、pagination 这几个机制设计的。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="collection" aria-label="collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a></span></p>
+<hr>
+<h3>一、先理解 Pagination：分页</h3>
+<p>假设你的 Collection 有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">500 个商品
+</code></pre></div>
+<p>我们不可能一次全部渲染。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate collection.products by 24 %}
+
+  {% for product in collection.products %}
+    {% render &#39;product-card&#39;, product: product %}
+  {% endfor %}
+
+{% endpaginate %}
+</code></pre></div>
+<p>意思就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">500 Products
+      ↓
+每页 24 个
+      ↓
+Page 1 → 1~24
+Page 2 → 25~48
+Page 3 → 49~72
+...
+</code></pre></div>
+<p>Shopify 当前对 Collection 商品使用 <code>paginate</code> 时，每页最多可以展示 50 个商品。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a></span></p>
+<hr>
+<h2>二、<code>paginate</code> 实际上给你什么？</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate collection.products by 24 %}
+
+  {{ paginate.current_page }}
+
+{% endpaginate %}
+</code></pre></div>
+<p>如果当前是第二页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">paginate.current_page = 2
+</code></pre></div>
+<p>还可以得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">paginate.items
+paginate.pages
+paginate.next
+paginate.previous
+paginate.current_offset
+paginate.page_size
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate collection.products by 24 %}
+
+  &lt;p&gt;
+    Page {{ paginate.current_page }}
+    /
+    {{ paginate.pages }}
+  &lt;/p&gt;
+
+{% endpaginate %}
+</code></pre></div>
+<p><code>paginate.page_param</code> 默认就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">page
+</code></pre></div>
+<p>所以 URL 通常就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">? page=2
+</code></pre></div>
+<p>即：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">? page=2
+</code></pre></div>
+<p>实际 URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?page=2
+</code></pre></div>
+<p><span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/paginate?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: paginate" aria-label="Liquid objects: paginate">Shopify</a></span></p>
+<hr>
+<h2>三、最简单的 Pagination</h2>
+<p>你可以直接：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate collection.products by 24 %}
+
+  &lt;div class=&quot;product-grid&quot;&gt;
+
+    {% for product in collection.products %}
+      {% render &#39;product-card&#39;, product: product %}
+    {% endfor %}
+
+  &lt;/div&gt;
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+</code></pre></div>
+<p>Shopify 会帮你生成类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1  2  3  4  5  Next
+</code></pre></div>
+<p><code>default_pagination</code> 就是 Shopify 提供的默认分页 HTML 生成器。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/filters/default_pagination?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid filters: default_pagination" aria-label="Liquid filters: default_pagination">Shopify</a></span></p>
+<hr>
+<h2>四、但现在出现一个问题</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">第一页：
+/collections/shoes
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort = Price Low → High
+</code></pre></div>
+<p>URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=price-ascending
+</code></pre></div>
+<p>然后点击第二页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=price-ascending&amp;page=2
+</code></pre></div>
+<p>这非常重要。</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">page=2
+</code></pre></div>
+<p>不能把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sort_by=price-ascending
+</code></pre></div>
+<p>弄丢。</p>
+<p>否则：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Page 1
+↓
+Price Low → High
+↓
+Page 2
+↓
+恢复默认排序
+</code></pre></div>
+<p>用户会觉得商品顺序突然乱了。</p>
+<hr>
+<h2>五、Filter 也是一样</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+</code></pre></div>
+<p>URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?filter.v.option.color=black
+</code></pre></div>
+<p>再：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort = Price Low → High
+</code></pre></div>
+<p>URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?filter.v.option.color=black
+&amp;sort_by=price-ascending
+</code></pre></div>
+<p>再：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Page = 2
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?filter.v.option.color=black
+&amp;sort_by=price-ascending
+&amp;page=2
+</code></pre></div>
+<p>所以你现在应该理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL State
+│
+├── Filter
+├── Sort
+└── Pagination
+</code></pre></div>
+<p>它们不是三个孤立的功能。</p>
+<p>而是共同组成：</p>
+<blockquote>
+<p><strong>Collection Page State</strong></p>
+</blockquote>
+<hr>
+<h2>六、这就是为什么我前面一直强调 URL</h2>
+<p>在 React 里，你可能会这样：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const [filters, setFilters] = useState(...)
+const [sort, setSort] = useState(...)
+const [page, setPage] = useState(1)
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filters
+sort
+page
+</code></pre></div>
+<p>都在 React State 里面。</p>
+<p>Shopify Theme 更接近：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+│
+├── filter
+├── sort_by
+└── page
+        ↓
+Shopify Server
+        ↓
+Liquid
+        ↓
+HTML
+</code></pre></div>
+<p>所以你可以把 URL 看成：</p>
+<blockquote>
+<p><strong>Shopify Collection 页的外部 State。</strong></p>
+</blockquote>
+<hr>
+<h2>七、Sort 怎么实现？</h2>
+<p>我们之前已经知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.sort_options
+</code></pre></div>
+<p>会给你当前 Collection 可用的排序选项。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/objects/sort_option?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: sort_option" aria-label="Liquid objects: sort_option">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% assign current_sort = collection.sort_by
+  | default: collection.default_sort_by
+%}
+
+&lt;select id=&quot;SortBy&quot;&gt;
+
+  {% for option in collection.sort_options %}
+
+    &lt;option
+      value=&quot;{{ option.value }}&quot;
+      {% if option.value == current_sort %}
+        selected
+      {% endif %}
+    &gt;
+      {{ option.name }}
+    &lt;/option&gt;
+
+  {% endfor %}
+
+&lt;/select&gt;
+</code></pre></div>
+<p>于是 Theme 不需要写死：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Price
+Best Selling
+Newest
+...
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+collection.sort_options
+ ↓
+Theme
+ ↓
+&lt;select&gt;
+</code></pre></div>
+<hr>
+<h2>八、用户改变 Sort 后怎么办？</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">当前：
+
+/collections/shoes?page=2
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Price Low → High
+</code></pre></div>
+<p>我们需要变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?page=2&amp;sort_by=price-ascending
+</code></pre></div>
+<p>一个非常简单的实现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const sortSelect = document.querySelector(&#39;#SortBy&#39;);
+
+sortSelect.addEventListener(&#39;change&#39;, (event) =&gt; {
+
+  const url = new URL(window.location.href);
+
+  url.searchParams.set(
+    &#39;sort_by&#39;,
+    event.target.value
+  );
+
+  window.location.href = url.toString();
+
+});
+</code></pre></div>
+<p>这里最重要的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const url = new URL(window.location.href);
+</code></pre></div>
+<p>而不是自己重新拼：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">&#39;/collections/shoes?sort_by=&#39; + ...
+</code></pre></div>
+<p>因为当前 URL 可能已经有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filter
+page
+其他参数
+</code></pre></div>
+<p>我们应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">读取当前 URL
+        ↓
+只修改 sort_by
+        ↓
+保留其他参数
+</code></pre></div>
+<hr>
+<h2>九、但这里还有一个非常重要的问题：切换 Sort 时 page 要不要保留？</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">当前：
+
+Page 5
+</code></pre></div>
+<p>然后用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Price Low → High
+</code></pre></div>
+<p>如果继续：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">page=5
+</code></pre></div>
+<p>可能会产生很奇怪的体验。</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">默认排序
+Page 5
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">价格排序
+Page 5
+</code></pre></div>
+<p>是完全不同的数据集合。</p>
+<p>通常我们希望：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户改变 Sort
+        ↓
+回到 Page 1
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const url = new URL(window.location.href);
+
+url.searchParams.set(
+  &#39;sort_by&#39;,
+  event.target.value
+);
+
+url.searchParams.delete(&#39;page&#39;);
+
+window.location.href = url.toString();
+</code></pre></div>
+<p>这就是一个很典型的 URL State 管理。</p>
+<hr>
+<h2>十、Filter 也是一样</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">当前：
+
+/collections/shoes?page=3
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+</code></pre></div>
+<p>你通常也应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">page=3
+↓
+删除 page
+↓
+重新从 page=1 开始
+</code></pre></div>
+<p>因为筛选以后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">500 个商品
+</code></pre></div>
+<p>可能变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">37 个商品
+</code></pre></div>
+<p>原来的第三页可能已经不存在。</p>
+<p>所以一般逻辑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter changed
+     ↓
+reset page
+</code></pre></div>
+<hr>
+<h2>十一、于是我们得到一套规则</h2>
+<p>这是非常值得记住的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">改变 Filter
+    ↓
+page = 1
+
+改变 Sort
+    ↓
+page = 1
+
+点击 Pagination
+    ↓
+保留 Filter
+保留 Sort
+只改变 page
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter / Sort
+    ↓
+重新查询
+    ↓
+从第一页开始
+
+Pagination
+    ↓
+保持当前查询条件
+    ↓
+只改变 page
+</code></pre></div>
+<hr>
+<h2>十二、现在加入 Section Rendering</h2>
+<p>如果我们使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">window.location.href = url
+</code></pre></div>
+<p>那么页面会完整刷新。</p>
+<p>但 Shopify 还有更高级的方式：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Section Rendering API
+</code></pre></div>
+<p>我们上一课已经提过。</p>
+<p>Shopify 官方明确支持使用 Section Rendering API，通过 AJAX 请求 Section HTML，从而更新页面局部内容而不重新加载整个页面。它也可以用于 Collection 的分页。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Section Rendering API" aria-label="Section Rendering API">Shopify</a><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/use-section-rendering-api?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Use the Section Rendering API for dynamic updates" aria-label="Use the Section Rendering API for dynamic updates">Shopify</a></span></p>
+<hr>
+<h2>十三、假设我们的 Collection Section</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+└── main-collection-product-grid.liquid
+</code></pre></div>
+<p>里面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate collection.products by 24 %}
+
+  &lt;div
+    class=&quot;collection-grid&quot;
+    data-section-id=&quot;{{ section.id }}&quot;
+  &gt;
+
+    {% for product in collection.products %}
+      {% render &#39;product-card&#39;, product: product %}
+    {% endfor %}
+
+  &lt;/div&gt;
+
+  &lt;div class=&quot;collection-pagination&quot;&gt;
+    {{ paginate | default_pagination }}
+  &lt;/div&gt;
+
+{% endpaginate %}
+</code></pre></div>
+<p>注意：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ section.id }}
+</code></pre></div>
+<p>非常重要。</p>
+<p>因为 JSON Template 中的 Section ID 可能是动态生成的。Shopify 官方也建议通过 <code>section.id</code> 或实际 DOM wrapper 获取，而不是假设固定文件名就是 Section ID。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/use-section-rendering-api?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Use the Section Rendering API for dynamic updates" aria-label="Use the Section Rendering API for dynamic updates">Shopify</a><a href="https://shopify.dev/docs/api/liquid/objects/section?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: section" aria-label="Liquid objects: section">Shopify</a></span></p>
+<hr>
+<h2>十四、然后 JS 可以请求第二页</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const url = new URL(window.location.href);
+
+url.searchParams.set(&#39;page&#39;, &#39;2&#39;);
+
+const sectionId =
+  document.querySelector(&#39;[data-section-id]&#39;).dataset.sectionId;
+
+const response = await fetch(
+  `${url.pathname}?${url.searchParams.toString()}&amp;sections=${sectionId}`
+);
+
+const data = await response.json();
+</code></pre></div>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+   ↓
+/collections/shoes?page=2
+&amp;sort_by=price-ascending
+&amp;sections=xxxxx
+   ↓
+Shopify
+   ↓
+Liquid
+   ↓
+只渲染这个 Section
+   ↓
+返回 HTML
+</code></pre></div>
+<p>Section Rendering API 会返回指定 Section 的 HTML；请求 URL 上的 <code>page</code>、<code>sort_by</code> 等参数也会参与 Section 的 Liquid 渲染。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Section Rendering API" aria-label="Section Rendering API">Shopify</a></span></p>
+<hr>
+<h2>十五、然后替换 DOM</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const html =
+  data[sectionId];
+
+const parser =
+  new DOMParser();
+
+const doc =
+  parser.parseFromString(
+    html,
+    &#39;text/html&#39;
+  );
+
+const newSection =
+  doc.querySelector(
+    `[data-section-id=&quot;${sectionId}&quot;]`
+  );
+
+const currentSection =
+  document.querySelector(
+    `[data-section-id=&quot;${sectionId}&quot;]`
+  );
+
+currentSection.replaceWith(
+  newSection
+);
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击 Page 2
+       ↓
+Fetch
+       ↓
+Shopify
+       ↓
+Liquid
+       ↓
+Page 2 HTML
+       ↓
+替换 Product Grid
+</code></pre></div>
+<p>整个 Header：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Header
+</code></pre></div>
+<p>不会重新加载。</p>
+<p>Hero：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Hero
+</code></pre></div>
+<p>也不用重新加载。</p>
+<p>只更新：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Grid
+Pagination
+</code></pre></div>
+<hr>
+<h2>十六、但是别忘了 URL</h2>
+<p>如果 AJAX 成功了，我们还应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">history.pushState(
+  {},
+  &#39;&#39;,
+  url
+);
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户点击 Page 2
+       ↓
+AJAX 更新商品
+       ↓
+history.pushState()
+       ↓
+URL 变成 ?page=2
+</code></pre></div>
+<p>最终用户看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?filter.v.option.color=black
+&amp;sort_by=price-ascending
+&amp;page=2
+</code></pre></div>
+<p>页面没有完整刷新。</p>
+<p>这就是一个非常完整的现代 Shopify Collection UX。</p>
+<hr>
+<h2>十七、整个 Collection 系统现在可以画成这样</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    URL
+                     │
+          ┌──────────┼───────────┐
+          ↓          ↓           ↓
+       Filter       Sort       Page
+          │          │           │
+          └──────────┼───────────┘
+                     ↓
+               Shopify Server
+                     ↓
+                  Collection
+                     ↓
+              Liquid Rendering
+                     ↓
+                  Section
+                     ↓
+                   HTML
+                     ↓
+                Browser DOM
+</code></pre></div>
+<p>如果不开 AJAX：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+ ↓
+完整页面刷新
+</code></pre></div>
+<p>如果使用 Section Rendering：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+ ↓
+AJAX
+ ↓
+Section HTML
+ ↓
+局部 DOM 更新
+</code></pre></div>
+<hr>
+<h2>十八、这一课你真正要掌握的不是代码</h2>
+<p>而是这四个东西之间的关系：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
+   ↓
+URL
+
+Sort
+   ↓
+URL
+
+Pagination
+   ↓
+URL
+
+URL
+   ↓
+Shopify Server
+   ↓
+Liquid
+   ↓
+Collection Products
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Section Rendering API
+</code></pre></div>
+<p>负责把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“重新渲染整个页面”
+</code></pre></div>
+<p>优化成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“只重新渲染发生变化的 Section”
+</code></pre></div>
+<p>这也是 Shopify 官方推荐的 Collection 动态更新方式：<strong>商品核心内容仍由 Liquid/HTML 服务端渲染，Filter/Sort 等交互再通过 Section Rendering API 做增强。</strong> <span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/render-essential-content-server-side?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Render essential content in Liquid and HTML, not JavaScript" aria-label="Render essential content in Liquid and HTML, not JavaScript">Shopify</a></span></p>
+<hr>
+<h3>下一课：第 19 课 —— Shopify Theme SEO</h3>
+<p>到这里，Collection 的核心功能已经基本齐了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+├── Product Grid
+├── Filter
+├── Sort
+├── Pagination
+├── URL State
+└── AJAX / Section Rendering
+</code></pre></div>
+<p>下一课我们转到 <strong>SEO</strong>，会讲：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">&lt;title&gt;
+&lt;meta description&gt;
+canonical
+robots
+Open Graph
+JSON-LD
+Product SEO
+Collection SEO
+结构化数据
+</code></pre></div>
+<p>以及一个前端开发者非常容易踩的坑：</p>
+<blockquote>
+<p><strong>为什么 Shopify Theme 明明是服务端渲染，但 SEO 仍然可能做得很差？</strong></p>
+</blockquote>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">collection</a></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-18.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

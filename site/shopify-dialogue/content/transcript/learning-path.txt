@@ -1,0 +1,1799 @@
+# 阶段复盘 · Shopify 学习路线与 App / Function
+
+## 我的提问 · 2026-09-19 Sat 22:01
+
+Ok，这条线先学到这里吧，按照之前的计划，还有别的线路吗
+
+## ChatGPT · 2026-09-19 Sat 22:01
+
+有，而且按我们之前制定的完整 Shopify 学习路线，你现在其实只是完成了 **Level 1 的 Theme 基础 + Level 2 的一部分核心购物车能力**。
+
+你刚才这条“Theme → Cart → Function → 活动价格”的线可以先停在这里。接下来有几条主线可以并行，但我建议按照前端开发者的学习曲线来走。
+
+## 我们之前的完整路线
+
+```text
+Level 0
+Shopify 基础架构
+        ↓
+Level 1
+Theme / Liquid
+        ↓
+Level 2
+Theme 前端与 Storefront 交互   ← 你目前主要在这里
+        ↓
+Level 3
+Shopify 数据模型
+        ↓
+Level 4
+Shopify App 开发
+        ↓
+Level 5
+Headless / Storefront API
+        ↓
+Level 6
+Shopify Plus / Enterprise
+```
+
+---
+
+# 你目前的位置
+
+已经掌握：
+
+### Level 0：基本完成
+
+```text
+Shopify
+├── Admin
+├── Storefront
+├── Theme
+├── App
+├── API
+└── Headless
+```
+
+以及：
+
+```text
+Product
+→ Variant
+→ Cart
+→ Checkout
+→ Order
+```
+
+---
+
+### Level 1：Theme 基础已经走过
+
+你已经学习了：
+
+```text
+layout
+templates
+sections
+blocks
+snippets
+assets
+config
+locales
+```
+
+以及：
+
+```text
+Liquid
+{{ }}
+{% %}
+filters
+objects
+loops
+schema
+```
+
+---
+
+### Level 2：正在进行
+
+目前已经学了：
+
+```text
+Variant Selector
+       ↓
+Product Form
+       ↓
+Add to Cart
+       ↓
+Cart API
+       ↓
+Cart Drawer
+       ↓
+Section Rendering
+       ↓
+Discount / Function 边界
+```
+
+但是 Level 2 其实还有不少非常重要的内容。
+
+---
+
+# 接下来有 5 条主要线路
+
+我建议你把它们理解成五条“技术树”。
+
+---
+
+## 线路 A：Theme 深入开发 ⭐⭐⭐⭐⭐
+
+这是你现在最自然的下一条线。
+
+我们可以继续学：
+
+```text
+Theme
+│
+├── Product
+├── Collection
+├── Search
+├── Predictive Search
+├── Product Media
+├── AJAX
+├── Section Rendering
+├── Web Components
+├── Accessibility
+├── SEO
+├── Performance
+└── Theme Editor
+```
+
+其中还有几个非常重要的专题。
+
+### Product Media
+
+```text
+Product
+├── Image
+├── Video
+├── 3D Model
+└── External Video
+```
+
+学习：
+
+```text
+product.media
+media_type
+image
+video
+model
+external_video
+```
+
+以及 Product Gallery。
+
+---
+
+### Collection
+
+从：
+
+```text
+Collection
+```
+
+开始学习真正的商品列表：
+
+```text
+Collection
+ ↓
+Products
+ ↓
+Product Card
+ ↓
+Pagination
+ ↓
+Filter
+ ↓
+Sort
+```
+
+然后进入 Shopify 的：
+
+**Collection Filtering**
+
+这对于电商网站非常重要。
+
+---
+
+### Search
+
+包括：
+
+```text
+/search
+```
+
+以及：
+
+```text
+Predictive Search
+```
+
+最终做成：
+
+```text
+搜索框
+   ↓
+输入 iPhone
+   ↓
+Predictive Search
+   ↓
+Products
+Collections
+Pages
+Articles
+   ↓
+搜索结果
+```
+
+---
+
+### Theme 性能
+
+这个也非常适合你这种前端开发者。
+
+会涉及：
+
+```text
+Liquid
+ ↓
+HTML
+ ↓
+CSS
+ ↓
+JS
+ ↓
+Network
+ ↓
+LCP
+CLS
+INP
+```
+
+然后学习 Shopify Theme 的性能优化。
+
+---
+
+# 线路 B：Shopify 数据模型 ⭐⭐⭐⭐⭐
+
+这条线我们之前只是学了基础，现在可以系统深入。
+
+```text
+Shop
+Product
+Variant
+Collection
+Customer
+Order
+Cart
+Checkout
+Metafield
+Metaobject
+Discount
+Market
+Inventory
+Location
+```
+
+重点是理解它们之间的关系。
+
+例如：
+
+```text
+Product
+ ├── Variant
+ ├── Metafield
+ ├── Collection
+ └── Media
+```
+
+订单：
+
+```text
+Order
+├── Customer
+├── Line Items
+├── Fulfillment
+├── Transaction
+└── Shipping
+```
+
+然后进一步：
+
+```text
+Product
+    ↓
+Variant
+    ↓
+Inventory Item
+    ↓
+Inventory Level
+    ↓
+Location
+```
+
+这个会让你真正理解 Shopify 后台的数据结构。
+
+---
+
+# 线路 C：Shopify App 开发 ⭐⭐⭐⭐⭐
+
+**这是我认为你以后非常值得重点学的一条。**
+
+因为你是前端开发者。
+
+你已经有：
+
+```text
+React
+Next.js
+JavaScript
+```
+
+那么 App 开发会非常自然。
+
+路线：
+
+```text
+Shopify App
+    ↓
+OAuth
+    ↓
+Admin API
+    ↓
+GraphQL
+    ↓
+Webhook
+    ↓
+App Bridge
+    ↓
+Polaris
+    ↓
+Embedded App
+```
+
+最后做：
+
+```text
+Shopify Admin
+      ↓
+你的 App
+      ↓
+React
+      ↓
+Shopify GraphQL Admin API
+```
+
+---
+
+# 线路 D：Headless Shopify ⭐⭐⭐⭐⭐
+
+这一条其实非常适合你。
+
+因为你本身就是前端开发者。
+
+传统 Shopify：
+
+```text
+Shopify
+ ↓
+Liquid
+ ↓
+Theme
+ ↓
+HTML
+```
+
+Headless：
+
+```text
+Shopify
+ ↓
+Storefront API
+ ↓
+GraphQL
+ ↓
+Next.js
+ ↓
+React
+ ↓
+你的 UI
+```
+
+然后学习：
+
+```text
+Storefront API
+GraphQL
+Next.js
+Hydrogen
+Customer Account API
+Cart API
+Checkout
+```
+
+最终可以做：
+
+```text
+Shopify
+    │
+    ↓
+Storefront API
+    │
+    ↓
+Next.js
+    │
+ ┌──┼─────────┐
+ ↓  ↓         ↓
+Home Product  Cart
+```
+
+这条线会把你的 React/Next.js 能力真正和 Shopify 结合起来。
+
+---
+
+# 线路 E：Shopify Plus / Enterprise ⭐⭐⭐⭐
+
+这个是最后阶段。
+
+包括：
+
+```text
+Shopify Plus
+├── Checkout Extensibility
+├── Shopify Functions
+├── Markets
+├── B2B
+├── Multi-store
+├── International
+├── ERP
+├── OMS
+├── CRM
+├── Webhooks
+├── Event-driven architecture
+├── CI/CD
+└── Enterprise architecture
+```
+
+你刚才已经提前碰到了：
+
+```text
+Shopify Functions
+```
+
+所以以后回到这里的时候会非常容易。
+
+---
+
+# 如果按照你的背景，我建议这样走
+
+不是简单按照：
+
+```text
+1 → 2 → 3 → 4 → 5
+```
+
+机械学习。
+
+而是：
+
+```text
+                    Shopify
+                       │
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+        Theme        Data          App
+          │            │            │
+          └────────────┼────────────┘
+                       ↓
+                    API / GraphQL
+                       ↓
+                    Headless
+                       ↓
+                  Enterprise
+```
+
+具体顺序我建议：
+
+### 第一阶段
+
+**Theme 深入**
+
+```text
+Collection
+↓
+Product Media
+↓
+Search
+↓
+Predictive Search
+↓
+Filtering
+↓
+Pagination
+↓
+SEO
+↓
+Performance
+```
+
+---
+
+### 第二阶段
+
+**Shopify 数据模型**
+
+```text
+Product
+Variant
+Inventory
+Customer
+Order
+Metafield
+Metaobject
+Market
+Discount
+```
+
+把 Shopify 的数据模型彻底吃透。
+
+---
+
+### 第三阶段
+
+**Shopify App**
+
+```text
+App
+↓
+OAuth
+↓
+GraphQL Admin API
+↓
+Webhook
+↓
+App Bridge
+↓
+Polaris
+```
+
+然后自己做一个完整 App。
+
+---
+
+### 第四阶段
+
+**Headless**
+
+```text
+Storefront API
+↓
+GraphQL
+↓
+Next.js
+↓
+React
+↓
+Hydrogen
+```
+
+---
+
+### 第五阶段
+
+**Enterprise**
+
+```text
+Shopify Plus
+↓
+Functions
+↓
+Checkout Extensibility
+↓
+Markets
+↓
+B2B
+↓
+ERP / OMS / CRM
+↓
+Enterprise Architecture
+```
+
+---
+
+# 还有一个我很建议你做的事情
+
+不要一直“学完一个知识点再学下一个”。
+
+我们可以在每个阶段都做一个**真实项目**。
+
+例如：
+
+### Project 1：完整 Shopify Theme
+
+```text
+首页
+商品详情
+Collection
+Search
+Cart Drawer
+Checkout
+```
+
+---
+
+### Project 2：Shopify App
+
+做一个真正的：
+
+```text
+Product Management App
+```
+
+例如：
+
+```text
+Shopify Admin
+      ↓
+你的 App
+      ↓
+React
+      ↓
+GraphQL
+      ↓
+Product / Variant
+```
+
+---
+
+### Project 3：Headless Store
+
+```text
+Next.js
++
+Shopify Storefront API
+```
+
+实现：
+
+```text
+Home
+Product
+Collection
+Search
+Cart
+Checkout
+Customer
+```
+
+---
+
+### Project 4：企业级系统
+
+最后做：
+
+```text
+Shopify
+     │
+     ├── Storefront
+     ├── App
+     ├── Functions
+     ├── ERP
+     ├── OMS
+     ├── CRM
+     └── Analytics
+```
+
+这个时候你就不是在“学 Shopify API”了，而是在做真正的 **Shopify Commerce Architecture**。
+
+---
+
+## 所以现在我建议先走这条
+
+你刚刚说的：
+
+> “这条线先学到这里。”
+
+我完全赞成。
+
+我们暂时把：
+
+```text
+活动页
+→ Cart API
+→ Section Rendering
+→ Discount
+→ Function
+→ Metafield
+```
+
+封存。
+
+下一条从 **Theme 前端能力**继续：
+
+```text
+第 13 课
+Collection 页面
+
+Collection
+→ Product Grid
+→ Product Card
+→ Pagination
+→ Sort
+→ Filter
+```
+
+然后再进入：
+
+```text
+Product Media
+→ Search
+→ Predictive Search
+→ Collection Filtering
+→ Theme 性能
+```
+
+这样会比现在直接跳到 App 更顺，也能把你作为前端开发者最需要的 **Shopify Theme 实战能力**补完整。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 22:04
+
+Shopify app和function有什么区别
+
+## ChatGPT · 2026-09-19 Sat 22:04
+
+可以把它先记成一句话：
+
+> **Shopify App = 一个完整的“应用/业务系统”**
+>
+> **Shopify Function = Shopify 运行在特定业务节点上的“后端扩展函数”**
+
+两者不是完全平级的东西，**Function 通常是 App 的一个组成部分**。
+
+### 先用你熟悉的前端思维理解
+
+如果你做 React/Next.js：
+
+```text
+Shopify App
+│
+├── Admin UI
+├── React / Next.js
+├── 数据库
+├── Shopify Admin API
+├── Webhook
+├── OAuth
+├── 后端服务
+│
+└── Shopify Function
+      └── 专门执行某个 Shopify 业务逻辑
+```
+
+所以：
+
+**App 更像一个完整项目，Function 更像这个项目里的一个特殊后端能力。**
+
+---
+
+## 1. Shopify App 是什么？
+
+App 的核心作用是：
+
+> **给 Shopify 商家增加新的业务能力。**
+
+例如你做一个“营销活动管理 App”：
+
+```text
+商家进入 App
+      ↓
+创建活动
+      ↓
+选择商品
+      ↓
+设置活动时间
+      ↓
+设置折扣规则
+      ↓
+保存到数据库
+      ↓
+调用 Shopify API
+      ↓
+创建/配置 Discount
+```
+
+你的 App 可以包含：
+
+- React / Next.js 管理后台
+- 数据库
+- Shopify Admin API
+- GraphQL
+- Webhook
+- OAuth
+- App Bridge
+- Polaris
+- Shopify Function
+- 第三方 API
+- ERP / CRM / 物流系统
+
+所以 App 的能力范围非常大。
+
+---
+
+# 2. Shopify Function 是什么？
+
+Function 更专注：
+
+> **在 Shopify 的特定业务流程中执行自定义逻辑。**
+
+比如：
+
+```text
+用户购物车
+    ↓
+Shopify
+    ↓
+Discount Function
+    ↓
+判断：
+这个商品是不是活动商品？
+活动有没有过期？
+用户是否符合条件？
+    ↓
+计算折扣
+    ↓
+Shopify Checkout
+```
+
+Function 不是让你做一个完整后台。
+
+它更像：
+
+```js
+function calculateDiscount(input) {
+    // Shopify 把业务数据给你
+
+    if (满足活动条件) {
+        return {
+            discount: ...
+        };
+    }
+
+    return {};
+}
+```
+
+也就是说：
+
+**Shopify 在某个业务节点调用你的 Function。**
+
+---
+
+# 3. 两者最重要的区别
+
+| | Shopify App | Shopify Function |
+|---|---|---|
+| 定位 | 完整应用 | 业务逻辑扩展 |
+| 主要面向 | 商家/后台/外部系统 | Shopify 业务运行时 |
+| 是否有 UI | 可以有 | 通常没有 |
+| 是否有数据库 | 可以有 | Function 本身不是数据库 |
+| 是否可以调用外部系统 | App 可以 | Function 有严格限制 |
+| Admin API | 可以使用 | 不是它的主要能力 |
+| Webhook | 可以 | 不是主要用途 |
+| OAuth | 可以 | 不负责 |
+| React/Next.js | 可以 | 通常不是核心 |
+| 执行方式 | App 自己运行 | Shopify 在特定时机调用 |
+| 典型用途 | 商家后台、ERP、营销系统 | 折扣、配送、支付、购物车等业务逻辑 |
+
+---
+
+# 4. 举个你刚才学过的“活动价”例子
+
+假设：
+
+```text
+T-Shirt
+正常价格：$29.99
+活动价格：$19.99
+```
+
+你想做一个“Summer Sale App”。
+
+### App 负责什么？
+
+App 可以让商家看到：
+
+```text
+┌─────────────────────────┐
+│ Summer Sale             │
+│                         │
+│ 活动名称：Summer Sale   │
+│ 开始时间：9/1           │
+│ 结束时间：9/30          │
+│                         │
+│ 商品：                  │
+│ ☑ T-Shirt               │
+│ ☑ Hoodie                │
+│ ☑ Jeans                 │
+│                         │
+│ 活动价：$19.99          │
+│                         │
+│ [保存活动]              │
+└─────────────────────────┘
+```
+
+这就是 **App**。
+
+---
+
+### Function 负责什么？
+
+当用户真正购物：
+
+```text
+用户加入 T-Shirt
+        ↓
+Cart
+        ↓
+Shopify Discount Function
+        ↓
+判断 T-Shirt 是否符合活动
+        ↓
+计算折扣
+        ↓
+$29.99 → $19.99
+        ↓
+Checkout
+```
+
+这就是 **Function**。
+
+---
+
+# 5. 所以它们经常一起出现
+
+一个完整的营销 App 可能是：
+
+```text
+                 Shopify App
+                     │
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+     Admin UI      Database    Shopify API
+        │            │            │
+        └────────────┼────────────┘
+                     ↓
+              创建活动配置
+                     │
+                     ↓
+              Discount Function
+                     │
+                     ↓
+              Shopify Cart
+                     │
+                     ↓
+                 Checkout
+```
+
+这才是比较完整的架构。
+
+---
+
+# 6. 一个特别重要的概念
+
+你可以这样理解：
+
+### App 是“我要做什么”
+
+例如：
+
+> 我要做一个营销活动管理系统。
+
+### Function 是“Shopify 在某个业务节点帮我执行什么规则”
+
+例如：
+
+> 当用户结账时，如果这个商品属于活动商品，就给它计算折扣。
+
+---
+
+## 7. 再和 Theme 放在一起
+
+你现在正在学 Shopify，所以这三个最好一次性建立概念：
+
+```text
+                 Shopify
+                    │
+       ┌────────────┼────────────┐
+       ↓            ↓            ↓
+     Theme          App       Function
+       │            │            │
+       ↓            ↓            ↓
+     前台 UI      商家能力      业务规则
+       │            │            │
+       ↓            ↓            ↓
+   Product Page   Admin UI    Discount
+   Collection     ERP        Delivery
+   Cart Drawer    CRM        Payment
+   Search         Webhook    Cart Logic
+```
+
+可以粗暴记忆成：
+
+> **Theme = 前台**
+>
+> **App = 应用**
+>
+> **Function = Shopify 业务规则引擎里的自定义逻辑**
+
+---
+
+### 对你来说，下一步应该怎么学
+
+按照我们之前的路线，我建议你**先不要深入 Function**。
+
+你现在更应该把：
+
+```text
+Theme
+ ↓
+Liquid
+ ↓
+Collection
+ ↓
+Product
+ ↓
+Cart
+ ↓
+Search
+ ↓
+Shopify Data Model
+```
+
+打牢。
+
+之后进入：
+
+```text
+Shopify App
+ ↓
+OAuth
+ ↓
+Admin GraphQL API
+ ↓
+Webhook
+ ↓
+App Bridge
+ ↓
+Polaris
+ ↓
+Function
+```
+
+这样你以后看到：
+
+```text
+App
+App Extension
+Function
+Theme Extension
+Checkout Extension
+Admin Extension
+```
+
+就不会混在一起了。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 22:07
+
+接下来我们重点先：theme 深入和shopify数据模型吧
+
+## ChatGPT · 2026-09-19 Sat 22:07
+
+好，我们接下来就把路线收窄到两条主线：
+
+```text
+                Shopify 深入学习
+                       │
+            ┌──────────┴──────────┐
+            ↓                     ↓
+      ① Theme 深入          ② Shopify 数据模型
+            │                     │
+     前台页面怎么做          Shopify 数据怎么组织
+            │                     │
+     Liquid / JS / API        Product / Variant
+            │                 Collection / Customer
+     Collection / Product     Order / Inventory
+     Search / Cart            Metafield / Metaobject
+            │                 Market / Discount
+            └──────────┬──────────┘
+                       ↓
+                真正理解 Shopify
+```
+
+而且这两条线**不是独立的**：
+
+> **Theme 是“怎么把 Shopify 的数据展示出来、操作起来”，数据模型是“这些数据到底是什么、彼此怎么关联”。**
+
+---
+
+# 一、我们接下来的课程路线
+
+## 第一阶段：Theme 深入
+
+我们从你之前已经学过的 Product / Cart 往前扩展。
+
+### 第 13 课：Collection 页面
+
+```text
+Collection
+   ↓
+Product Grid
+   ↓
+Product Card
+   ↓
+Pagination
+   ↓
+Sort
+   ↓
+Filter
+```
+
+重点学习：
+
+- `collection`
+- `collection.products`
+- Product Card
+- Collection URL
+- Pagination
+- Sort
+- Filter
+- Collection 商品数量
+- Empty State
+
+---
+
+### 第 14 课：Product Media
+
+把之前的 Product 页面继续深入：
+
+```text
+Product
+  │
+  ├── Featured Image
+  ├── Images
+  ├── Media
+  │    ├── Image
+  │    ├── Video
+  │    ├── External Video
+  │    └── Model
+  │
+  └── Variant
+```
+
+重点理解：
+
+> **Product Image 和 Product Media 到底有什么区别？**
+
+以及：
+
+```text
+Variant
+   ↓
+Variant Image
+   ↓
+用户切换 Variant
+   ↓
+Gallery 自动切换
+```
+
+这部分非常接近真实 Shopify 主题开发。
+
+---
+
+### 第 15 课：Search
+
+```text
+用户输入关键词
+       ↓
+/search?q=shirt
+       ↓
+Shopify Search
+       ↓
+search.results
+       ↓
+Product / Page / Article ...
+```
+
+学习：
+
+- Search Template
+- `search`
+- `search.results`
+- `search.performed`
+- `search.terms`
+- 搜索结果类型
+- 搜索分页
+
+---
+
+### 第 16 课：Predictive Search
+
+也就是：
+
+```text
+用户输入：
+
+shi
+ ↓
+Shopify
+ ↓
+预测搜索
+ ↓
+Products
+Collections
+Queries
+Pages
+ ↓
+下拉建议
+```
+
+这会涉及：
+
+**Liquid + JavaScript + Ajax API**
+
+---
+
+### 第 17 课：Collection Filtering
+
+这个非常重要。
+
+例如：
+
+```text
+              Collection
+                  │
+       ┌──────────┼──────────┐
+       ↓          ↓          ↓
+      Brand      Size       Price
+       │          │          │
+     Nike       M/L/XL     $0-$50
+```
+
+最终：
+
+```text
+用户选择 Filter
+       ↓
+URL 改变
+       ↓
+Shopify 返回过滤后的商品
+       ↓
+Product Grid 更新
+```
+
+这里会开始接触 Shopify 的 **facets/filtering** 思维。
+
+---
+
+### 第 18 课：Pagination / URL / Sort
+
+例如：
+
+```text
+/products?page=2
+```
+
+或者：
+
+```text
+/collections/shoes?sort_by=price-ascending
+```
+
+理解：
+
+```text
+URL
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+页面
+```
+
+以及为什么 Shopify Theme 很多功能是 **URL 驱动的**。
+
+---
+
+### 第 19 课：SEO
+
+重点：
+
+```text
+<title>
+<meta description>
+canonical
+structured data
+Open Graph
+image alt
+heading hierarchy
+```
+
+同时理解：
+
+> 为什么 Shopify Theme 的 SEO 很多是在 Liquid 层完成的。
+
+---
+
+### 第 20 课：Theme Performance
+
+重点：
+
+```text
+Liquid Rendering
+       ↓
+HTML
+       ↓
+CSS
+       ↓
+JavaScript
+       ↓
+Images
+       ↓
+Browser Performance
+```
+
+学习：
+
+- 图片优化
+- lazy loading
+- JS 加载
+- CSS
+- Liquid 性能
+- Section 数量
+- 第三方脚本
+- Core Web Vitals
+
+---
+
+# 二、第二条线：Shopify 数据模型
+
+这一条线我建议和 Theme 穿插着学。
+
+我们不会一上来背一堆 API。
+
+而是先建立：
+
+> **“Shopify 到底有哪些核心对象？”**
+
+---
+
+## 第 1 个核心模型：Product
+
+你已经知道一点 Product 了。
+
+但我们接下来会把它彻底搞清楚：
+
+```text
+Product
+│
+├── title
+├── description
+├── vendor
+├── product_type
+├── tags
+├── status
+├── media
+│
+├── variants
+│
+├── collections
+│
+├── metafields
+│
+└── metaobjects
+```
+
+---
+
+# 三、然后重点搞懂 Variant
+
+这是 Shopify 最重要的概念之一。
+
+```text
+Product
+   │
+   ├── Option: Color
+   │       ├── Black
+   │       └── White
+   │
+   ├── Option: Size
+   │       ├── S
+   │       ├── M
+   │       └── L
+   │
+   └── Variants
+          ├── Black / S
+          ├── Black / M
+          ├── Black / L
+          ├── White / S
+          ├── White / M
+          └── White / L
+```
+
+然后我们继续往下：
+
+```text
+Variant
+   ↓
+Inventory Item
+   ↓
+Inventory Level
+   ↓
+Location
+```
+
+这时候你就真正理解 Shopify 库存了。
+
+---
+
+# 四、然后是 Collection
+
+理解：
+
+```text
+Product
+   ↓
+Collection
+```
+
+但是 Collection 不是 Product 的父级。
+
+更准确地说：
+
+```text
+             Product A
+              ↙     ↘
+             ↓       ↓
+        Collection A  Collection B
+```
+
+一个 Product 可以属于多个 Collection。
+
+然后继续理解：
+
+```text
+Collection
+ ↓
+Products
+ ↓
+Product Grid
+ ↓
+Filter
+ ↓
+Pagination
+```
+
+这就刚好和 Theme 第 13～18 课连接起来。
+
+---
+
+# 五、然后进入 Customer
+
+```text
+Customer
+│
+├── name
+├── email
+├── phone
+├── addresses
+│
+├── orders
+│
+└── metafields
+```
+
+然后我们会讨论：
+
+```text
+Customer
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+```
+
+这里会开始真正理解 Shopify 的购买生命周期。
+
+---
+
+# 六、Order 是第二个重点
+
+我们会重点搞清：
+
+```text
+Order
+│
+├── Customer
+│
+├── Line Items
+│
+├── Shipping Address
+│
+├── Billing Address
+│
+├── Transactions
+│
+├── Fulfillment
+│
+└── Metafields
+```
+
+尤其是：
+
+> **Order ≠ Cart**
+
+```text
+用户准备买
+    ↓
+Cart
+    ↓
+Checkout
+    ↓
+支付
+    ↓
+Order
+```
+
+这条链你一定要形成肌肉记忆。
+
+---
+
+# 七、Inventory
+
+然后我们会专门花一课讲：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+Inventory Item
+   ↓
+Inventory Level
+   ↓
+Location
+```
+
+例如：
+
+```text
+T-Shirt
+   ↓
+Black / M
+   ↓
+Inventory Item #123
+   ↓
+     ┌──────────────┐
+     ↓              ↓
+California       New York
+   20               8
+```
+
+这样你以后看到：
+
+> “这个商品还有多少库存？”
+
+就不会简单理解成：
+
+```text
+variant.inventory_quantity
+```
+
+而是能理解 Shopify 背后的库存模型。
+
+---
+
+# 八、Metafield + Metaobject
+
+这个我们会继续深入。
+
+### Metafield
+
+```text
+Product
+   │
+   ├── title
+   ├── price
+   ├── variants
+   │
+   └── metafields
+          ├── material
+          ├── size_guide
+          ├── care_instruction
+          └── custom_badge
+```
+
+---
+
+### Metaobject
+
+如果业务复杂，就会变成：
+
+```text
+Product
+   ↓
+Metafield
+   ↓
+Metaobject Reference
+   ↓
+Size Guide
+```
+
+例如：
+
+```text
+Size Guide
+├── title
+├── description
+├── image
+└── size_chart
+```
+
+这部分以后会直接连接到：
+
+**Theme + App + Function**
+
+---
+
+# 九、最后我们建立完整 Shopify 数据关系图
+
+学完这条线之后，你应该能看到这样的结构：
+
+```text
+                         Shopify
+                            │
+       ┌────────────────────┼────────────────────┐
+       ↓                    ↓                    ↓
+    Product              Customer             Collection
+       │                    │                    │
+       ↓                    ↓                    ↓
+    Variant              Cart / Order       Products
+       │
+       ↓
+ Inventory Item
+       │
+       ↓
+ Inventory Level
+       │
+       ↓
+    Location
+
+
+Product
+   │
+   ├── Metafield
+   │      ↓
+   │   Metaobject
+   │
+   └── Media
+
+
+Customer
+   ↓
+Order
+   ├── Line Items
+   ├── Transaction
+   └── Fulfillment
+```
+
+这张图以后会成为我们整个 Shopify 学习的**核心地图**。
+
+---
+
+# 十、两条线最终会合并
+
+真正的 Shopify Theme 开发不是单纯写 Liquid。
+
+最终是：
+
+```text
+              Shopify Data Model
+                     │
+                     ↓
+        ┌────────────────────────┐
+        │                        │
+        ↓                        ↓
+      Liquid                   JavaScript
+        │                        │
+        ↓                        ↓
+      HTML                    Browser
+        │                        │
+        └───────────┬────────────┘
+                    ↓
+               Storefront
+```
+
+例如一个商品页：
+
+```text
+Product
+   │
+   ├── Variant
+   ├── Media
+   ├── Metafield
+   └── Collection
+         ↓
+      Liquid
+         ↓
+    Product Page
+         ↓
+       JavaScript
+         ↓
+ Variant Selection
+         ↓
+       Cart API
+         ↓
+        Cart
+```
+
+这时候你就不再是：
+
+> “我会一点 Shopify Liquid。”
+
+而是开始进入：
+
+> **“我理解 Shopify Storefront 的完整运行方式。”**
+
+---
+
+## 我建议我们的新学习顺序
+
+```text
+【Theme 深入】
+13 Collection
+14 Product Media
+15 Search
+16 Predictive Search
+17 Filtering
+18 Pagination / Sort / URL
+19 SEO
+20 Performance
+
+          ↓
+
+【数据模型】
+21 Product / Variant 深入
+22 Collection
+23 Inventory / Location
+24 Customer
+25 Cart / Checkout / Order
+26 Fulfillment / Transaction
+27 Metafield
+28 Metaobject
+29 Discount / Market
+
+          ↓
+
+【重新回到 Theme】
+30 用完整数据模型做一个完整 Shopify Theme
+```
+
+**下一课就从第 13 课 Collection 开始。**
+
+而且这一轮我会比之前更深入一些：不仅讲 Liquid API，还会从 **“Shopify 数据 → Liquid → HTML → URL → JavaScript”** 整条链来讲，这样更符合你前端开发的思维方式。

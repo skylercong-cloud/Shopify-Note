@@ -1,0 +1,992 @@
+# 第 7 课：Variant Selector 实战
+
+## 我的提问 · 2026-09-19 Sat 20:33
+
+好了，我问完了。按计划进行下一课吧
+
+## ChatGPT · 2026-09-19 Sat 20:33
+
+好，我们按计划继续。前面你刚好把 **Product → Variant → Cart → Checkout** 这条链路问透了，所以现在进入下一课非常合适。
+
+# 第 7 课：Variant Selector 实战
+
+这一课我们暂时**不急着做完整 Cart Drawer**，先把商品详情页最核心的一段彻底搞明白：
+
+> **用户选择 Color / Size → 找到对应 Variant → 更新价格/图片/库存 → 拿到 Variant ID → 为加购做准备。**
+
+这其实是 Shopify Theme 前端开发里非常核心的一块。
+
+---
+
+# 一、先回顾我们已经学过的东西
+
+假设 Shopify 有一个商品：
+
+```text
+Classic T-Shirt
+```
+
+它有两个 Options：
+
+```text
+Color:
+Black
+White
+
+Size:
+S
+M
+L
+```
+
+那么 Shopify 最终会生成：
+
+```text
+Product
+│
+├── Options
+│   ├── Color
+│   └── Size
+│
+└── Variants
+    ├── Black / S
+    ├── Black / M
+    ├── Black / L
+    ├── White / S
+    ├── White / M
+    └── White / L
+```
+
+所以：
+
+```text
+Option
+↓
+用户选择
+↓
+Variant
+↓
+Variant ID
+```
+
+这是今天的核心。
+
+---
+
+# 二、React 开发者应该怎么理解？
+
+如果你用 React，可能会写：
+
+```jsx
+const [color, setColor] = useState('Black');
+const [size, setSize] = useState('M');
+```
+
+然后：
+
+```javascript
+const variant = variants.find(
+  variant =>
+    variant.options[0] === color &&
+    variant.options[1] === size
+);
+```
+
+最后：
+
+```javascript
+variant.id
+```
+
+然后：
+
+```javascript
+addToCart(variant.id);
+```
+
+Shopify Theme 做的事情其实非常类似。
+
+只是：
+
+```text
+React
+↓
+State
+↓
+JS
+↓
+API
+```
+
+换成：
+
+```text
+Liquid
+↓
+HTML
+↓
+JavaScript
+↓
+Shopify Cart API
+```
+
+---
+
+# 三、第一步：Liquid 把 Variants 输出给前端
+
+商品页面里，我们可以先把所有 Variant 输出出来。
+
+例如：
+
+```liquid
+<script type="application/json" id="ProductJSON">
+  {{ product.variants | json }}
+</script>
+```
+
+假设 Shopify 商品有：
+
+```text
+Black / S
+Black / M
+Black / L
+White / S
+White / M
+White / L
+```
+
+浏览器拿到的 JSON 可以理解成：
+
+```json
+[
+  {
+    "id": 101,
+    "title": "Black / S",
+    "options": ["Black", "S"],
+    "available": true,
+    "price": 2999
+  },
+  {
+    "id": 102,
+    "title": "Black / M",
+    "options": ["Black", "M"],
+    "available": true,
+    "price": 2999
+  }
+]
+```
+
+这里我继续用简化后的结构帮助你理解。
+
+真正开发时，你应该以 Shopify 实际返回的数据结构为准。
+
+---
+
+# 四、第二步：渲染 Option Selector
+
+Liquid 可以根据：
+
+```liquid
+product.options_with_values
+```
+
+生成选择器。
+
+例如：
+
+```liquid
+{% for option in product.options_with_values %}
+
+  <div class="product-option">
+    <p>{{ option.name }}</p>
+
+    {% for value in option.values %}
+      <button
+        type="button"
+        data-option-value="{{ value }}"
+      >
+        {{ value }}
+      </button>
+    {% endfor %}
+
+  </div>
+
+{% endfor %}
+```
+
+最终可能生成：
+
+```text
+Color
+
+[ Black ] [ White ]
+
+
+Size
+
+[ S ] [ M ] [ L ]
+```
+
+这里非常值得你注意：
+
+### Liquid 负责“生成选择器”
+
+而：
+
+### JavaScript 负责“用户选择之后发生什么”。
+
+这就是我们之前反复强调的：
+
+```text
+Liquid
+=
+Server-side rendering
+
+JavaScript
+=
+Browser interaction
+```
+
+---
+
+# 五、第三步：JavaScript 保存用户选择
+
+例如用户点击：
+
+```text
+Black
+```
+
+我们可以：
+
+```javascript
+let selectedOptions = {
+  Color: 'Black',
+  Size: null
+};
+```
+
+用户继续点击：
+
+```text
+M
+```
+
+变成：
+
+```javascript
+let selectedOptions = {
+  Color: 'Black',
+  Size: 'M'
+};
+```
+
+这和 React 的：
+
+```javascript
+const [selectedColor, setSelectedColor] = useState();
+```
+
+其实非常类似。
+
+---
+
+# 六、第四步：根据选择寻找 Variant
+
+假设：
+
+```javascript
+variants = [
+  {
+    id: 101,
+    options: ['Black', 'S']
+  },
+  {
+    id: 102,
+    options: ['Black', 'M']
+  },
+  {
+    id: 103,
+    options: ['Black', 'L']
+  },
+  {
+    id: 104,
+    options: ['White', 'S']
+  },
+  {
+    id: 105,
+    options: ['White', 'M']
+  }
+];
+```
+
+用户选择：
+
+```text
+Black
+M
+```
+
+我们需要找到：
+
+```text
+['Black', 'M']
+```
+
+对应的 Variant：
+
+```text
+id = 102
+```
+
+JS 可以这样理解：
+
+```javascript
+const selected = ['Black', 'M'];
+
+const variant = variants.find(variant => {
+  return variant.options.every(
+    (value, index) => value === selected[index]
+  );
+});
+```
+
+然后：
+
+```javascript
+console.log(variant.id);
+```
+
+得到：
+
+```text
+102
+```
+
+---
+
+# 七、这一步是整个 Variant Selector 的灵魂
+
+你一定要理解：
+
+```text
+用户选择
+
+Color = Black
+Size = M
+
+        ↓
+
+['Black', 'M']
+
+        ↓
+
+遍历 product.variants
+
+        ↓
+
+找到
+
+Black / M
+
+        ↓
+
+Variant ID = 102
+```
+
+所以：
+
+> **Variant Selector 本质上就是一个“根据用户选择找到 Variant”的匹配系统。**
+
+---
+
+# 八、找到 Variant 后，我们可以做什么？
+
+这才开始有意思。
+
+假设找到：
+
+```javascript
+variant = {
+  id: 102,
+  price: 2999,
+  available: true,
+  featured_image: ...
+}
+```
+
+我们就可以更新商品页面。
+
+---
+
+## ① 更新价格
+
+```text
+Black / M
+
+$29.99
+```
+
+如果用户选择：
+
+```text
+Premium / L
+```
+
+可能变成：
+
+```text
+$39.99
+```
+
+JS：
+
+```javascript
+priceElement.textContent = formatMoney(
+  variant.price
+);
+```
+
+---
+
+# 九、② 更新库存状态
+
+比如：
+
+```javascript
+variant.available
+```
+
+如果：
+
+```javascript
+variant.available === true
+```
+
+显示：
+
+```text
+[ Add to Cart ]
+```
+
+如果：
+
+```javascript
+variant.available === false
+```
+
+显示：
+
+```text
+Sold Out
+```
+
+所以：
+
+```text
+Variant
+   │
+   ├── price
+   ├── available
+   ├── sku
+   ├── image
+   └── id
+```
+
+决定了商品当前购买状态。
+
+---
+
+# 十、③ 更新商品图片
+
+这是 Shopify 商品页非常常见的交互。
+
+例如：
+
+```text
+Black
+↓
+显示黑色 T-Shirt 图片
+```
+
+用户选择：
+
+```text
+White
+↓
+切换到白色 T-Shirt 图片
+```
+
+Variant 可以关联自己的图片。
+
+于是：
+
+```javascript
+if (variant.featured_image) {
+  productImage.src = variant.featured_image.src;
+}
+```
+
+---
+
+# 十一、④ 更新 SKU
+
+例如：
+
+```text
+SKU: TS-BLK-M
+```
+
+换成：
+
+```text
+SKU: TS-WHT-M
+```
+
+JS：
+
+```javascript
+skuElement.textContent = variant.sku;
+```
+
+---
+
+# 十二、最终形成完整的 Variant Selector
+
+整个过程：
+
+```text
+                  Product
+                     │
+                     ↓
+              product.options
+                     │
+                     ↓
+             Render Selectors
+                     │
+                     ↓
+              User Selection
+                     │
+                     ↓
+             Selected Options
+                     │
+                     ↓
+              Find Variant
+                     │
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+        Price      Image      Stock
+          │          │          │
+          └──────────┼──────────┘
+                     ↓
+                 Variant ID
+                     │
+                     ↓
+                 Add Cart
+```
+
+这张图你建议记住。
+
+---
+
+# 十三、为什么我们不能只用 `product.selected_or_first_available_variant`？
+
+这是 Shopify Liquid 里面一个很容易遇到的概念。
+
+你可能看到：
+
+```liquid
+{{ product.selected_or_first_available_variant.id }}
+```
+
+它非常有用。
+
+它可以帮助你获取：
+
+> 当前选中的 Variant，或者默认第一个可购买 Variant。
+
+例如：
+
+```liquid
+<input
+  type="hidden"
+  name="id"
+  value="{{ product.selected_or_first_available_variant.id }}"
+>
+```
+
+这对于 Product Form 特别有用。
+
+但是注意：
+
+> **用户在浏览器里改变 Color / Size 后，Liquid 不会重新执行。**
+
+因为 Liquid 是服务器端渲染。
+
+所以：
+
+```text
+第一次打开页面
+       ↓
+Liquid
+       ↓
+HTML
+```
+
+之后用户：
+
+```text
+Black → White
+```
+
+浏览器里发生的事情需要：
+
+```text
+JavaScript
+```
+
+来处理。
+
+这就是为什么 Variant Selector 通常是：
+
+```text
+Liquid + JavaScript
+```
+
+而不是只用 Liquid。
+
+---
+
+# 十四、这里你应该再次建立 Shopify 的“两个世界”
+
+这是 Shopify Theme 开发最重要的思维之一。
+
+### 页面第一次打开
+
+```text
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+```
+
+Liquid 可以：
+
+```text
+product
+product.variants
+product.options
+product.featured_image
+```
+
+---
+
+### 用户操作以后
+
+```text
+Browser
+ ↓
+JavaScript
+ ↓
+DOM
+ ↓
+Shopify API
+```
+
+比如：
+
+```text
+用户点击 Size M
+       ↓
+JavaScript
+       ↓
+找到 Variant
+       ↓
+更新价格
+       ↓
+用户点击 Add to Cart
+       ↓
+Cart API
+```
+
+所以：
+
+> **Liquid 负责把 Shopify 数据带到浏览器，JavaScript 负责用户交互。**
+
+---
+
+# 十五、现在做一个小型实战
+
+我们暂时不考虑漂亮 UI，只考虑逻辑。
+
+假设：
+
+```text
+Product:
+
+Color:
+Black
+White
+
+Size:
+S
+M
+L
+```
+
+Variant：
+
+```text
+101 Black / S
+102 Black / M
+103 Black / L
+104 White / S
+105 White / M
+106 White / L
+```
+
+HTML：
+
+```html
+<div>
+  <button data-color="Black">Black</button>
+  <button data-color="White">White</button>
+</div>
+
+<div>
+  <button data-size="S">S</button>
+  <button data-size="M">M</button>
+  <button data-size="L">L</button>
+</div>
+
+<div id="price"></div>
+
+<button id="add-to-cart">
+  Add to Cart
+</button>
+```
+
+JavaScript：
+
+```javascript
+const variants = [
+  {
+    id: 101,
+    options: ['Black', 'S'],
+    price: 2999,
+    available: true
+  },
+  {
+    id: 102,
+    options: ['Black', 'M'],
+    price: 2999,
+    available: true
+  },
+  {
+    id: 103,
+    options: ['Black', 'L'],
+    price: 2999,
+    available: false
+  },
+  {
+    id: 104,
+    options: ['White', 'S'],
+    price: 3499,
+    available: true
+  },
+  {
+    id: 105,
+    options: ['White', 'M'],
+    price: 3499,
+    available: true
+  },
+  {
+    id: 106,
+    options: ['White', 'L'],
+    price: 3499,
+    available: true
+  }
+];
+```
+
+然后：
+
+```javascript
+let selectedColor = 'Black';
+let selectedSize = 'M';
+```
+
+寻找 Variant：
+
+```javascript
+const variant = variants.find(variant => {
+  return (
+    variant.options[0] === selectedColor &&
+    variant.options[1] === selectedSize
+  );
+});
+```
+
+得到：
+
+```javascript
+{
+  id: 102,
+  options: ['Black', 'M'],
+  price: 2999,
+  available: true
+}
+```
+
+那么我们现在已经获得了：
+
+```text
+Variant ID
+Price
+Available
+```
+
+接下来：
+
+```text
+Variant ID
+     ↓
+Add to Cart
+```
+
+就和我们上一课讲的 Cart API 接起来了。
+
+---
+
+# 十六、这一课最重要的不是代码
+
+而是这条思维链：
+
+```text
+Product
+   ↓
+Options
+   ↓
+Option Values
+   ↓
+User Selection
+   ↓
+Match Variant
+   ↓
+Variant ID
+   ↓
+Cart
+```
+
+如果你把这个流程理解透，之后：
+
+```text
+Color Selector
+Size Selector
+Material Selector
+Storage Selector
+Bundle Selector
+```
+
+本质上都是同一个问题。
+
+---
+
+# 十七、课后小练习
+
+你作为前端开发，我建议这次不要只看。
+
+假设：
+
+```text
+Product:
+Sneaker
+
+Options:
+Color: Red / Blue
+Size: 40 / 41 / 42
+```
+
+Variants：
+
+```text
+Red / 40 → ID 1
+Red / 41 → ID 2
+Red / 42 → ID 3
+
+Blue / 40 → ID 4
+Blue / 41 → ID 5
+Blue / 42 → ID 6
+```
+
+请你思考三个问题：
+
+### 问题 1
+
+用户选择：
+
+```text
+Blue
+41
+```
+
+最终应该得到哪个 Variant ID？
+
+### 问题 2
+
+如果：
+
+```text
+Blue / 41
+```
+
+这个 Variant：
+
+```text
+available = false
+```
+
+页面上的 Add to Cart 应该怎么变化？
+
+### 问题 3
+
+为什么用户点击：
+
+```text
+Color: Blue
+```
+
+以后，我们不能指望 Liquid 自动重新执行：
+
+```liquid
+{{ product.variants }}
+```
+
+而必须使用 JavaScript？
+
+---
+
+下一节我们就可以在这个 Variant Selector 的基础上继续往下走：
+
+**第 8 课：Add to Cart 实战**
+
+到时候会把：
+
+```text
+Variant Selector
+      ↓
+Variant ID
+      ↓
+Product Form
+      ↓
+Ajax Cart API
+      ↓
+Cart
+      ↓
+Cart Drawer
+```
+
+真正串起来。

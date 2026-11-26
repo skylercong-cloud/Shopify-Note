@@ -1,0 +1,1035 @@
+<h1>第 20 课：Shopify Theme Performance</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-20T08:17:00+08:00">09-20 08:17</time></div><p>下一课</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-20T08:17:00+08:00">09-20 08:17</time></div>
+<p>好，我们进入 <strong>第 20 课：Shopify Theme Performance（性能优化）</strong>。</p>
+<p>这一课很适合你，因为你本身有前端开发经验。我们会把 Shopify 性能和你熟悉的 <strong>React / Next.js / SSR / Core Web Vitals</strong> 对起来理解。</p>
+<p>先记住一个核心公式：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Theme 性能
+=
+HTML 生成速度
++
+资源加载速度
++
+图片性能
++
+JavaScript 性能
++
+第三方脚本
++
+页面交互性能
+</code></pre></div>
+<p>而 Shopify Theme 有一个非常特殊的地方：</p>
+<blockquote>
+<p><strong>你不仅要优化自己的代码，还要考虑 Shopify 平台、App、第三方脚本带来的成本。</strong></p>
+</blockquote>
+<hr>
+<h2>一、先理解 Shopify 页面是怎么变慢的</h2>
+<p>一个典型 Shopify 页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户
+ │
+ ▼
+请求 Shopify
+ │
+ ├── Liquid Server Rendering
+ │
+ ├── Theme
+ │
+ ├── App / Platform 注入
+ │
+ ▼
+HTML
+ │
+ ├── CSS
+ ├── JS
+ ├── Images
+ ├── Fonts
+ └── Third-party scripts
+ │
+ ▼
+Browser
+ │
+ ▼
+页面显示
+ │
+ ▼
+用户交互
+</code></pre></div>
+<p>所以性能问题可能发生在任何一个阶段。</p>
+<hr>
+<h2>二、先认识 Core Web Vitals</h2>
+<p>现在最重要的三个指标：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">LCP
+CLS
+INP
+</code></pre></div>
+<hr>
+<h3>1. LCP</h3>
+<h4>Largest Contentful Paint</h4>
+<p>简单理解：</p>
+<blockquote>
+<p><strong>页面主要内容什么时候真正显示出来？</strong></p>
+</blockquote>
+<p>例如 Product 页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌──────────────────────────────┐
+│ Header                       │
+│                              │
+│        Product Image         │ ← 最大主要内容
+│                              │
+│ Nike Air Max                 │
+│ $129                         │
+└──────────────────────────────┘
+</code></pre></div>
+<p>如果最大的 Product Image 很晚才出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">页面打开
+ ↓
+白屏
+ ↓
+Header
+ ↓
+其他内容
+ ↓
+很久以后
+ ↓
+Product Image
+</code></pre></div>
+<p>LCP 就会受到影响。</p>
+<hr>
+<h2>三、Shopify Theme 中最常见的 LCP 问题</h2>
+<p>最典型：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Hero Image
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.featured_image
+  | image_url: width: 1200
+  | image_tag
+}}
+</code></pre></div>
+<p>如果你错误地给首屏主图：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">loading=&quot;lazy&quot;
+</code></pre></div>
+<p>就可能产生问题。</p>
+<p>为什么？</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">lazy loading
+=
+告诉浏览器
+“这张图晚一点加载也可以”
+</code></pre></div>
+<p>但首屏最大的图片恰恰是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">“现在马上就需要”
+</code></pre></div>
+<p>所以一般应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Above the fold
+    ↓
+优先加载
+
+Below the fold
+    ↓
+Lazy loading
+</code></pre></div>
+<hr>
+<h2>四、Lazy Loading</h2>
+<p>例如 Product Gallery：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for media in product.media %}
+  {{
+    media
+    | image_url: width: 1000
+    | image_tag:
+      loading: &#39;lazy&#39;,
+      alt: media.alt
+  }}
+{% endfor %}
+</code></pre></div>
+<p>如果有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">10 张商品图片
+</code></pre></div>
+<p>没必要全部立即加载。</p>
+<p>可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">第一张
+↓
+优先加载
+
+第二张以后
+↓
+lazy loading
+</code></pre></div>
+<p>这会减少页面初始网络压力。</p>
+<hr>
+<h2>五、但是第一张图片不能简单全部 lazy</h2>
+<p>这是 Shopify Theme 开发非常常见的性能细节。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Page
+│
+├── Hero Image ← LCP
+│
+├── Thumbnail
+├── Thumbnail
+├── Thumbnail
+└── Thumbnail
+</code></pre></div>
+<p>应该考虑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Hero Image
+→ eager / browser priority
+
+其他图片
+→ lazy
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for media in product.media %}
+
+  {% if forloop.first %}
+
+    {{
+      media
+      | image_url: width: 1200
+      | image_tag:
+        loading: &#39;eager&#39;,
+        fetchpriority: &#39;high&#39;,
+        alt: media.alt
+    }}
+
+  {% else %}
+
+    {{
+      media
+      | image_url: width: 1000
+      | image_tag:
+        loading: &#39;lazy&#39;,
+        alt: media.alt
+    }}
+
+  {% endif %}
+
+{% endfor %}
+</code></pre></div>
+<p>这里的思想非常重要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">性能优化 ≠ 所有东西 lazy
+
+性能优化 =
+知道什么应该优先
+知道什么可以延迟
+</code></pre></div>
+<hr>
+<h2>六、Shopify 的 Image CDN</h2>
+<p>Shopify 一个非常大的优势就是图片 CDN。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.featured_image
+  | image_url: width: 800
+  | image_tag
+}}
+</code></pre></div>
+<p>你不要直接：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">下载一个 5000 × 5000 图片
+</code></pre></div>
+<p>然后浏览器：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">CSS:
+width: 400px
+</code></pre></div>
+<p>这很浪费。</p>
+<p>应该尽量：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">实际显示尺寸
+≈
+请求图片尺寸
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">图片实际显示：
+400px
+
+请求：
+800px
+</code></pre></div>
+<p>通常比：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">5000px
+</code></pre></div>
+<p>合理得多。</p>
+<hr>
+<h2>七、Responsive Image</h2>
+<p>进一步可以使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">srcset
+sizes
+</code></pre></div>
+<p>让浏览器自己选择适合的图片。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;img
+  src=&quot;image-800.jpg&quot;
+  srcset=&quot;
+    image-400.jpg 400w,
+    image-800.jpg 800w,
+    image-1200.jpg 1200w
+  &quot;
+  sizes=&quot;
+    (max-width: 768px) 100vw,
+    50vw
+  &quot;
+&gt;
+</code></pre></div>
+<p>浏览器会根据：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">设备
++
+Viewport
++
+sizes
++
+网络
+</code></pre></div>
+<p>选择资源。</p>
+<hr>
+<h2>八、Liquid 不要输出过多数据</h2>
+<p>这是 Shopify Theme 特别容易踩的坑。</p>
+<p>比如 Product 页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product | json }}
+</code></pre></div>
+<p>可能把非常多的数据输出到 HTML。</p>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ collection.products | json }}
+</code></pre></div>
+<p>直接塞一大堆数据。</p>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">HTML
+↓
+巨大
+↓
+网络传输增加
+↓
+浏览器解析增加
+↓
+JS 处理增加
+</code></pre></div>
+<p>所以应该：</p>
+<blockquote>
+<p><strong>只输出前端真正需要的数据。</strong></p>
+</blockquote>
+<p>例如 Variant Picker 确实需要 Variant 数据：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;script type=&quot;application/json&quot; id=&quot;ProductJSON&quot;&gt;
+  {{ product.variants | json }}
+&lt;/script&gt;
+</code></pre></div>
+<p>但如果某个组件只需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">variant.id
+variant.price
+variant.available
+</code></pre></div>
+<p>就不要无脑把所有对象都塞进去。</p>
+<hr>
+<h2>九、JavaScript 是 Shopify Theme 性能的大敌之一</h2>
+<p>特别是安装很多 App 后。</p>
+<p>页面可能出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme JS
++
+Review App
++
+Chat App
++
+Analytics
++
+Marketing
++
+Upsell
++
+Tracking
++
+Popup
++
+Affiliate
+</code></pre></div>
+<p>最后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">&lt;script&gt;
+&lt;script&gt;
+&lt;script&gt;
+&lt;script&gt;
+&lt;script&gt;
+...
+</code></pre></div>
+<p>这就是为什么 Shopify 店铺有时候：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme 本身很快
+</code></pre></div>
+<p>但最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">实际线上页面
+很慢
+</code></pre></div>
+<hr>
+<h2>十、回到上一课的 <code>content_for_header</code></h2>
+<p>现在你就理解它为什么重要了。</p>
+<p>我们刚才讲：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ content_for_header }}
+</code></pre></div>
+<p>它可能承载 Shopify / App / 平台相关的动态注入。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme Performance
+        │
+        ├── 你的代码
+        │
+        ├── Shopify
+        │
+        └── Apps / Third-party
+</code></pre></div>
+<p>你不能只盯着：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">assets/theme.js
+</code></pre></div>
+<p>还需要看：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">第三方脚本
+App
+Analytics
+Tracking
+</code></pre></div>
+<hr>
+<h2>十一、JavaScript 不要阻塞首屏</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;script src=&quot;{{ &#39;app.js&#39; | asset_url }}&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>如果脚本很大，并且阻塞 HTML 解析，就会影响页面加载。</p>
+<p>通常更合理的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;script
+  src=&quot;{{ &#39;app.js&#39; | asset_url }}&quot;
+  defer
+&gt;&lt;/script&gt;
+</code></pre></div>
+<p><code>defer</code> 的基本含义：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">HTML parsing
+      │
+      ├──────────────┐
+      │              │
+      ▼              ▼
+继续解析 HTML      下载 JS
+      │              │
+      └──────┬───────┘
+             ▼
+          执行 JS
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">HTML
+ ↓
+遇到 JS
+ ↓
+暂停 HTML
+ ↓
+下载 JS
+ ↓
+执行
+ ↓
+继续 HTML
+</code></pre></div>
+<hr>
+<h2>十二、但不要“所有 JS 都 defer”</h2>
+<p>又是一个很重要的思维。</p>
+<p>例如某些必须在非常早期执行的代码：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Critical initialization
+</code></pre></div>
+<p>可能有特殊要求。</p>
+<p>所以性能优化不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">全部 defer
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">分析脚本用途
+ ↓
+是否阻塞首屏？
+ ↓
+是否必须立即执行？
+ ↓
+是否可以延迟？
+</code></pre></div>
+<hr>
+<h2>十三、JS 应该按功能拆分</h2>
+<p>不要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">theme.js
+= 500KB
+</code></pre></div>
+<p>里面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
++
+Search
++
+Product
++
+Collection
++
+Popup
++
+Account
++
+Checkout
+...
+</code></pre></div>
+<p>然后每一个页面全部加载。</p>
+<p>更合理：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">assets/
+├── theme.js
+├── product.js
+├── collection.js
+├── cart.js
+└── predictive-search.js
+</code></pre></div>
+<p>然后根据页面加载需要。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% if template.name == &#39;product&#39; %}
+  &lt;script
+    src=&quot;{{ &#39;product.js&#39; | asset_url }}&quot;
+    defer
+  &gt;&lt;/script&gt;
+{% endif %}
+</code></pre></div>
+<p>不过现代 Theme 开发也可以进一步采用模块化/按需加载，而不是大量模板条件判断。</p>
+<p>核心思想只有一个：</p>
+<blockquote>
+<p><strong>用户不需要的 JS，不要让用户下载。</strong></p>
+</blockquote>
+<hr>
+<h2>十四、CSS 也一样</h2>
+<p>例如你有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.css
+collection.css
+cart.css
+search.css
+</code></pre></div>
+<p>不要所有页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">全部加载
+</code></pre></div>
+<p>可以根据页面需求控制。</p>
+<p>但是这里也要平衡。</p>
+<p>如果拆得太碎：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">20 个 CSS
+20 个请求
+</code></pre></div>
+<p>也不一定更好。</p>
+<p>现代 HTTP/2/HTTP/3 下，请求成本已经和过去不同。</p>
+<p>所以真正目标不是：</p>
+<blockquote>
+<p>文件越少越好。</p>
+</blockquote>
+<p>而是：</p>
+<blockquote>
+<p><strong>发送给浏览器的资源应该尽量与当前页面需求匹配。</strong></p>
+</blockquote>
+<hr>
+<h2>十五、CLS</h2>
+<p>第二个 Core Web Vital：</p>
+<blockquote>
+<p><strong>Cumulative Layout Shift</strong></p>
+</blockquote>
+<p>简单理解：</p>
+<blockquote>
+<p>页面加载过程中，内容突然乱跳。</p>
+</blockquote>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">开始：
+
+┌──────────────┐
+│ Product      │
+│ Image        │
+└──────────────┘
+
+      ↓
+
+图片加载完成
+
+┌──────────────┐
+│              │
+│ Product      │
+│ Image        │
+└──────────────┘
+</code></pre></div>
+<p>页面下面的内容突然往下移动。</p>
+<p>这就是 Layout Shift。</p>
+<hr>
+<h2>十六、图片是 CLS 的常见来源</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;img src=&quot;product.jpg&quot;&gt;
+</code></pre></div>
+<p>浏览器一开始不知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">图片最终多高？
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">图片区域高度 ≈ 0
+</code></pre></div>
+<p>图片加载后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">高度 = 600px
+</code></pre></div>
+<p>整个页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">↓
+↓
+↓
+</code></pre></div>
+<p>发生移动。</p>
+<p>所以应该让浏览器提前知道尺寸。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;img
+  src=&quot;product.jpg&quot;
+  width=&quot;800&quot;
+  height=&quot;800&quot;
+&gt;
+</code></pre></div>
+<p>或者通过正确的 CSS aspect ratio。</p>
+<p>Shopify 的 <code>image_tag</code> 会根据图片信息生成相关尺寸属性，这也是为什么通常应该优先使用 Shopify 的 Image Liquid filters，而不是自己手写原始 URL。</p>
+<hr>
+<h2>十七、Product Card 也要注意</h2>
+<p>Collection：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Grid
+├── Product
+├── Product
+├── Product
+├── Product
+...
+</code></pre></div>
+<p>如果图片比例不统一：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product A
+████████
+
+Product B
+████
+
+Product C
+██████████
+</code></pre></div>
+<p>页面可能不断发生布局变化。</p>
+<p>所以电商 Theme 通常需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>css</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-css">.product-card__image {
+  aspect-ratio: 1 / 1;
+}
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>css</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-css">.product-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+</code></pre></div>
+<p>这样浏览器一开始就知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">这个区域就是正方形
+</code></pre></div>
+<hr>
+<h2>十八、INP</h2>
+<p>第三个：</p>
+<blockquote>
+<p><strong>Interaction to Next Paint</strong></p>
+</blockquote>
+<p>它关注的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户点击
+ ↓
+浏览器响应
+ ↓
+页面更新
+</code></pre></div>
+<p>例如 Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+ ↓
+JS
+ ↓
+fetch()
+ ↓
+Cart API
+ ↓
+Section Rendering
+ ↓
+更新 Cart Drawer
+</code></pre></div>
+<p>如果 JS 做了大量工作：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击
+ ↓
+巨大 JS
+ ↓
+复杂 DOM
+ ↓
+大量计算
+ ↓
+页面迟迟不更新
+</code></pre></div>
+<p>INP 就可能变差。</p>
+<hr>
+<h2>十九、Shopify Cart 是一个很好的性能案例</h2>
+<p>我们之前学过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+ ↓
+POST /cart/add.js
+ ↓
+Section Rendering
+ ↓
+Cart Drawer
+ ↓
+Cart Icon
+</code></pre></div>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const response = await fetch(...);
+
+const data = await response.json();
+
+document.querySelector(...)
+  .innerHTML = ...;
+</code></pre></div>
+<p>这本身没有问题。</p>
+<p>真正需要注意的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">不要：
+一次请求 → 重建整个页面
+
+应该：
+一次请求 → 更新需要变化的 Section
+</code></pre></div>
+<p>也就是我们之前学的：</p>
+<blockquote>
+<p><strong>Section Rendering API。</strong></p>
+</blockquote>
+<hr>
+<h2>二十、Section Rendering 和性能</h2>
+<p>假设购物车数量从：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1
+</code></pre></div>
+<p>变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">2
+</code></pre></div>
+<p>没必要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">整个页面刷新
+</code></pre></div>
+<p>可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart API
+ ↓
+Section Rendering
+ ↓
+Cart Drawer
+Cart Icon
+</code></pre></div>
+<p>只更新：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">2 个区域
+</code></pre></div>
+<p>这就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Full Page Render
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Partial Render
+</code></pre></div>
+<p>的区别。</p>
+<hr>
+<h2>二十一、一个非常重要的 Shopify 性能原则</h2>
+<p>你作为 React 开发者可能会自然想到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">所有交互
+↓
+JavaScript
+↓
+API
+↓
+重新 render
+</code></pre></div>
+<p>但是 Shopify Theme 更推荐：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">初始页面
+↓
+Liquid Server Render
+↓
+HTML
+↓
+JS Enhancement
+</code></pre></div>
+<p>也就是：</p>
+<blockquote>
+<p><strong>HTML 优先，JavaScript 增强。</strong></p>
+</blockquote>
+<p>例如 Collection：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Liquid
+ ↓
+Product HTML
+ ↓
+Browser
+</code></pre></div>
+<p>用户即使：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JS 加载失败
+</code></pre></div>
+<p>也应该尽可能看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Title
+Price
+Image
+Link
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JS 没加载
+=
+什么都没有
+</code></pre></div>
+<hr>
+<h2>二十二、这和 Next.js 有什么区别？</h2>
+<p>你可以这样理解：</p>
+<h4>传统 React SPA</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+ ↓
+JS
+ ↓
+API
+ ↓
+Render
+</code></pre></div>
+<h4>Next.js SSR</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Server
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+JS Hydration
+</code></pre></div>
+<h4>Shopify Theme</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+JS Enhancement
+</code></pre></div>
+<p>所以 Shopify Theme 的性能思想和 SSR/渐进增强非常接近。</p>
+<hr>
+<h2>二十三、第三方 App 是 Shopify 性能里的特殊问题</h2>
+<p>假设你安装：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Review App
+Chat App
+Upsell App
+Analytics App
+Popup App
+</code></pre></div>
+<p>每个 App 都可能带来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JS
+CSS
+Network Request
+DOM
+Event Listener
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Theme 性能
+≠
+只有 Theme 代码性能
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">最终线上页面性能
+=
+Theme
++
+Shopify
++
+Apps
++
+Third-party
+</code></pre></div>
+<p>因此你以后做 Shopify 项目，发现 Lighthouse 变差，不要第一时间：</p>
+<blockquote>
+<p>“是不是我的 React/JS 写错了？”</p>
+</blockquote>
+<p>还要检查：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Network
+Scripts
+Third-party
+App embeds
+</code></pre></div>
+<hr>
+<h2>二十四、App Embed 也要特别关注</h2>
+<p>Shopify App 可以通过 Theme App Extension / App Embed 等方式参与 Theme。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App
+ ↓
+Theme App Extension
+ ↓
+App Embed
+ ↓
+Theme
+</code></pre></div>
+<p>如果商家打开了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">10 个 App Embed
+</code></pre></div>
+<p>就可能产生额外资源。</p>
+<p>所以作为 Theme 开发者，你以后需要养成一个习惯：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Performance Debug
+│
+├── Theme JS
+├── Theme CSS
+├── Images
+├── Fonts
+├── App scripts
+├── Third-party scripts
+└── Network requests
+</code></pre></div>
+<hr>
+<h2>二十五、Performance 最重要的优化顺序</h2>
+<p>不要一上来就：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">优化一个 2KB JS
+</code></pre></div>
+<p>应该按照影响程度分析。</p>
+<p>我建议你的思维顺序：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">① LCP
+ ↓
+首屏主要内容
+ ↓
+
+② Images
+ ↓
+大小 / 格式 / lazy / priority
+ ↓
+
+③ JavaScript
+ ↓
+数量 / 大小 / 执行时间
+ ↓
+
+④ Third-party / Apps
+ ↓
+额外脚本
+ ↓
+
+⑤ CLS
+ ↓
+图片 / 字体 / 动态内容尺寸
+ ↓
+
+⑥ INP
+ ↓
+交互 JS / DOM / 长任务
+</code></pre></div>
+<hr>
+<h2>二十六、把第 20 课浓缩成一张图</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">              Shopify Theme
+                    │
+       ┌────────────┼─────────────┐
+       ▼            ▼             ▼
+     Liquid        CSS           JS
+       │            │             │
+       ▼            ▼             ▼
+     HTML         Layout       Interaction
+       │
+       ├──────── Images
+       │
+       ├──────── Fonts
+       │
+       └──────── Apps
+                    │
+                    ▼
+                 Browser
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+       LCP         CLS         INP
+        │           │           │
+     加载速度     布局稳定     交互响应
+</code></pre></div>
+<hr>
+<h2>二十七、你现在应该掌握的 10 个关键词</h2>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>概念</th>
+<th>你应该理解成</th>
+</tr>
+</thead><tbody><tr>
+<td>LCP</td>
+<td>首屏主要内容出现速度</td>
+</tr>
+<tr>
+<td>CLS</td>
+<td>页面是否乱跳</td>
+</tr>
+<tr>
+<td>INP</td>
+<td>用户交互响应速度</td>
+</tr>
+<tr>
+<td>Lazy Loading</td>
+<td>延迟加载非关键资源</td>
+</tr>
+<tr>
+<td><code>fetchpriority</code></td>
+<td>告诉浏览器资源优先级</td>
+</tr>
+<tr>
+<td><code>defer</code></td>
+<td>延迟执行 JS</td>
+</tr>
+<tr>
+<td>Image CDN</td>
+<td>Shopify 图片资源优化</td>
+</tr>
+<tr>
+<td>Responsive Image</td>
+<td>根据设备加载合适图片</td>
+</tr>
+<tr>
+<td>Section Rendering</td>
+<td>局部 HTML 更新</td>
+</tr>
+<tr>
+<td>Third-party Script</td>
+<td>App/第三方带来的额外性能成本</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h3>到这里，Theme 第一阶段基本完整了</h3>
+<p>我们从：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+ ↓
+Liquid
+ ↓
+Product
+ ↓
+Variant
+ ↓
+Media
+ ↓
+Collection
+ ↓
+Search
+ ↓
+Predictive Search
+ ↓
+Filter
+ ↓
+Sort
+ ↓
+Pagination
+ ↓
+SEO
+ ↓
+Performance
+</code></pre></div>
+<p>已经把一个 Shopify Theme 的核心前端体系串起来了。</p>
+<p><strong>下一阶段就进入你之前指定的重点：Shopify 数据模型。</strong></p>
+<p>下一课开始：</p>
+<h2>第 21 课：Product / Variant 数据模型深入</h2>
+<p>这次我们不再只是讲：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product = 商品
+Variant = SKU
+</code></pre></div>
+<p>而是会真正把 Shopify 的 Product 数据模型拆开：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── ID
+├── Handle
+├── Title
+├── Description
+├── Vendor
+├── Product Type
+├── Tags
+├── Status
+├── Options
+├── Variants
+├── Media
+├── Collections
+├── Metafields
+└── SEO
+
+Variant
+├── ID
+├── SKU
+├── Barcode
+├── Price
+├── Compare-at Price
+├── Inventory
+├── Options
+├── Media
+└── Selling Plan
+</code></pre></div>
+<p>然后重点讲清楚一个<strong>非常关键的问题</strong>：</p>
+<blockquote>
+<p><strong>Product、Variant、Inventory、Location 到底是什么关系？</strong></p>
+</blockquote>
+<p>这个关系搞懂以后，你后面学 <strong>库存、订单、购物车、Metafield、Metaobject、Admin API</strong> 会轻松很多。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-20.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

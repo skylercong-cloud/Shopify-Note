@@ -1,0 +1,960 @@
+<h1>第 25 课：Cart / Checkout / Order —— Shopify 购物链路</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-20T08:33:00+08:00">09-20 08:33</time></div><p>跳过24课，开始25课</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-20T08:33:00+08:00">09-20 08:33</time></div>
+<p>好，我们跳过第 24 课，直接进入。</p>
+<p>这一课是 Shopify 数据模型里非常核心的一课。</p>
+<p>你前面已经学了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+</code></pre></div>
+<p>现在把「购买流程」接起来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+   ↓
+Fulfillment
+</code></pre></div>
+<p>这条链你以后做 Shopify Theme、App、ERP、订单同步，都会反复遇到。</p>
+<hr>
+<h2>一、先把 4 个概念分清楚</h2>
+<p>最容易混淆的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+Checkout
+Order
+Fulfillment
+</code></pre></div>
+<p>它们分别代表：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>对象</th>
+<th>核心含义</th>
+</tr>
+</thead><tbody><tr>
+<td>Cart</td>
+<td>用户准备买什么</td>
+</tr>
+<tr>
+<td>Checkout</td>
+<td>用户正在完成购买</td>
+</tr>
+<tr>
+<td>Order</td>
+<td>购买已经形成的订单</td>
+</tr>
+<tr>
+<td>Fulfillment</td>
+<td>订单怎么发货/履约</td>
+</tr>
+</tbody></table></div>
+<p>可以先记成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+= 想买
+
+Checkout
+= 正在买
+
+Order
+= 买成功了
+
+Fulfillment
+= 怎么发出去
+</code></pre></div>
+<p>Shopify 官方对购物旅程的定义也是类似的：Cart 保存买家准备购买的商品，Checkout 用于最终确认并完成交易。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart" aria-label="Cart">Shopify</a></span></p>
+<hr>
+<h2>二、Cart：购物车</h2>
+<p>假设用户进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Black / 9
+$129
+</code></pre></div>
+<p>点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>这时候发生的不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">创建 Order
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">创建/修改 Cart
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+├── Nike Air Max / Black / 9 × 1
+├── T-Shirt / White / M × 2
+└── Socks × 1
+</code></pre></div>
+<p>Shopify 的 Cart 本质上就是：</p>
+<blockquote>
+<p><strong>一个买家准备购买的商品集合，以及当前购物过程中的相关信息。</strong></p>
+</blockquote>
+<p>Storefront API 当前的 Cart 模型还包含 buyer identity、cost、preferences 等信息。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/manage?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Create and update a cart with the Storefront API" aria-label="Create and update a cart with the Storefront API">Shopify</a><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart" aria-label="Cart">Shopify</a></span></p>
+<hr>
+<h2>三、Cart 里面最重要的是 Line</h2>
+<p>你之前已经接触过这个概念：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+  ↓
+Cart Lines
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+│
+├── Line 1
+│     └── Variant A × 1
+│
+├── Line 2
+│     └── Variant B × 2
+│
+└── Line 3
+      └── Variant C × 1
+</code></pre></div>
+<p>在 Theme Liquid 中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for item in cart.items %}
+  {{ item.product.title }}
+  {{ item.quantity }}
+{% endfor %}
+</code></pre></div>
+<p>这里的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">cart.items
+</code></pre></div>
+<p>实际上就是购物车里的 line items。</p>
+<p>Shopify 当前 Theme 文档也明确把 line item 定义为购物车中的一条商品记录，其中记录了加入购物车的 Variant 和数量。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="cart" aria-label="cart">Shopify</a></span></p>
+<hr>
+<h2>四、为什么 Cart Line ≠ Variant？</h2>
+<p>这个非常重要。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+Nike Air Max / Black / 9
+</code></pre></div>
+<p>用户可能加入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Line 1
+Nike Air Max / Black / 9
+quantity = 1
+</code></pre></div>
+<p>另外又加入了一条带有不同自定义属性的同一 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Line 2
+Nike Air Max / Black / 9
+quantity = 1
+properties:
+  gift = &quot;yes&quot;
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+</code></pre></div>
+<p>是商品规格。</p>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Line
+</code></pre></div>
+<p>是：</p>
+<blockquote>
+<p><strong>这个 Variant 以某种购买上下文进入当前 Cart 的一条记录。</strong></p>
+</blockquote>
+<p>这也是为什么以后做 Cart Drawer 时，不应该简单地认为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID = Cart Line ID
+</code></pre></div>
+<p>它们是不同层次的数据。</p>
+<hr>
+<h2>五、Cart 的典型结构</h2>
+<p>可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+│
+├── id
+│
+├── lines
+│    ├── line 1
+│    │     ├── merchandise → Variant
+│    │     └── quantity
+│    │
+│    ├── line 2
+│    │     ├── merchandise → Variant
+│    │     └── quantity
+│    │
+│    └── line 3
+│
+├── buyerIdentity
+│
+├── cost
+│
+└── checkoutUrl
+</code></pre></div>
+<p>其中：</p>
+<h4><code>lines</code></h4>
+<p>买了什么。</p>
+<h4><code>quantity</code></h4>
+<p>买多少。</p>
+<h4><code>buyerIdentity</code></h4>
+<p>谁在买/买家上下文。</p>
+<h4><code>cost</code></h4>
+<p>购物车当前估算金额。</p>
+<h4><code>checkoutUrl</code></h4>
+<p>准备进入 Shopify Checkout 的地址。</p>
+<p>当前 Storefront API 文档明确支持从 Cart 获取 <code>checkoutUrl</code>，然后把买家导向 Shopify Web Checkout。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/manage?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Create and update a cart with the Storefront API" aria-label="Create and update a cart with the Storefront API">Shopify</a></span></p>
+<hr>
+<h2>六、Theme 里的 Cart</h2>
+<p>如果你做 Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates/cart.json
+</code></pre></div>
+<p>通常对应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/cart
+</code></pre></div>
+<p>页面。</p>
+<p>Theme 里可以直接使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ cart.item_count }}
+</code></pre></div>
+<p>以及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for item in cart.items %}
+
+  {{ item.product.title }}
+
+  {{ item.variant.title }}
+
+  {{ item.quantity }}
+
+{% endfor %}
+</code></pre></div>
+<p>Shopify 官方 Theme 文档当前仍然以 <code>cart</code> Liquid 对象作为 <code>/cart</code> 页面的核心数据来源。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="cart" aria-label="cart">Shopify</a></span></p>
+<hr>
+<h2>七、Cart Drawer 又是什么？</h2>
+<p>你之前已经学过 Cart Drawer。</p>
+<p>现在从数据模型角度看就很清楚了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+│
+└── Cart Drawer
+       ↑
+       │
+    Theme UI
+</code></pre></div>
+<p>Cart Drawer <strong>不是 Shopify 的一个独立业务对象</strong>。</p>
+<p>它只是：</p>
+<blockquote>
+<p>Theme 用来展示 Cart 的一种 UI。</p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Cart
+      ↓
+cart.items
+      ↓
+Theme
+      ↓
+Cart Drawer
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer ≠ Cart
+</code></pre></div>
+<p>这一点一定要记住。</p>
+<hr>
+<h2>八、Ajax Cart API 在这里干什么？</h2>
+<p>如果是 Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+   ↓
+JavaScript
+   ↓
+Ajax Cart API
+   ↓
+Shopify Cart
+</code></pre></div>
+<p>例如添加商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const response = await fetch(
+  window.Shopify.routes.root + &#39;cart/add.js&#39;,
+  {
+    method: &#39;POST&#39;,
+    headers: {
+      &#39;Content-Type&#39;: &#39;application/json&#39;
+    },
+    body: JSON.stringify({
+      items: [
+        {
+          id: variantId,
+          quantity: 1
+        }
+      ]
+    })
+  }
+);
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">id
+</code></pre></div>
+<p>是 Variant ID。</p>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+↓
+Cart Line
+↓
+Cart
+</code></pre></div>
+<p>Shopify 当前文档明确说明 Ajax API 是面向 Shopify-hosted Theme 的轻量 API，可用于添加商品到 Cart、更新购物车等。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="About the Shopify Ajax API" aria-label="About the Shopify Ajax API">Shopify</a></span></p>
+<hr>
+<h2>九、Checkout 到底是什么？</h2>
+<p>这是非常容易误解的地方。</p>
+<p>很多前端开发者第一反应是：</p>
+<blockquote>
+<p>Checkout 不就是 Cart 页面吗？</p>
+</blockquote>
+<p>不是。</p>
+<p>可以这样理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+↓
+&quot;我要买这些东西&quot;
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+↓
+&quot;我要正式完成这笔购买&quot;
+</code></pre></div>
+<p>Checkout 会涉及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品
++
+数量
++
+价格
++
+折扣
++
+税
++
+运费
++
+收货地址
++
+联系方式
++
+支付
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+</code></pre></div>
+<p>更偏向：</p>
+<blockquote>
+<p>购物篮。</p>
+</blockquote>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+</code></pre></div>
+<p>更偏向：</p>
+<blockquote>
+<p>交易确认流程。</p>
+</blockquote>
+<hr>
+<h2>十、Cart → Checkout</h2>
+<p>整个过程：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Page
+      ↓
+Add to Cart
+      ↓
+Cart
+      ↓
+Checkout
+      ↓
+Payment
+      ↓
+Order
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+$129
+    ↓
+Add to Cart
+    ↓
+Cart
+Subtotal: $129
+    ↓
+Checkout
+    ↓
+Shipping
+$10
+    ↓
+Tax
+$11
+    ↓
+Total
+$150
+    ↓
+Payment
+    ↓
+Order
+</code></pre></div>
+<p>这里你会发现一个重要区别：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart total
+</code></pre></div>
+<p>并不一定等于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">最终 Order total
+</code></pre></div>
+<p>因为 Checkout 阶段可能涉及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shipping
+Tax
+Discount
+Market pricing
+Payment
+</code></pre></div>
+<p>Shopify 当前 Cart 文档也明确指出 Cart 的 cost 是估算值，最终结算金额可能在 Checkout 中变化。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/manage?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Create and update a cart with the Storefront API" aria-label="Create and update a cart with the Storefront API">Shopify</a></span></p>
+<hr>
+<h2>十一、现在的 Shopify 不应该再用旧 Checkout API 思维</h2>
+<p>这个对你以后开发 App 非常重要。</p>
+<p>以前 Shopify 有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout API
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">checkoutCreate
+</code></pre></div>
+<p>但 Shopify 已经推进到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Storefront Cart API
+</code></pre></div>
+<p>当前官方文档说明：</p>
+<ul>
+<li>Checkout APIs 在 Storefront API 中已经弃用</li>
+<li>2025-04 起 Checkout APIs sunset</li>
+<li>推荐迁移到 Storefront Cart API</li>
+<li>Native Mobile 可以考虑 Checkout Kit。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/migrate-to-cart-api?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Migrate to the Storefront Cart API" aria-label="Migrate to the Storefront Cart API">Shopify</a><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart/migrate-to-cart-api/migrate-your-app?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Migrate your app" aria-label="Migrate your app">Shopify</a></span></li>
+</ul>
+<p>所以你现在学习 Shopify，应该建立这个新模型：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">旧：
+
+Product
+ ↓
+Checkout API
+ ↓
+Checkout
+
+
+现在：
+
+Product
+ ↓
+Cart API
+ ↓
+Cart
+ ↓
+checkoutUrl
+ ↓
+Shopify Checkout
+</code></pre></div>
+<p>这个变化非常重要。</p>
+<hr>
+<h2>十二、为什么 Shopify 不让你自己实现 Checkout？</h2>
+<p>因为 Checkout 涉及非常复杂的商业基础设施：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Payment
+Tax
+Shipping
+Discount
+Fraud
+Inventory
+Address
+Currency
+Market
+Order
+Compliance
+</code></pre></div>
+<p>Shopify 的思路是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">你负责：
+
+Storefront
+Cart UI
+商品展示
+购物体验
+
+Shopify 负责：
+
+Checkout
+Payment
+Order
+Commerce infrastructure
+</code></pre></div>
+<p>所以通常：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+↓
+checkoutUrl
+↓
+Shopify Checkout
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+↓
+自己写一个支付页面
+↓
+自己创建订单
+</code></pre></div>
+<hr>
+<h2>十三、Checkout 完成以后才产生 Order</h2>
+<p>这是整个数据模型最关键的一条：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+   ↓
+Checkout
+   ↓
+Purchase completed
+   ↓
+Order
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Cart 不是 Order。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户把 iPhone 放进购物车
+</code></pre></div>
+<p>并不意味着：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">产生订单
+</code></pre></div>
+<p>用户可能：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">加入购物车
+↓
+关闭浏览器
+</code></pre></div>
+<p>此时没有完成购买。</p>
+<hr>
+<h2>十四、Order 是什么？</h2>
+<p>Shopify 官方当前把 <code>Order</code> 定义为：</p>
+<blockquote>
+<p>Customer 向商店购买一个或多个商品的请求。</p>
+</blockquote>
+<p>并且 Order 是整个购买生命周期的重要中心对象，连接：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+Product
+Payment
+Fulfillment
+Returns
+Refunds
+</code></pre></div>
+<p><span class="dialogue-cites"><a href="https://shopify.dev/docs/api/admin-graphql/2026-01/objects/Order?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Order - GraphQL Admin" aria-label="Order - GraphQL Admin">Shopify</a></span></p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+│
+├── Customer
+│
+├── Line Items
+│      ├── Product
+│      └── Variant
+│
+├── Payment
+│
+├── Shipping Address
+│
+├── Transactions
+│
+├── Fulfillment
+│
+└── Refund
+</code></pre></div>
+<hr>
+<h2>十五、Order Line Item 又是什么？</h2>
+<p>和 Cart 一样：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+ ↓
+Order Line Items
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order #1001
+
+Line 1
+Nike Air Max
+Black / 9
+× 1
+
+Line 2
+T-Shirt
+White / M
+× 2
+</code></pre></div>
+<p>注意：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Line
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order Line Item
+</code></pre></div>
+<p>也不是同一个对象。</p>
+<p>它们处于不同生命周期。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Line
+   ↓
+Checkout
+   ↓
+Order Line Item
+</code></pre></div>
+<p>可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">购物阶段：
+Cart Line
+
+成交以后：
+Order Line Item
+</code></pre></div>
+<hr>
+<h2>十六、Order 是 Shopify 后台真正的「交易记录」</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order #1001
+
+Customer:
+John
+
+Items:
+Nike Air Max × 1
+
+Subtotal:
+$129
+
+Shipping:
+$10
+
+Tax:
+$11
+
+Total:
+$150
+
+Payment:
+Paid
+
+Fulfillment:
+Unfulfilled
+</code></pre></div>
+<p>然后可能发生：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+ ↓
+Fulfillment
+ ↓
+Shipped
+ ↓
+Delivered
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+ ↓
+Refund
+</code></pre></div>
+<p>所以 Order 会成为后续业务的核心。</p>
+<hr>
+<h2>十七、Order 和 Inventory 又怎么连接？</h2>
+<p>现在把上一课接回来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↓
+Variant
+ ↓
+Inventory
+ ↓
+Cart
+ ↓
+Checkout
+ ↓
+Order
+ ↓
+Fulfillment
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant:
+Nike / Black / 9
+</code></pre></div>
+<p>库存：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">San Jose = 20
+</code></pre></div>
+<p>用户购买：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">quantity = 2
+</code></pre></div>
+<p>最终形成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+└── Nike / Black / 9 × 2
+</code></pre></div>
+<p>然后库存相关状态会随着订单和履约流程变化。</p>
+<p>因此：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+</code></pre></div>
+<p>不是库存本身。</p>
+<p>它是：</p>
+<blockquote>
+<p><strong>购买交易记录。</strong></p>
+</blockquote>
+<hr>
+<h2>十八、Order 和 Fulfillment 也不要混</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order #1001
+Paid
+</code></pre></div>
+<p>不代表：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">已经发货
+</code></pre></div>
+<p>可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+↓
+Paid
+↓
+Unfulfilled
+</code></pre></div>
+<p>然后仓库开始处理：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+↓
+Fulfillment
+↓
+Fulfilled
+↓
+Tracking Number
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+</code></pre></div>
+<p>解决：</p>
+<blockquote>
+<p>买了什么？</p>
+</blockquote>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Fulfillment
+</code></pre></div>
+<p>解决：</p>
+<blockquote>
+<p>怎么履约、发出去？</p>
+</blockquote>
+<hr>
+<h2>十九、你可以把整个系统想象成一个状态机</h2>
+<p>非常适合你这种前端开发者理解。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">          Add to Cart
+               ↓
+            [ CART ]
+               ↓
+        Start Checkout
+               ↓
+          [ CHECKOUT ]
+               ↓
+       Payment Complete
+               ↓
+            [ ORDER ]
+               ↓
+          Fulfillment
+               ↓
+         [ FULFILLED ]
+</code></pre></div>
+<p>中间可能发生：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">CART
+ ↓
+abandoned
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ORDER
+ ↓
+refund
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ORDER
+ ↓
+partial fulfillment
+</code></pre></div>
+<hr>
+<h2>二十、Theme 和 App 在这条链上的职责</h2>
+<p>这时候你已经可以非常清楚地区分了。</p>
+<h4>Theme</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↓
+Variant
+ ↓
+Cart UI
+ ↓
+Cart Drawer
+ ↓
+Cart Page
+ ↓
+Checkout Button
+</code></pre></div>
+<p>Theme 主要负责消费者看到的 storefront UI。Shopify Theme 本身由 Liquid、CSS、JavaScript 等构成，并通过模板、Sections、Blocks 等组织页面。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Theme architecture" aria-label="Theme architecture">Shopify</a></span></p>
+<hr>
+<h4>Storefront API / Headless</h4>
+<p>如果你以后做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Next.js
+React
+Hydrogen
+Mobile App
+</code></pre></div>
+<p>则：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React
+ ↓
+Storefront API
+ ↓
+Product
+ ↓
+Cart
+ ↓
+checkoutUrl
+ ↓
+Shopify Checkout
+</code></pre></div>
+<p>当前 Shopify 官方也把 Storefront API 定位为构建自定义 storefront 的基础层，可用于 Products、Collections、Cart、搜索等能力。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Building with the Storefront API" aria-label="Building with the Storefront API">Shopify</a></span></p>
+<hr>
+<h4>App / Admin API</h4>
+<p>如果你做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">ERP
+OMS
+WMS
+CRM
+订单同步
+库存同步
+售后系统
+</code></pre></div>
+<p>则：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Admin API
+ ↓
+Order
+ ↓
+Inventory
+ ↓
+Fulfillment
+</code></pre></div>
+<hr>
+<h2>二十一、最终形成完整 Shopify Commerce 数据图</h2>
+<p>现在把前面 21～25 课全部连接起来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                         Product
+                            │
+                            ↓
+                         Variant
+                            │
+             ┌──────────────┴──────────────┐
+             ↓                             ↓
+       InventoryItem                   Collections
+             │
+             ↓
+      InventoryLevel
+             │
+             ↓
+          Location
+
+
+Variant
+   │
+   ↓
+  Cart
+   │
+   ├── Cart Lines
+   │
+   ├── Buyer Identity
+   │
+   ├── Cost
+   │
+   └── checkoutUrl
+           │
+           ↓
+       Checkout
+           │
+           ├── Shipping
+           ├── Tax
+           ├── Discount
+           ├── Payment
+           │
+           ↓
+          Order
+           │
+           ├── Order Lines
+           ├── Transactions
+           ├── Fulfillment
+           ├── Refund
+           └── Returns
+</code></pre></div>
+<p>这张图建议你真正记住。</p>
+<hr>
+<h2>二十二、用一个真实购物场景再走一遍</h2>
+<p>假设用户购买：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Black / 9
+× 2
+</code></pre></div>
+<h4>第一步：Product</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>↓</p>
+<h4>第二步：Variant</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / 9
+</code></pre></div>
+<p>↓</p>
+<h4>第三步：Inventory</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">San Jose
+available = 20
+</code></pre></div>
+<p>↓</p>
+<h4>第四步：Cart</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Black / 9
+quantity = 2
+</code></pre></div>
+<p>↓</p>
+<h4>第五步：Checkout</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product = $258
+Shipping = $10
+Tax = $20
+Total = $288
+</code></pre></div>
+<p>↓</p>
+<h4>第六步：Payment</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Paid
+</code></pre></div>
+<p>↓</p>
+<h4>第七步：Order</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order #1001
+
+Nike Air Max
+Black / 9
+× 2
+
+Total: $288
+</code></pre></div>
+<p>↓</p>
+<h4>第八步：Fulfillment</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">San Jose Warehouse
+      ↓
+Pick
+      ↓
+Pack
+      ↓
+Ship
+      ↓
+Tracking
+</code></pre></div>
+<p>这就是 Shopify 最核心的商业闭环。</p>
+<hr>
+<h2>二十三、最后记住这张「生命周期图」</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                  商品阶段
+                     │
+                  Product
+                     ↓
+                  Variant
+                     │
+                     │
+                     ↓
+                  Inventory
+                     │
+                     ↓
+                 ┌───────┐
+                 │ Cart  │
+                 └───┬───┘
+                     │
+                用户准备购买
+                     ↓
+                ┌──────────┐
+                │ Checkout │
+                └────┬─────┘
+                     │
+                  支付成功
+                     ↓
+                ┌─────────┐
+                │  Order  │
+                └────┬────┘
+                     │
+                  履约处理
+                     ↓
+              ┌──────────────┐
+              │ Fulfillment  │
+              └──────┬───────┘
+                     │
+                  发货/完成
+</code></pre></div>
+<p><strong>第 25 课最重要的不是记 API，而是理解生命周期：</strong></p>
+<blockquote>
+<p><strong>Variant 是卖什么 → Cart 是想买什么 → Checkout 是完成购买 → Order 是购买结果 → Fulfillment 是怎么履约。</strong></p>
+</blockquote>
+<p>下一步第 26 课就是 <strong>Fulfillment / Transaction</strong>，我们会把 <strong>Order、Payment、Transaction、Fulfillment、Refund、Return</strong> 这几个最容易混淆的对象彻底拆开。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Cart</a></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-25.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

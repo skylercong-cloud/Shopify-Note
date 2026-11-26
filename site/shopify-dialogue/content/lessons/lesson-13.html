@@ -1,0 +1,689 @@
+<h1>第 13 课：Shopify Collection 页面</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T22:11:00+08:00">09-19 22:11</time></div><p>开始吧</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:11:00+08:00">09-19 22:11</time></div>
+<p>好，我们正式开始。</p>
+<figure class="dialogue-figure"><img src="assets/collection.jpg" alt="展示几种不同款式的上衣、毛衣和夹克的服装架。" decoding="async" width="506" height="506"><figcaption>示意配图 · 一个 Collection 可以收录不同款式的 Product。</figcaption></figure>
+
+<p>这一课我们先解决一个核心问题：</p>
+<blockquote>
+<p><strong>Shopify 的 Collection 页面到底是什么？它和 Product、Product Card、Theme Template、URL 是怎么连接起来的？</strong></p>
+</blockquote>
+<p>你学完之后，应该能自己从零写出一个基础的 Collection 商品列表。</p>
+<hr>
+<h2>1. 先建立整体模型</h2>
+<p>假设你的商城有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>用户打开这个 URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器
+   ↓
+/collections/shoes
+   ↓
+Shopify
+   ↓
+找到 shoes Collection
+   ↓
+Collection Template
+   ↓
+Liquid
+   ↓
+HTML
+   ↓
+浏览器
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Collection 页面本质上就是“把一个 Collection 对象渲染成一个商品列表页面”。</strong></p>
+</blockquote>
+<hr>
+<h2>2. Collection 到底是什么？</h2>
+<p>假设 Shopify 后台有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Products
+
+Nike Air Max
+Adidas Ultraboost
+Nike Pegasus
+New Balance 530
+</code></pre></div>
+<p>然后你创建一个 Collection：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes
+</code></pre></div>
+<p>里面包含：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes
+├── Nike Air Max
+├── Adidas Ultraboost
+├── Nike Pegasus
+└── New Balance 530
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+    ↓
+Products
+</code></pre></div>
+<p>但是要注意：</p>
+<blockquote>
+<p><strong>Collection 不是 Product 的父级。</strong></p>
+</blockquote>
+<p>一个 Product 可以属于多个 Collection。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+    │
+    ├── Shoes
+    ├── Nike
+    └── Running
+</code></pre></div>
+<p>这就是 Shopify 数据模型非常重要的一点。</p>
+<hr>
+<h2>3. Collection 页面对应哪个对象？</h2>
+<p>在 Liquid 中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ collection.title }}
+</code></pre></div>
+<p>这里的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection
+</code></pre></div>
+<p>就是当前页面对应的 Collection 对象。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>Shopify 找到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection:
+title = Shoes
+handle = shoes
+</code></pre></div>
+<p>然后 Liquid 就可以访问：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.title
+collection.handle
+collection.products
+collection.description
+</code></pre></div>
+<hr>
+<h2>4. 最重要的：collection.products</h2>
+<p>Collection 页面最核心的东西：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.products
+</code></pre></div>
+<p>它代表：</p>
+<blockquote>
+<p><strong>当前 Collection 中的 Product 列表。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for product in collection.products %}
+  &lt;h2&gt;{{ product.title }}&lt;/h2&gt;
+{% endfor %}
+</code></pre></div>
+<p>假设 Collection 里面有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Adidas Ultraboost
+Nike Pegasus
+</code></pre></div>
+<p>最终 HTML 大概就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;h2&gt;Nike Air Max&lt;/h2&gt;
+&lt;h2&gt;Adidas Ultraboost&lt;/h2&gt;
+&lt;h2&gt;Nike Pegasus&lt;/h2&gt;
+</code></pre></div>
+<hr>
+<h2>5. 这和 React 很像</h2>
+<p>你作为前端开发应该很好理解。</p>
+<p>React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">function CollectionPage({ collection }) {
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{collection.title}&lt;/h1&gt;
+
+      {collection.products.map(product =&gt; (
+        &lt;ProductCard
+          key={product.id}
+          product={product}
+        /&gt;
+      ))}
+    &lt;/div&gt;
+  );
+}
+</code></pre></div>
+<p>Shopify Liquid：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ collection.title }}&lt;/h1&gt;
+
+{% for product in collection.products %}
+  {% render &#39;product-card&#39;, product: product %}
+{% endfor %}
+</code></pre></div>
+<p>可以直接建立这个对应关系：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React                     Shopify
+
+props.collection    →     collection
+array.map()         →     for
+ProductCard         →     snippet
+product.title       →     product.title
+component           →     snippet
+</code></pre></div>
+<hr>
+<h2>6. Product Card</h2>
+<p>实际项目中，我们不会直接把商品 HTML 全写在 Collection 页面。</p>
+<p>通常会拆成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+    main-collection-product-grid.liquid
+
+snippets/
+    product-card.liquid
+</code></pre></div>
+<p>Collection：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for product in collection.products %}
+  {% render &#39;product-card&#39;, product: product %}
+{% endfor %}
+</code></pre></div>
+<p>Product Card：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;div class=&quot;product-card&quot;&gt;
+
+  {% if product.featured_image %}
+    &lt;img
+      src=&quot;{{ product.featured_image | image_url: width: 500 }}&quot;
+      alt=&quot;{{ product.title | escape }}&quot;
+    &gt;
+  {% endif %}
+
+  &lt;h3&gt;
+    {{ product.title }}
+  &lt;/h3&gt;
+
+  &lt;p&gt;
+    {{ product.price | money }}
+  &lt;/p&gt;
+
+&lt;/div&gt;
+</code></pre></div>
+<p>这就和 React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">CollectionPage
+    ↓
+ProductCard
+</code></pre></div>
+<p>非常像。</p>
+<hr>
+<h2>7. 一个完整的 Collection Section</h2>
+<p>我们先写一个最基础版本。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;section class=&quot;collection&quot;&gt;
+
+  &lt;header class=&quot;collection-header&quot;&gt;
+
+    &lt;h1&gt;
+      {{ collection.title }}
+    &lt;/h1&gt;
+
+    {% if collection.description != blank %}
+      &lt;div class=&quot;collection-description&quot;&gt;
+        {{ collection.description }}
+      &lt;/div&gt;
+    {% endif %}
+
+  &lt;/header&gt;
+
+
+  &lt;div class=&quot;product-grid&quot;&gt;
+
+    {% for product in collection.products %}
+
+      {% render &#39;product-card&#39;, product: product %}
+
+    {% else %}
+
+      &lt;p&gt;No products found.&lt;/p&gt;
+
+    {% endfor %}
+
+  &lt;/div&gt;
+
+&lt;/section&gt;
+</code></pre></div>
+<p>这里出现了一个非常值得注意的语法：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for product in collection.products %}
+</code></pre></div>
+<p>后面可以接：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% else %}
+</code></pre></div>
+<p>也就是说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">有商品
+ ↓
+for
+
+没有商品
+ ↓
+else
+</code></pre></div>
+<hr>
+<h2>8. Collection 页面有哪些重要属性？</h2>
+<p>现在先记住这些：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection
+│
+├── id
+├── title
+├── handle
+├── description
+├── products
+├── image
+└── url
+</code></pre></div>
+<p>其中最重要的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection.title
+collection.description
+collection.products
+collection.url
+</code></pre></div>
+<hr>
+<h2>9. Collection URL</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>这个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shoes
+</code></pre></div>
+<p>就是 Collection 的 handle。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ collection.handle }}
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">shoes
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ collection.url }}
+</code></pre></div>
+<p>可以得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<hr>
+<h2>10. Collection 和 Template 的关系</h2>
+<p>这是 Shopify Theme 结构里面非常重要的一层。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates/
+    collection.json
+</code></pre></div>
+<p>这个 Template 负责：</p>
+<blockquote>
+<p><strong>Collection 页面整体由哪些 Section 组成。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;sections&quot;: {
+    &quot;main&quot;: {
+      &quot;type&quot;: &quot;main-collection-product-grid&quot;
+    }
+  },
+  &quot;order&quot;: [
+    &quot;main&quot;
+  ]
+}
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+        ↓
+collection.json
+        ↓
+main-collection-product-grid
+        ↓
+collection
+        ↓
+collection.products
+        ↓
+Product Card
+</code></pre></div>
+<p>你应该把这条链记住。</p>
+<hr>
+<h2>11. Template 和 Section 再理解一次</h2>
+<p>用 React 类比：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection.json
+        ↓
+页面结构 / 页面配置
+        ↓
+Section
+        ↓
+Component
+        ↓
+Snippet
+</code></pre></div>
+<p>更准确地说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection.json
+    ↓
+Section composition
+    ↓
+main-collection-product-grid.liquid
+    ↓
+product-card.liquid
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Template 决定页面由哪些 Section 组成。</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>Section 负责页面模块。</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>Snippet 负责复用的小组件。</strong></p>
+</blockquote>
+<hr>
+<h2>12. 为什么 Shopify 要这么设计？</h2>
+<p>因为商家可以在 Theme Editor 中调整：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection Page
+
+┌────────────────────────────┐
+│ Collection Banner          │
+├────────────────────────────┤
+│ Collection Description     │
+├────────────────────────────┤
+│ Filter                     │
+├────────────────────────────┤
+│ Product Grid               │
+└────────────────────────────┘
+</code></pre></div>
+<p>而开发者可以把它们拆成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+├── collection-banner.liquid
+├── collection-description.liquid
+├── collection-filters.liquid
+└── main-collection-product-grid.liquid
+</code></pre></div>
+<p>这就是 Shopify Theme 的<strong>模块化思想</strong>。</p>
+<hr>
+<h2>13. Product Grid</h2>
+<p>现在我们真正做一个商品网格：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;div class=&quot;product-grid&quot;&gt;
+
+  {% for product in collection.products %}
+
+    &lt;article class=&quot;product-card&quot;&gt;
+
+      &lt;a href=&quot;{{ product.url }}&quot;&gt;
+
+        {% if product.featured_image %}
+          &lt;img
+            src=&quot;{{ product.featured_image | image_url: width: 500 }}&quot;
+            alt=&quot;{{ product.title | escape }}&quot;
+          &gt;
+        {% endif %}
+
+        &lt;h2&gt;
+          {{ product.title }}
+        &lt;/h2&gt;
+
+        &lt;span&gt;
+          {{ product.price | money }}
+        &lt;/span&gt;
+
+      &lt;/a&gt;
+
+    &lt;/article&gt;
+
+  {% endfor %}
+
+&lt;/div&gt;
+</code></pre></div>
+<p>浏览器最终看到的就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌────────────┐ ┌────────────┐ ┌────────────┐
+│   IMAGE    │ │   IMAGE    │ │   IMAGE    │
+│            │ │            │ │            │
+│ Nike Air   │ │ Adidas     │ │ Nike       │
+│ $99        │ │ $120       │ │ $89        │
+└────────────┘ └────────────┘ └────────────┘
+</code></pre></div>
+<hr>
+<h2>14. 但是这里有一个问题</h2>
+<p>假设 Collection 有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">500 个商品
+</code></pre></div>
+<p>你不能：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for product in collection.products %}
+</code></pre></div>
+<p>然后一次性全部渲染。</p>
+<p>否则：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">500 Products
+    ↓
+500 Product Cards
+    ↓
+大量 HTML
+    ↓
+页面性能下降
+</code></pre></div>
+<p>所以 Shopify 有：</p>
+<h2>Pagination</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+   ↓
+Products
+   ↓
+Pagination
+   ↓
+Page 1
+</code></pre></div>
+<hr>
+<h2>15. Shopify Pagination</h2>
+<p>典型写法：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% paginate collection.products by 24 %}
+
+  &lt;div class=&quot;product-grid&quot;&gt;
+
+    {% for product in collection.products %}
+
+      {% render &#39;product-card&#39;, product: product %}
+
+    {% endfor %}
+
+  &lt;/div&gt;
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+</code></pre></div>
+<p>意思是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection.products
+        ↓
+每页 24 个
+        ↓
+Page 1
+Page 2
+Page 3
+...
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">?page=2
+</code></pre></div>
+<p>Shopify 会处理对应页面的数据。</p>
+<hr>
+<h2>16. 这时候你应该看到一个非常重要的关系</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+ ↓
+Collection
+ ↓
+Pagination
+ ↓
+Products
+ ↓
+Product Card
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?page=2
+</code></pre></div>
+<p>可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection = shoes
+Page       = 2
+Products   = 第 2 页商品
+</code></pre></div>
+<p>这就是 Shopify Theme 非常典型的：</p>
+<blockquote>
+<p><strong>URL 驱动页面状态</strong></p>
+</blockquote>
+<hr>
+<h2>17. 再加入排序</h2>
+<p>Collection 页面经常有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort by:
+
+Featured
+Price: Low to High
+Price: High to Low
+Best Selling
+Newest
+</code></pre></div>
+<p>URL 可能变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=price-ascending
+</code></pre></div>
+<p>所以整个页面实际上受到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
++
+page
++
+sort_by
++
+filters
+</code></pre></div>
+<p>影响。</p>
+<p>最终我们会得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+        │
+        ├── ?page=2
+        │
+        ├── ?sort_by=price-ascending
+        │
+        └── ?filter...
+</code></pre></div>
+<p>后面我们讲 <strong>Filtering</strong> 时会把这部分彻底串起来。</p>
+<hr>
+<h2>18. 现在建立 Collection 页面完整架构</h2>
+<p>你现在可以先记这一张：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 URL
+                  │
+                  ↓
+        /collections/shoes
+                  │
+                  ↓
+          collection.json
+                  │
+                  ↓
+       Main Collection Section
+                  │
+          ┌───────┴────────┐
+          ↓                ↓
+    Collection Info    Product Grid
+          │                │
+          ↓                ↓
+ collection.title    collection.products
+                           │
+                           ↓
+                       Pagination
+                           │
+                           ↓
+                     Product Card
+                           │
+                  ┌────────┼────────┐
+                  ↓        ↓        ↓
+                Image    Title     Price
+</code></pre></div>
+<p>这就是今天最重要的一张图。</p>
+<hr>
+<h2>19. 和 React 再做一次映射</h2>
+<p>你可以把整个 Collection 页面想成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">function CollectionPage({ collection, searchParams }) {
+  const products = collection.products;
+
+  return (
+    &lt;CollectionLayout&gt;
+
+      &lt;CollectionHeader
+        title={collection.title}
+        description={collection.description}
+      /&gt;
+
+      &lt;ProductGrid&gt;
+        {products.map(product =&gt; (
+          &lt;ProductCard
+            key={product.id}
+            product={product}
+          /&gt;
+        ))}
+      &lt;/ProductGrid&gt;
+
+    &lt;/CollectionLayout&gt;
+  );
+}
+</code></pre></div>
+<p>而 Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;h1&gt;{{ collection.title }}&lt;/h1&gt;
+
+{% paginate collection.products by 24 %}
+
+  &lt;div class=&quot;product-grid&quot;&gt;
+
+    {% for product in collection.products %}
+
+      {% render &#39;product-card&#39;, product: product %}
+
+    {% endfor %}
+
+  &lt;/div&gt;
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+</code></pre></div>
+<p>你会发现：</p>
+<p><strong>Shopify Liquid 并不难。</strong></p>
+<p>真正需要掌握的是：</p>
+<blockquote>
+<p><strong>Shopify 给你的数据是什么，以及这些数据之间是什么关系。</strong></p>
+</blockquote>
+<p>这也是我们接下来为什么要同时学习 Shopify Data Model。</p>
+<hr>
+<h2>20. 今天你需要掌握的知识</h2>
+<p>先不要急着学 Filter。</p>
+<p>今天把这几个东西吃透：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">① Collection 是什么
+
+② collection 对象是什么
+
+③ collection.products 是什么
+
+④ Product Card 为什么应该拆成 snippet
+
+⑤ Template / Section / Snippet 的关系
+
+⑥ Pagination 是什么
+
+⑦ Collection URL / handle
+
+⑧ page / sort_by 为什么会出现在 URL
+</code></pre></div>
+<hr>
+<h2>21. 给你一个小练习</h2>
+<p>你可以自己写一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>要求：</p>
+<h4>页面顶部</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes
+All shoes for everyday use.
+</code></pre></div>
+<h4>商品列表</h4>
+<p>每个商品显示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品图片
+商品标题
+商品价格
+View Product
+</code></pre></div>
+<h4>商品数量</h4>
+<p>每页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">12 个
+</code></pre></div>
+<h4>分页</h4>
+<p>底部显示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Previous  1  2  3  Next
+</code></pre></div>
+<hr>
+<h3>推荐文件结构</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates/
+└── collection.json
+
+sections/
+└── main-collection-product-grid.liquid
+
+snippets/
+└── product-card.liquid
+</code></pre></div>
+<p>你可以先自己尝试写。</p>
+<p><strong>下一步我可以直接带你做这个练习的完整实现，然后我们再进入第 14 课：Product Media。</strong></p>
+<details class="dialogue-references dialogue-followups"><summary>原对话建议追问</summary><ul><li>我可以直接带你做这个练习的完整实现<small>带我做这个练习的完整实现</small></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-13.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

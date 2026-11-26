@@ -1,0 +1,922 @@
+# 第 23 课：Inventory / Location —— Shopify 库存模型
+
+## 我的提问 · 2026-09-20 Sun 08:30
+
+继续
+
+## ChatGPT · 2026-09-20 Sun 08:30
+
+好，我们继续。
+
+# 第 23 课：Inventory / Location —— Shopify 库存模型
+
+这一课非常重要，因为你以后做 **Shopify App、ERP、仓储系统、订单系统、跨境电商库存同步**，都会遇到它。
+
+你先记住一条核心关系：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+```
+
+但这里有一个容易误解的地方：
+
+> **库存数量并不是直接挂在 Variant 上的。**
+
+Shopify 把「商品规格」和「库存管理」拆成了不同的数据对象。
+
+---
+
+# 一、先建立整体模型
+
+假设我们卖：
+
+```text
+Nike Air Max
+```
+
+有两个 Variant：
+
+```text
+Black / 9
+Black / 10
+```
+
+其中：
+
+```text
+Black / 9
+```
+
+是一个真正可以购买的具体 SKU。
+
+现在公司有三个仓库：
+
+```text
+San Jose Warehouse
+Los Angeles Warehouse
+New York Warehouse
+```
+
+库存可能是：
+
+```text
+Nike Air Max
+└── Black / 9
+      │
+      ↓
+   InventoryItem
+      │
+      ├── San Jose      → 20
+      ├── Los Angeles   → 15
+      └── New York      → 8
+```
+
+这里：
+
+- `Variant`：卖的是什么规格
+- `InventoryItem`：这个 Variant 对应的库存管理对象
+- `Location`：库存在哪里
+- `InventoryLevel`：这个库存商品在这个地点有多少库存
+
+Shopify 官方当前的 GraphQL Admin API 也是这样建模的：`InventoryItem` 连接一个 Variant 与它在不同 Location 的库存，而 `InventoryLevel` 连接一个 InventoryItem 和一个 Location。 [InventoryItem - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/objects/inventoryitem?utm_source=chatgpt.com) [inventoryLevel - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com)
+
+---
+
+# 二、Variant 和 InventoryItem 为什么要分开？
+
+这是理解 Shopify 数据模型的关键。
+
+你可能会想：
+
+```text
+Variant
+  id
+  sku
+  price
+  inventory
+```
+
+为什么不直接这样？
+
+因为：
+
+> Variant 描述的是「卖什么」，InventoryItem 描述的是「怎么管理这个东西的库存」。
+
+例如：
+
+```text
+Variant
+----------------
+Black / 9
+SKU: NK-001-BK-9
+Price: $129
+```
+
+对应：
+
+```text
+InventoryItem
+----------------
+SKU: NK-001-BK-9
+tracked: true
+shipping information
+customs information
+inventory history
+...
+```
+
+而 InventoryItem 还可以继续关联多个库存地点。
+
+官方当前定义中，`InventoryItem` 是一个 Variant 的库存信息，并且可以通过 `inventoryLevels` 查看这个商品在不同 Location 的库存。 [InventoryItem - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/objects/inventoryitem?utm_source=chatgpt.com)
+
+---
+
+# 三、InventoryLevel 才是真正的「地点库存」
+
+这个概念一定要理解。
+
+假设：
+
+```text
+InventoryItem
+    =
+Nike Air Max Black / 9
+```
+
+它有：
+
+```text
+Location A
+San Jose
+```
+
+和：
+
+```text
+Location B
+Los Angeles
+```
+
+那么实际上存在：
+
+```text
+InventoryLevel #1
+InventoryItem + San Jose
+available = 20
+
+InventoryLevel #2
+InventoryItem + Los Angeles
+available = 15
+```
+
+所以可以把 `InventoryLevel` 理解成：
+
+> **某个库存商品，在某个地点的库存记录。**
+
+官方文档也是这么定义的：一个 `InventoryLevel` 将一个 `InventoryItem` 与一个 `Location` 连接起来，并记录该地点的各种库存状态。 [inventoryLevel - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com)
+
+---
+
+# 四、Location 是什么？
+
+`Location` 不只是「仓库」。
+
+它可以代表：
+
+```text
+Warehouse
+Retail Store
+Popup Store
+Fulfillment Center
+Dropshipper
+```
+
+也就是说，它代表一个 Shopify 中进行库存管理/履约的地点。
+
+例如：
+
+```text
+Locations
+├── San Jose Warehouse
+├── Los Angeles Warehouse
+├── New York Store
+└── Shopify Fulfillment Network
+```
+
+官方当前文档也明确把 Location 描述为可以存储和履行库存的实体，例如仓库、零售店、popup、dropshipper 等。 [Location - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/objects/Location?utm_source=chatgpt.com)
+
+---
+
+# 五、所以四个对象到底是什么关系？
+
+我们把它画完整：
+
+```text
+Product
+│
+├── Variant A
+│      │
+│      └── InventoryItem A
+│             │
+│             ├── InventoryLevel
+│             │       └── San Jose
+│             │              available: 20
+│             │
+│             ├── InventoryLevel
+│             │       └── Los Angeles
+│             │              available: 15
+│             │
+│             └── InventoryLevel
+│                     └── New York
+│                            available: 8
+│
+└── Variant B
+       │
+       └── InventoryItem B
+              │
+              ├── San Jose
+              ├── Los Angeles
+              └── New York
+```
+
+所以：
+
+```text
+Product
+   1
+   │
+   └── N Variants
+             │
+             └── 1 InventoryItem
+                       │
+                       └── N InventoryLevels
+                                  │
+                                  └── 1 Location
+```
+
+---
+
+# 六、这和数据库设计非常像
+
+你是前端开发，所以可以直接用数据库思维理解。
+
+假设自己设计数据库：
+
+```text
+products
+---------
+id
+title
+```
+
+```text
+product_variants
+----------------
+id
+product_id
+sku
+price
+```
+
+然后：
+
+```text
+inventory_items
+---------------
+id
+variant_id
+sku
+tracked
+```
+
+再：
+
+```text
+locations
+---------
+id
+name
+address
+```
+
+最后：
+
+```text
+inventory_levels
+----------------
+id
+inventory_item_id
+location_id
+available
+```
+
+关系：
+
+```text
+products
+   │
+   └── product_variants
+             │
+             └── inventory_items
+                       │
+                       └── inventory_levels
+                                  │
+                                  └── locations
+```
+
+这个模型就非常接近 Shopify 的思维。
+
+---
+
+# 七、为什么一个 Variant 可以有多个库存？
+
+这就是 Shopify 多仓库能力的基础。
+
+例如：
+
+```text
+Variant:
+Nike Air Max / Black / 9
+```
+
+库存：
+
+| Location | Available |
+|---|---:|
+| San Jose | 20 |
+| Los Angeles | 15 |
+| New York | 8 |
+
+那么这个 Variant 并不是：
+
+```text
+inventory = 43
+```
+
+这么简单。
+
+Shopify 更关心：
+
+```text
+San Jose → 20
+Los Angeles → 15
+New York → 8
+```
+
+因为订单履约时必须知道：
+
+> **这件商品到底从哪个 Location 发货？**
+
+Location 不只是库存数字的容器，它还参与订单履约能力和在线订单配置。 [Location - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/objects/Location?utm_source=chatgpt.com)
+
+---
+
+# 八、一个特别容易踩坑的地方：available ≠ on_hand
+
+现在进入稍微高级一点的部分。
+
+现代 Shopify Inventory 不只有一个简单的：
+
+```text
+quantity
+```
+
+而是存在多个库存状态。
+
+当前 Admin GraphQL API 的 `InventoryLevel.quantities` 可以查询例如：
+
+```text
+available
+incoming
+committed
+on_hand
+reserved
+damaged
+quality_control
+safety_stock
+```
+
+具体可用的状态取决于 Shopify 当前 API 版本和场景。 [inventoryLevel - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com)
+
+例如：
+
+```text
+San Jose Warehouse
+
+on_hand       = 100
+committed     = 20
+reserved      = 10
+available     = 70
+```
+
+你可以先用非常简单的方式理解：
+
+```text
+on_hand
+↓
+物理上手里的库存
+
+committed
+↓
+已经被订单等流程占用的库存
+
+available
+↓
+当前可供销售/分配的库存
+```
+
+所以：
+
+```text
+on_hand ≠ available
+```
+
+这也是为什么我们之前说：
+
+```liquid
+variant.available
+```
+
+不能理解成：
+
+```text
+库存数量 = X
+```
+
+它更接近：
+
+> **这个 Variant 当前是否可购买/可售。**
+
+---
+
+# 九、为什么 `variant.available` 不等于库存？
+
+例如：
+
+```text
+Variant
+Black / 9
+
+Inventory:
+San Jose = 0
+Los Angeles = 0
+New York = 5
+```
+
+如果这个商品可以从 New York 发货：
+
+```text
+variant.available
+=
+true
+```
+
+但你不能从：
+
+```liquid
+{{ variant.available }}
+```
+
+得到：
+
+```text
+5
+```
+
+因为：
+
+```text
+available
+```
+
+是一个布尔状态，而不是库存数量。
+
+真正详细的库存数据属于 Inventory 模型。
+
+---
+
+# 十、Theme 和 Inventory 的职责边界
+
+这也是 Theme 学习中非常重要的一条。
+
+## Theme
+
+主要负责：
+
+```text
+显示
+↓
+商品
+Variant
+价格
+库存可售状态
+```
+
+例如：
+
+```liquid
+{% if product.selected_or_first_available_variant.available %}
+  <button>Add to cart</button>
+{% else %}
+  <button disabled>
+    Sold out
+  </button>
+{% endif %}
+```
+
+Theme 的职责主要是：
+
+> **把 Shopify 的库存/可售状态展示给消费者。**
+
+---
+
+## App / Admin API
+
+如果你要：
+
+```text
+查询仓库库存
+修改库存
+同步 ERP
+同步 WMS
+库存预警
+批量调整库存
+库存同步
+```
+
+那就属于：
+
+```text
+Shopify App
+      ↓
+Admin GraphQL API
+      ↓
+Inventory
+```
+
+而不是 Theme。
+
+例如：
+
+```text
+ERP
+ ↓
+App
+ ↓
+Shopify Admin API
+ ↓
+InventoryItem
+ ↓
+InventoryLevel
+ ↓
+Location
+```
+
+---
+
+# 十一、从前端开发角度看整个流程
+
+你可以把它理解成：
+
+```text
+用户打开商品页
+        ↓
+Shopify Theme
+        ↓
+Product
+        ↓
+Variant
+        ↓
+可售状态
+        ↓
+显示：
+"In Stock"
+```
+
+而后台：
+
+```text
+ERP
+ ↓
+Shopify App
+ ↓
+Admin API
+ ↓
+InventoryItem
+ ↓
+InventoryLevel
+ ↓
+Location
+```
+
+然后库存发生变化：
+
+```text
+订单
+ ↓
+库存状态变化
+ ↓
+Inventory
+ ↓
+Theme 下次渲染
+ ↓
+用户看到新的可售状态
+```
+
+---
+
+# 十二、GraphQL 里大概是什么感觉？
+
+例如我们想查询某个 InventoryLevel：
+
+```graphql
+query {
+  inventoryLevel(id: "...") {
+    id
+
+    quantities(names: [
+      "available",
+      "on_hand",
+      "committed"
+    ]) {
+      name
+      quantity
+    }
+
+    item {
+      id
+      sku
+    }
+
+    location {
+      id
+      name
+    }
+  }
+}
+```
+
+结果概念上类似：
+
+```json
+{
+  "inventoryLevel": {
+    "id": "...",
+    "quantities": [
+      {
+        "name": "available",
+        "quantity": 70
+      },
+      {
+        "name": "on_hand",
+        "quantity": 100
+      },
+      {
+        "name": "committed",
+        "quantity": 20
+      }
+    ],
+    "item": {
+      "id": "...",
+      "sku": "NK-001-BK-9"
+    },
+    "location": {
+      "id": "...",
+      "name": "San Jose Warehouse"
+    }
+  }
+}
+```
+
+这正是 Shopify 当前 Admin GraphQL API 的数据关系：InventoryLevel → InventoryItem + Location + quantities。 [inventoryLevel - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/latest/queries/inventoryLevel?utm_source=chatgpt.com)
+
+---
+
+# 十三、从 React 开发者角度类比
+
+你可以把它想象成：
+
+```js
+const product = {
+  title: 'Nike Air Max',
+
+  variants: [
+    {
+      id: 'variant-1',
+      title: 'Black / 9',
+      price: 129,
+
+      inventoryItem: {
+        id: 'inventory-item-1',
+
+        levels: [
+          {
+            location: 'San Jose',
+            available: 20
+          },
+          {
+            location: 'Los Angeles',
+            available: 15
+          },
+          {
+            location: 'New York',
+            available: 8
+          }
+        ]
+      }
+    }
+  ]
+};
+```
+
+然后：
+
+```js
+const variant = product.variants[0];
+
+const available =
+  variant.inventoryItem.levels
+    .reduce(
+      (total, level) => total + level.available,
+      0
+    );
+```
+
+但注意：
+
+**这只是帮助理解数据关系的伪代码，不代表 Shopify Theme 中可以直接这么访问。**
+
+因为 Theme Liquid、Storefront 数据和 Admin GraphQL 数据是不同层次。
+
+---
+
+# 十四、最重要的一个关系：Variant → InventoryItem
+
+以后你看到：
+
+```text
+ProductVariant
+```
+
+不要直接跳到：
+
+```text
+Inventory
+```
+
+而应该脑子里经过：
+
+```text
+Variant
+   ↓
+InventoryItem
+   ↓
+InventoryLevel
+   ↓
+Location
+```
+
+例如：
+
+```text
+Variant
+Black / 9
+     │
+     ↓
+InventoryItem
+SKU: NK-BK-9
+     │
+     ↓
+InventoryLevels
+     │
+     ├── San Jose: 20
+     ├── LA: 15
+     └── NY: 8
+```
+
+这条链你掌握了，Shopify 的库存模型基本就入门了。
+
+---
+
+# 十五、把目前的数据模型串起来
+
+到现在我们已经学了：
+
+```text
+Product
+│
+├── Variants
+│      │
+│      └── InventoryItem
+│              │
+│              └── InventoryLevel
+│                      │
+│                      └── Location
+│
+├── Collections
+│
+├── Media
+│
+├── Metafields
+│
+└── Metaobjects
+```
+
+再往商业流程走：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+Inventory
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+   ↓
+Fulfillment
+```
+
+这实际上已经开始接近 Shopify 整个 Commerce 数据模型了。
+
+---
+
+# 十六、这一课你只需要牢牢记住 5 句话
+
+### ① Product
+
+```text
+卖什么商品
+```
+
+### ② Variant
+
+```text
+具体卖哪个规格
+```
+
+### ③ InventoryItem
+
+```text
+这个 Variant 对应的库存管理对象
+```
+
+### ④ InventoryLevel
+
+```text
+这个 InventoryItem 在某个 Location 的库存状态
+```
+
+### ⑤ Location
+
+```text
+库存/履约发生在哪里
+```
+
+最终：
+
+```text
+Product
+ ↓
+Variant
+ ↓
+InventoryItem
+ ↓
+InventoryLevel
+ ↓
+Location
+```
+
+**这条链非常重要。**
+
+---
+
+下一课我们继续：
+
+# 第 24 课：Customer —— Shopify 用户数据模型
+
+这一课会把：
+
+```text
+Customer
+Customer Account
+Address
+Order
+Cart
+Checkout
+```
+
+之间的关系彻底讲清楚。
+
+尤其是 **Customer ≠ Account ≠ Cart ≠ Order**，这是 Shopify 初学者非常容易混淆的一组概念。

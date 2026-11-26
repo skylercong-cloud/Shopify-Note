@@ -24,6 +24,13 @@
       description: '从《讲解 ADA 无障碍》对话恢复的系统课程。共 25 篇编号课程，沿用第 1–26 课的编号，原对话跳过第 19 课。第 16 课含原答与续篇。',
       trackProgress: true,
     },
+    'shopify-dialogue': {
+      label: 'Shopify 对话课程',
+      title: 'Shopify 网站开发 · Teach Me 对话课程',
+      description: '整理自 2026 年 9 月 15 日开始的《介绍 Grill Me》。包含 25 节编号课程、购买链路专题、阶段复盘，以及穿插在讲解之间的原始提问和追问。原对话跳过第 24、26 课。',
+      usage: '可以按目录从头学习，也可以回看某一课中的追问。点击“标记已学完”会把进度保存在当前浏览器。每页底部提供该页的对话原文。',
+      trackProgress: true,
+    },
   };
   const area = areas[currentArea];
   const progressKey = area.trackProgress ? currentArea + '-completed' : null;
@@ -229,7 +236,7 @@
     article.replaceChildren(node('h1', area.title), node('p', area.description, 'lead'));
     if (progressKey) {
       const note = node('div', undefined, 'course-note');
-      note.append(node('strong', '如何使用'), node('p', '每课先读目标，再理解原理和示例，最后完成练习。点击“标记已学完”记录进度，记录仅保存在当前浏览器。高级章节中的概念示例不等于已经运行验证的完整工程。'));
+      note.append(node('strong', '如何使用'), node('p', area.usage || '每课先读目标，再理解原理和示例，最后完成练习。点击“标记已学完”记录进度，记录仅保存在当前浏览器。高级章节中的概念示例不等于已经运行验证的完整工程。'));
       const main = course.lessons.filter(lesson => lesson.kind !== 'reference');
       const count = main.filter(lesson => completed.has(lesson.id)).length;
       const progress = node('progress');
@@ -383,6 +390,8 @@
         if (version !== renderVersion) return;
         if (currentArea === 'seo') {
           article.innerHTML = CourseRenderer.render(text);
+        } else if (currentArea === 'shopify-dialogue') {
+          article.innerHTML = text;
         } else {
           article.innerHTML = marked.parse(text);
         }
@@ -420,7 +429,7 @@
       });
       footer.append(done);
     }
-    const sequence = course.lessons.filter(item => progressKey
+    const sequence = currentArea === 'shopify-dialogue' ? course.lessons : course.lessons.filter(item => progressKey
       ? (item.kind === 'reference') === (lesson.kind === 'reference')
       : item.level === lesson.level);
     const index = sequence.findIndex(item => item.id === lesson.id);

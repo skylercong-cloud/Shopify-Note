@@ -1,0 +1,1391 @@
+<h1>阶段复盘 · Shopify 学习路线与 App / Function</h1>
+<h2 class="dialogue-followup-title">做完活动价后还有哪些学习路线？</h2>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T22:01:00+08:00">09-19 22:01</time></div><p>Ok，这条线先学到这里吧，按照之前的计划，还有别的线路吗</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:01:00+08:00">09-19 22:01</time></div>
+<p>有，而且按我们之前制定的完整 Shopify 学习路线，你现在其实只是完成了 <strong>Level 1 的 Theme 基础 + Level 2 的一部分核心购物车能力</strong>。</p>
+<p>你刚才这条“Theme → Cart → Function → 活动价格”的线可以先停在这里。接下来有几条主线可以并行，但我建议按照前端开发者的学习曲线来走。</p>
+<h3>我们之前的完整路线</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Level 0
+Shopify 基础架构
+        ↓
+Level 1
+Theme / Liquid
+        ↓
+Level 2
+Theme 前端与 Storefront 交互   ← 你目前主要在这里
+        ↓
+Level 3
+Shopify 数据模型
+        ↓
+Level 4
+Shopify App 开发
+        ↓
+Level 5
+Headless / Storefront API
+        ↓
+Level 6
+Shopify Plus / Enterprise
+</code></pre></div>
+<hr>
+<h2>你目前的位置</h2>
+<p>已经掌握：</p>
+<h4>Level 0：基本完成</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+├── Admin
+├── Storefront
+├── Theme
+├── App
+├── API
+└── Headless
+</code></pre></div>
+<p>以及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+→ Variant
+→ Cart
+→ Checkout
+→ Order
+</code></pre></div>
+<hr>
+<h4>Level 1：Theme 基础已经走过</h4>
+<p>你已经学习了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">layout
+templates
+sections
+blocks
+snippets
+assets
+config
+locales
+</code></pre></div>
+<p>以及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+{{ }}
+{% %}
+filters
+objects
+loops
+schema
+</code></pre></div>
+<hr>
+<h4>Level 2：正在进行</h4>
+<p>目前已经学了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant Selector
+       ↓
+Product Form
+       ↓
+Add to Cart
+       ↓
+Cart API
+       ↓
+Cart Drawer
+       ↓
+Section Rendering
+       ↓
+Discount / Function 边界
+</code></pre></div>
+<p>但是 Level 2 其实还有不少非常重要的内容。</p>
+<hr>
+<h2>接下来有 5 条主要线路</h2>
+<p>我建议你把它们理解成五条“技术树”。</p>
+<hr>
+<h3>线路 A：Theme 深入开发 ⭐⭐⭐⭐⭐</h3>
+<p>这是你现在最自然的下一条线。</p>
+<p>我们可以继续学：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+│
+├── Product
+├── Collection
+├── Search
+├── Predictive Search
+├── Product Media
+├── AJAX
+├── Section Rendering
+├── Web Components
+├── Accessibility
+├── SEO
+├── Performance
+└── Theme Editor
+</code></pre></div>
+<p>其中还有几个非常重要的专题。</p>
+<h4>Product Media</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── Image
+├── Video
+├── 3D Model
+└── External Video
+</code></pre></div>
+<p>学习：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.media
+media_type
+image
+video
+model
+external_video
+</code></pre></div>
+<p>以及 Product Gallery。</p>
+<hr>
+<h4>Collection</h4>
+<p>从：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+</code></pre></div>
+<p>开始学习真正的商品列表：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+ ↓
+Products
+ ↓
+Product Card
+ ↓
+Pagination
+ ↓
+Filter
+ ↓
+Sort
+</code></pre></div>
+<p>然后进入 Shopify 的：</p>
+<p><strong>Collection Filtering</strong></p>
+<p>这对于电商网站非常重要。</p>
+<hr>
+<h4>Search</h4>
+<p>包括：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search
+</code></pre></div>
+<p>以及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Predictive Search
+</code></pre></div>
+<p>最终做成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">搜索框
+   ↓
+输入 iPhone
+   ↓
+Predictive Search
+   ↓
+Products
+Collections
+Pages
+Articles
+   ↓
+搜索结果
+</code></pre></div>
+<hr>
+<h4>Theme 性能</h4>
+<p>这个也非常适合你这种前端开发者。</p>
+<p>会涉及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+ ↓
+HTML
+ ↓
+CSS
+ ↓
+JS
+ ↓
+Network
+ ↓
+LCP
+CLS
+INP
+</code></pre></div>
+<p>然后学习 Shopify Theme 的性能优化。</p>
+<hr>
+<h2>线路 B：Shopify 数据模型 ⭐⭐⭐⭐⭐</h2>
+<p>这条线我们之前只是学了基础，现在可以系统深入。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shop
+Product
+Variant
+Collection
+Customer
+Order
+Cart
+Checkout
+Metafield
+Metaobject
+Discount
+Market
+Inventory
+Location
+</code></pre></div>
+<p>重点是理解它们之间的关系。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ├── Variant
+ ├── Metafield
+ ├── Collection
+ └── Media
+</code></pre></div>
+<p>订单：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+├── Customer
+├── Line Items
+├── Fulfillment
+├── Transaction
+└── Shipping
+</code></pre></div>
+<p>然后进一步：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+    ↓
+Variant
+    ↓
+Inventory Item
+    ↓
+Inventory Level
+    ↓
+Location
+</code></pre></div>
+<p>这个会让你真正理解 Shopify 后台的数据结构。</p>
+<hr>
+<h2>线路 C：Shopify App 开发 ⭐⭐⭐⭐⭐</h2>
+<p><strong>这是我认为你以后非常值得重点学的一条。</strong></p>
+<p>因为你是前端开发者。</p>
+<p>你已经有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React
+Next.js
+JavaScript
+</code></pre></div>
+<p>那么 App 开发会非常自然。</p>
+<p>路线：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify App
+    ↓
+OAuth
+    ↓
+Admin API
+    ↓
+GraphQL
+    ↓
+Webhook
+    ↓
+App Bridge
+    ↓
+Polaris
+    ↓
+Embedded App
+</code></pre></div>
+<p>最后做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Admin
+      ↓
+你的 App
+      ↓
+React
+      ↓
+Shopify GraphQL Admin API
+</code></pre></div>
+<hr>
+<h2>线路 D：Headless Shopify ⭐⭐⭐⭐⭐</h2>
+<p>这一条其实非常适合你。</p>
+<p>因为你本身就是前端开发者。</p>
+<p>传统 Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Liquid
+ ↓
+Theme
+ ↓
+HTML
+</code></pre></div>
+<p>Headless：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+ ↓
+Storefront API
+ ↓
+GraphQL
+ ↓
+Next.js
+ ↓
+React
+ ↓
+你的 UI
+</code></pre></div>
+<p>然后学习：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Storefront API
+GraphQL
+Next.js
+Hydrogen
+Customer Account API
+Cart API
+Checkout
+</code></pre></div>
+<p>最终可以做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+    │
+    ↓
+Storefront API
+    │
+    ↓
+Next.js
+    │
+ ┌──┼─────────┐
+ ↓  ↓         ↓
+Home Product  Cart
+</code></pre></div>
+<p>这条线会把你的 React/Next.js 能力真正和 Shopify 结合起来。</p>
+<hr>
+<h2>线路 E：Shopify Plus / Enterprise ⭐⭐⭐⭐</h2>
+<p>这个是最后阶段。</p>
+<p>包括：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Plus
+├── Checkout Extensibility
+├── Shopify Functions
+├── Markets
+├── B2B
+├── Multi-store
+├── International
+├── ERP
+├── OMS
+├── CRM
+├── Webhooks
+├── Event-driven architecture
+├── CI/CD
+└── Enterprise architecture
+</code></pre></div>
+<p>你刚才已经提前碰到了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Functions
+</code></pre></div>
+<p>所以以后回到这里的时候会非常容易。</p>
+<hr>
+<h2>如果按照你的背景，我建议这样走</h2>
+<p>不是简单按照：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1 → 2 → 3 → 4 → 5
+</code></pre></div>
+<p>机械学习。</p>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Shopify
+                       │
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+        Theme        Data          App
+          │            │            │
+          └────────────┼────────────┘
+                       ↓
+                    API / GraphQL
+                       ↓
+                    Headless
+                       ↓
+                  Enterprise
+</code></pre></div>
+<p>具体顺序我建议：</p>
+<h4>第一阶段</h4>
+<p><strong>Theme 深入</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+↓
+Product Media
+↓
+Search
+↓
+Predictive Search
+↓
+Filtering
+↓
+Pagination
+↓
+SEO
+↓
+Performance
+</code></pre></div>
+<hr>
+<h4>第二阶段</h4>
+<p><strong>Shopify 数据模型</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Variant
+Inventory
+Customer
+Order
+Metafield
+Metaobject
+Market
+Discount
+</code></pre></div>
+<p>把 Shopify 的数据模型彻底吃透。</p>
+<hr>
+<h4>第三阶段</h4>
+<p><strong>Shopify App</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App
+↓
+OAuth
+↓
+GraphQL Admin API
+↓
+Webhook
+↓
+App Bridge
+↓
+Polaris
+</code></pre></div>
+<p>然后自己做一个完整 App。</p>
+<hr>
+<h4>第四阶段</h4>
+<p><strong>Headless</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Storefront API
+↓
+GraphQL
+↓
+Next.js
+↓
+React
+↓
+Hydrogen
+</code></pre></div>
+<hr>
+<h4>第五阶段</h4>
+<p><strong>Enterprise</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Plus
+↓
+Functions
+↓
+Checkout Extensibility
+↓
+Markets
+↓
+B2B
+↓
+ERP / OMS / CRM
+↓
+Enterprise Architecture
+</code></pre></div>
+<hr>
+<h2>还有一个我很建议你做的事情</h2>
+<p>不要一直“学完一个知识点再学下一个”。</p>
+<p>我们可以在每个阶段都做一个<strong>真实项目</strong>。</p>
+<p>例如：</p>
+<h4>Project 1：完整 Shopify Theme</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">首页
+商品详情
+Collection
+Search
+Cart Drawer
+Checkout
+</code></pre></div>
+<hr>
+<h4>Project 2：Shopify App</h4>
+<p>做一个真正的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Management App
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Admin
+      ↓
+你的 App
+      ↓
+React
+      ↓
+GraphQL
+      ↓
+Product / Variant
+</code></pre></div>
+<hr>
+<h4>Project 3：Headless Store</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Next.js
++
+Shopify Storefront API
+</code></pre></div>
+<p>实现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Home
+Product
+Collection
+Search
+Cart
+Checkout
+Customer
+</code></pre></div>
+<hr>
+<h4>Project 4：企业级系统</h4>
+<p>最后做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+     │
+     ├── Storefront
+     ├── App
+     ├── Functions
+     ├── ERP
+     ├── OMS
+     ├── CRM
+     └── Analytics
+</code></pre></div>
+<p>这个时候你就不是在“学 Shopify API”了，而是在做真正的 <strong>Shopify Commerce Architecture</strong>。</p>
+<hr>
+<h3>所以现在我建议先走这条</h3>
+<p>你刚刚说的：</p>
+<blockquote>
+<p>“这条线先学到这里。”</p>
+</blockquote>
+<p>我完全赞成。</p>
+<p>我们暂时把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动页
+→ Cart API
+→ Section Rendering
+→ Discount
+→ Function
+→ Metafield
+</code></pre></div>
+<p>封存。</p>
+<p>下一条从 <strong>Theme 前端能力</strong>继续：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">第 13 课
+Collection 页面
+
+Collection
+→ Product Grid
+→ Product Card
+→ Pagination
+→ Sort
+→ Filter
+</code></pre></div>
+<p>然后再进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Media
+→ Search
+→ Predictive Search
+→ Collection Filtering
+→ Theme 性能
+</code></pre></div>
+<p>这样会比现在直接跳到 App 更顺，也能把你作为前端开发者最需要的 <strong>Shopify Theme 实战能力</strong>补完整。</p>
+</div></section>
+<h2 class="dialogue-followup-title">Shopify App 和 Function 的区别</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T22:04:00+08:00">09-19 22:04</time></div><p>Shopify app和function有什么区别</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:04:00+08:00">09-19 22:04</time></div>
+<p>可以把它先记成一句话：</p>
+<blockquote>
+<p><strong>Shopify App = 一个完整的“应用/业务系统”</strong></p>
+<p><strong>Shopify Function = Shopify 运行在特定业务节点上的“后端扩展函数”</strong></p>
+</blockquote>
+<p>两者不是完全平级的东西，<strong>Function 通常是 App 的一个组成部分</strong>。</p>
+<h4>先用你熟悉的前端思维理解</h4>
+<p>如果你做 React/Next.js：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify App
+│
+├── Admin UI
+├── React / Next.js
+├── 数据库
+├── Shopify Admin API
+├── Webhook
+├── OAuth
+├── 后端服务
+│
+└── Shopify Function
+      └── 专门执行某个 Shopify 业务逻辑
+</code></pre></div>
+<p>所以：</p>
+<p><strong>App 更像一个完整项目，Function 更像这个项目里的一个特殊后端能力。</strong></p>
+<hr>
+<h3>1. Shopify App 是什么？</h3>
+<p>App 的核心作用是：</p>
+<blockquote>
+<p><strong>给 Shopify 商家增加新的业务能力。</strong></p>
+</blockquote>
+<p>例如你做一个“营销活动管理 App”：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商家进入 App
+      ↓
+创建活动
+      ↓
+选择商品
+      ↓
+设置活动时间
+      ↓
+设置折扣规则
+      ↓
+保存到数据库
+      ↓
+调用 Shopify API
+      ↓
+创建/配置 Discount
+</code></pre></div>
+<p>你的 App 可以包含：</p>
+<ul>
+<li>React / Next.js 管理后台</li>
+<li>数据库</li>
+<li>Shopify Admin API</li>
+<li>GraphQL</li>
+<li>Webhook</li>
+<li>OAuth</li>
+<li>App Bridge</li>
+<li>Polaris</li>
+<li>Shopify Function</li>
+<li>第三方 API</li>
+<li>ERP / CRM / 物流系统</li>
+</ul>
+<p>所以 App 的能力范围非常大。</p>
+<hr>
+<h2>2. Shopify Function 是什么？</h2>
+<p>Function 更专注：</p>
+<blockquote>
+<p><strong>在 Shopify 的特定业务流程中执行自定义逻辑。</strong></p>
+</blockquote>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户购物车
+    ↓
+Shopify
+    ↓
+Discount Function
+    ↓
+判断：
+这个商品是不是活动商品？
+活动有没有过期？
+用户是否符合条件？
+    ↓
+计算折扣
+    ↓
+Shopify Checkout
+</code></pre></div>
+<p>Function 不是让你做一个完整后台。</p>
+<p>它更像：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">function calculateDiscount(input) {
+    // Shopify 把业务数据给你
+
+    if (满足活动条件) {
+        return {
+            discount: ...
+        };
+    }
+
+    return {};
+}
+</code></pre></div>
+<p>也就是说：</p>
+<p><strong>Shopify 在某个业务节点调用你的 Function。</strong></p>
+<hr>
+<h2>3. 两者最重要的区别</h2>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th></th>
+<th>Shopify App</th>
+<th>Shopify Function</th>
+</tr>
+</thead><tbody><tr>
+<td>定位</td>
+<td>完整应用</td>
+<td>业务逻辑扩展</td>
+</tr>
+<tr>
+<td>主要面向</td>
+<td>商家/后台/外部系统</td>
+<td>Shopify 业务运行时</td>
+</tr>
+<tr>
+<td>是否有 UI</td>
+<td>可以有</td>
+<td>通常没有</td>
+</tr>
+<tr>
+<td>是否有数据库</td>
+<td>可以有</td>
+<td>Function 本身不是数据库</td>
+</tr>
+<tr>
+<td>是否可以调用外部系统</td>
+<td>App 可以</td>
+<td>Function 有严格限制</td>
+</tr>
+<tr>
+<td>Admin API</td>
+<td>可以使用</td>
+<td>不是它的主要能力</td>
+</tr>
+<tr>
+<td>Webhook</td>
+<td>可以</td>
+<td>不是主要用途</td>
+</tr>
+<tr>
+<td>OAuth</td>
+<td>可以</td>
+<td>不负责</td>
+</tr>
+<tr>
+<td>React/Next.js</td>
+<td>可以</td>
+<td>通常不是核心</td>
+</tr>
+<tr>
+<td>执行方式</td>
+<td>App 自己运行</td>
+<td>Shopify 在特定时机调用</td>
+</tr>
+<tr>
+<td>典型用途</td>
+<td>商家后台、ERP、营销系统</td>
+<td>折扣、配送、支付、购物车等业务逻辑</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>4. 举个你刚才学过的“活动价”例子</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
+正常价格：$29.99
+活动价格：$19.99
+</code></pre></div>
+<p>你想做一个“Summer Sale App”。</p>
+<h4>App 负责什么？</h4>
+<p>App 可以让商家看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌─────────────────────────┐
+│ Summer Sale             │
+│                         │
+│ 活动名称：Summer Sale   │
+│ 开始时间：9/1           │
+│ 结束时间：9/30          │
+│                         │
+│ 商品：                  │
+│ ☑ T-Shirt               │
+│ ☑ Hoodie                │
+│ ☑ Jeans                 │
+│                         │
+│ 活动价：$19.99          │
+│                         │
+│ [保存活动]              │
+└─────────────────────────┘
+</code></pre></div>
+<p>这就是 <strong>App</strong>。</p>
+<hr>
+<h4>Function 负责什么？</h4>
+<p>当用户真正购物：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户加入 T-Shirt
+        ↓
+Cart
+        ↓
+Shopify Discount Function
+        ↓
+判断 T-Shirt 是否符合活动
+        ↓
+计算折扣
+        ↓
+$29.99 → $19.99
+        ↓
+Checkout
+</code></pre></div>
+<p>这就是 <strong>Function</strong>。</p>
+<hr>
+<h2>5. 所以它们经常一起出现</h2>
+<p>一个完整的营销 App 可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 Shopify App
+                     │
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+     Admin UI      Database    Shopify API
+        │            │            │
+        └────────────┼────────────┘
+                     ↓
+              创建活动配置
+                     │
+                     ↓
+              Discount Function
+                     │
+                     ↓
+              Shopify Cart
+                     │
+                     ↓
+                 Checkout
+</code></pre></div>
+<p>这才是比较完整的架构。</p>
+<hr>
+<h2>6. 一个特别重要的概念</h2>
+<p>你可以这样理解：</p>
+<h4>App 是“我要做什么”</h4>
+<p>例如：</p>
+<blockquote>
+<p>我要做一个营销活动管理系统。</p>
+</blockquote>
+<h4>Function 是“Shopify 在某个业务节点帮我执行什么规则”</h4>
+<p>例如：</p>
+<blockquote>
+<p>当用户结账时，如果这个商品属于活动商品，就给它计算折扣。</p>
+</blockquote>
+<hr>
+<h3>7. 再和 Theme 放在一起</h3>
+<p>你现在正在学 Shopify，所以这三个最好一次性建立概念：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 Shopify
+                    │
+       ┌────────────┼────────────┐
+       ↓            ↓            ↓
+     Theme          App       Function
+       │            │            │
+       ↓            ↓            ↓
+     前台 UI      商家能力      业务规则
+       │            │            │
+       ↓            ↓            ↓
+   Product Page   Admin UI    Discount
+   Collection     ERP        Delivery
+   Cart Drawer    CRM        Payment
+   Search         Webhook    Cart Logic
+</code></pre></div>
+<p>可以粗暴记忆成：</p>
+<blockquote>
+<p><strong>Theme = 前台</strong></p>
+<p><strong>App = 应用</strong></p>
+<p><strong>Function = Shopify 业务规则引擎里的自定义逻辑</strong></p>
+</blockquote>
+<hr>
+<h4>对你来说，下一步应该怎么学</h4>
+<p>按照我们之前的路线，我建议你<strong>先不要深入 Function</strong>。</p>
+<p>你现在更应该把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+ ↓
+Liquid
+ ↓
+Collection
+ ↓
+Product
+ ↓
+Cart
+ ↓
+Search
+ ↓
+Shopify Data Model
+</code></pre></div>
+<p>打牢。</p>
+<p>之后进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify App
+ ↓
+OAuth
+ ↓
+Admin GraphQL API
+ ↓
+Webhook
+ ↓
+App Bridge
+ ↓
+Polaris
+ ↓
+Function
+</code></pre></div>
+<p>这样你以后看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App
+App Extension
+Function
+Theme Extension
+Checkout Extension
+Admin Extension
+</code></pre></div>
+<p>就不会混在一起了。</p>
+</div></section>
+<h2 class="dialogue-followup-title">接下来的 Theme 与数据模型路线</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T22:07:00+08:00">09-19 22:07</time></div><p>接下来我们重点先：theme 深入和shopify数据模型吧</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:07:00+08:00">09-19 22:07</time></div>
+<p>好，我们接下来就把路线收窄到两条主线：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                Shopify 深入学习
+                       │
+            ┌──────────┴──────────┐
+            ↓                     ↓
+      ① Theme 深入          ② Shopify 数据模型
+            │                     │
+     前台页面怎么做          Shopify 数据怎么组织
+            │                     │
+     Liquid / JS / API        Product / Variant
+            │                 Collection / Customer
+     Collection / Product     Order / Inventory
+     Search / Cart            Metafield / Metaobject
+            │                 Market / Discount
+            └──────────┬──────────┘
+                       ↓
+                真正理解 Shopify
+</code></pre></div>
+<p>而且这两条线<strong>不是独立的</strong>：</p>
+<blockquote>
+<p><strong>Theme 是“怎么把 Shopify 的数据展示出来、操作起来”，数据模型是“这些数据到底是什么、彼此怎么关联”。</strong></p>
+</blockquote>
+<hr>
+<h2>一、我们接下来的课程路线</h2>
+<h3>第一阶段：Theme 深入</h3>
+<p>我们从你之前已经学过的 Product / Cart 往前扩展。</p>
+<h4>第 13 课：Collection 页面</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+   ↓
+Product Grid
+   ↓
+Product Card
+   ↓
+Pagination
+   ↓
+Sort
+   ↓
+Filter
+</code></pre></div>
+<p>重点学习：</p>
+<ul>
+<li><code>collection</code></li>
+<li><code>collection.products</code></li>
+<li>Product Card</li>
+<li>Collection URL</li>
+<li>Pagination</li>
+<li>Sort</li>
+<li>Filter</li>
+<li>Collection 商品数量</li>
+<li>Empty State</li>
+</ul>
+<hr>
+<h4>第 14 课：Product Media</h4>
+<p>把之前的 Product 页面继续深入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+  │
+  ├── Featured Image
+  ├── Images
+  ├── Media
+  │    ├── Image
+  │    ├── Video
+  │    ├── External Video
+  │    └── Model
+  │
+  └── Variant
+</code></pre></div>
+<p>重点理解：</p>
+<blockquote>
+<p><strong>Product Image 和 Product Media 到底有什么区别？</strong></p>
+</blockquote>
+<p>以及：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+   ↓
+Variant Image
+   ↓
+用户切换 Variant
+   ↓
+Gallery 自动切换
+</code></pre></div>
+<p>这部分非常接近真实 Shopify 主题开发。</p>
+<hr>
+<h4>第 15 课：Search</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户输入关键词
+       ↓
+/search?q=shirt
+       ↓
+Shopify Search
+       ↓
+search.results
+       ↓
+Product / Page / Article ...
+</code></pre></div>
+<p>学习：</p>
+<ul>
+<li>Search Template</li>
+<li><code>search</code></li>
+<li><code>search.results</code></li>
+<li><code>search.performed</code></li>
+<li><code>search.terms</code></li>
+<li>搜索结果类型</li>
+<li>搜索分页</li>
+</ul>
+<hr>
+<h4>第 16 课：Predictive Search</h4>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户输入：
+
+shi
+ ↓
+Shopify
+ ↓
+预测搜索
+ ↓
+Products
+Collections
+Queries
+Pages
+ ↓
+下拉建议
+</code></pre></div>
+<p>这会涉及：</p>
+<p><strong>Liquid + JavaScript + Ajax API</strong></p>
+<hr>
+<h4>第 17 课：Collection Filtering</h4>
+<p>这个非常重要。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">              Collection
+                  │
+       ┌──────────┼──────────┐
+       ↓          ↓          ↓
+      Brand      Size       Price
+       │          │          │
+     Nike       M/L/XL     $0-$50
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户选择 Filter
+       ↓
+URL 改变
+       ↓
+Shopify 返回过滤后的商品
+       ↓
+Product Grid 更新
+</code></pre></div>
+<p>这里会开始接触 Shopify 的 <strong>facets/filtering</strong> 思维。</p>
+<hr>
+<h4>第 18 课：Pagination / URL / Sort</h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/products?page=2
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=price-ascending
+</code></pre></div>
+<p>理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+页面
+</code></pre></div>
+<p>以及为什么 Shopify Theme 很多功能是 <strong>URL 驱动的</strong>。</p>
+<hr>
+<h4>第 19 课：SEO</h4>
+<p>重点：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">&lt;title&gt;
+&lt;meta description&gt;
+canonical
+structured data
+Open Graph
+image alt
+heading hierarchy
+</code></pre></div>
+<p>同时理解：</p>
+<blockquote>
+<p>为什么 Shopify Theme 的 SEO 很多是在 Liquid 层完成的。</p>
+</blockquote>
+<hr>
+<h4>第 20 课：Theme Performance</h4>
+<p>重点：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid Rendering
+       ↓
+HTML
+       ↓
+CSS
+       ↓
+JavaScript
+       ↓
+Images
+       ↓
+Browser Performance
+</code></pre></div>
+<p>学习：</p>
+<ul>
+<li>图片优化</li>
+<li>lazy loading</li>
+<li>JS 加载</li>
+<li>CSS</li>
+<li>Liquid 性能</li>
+<li>Section 数量</li>
+<li>第三方脚本</li>
+<li>Core Web Vitals</li>
+</ul>
+<hr>
+<h2>二、第二条线：Shopify 数据模型</h2>
+<p>这一条线我建议和 Theme 穿插着学。</p>
+<p>我们不会一上来背一堆 API。</p>
+<p>而是先建立：</p>
+<blockquote>
+<p><strong>“Shopify 到底有哪些核心对象？”</strong></p>
+</blockquote>
+<hr>
+<h3>第 1 个核心模型：Product</h3>
+<p>你已经知道一点 Product 了。</p>
+<p>但我们接下来会把它彻底搞清楚：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── title
+├── description
+├── vendor
+├── product_type
+├── tags
+├── status
+├── media
+│
+├── variants
+│
+├── collections
+│
+├── metafields
+│
+└── metaobjects
+</code></pre></div>
+<hr>
+<h2>三、然后重点搞懂 Variant</h2>
+<p>这是 Shopify 最重要的概念之一。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ├── Option: Color
+   │       ├── Black
+   │       └── White
+   │
+   ├── Option: Size
+   │       ├── S
+   │       ├── M
+   │       └── L
+   │
+   └── Variants
+          ├── Black / S
+          ├── Black / M
+          ├── Black / L
+          ├── White / S
+          ├── White / M
+          └── White / L
+</code></pre></div>
+<p>然后我们继续往下：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+   ↓
+Inventory Item
+   ↓
+Inventory Level
+   ↓
+Location
+</code></pre></div>
+<p>这时候你就真正理解 Shopify 库存了。</p>
+<hr>
+<h2>四、然后是 Collection</h2>
+<p>理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Collection
+</code></pre></div>
+<p>但是 Collection 不是 Product 的父级。</p>
+<p>更准确地说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">             Product A
+              ↙     ↘
+             ↓       ↓
+        Collection A  Collection B
+</code></pre></div>
+<p>一个 Product 可以属于多个 Collection。</p>
+<p>然后继续理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+ ↓
+Products
+ ↓
+Product Grid
+ ↓
+Filter
+ ↓
+Pagination
+</code></pre></div>
+<p>这就刚好和 Theme 第 13～18 课连接起来。</p>
+<hr>
+<h2>五、然后进入 Customer</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+│
+├── name
+├── email
+├── phone
+├── addresses
+│
+├── orders
+│
+└── metafields
+</code></pre></div>
+<p>然后我们会讨论：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+</code></pre></div>
+<p>这里会开始真正理解 Shopify 的购买生命周期。</p>
+<hr>
+<h2>六、Order 是第二个重点</h2>
+<p>我们会重点搞清：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+│
+├── Customer
+│
+├── Line Items
+│
+├── Shipping Address
+│
+├── Billing Address
+│
+├── Transactions
+│
+├── Fulfillment
+│
+└── Metafields
+</code></pre></div>
+<p>尤其是：</p>
+<blockquote>
+<p><strong>Order ≠ Cart</strong></p>
+</blockquote>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户准备买
+    ↓
+Cart
+    ↓
+Checkout
+    ↓
+支付
+    ↓
+Order
+</code></pre></div>
+<p>这条链你一定要形成肌肉记忆。</p>
+<hr>
+<h2>七、Inventory</h2>
+<p>然后我们会专门花一课讲：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Inventory Item
+   ↓
+Inventory Level
+   ↓
+Location
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
+   ↓
+Black / M
+   ↓
+Inventory Item #123
+   ↓
+     ┌──────────────┐
+     ↓              ↓
+California       New York
+   20               8
+</code></pre></div>
+<p>这样你以后看到：</p>
+<blockquote>
+<p>“这个商品还有多少库存？”</p>
+</blockquote>
+<p>就不会简单理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">variant.inventory_quantity
+</code></pre></div>
+<p>而是能理解 Shopify 背后的库存模型。</p>
+<hr>
+<h2>八、Metafield + Metaobject</h2>
+<p>这个我们会继续深入。</p>
+<h4>Metafield</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ├── title
+   ├── price
+   ├── variants
+   │
+   └── metafields
+          ├── material
+          ├── size_guide
+          ├── care_instruction
+          └── custom_badge
+</code></pre></div>
+<hr>
+<h4>Metaobject</h4>
+<p>如果业务复杂，就会变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Metafield
+   ↓
+Metaobject Reference
+   ↓
+Size Guide
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Size Guide
+├── title
+├── description
+├── image
+└── size_chart
+</code></pre></div>
+<p>这部分以后会直接连接到：</p>
+<p><strong>Theme + App + Function</strong></p>
+<hr>
+<h2>九、最后我们建立完整 Shopify 数据关系图</h2>
+<p>学完这条线之后，你应该能看到这样的结构：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                         Shopify
+                            │
+       ┌────────────────────┼────────────────────┐
+       ↓                    ↓                    ↓
+    Product              Customer             Collection
+       │                    │                    │
+       ↓                    ↓                    ↓
+    Variant              Cart / Order       Products
+       │
+       ↓
+ Inventory Item
+       │
+       ↓
+ Inventory Level
+       │
+       ↓
+    Location
+
+
+Product
+   │
+   ├── Metafield
+   │      ↓
+   │   Metaobject
+   │
+   └── Media
+
+
+Customer
+   ↓
+Order
+   ├── Line Items
+   ├── Transaction
+   └── Fulfillment
+</code></pre></div>
+<p>这张图以后会成为我们整个 Shopify 学习的<strong>核心地图</strong>。</p>
+<hr>
+<h2>十、两条线最终会合并</h2>
+<p>真正的 Shopify Theme 开发不是单纯写 Liquid。</p>
+<p>最终是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">              Shopify Data Model
+                     │
+                     ↓
+        ┌────────────────────────┐
+        │                        │
+        ↓                        ↓
+      Liquid                   JavaScript
+        │                        │
+        ↓                        ↓
+      HTML                    Browser
+        │                        │
+        └───────────┬────────────┘
+                    ↓
+               Storefront
+</code></pre></div>
+<p>例如一个商品页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ├── Variant
+   ├── Media
+   ├── Metafield
+   └── Collection
+         ↓
+      Liquid
+         ↓
+    Product Page
+         ↓
+       JavaScript
+         ↓
+ Variant Selection
+         ↓
+       Cart API
+         ↓
+        Cart
+</code></pre></div>
+<p>这时候你就不再是：</p>
+<blockquote>
+<p>“我会一点 Shopify Liquid。”</p>
+</blockquote>
+<p>而是开始进入：</p>
+<blockquote>
+<p><strong>“我理解 Shopify Storefront 的完整运行方式。”</strong></p>
+</blockquote>
+<hr>
+<h3>我建议我们的新学习顺序</h3>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">【Theme 深入】
+13 Collection
+14 Product Media
+15 Search
+16 Predictive Search
+17 Filtering
+18 Pagination / Sort / URL
+19 SEO
+20 Performance
+
+          ↓
+
+【数据模型】
+21 Product / Variant 深入
+22 Collection
+23 Inventory / Location
+24 Customer
+25 Cart / Checkout / Order
+26 Fulfillment / Transaction
+27 Metafield
+28 Metaobject
+29 Discount / Market
+
+          ↓
+
+【重新回到 Theme】
+30 用完整数据模型做一个完整 Shopify Theme
+</code></pre></div>
+<p><strong>下一课就从第 13 课 Collection 开始。</strong></p>
+<p>而且这一轮我会比之前更深入一些：不仅讲 Liquid API，还会从 <strong>“Shopify 数据 → Liquid → HTML → URL → JavaScript”</strong> 整条链来讲，这样更符合你前端开发的思维方式。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/learning-path.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

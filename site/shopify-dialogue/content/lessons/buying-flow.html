@@ -1,0 +1,1376 @@
+<h1>购买链路 · 立即购买、加购、Cart Drawer 与 Checkout</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T20:19:00+08:00">09-19 20:19</time></div><p>Ok，我明白了。现在我想知道shopify立即购买和加购、购物车弹窗、结算相关知识</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T20:19:00+08:00">09-19 20:19</time></div>
+<p>可以。这个部分非常重要，因为它正好把我们前面学的 <strong>Product → Variant → Cart → Checkout → Order</strong> 串起来。</p>
+<figure class="dialogue-figure"><img src="assets/checkout.jpg" alt="打开的快递盒内有折好的 T 恤，旁边的手机显示订单已确认的勾号。" decoding="async" width="506" height="506"><figcaption>示意配图 · 购物车保存待购买商品，结算处理订单确认所需的信息。</figcaption></figure>
+
+<p>你可以把 Shopify 的购买链路先记成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品详情页
+   ↓
+选择 Variant
+   ↓
+┌───────────────┬────────────────┐
+│ 加入购物车     │ 立即购买        │
+│ Add to Cart   │ Buy It Now     │
+└───────┬───────┴───────┬────────┘
+        ↓               ↓
+      Cart          Checkout
+        ↓               ↓
+   Cart Drawer       支付/地址
+        ↓               ↓
+     Checkout          ↓
+        └──────→ Order
+</code></pre></div>
+<p>其中最容易混淆的是：</p>
+<blockquote>
+<p><strong>“加入购物车”不是“立即购买”的前一步，“立即购买”通常是绕过购物车页面/购物车抽屉，直接进入 Checkout。</strong></p>
+</blockquote>
+<hr>
+<h2>一、先理解 4 个核心概念</h2>
+<p>作为前端开发，你可以先这样理解：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>Shopify</th>
+<th>类比前端</th>
+</tr>
+</thead><tbody><tr>
+<td>Product</td>
+<td>商品模型</td>
+</tr>
+<tr>
+<td>Variant</td>
+<td>真正可购买的 SKU</td>
+</tr>
+<tr>
+<td>Cart</td>
+<td>前端购物车状态 + Shopify 服务端购物车</td>
+</tr>
+<tr>
+<td>Checkout</td>
+<td>订单结算流程</td>
+</tr>
+<tr>
+<td>Order</td>
+<td>最终生成的订单</td>
+</tr>
+<tr>
+<td>Cart Drawer</td>
+<td>Shopping Cart Modal / Drawer</td>
+</tr>
+</tbody></table></div>
+<p>最重要的一条：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Classic T-Shirt
+
+Variant
+Black / M
+Variant ID = 123456
+
+        ↓ Add to Cart
+
+Cart
+{
+  items: [
+    {
+      variant_id: 123456,
+      quantity: 1
+    }
+  ]
+}
+
+        ↓ Checkout
+
+Checkout
+地址
+配送
+支付
+
+        ↓
+
+Order
+订单正式创建
+</code></pre></div>
+<hr>
+<h2>二、什么是「加入购物车」？</h2>
+<p>最简单理解：</p>
+<blockquote>
+<p><strong>Add to Cart = 把某个 Variant 放进当前 Cart。</strong></p>
+</blockquote>
+<p>比如用户在商品页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Classic T-Shirt
+
+Color:
+○ Black
+● White
+
+Size:
+○ S
+● M
+○ L
+
+$29.99
+
+[ Add to Cart ]
+[ Buy It Now ]
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">White
+M
+</code></pre></div>
+<p>前端首先需要找到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">White / M
+↓
+Variant ID
+↓
+123456789
+</code></pre></div>
+<p>然后调用 Shopify 的 Cart API。</p>
+<p>概念上类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/add.js&#39;, {
+  method: &#39;POST&#39;,
+  headers: {
+    &#39;Content-Type&#39;: &#39;application/json&#39;
+  },
+  body: JSON.stringify({
+    items: [
+      {
+        id: 123456789,
+        quantity: 1
+      }
+    ]
+  })
+})
+</code></pre></div>
+<p>这里最关键的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">id: 123456789
+</code></pre></div>
+<p>这个不是 Product ID。</p>
+<p>而是：</p>
+<blockquote>
+<p><strong>Variant ID</strong></p>
+</blockquote>
+<p>这也是为什么我们前面一直强调：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product ≠ Variant
+</code></pre></div>
+<p>真正加入购物车的是 <strong>Variant</strong>。</p>
+<hr>
+<h2>三、加入购物车之后发生什么？</h2>
+<p>假设原来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+空
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>Shopify Cart 变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+├── White / M
+│   quantity: 1
+│   price: $29.99
+</code></pre></div>
+<p>如果继续购买：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / L
+quantity: 2
+</code></pre></div>
+<p>那么：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+├── White / M × 1
+├── Black / L × 2
+</code></pre></div>
+<p>然后前端可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">更新 Cart Drawer
+更新购物车数量
+更新 subtotal
+</code></pre></div>
+<hr>
+<h2>四、什么是购物车弹窗 Cart Drawer？</h2>
+<p>这个你作为前端开发应该非常熟悉。</p>
+<p>它本质上就是：</p>
+<blockquote>
+<p><strong>一个侧边弹出的购物车 UI。</strong></p>
+</blockquote>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                         ┌─────────────────────┐
+                         │ Your Cart       ×   │
+                         │                     │
+                         │ 👕 T-Shirt          │
+                         │ White / M            │
+                         │ $29.99   [- 1 +]    │
+                         │                     │
+                         │ 👖 Jeans             │
+                         │ Black / 32           │
+                         │ $59.99   [- 2 +]    │
+                         │                     │
+                         │─────────────────────│
+                         │ Subtotal   $149.97  │
+                         │                     │
+                         │ [ View Cart ]       │
+                         │ [ Checkout ]        │
+                         └─────────────────────┘
+</code></pre></div>
+<p>React 开发者可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">&lt;CartDrawer open={cartDrawerOpen}&gt;
+    &lt;CartItems /&gt;
+    &lt;CartSubtotal /&gt;
+    &lt;CheckoutButton /&gt;
+&lt;/CartDrawer&gt;
+</code></pre></div>
+<p>但是 Shopify Theme 里通常不是 React。</p>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
++
+HTML
++
+CSS
++
+JavaScript
++
+Cart API
+</code></pre></div>
+<hr>
+<h2>五、Shopify Cart Drawer 的完整流程</h2>
+<p>这是你以后写 Shopify Theme 时非常重要的一条链路。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户点击 Add to Cart
+        ↓
+获取 Variant ID
+        ↓
+JavaScript
+        ↓
+POST /cart/add.js
+        ↓
+Shopify Cart
+        ↓
+返回 Cart 数据
+        ↓
+更新 Cart Drawer
+        ↓
+Drawer 打开
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">async function addToCart(variantId) {
+  const response = await fetch(&#39;/cart/add.js&#39;, {
+    method: &#39;POST&#39;,
+    headers: {
+      &#39;Content-Type&#39;: &#39;application/json&#39;
+    },
+    body: JSON.stringify({
+      items: [
+        {
+          id: variantId,
+          quantity: 1
+        }
+      ]
+    })
+  });
+
+  const data = await response.json();
+
+  console.log(data);
+
+  openCartDrawer();
+}
+</code></pre></div>
+<p>你可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React：
+
+setCart(...)
+setCartDrawerOpen(true)
+
+Shopify：
+
+fetch(&#39;/cart/add.js&#39;)
+       ↓
+Shopify Cart
+       ↓
+更新 DOM
+       ↓
+打开 Drawer
+</code></pre></div>
+<hr>
+<h2>六、「加入购物车」和「立即购买」到底有什么区别？</h2>
+<p>这是重点。</p>
+<h3>Add to Cart</h3>
+<p>用户：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">选择商品
+   ↓
+Add to Cart
+   ↓
+Cart
+   ↓
+继续购物 / 查看购物车
+   ↓
+Checkout
+</code></pre></div>
+<p>特点：</p>
+<blockquote>
+<p><strong>允许用户把多个商品放进购物车。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
++
+Jeans
++
+Shoes
++
+Hat
+</code></pre></div>
+<p>最后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+├── T-Shirt × 1
+├── Jeans × 1
+├── Shoes × 1
+└── Hat × 1
+</code></pre></div>
+<p>然后统一 Checkout。</p>
+<hr>
+<h2>七、Buy It Now / 立即购买</h2>
+<p>立即购买的核心思想是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">选择 Variant
+      ↓
+Buy It Now
+      ↓
+Checkout
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Checkout
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+</code></pre></div>
+<p>所以从用户体验上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+
+商品
+ ↓
+购物车
+ ↓
+继续购物
+ ↓
+Checkout
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Buy It Now
+
+商品
+ ↓
+Checkout
+</code></pre></div>
+<hr>
+<h2>八、为什么 Shopify 有时候“立即购买”看起来又不一样？</h2>
+<p>这里需要注意一个非常重要的 Shopify 概念：</p>
+<blockquote>
+<p><strong>动态结账按钮 / Dynamic Checkout Button</strong></p>
+</blockquote>
+<p>例如商品页可能出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">[ Add to Cart ]
+
+[ Buy it now ]
+</code></pre></div>
+<p>这个按钮并不一定是你自己写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;button&gt;
+  Buy it now
+&lt;/button&gt;
+</code></pre></div>
+<p>Shopify Theme 可以使用 Shopify 提供的动态结账按钮机制。</p>
+<p>它会根据：</p>
+<ul>
+<li>商品</li>
+<li>商店配置</li>
+<li>支付方式</li>
+<li>用户环境</li>
+<li>可用的 accelerated checkout</li>
+</ul>
+<p>决定具体显示什么。</p>
+<p>例如可能出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Buy it now
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shop Pay
+</code></pre></div>
+<p>以及其他支持的 accelerated checkout 方式。</p>
+<p>所以你以后开发 Shopify 商品页时，要区分：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">普通 Add to Cart
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Dynamic / Accelerated Checkout
+</code></pre></div>
+<p>这两个概念。</p>
+<hr>
+<h2>九、Cart Page 和 Cart Drawer 有什么区别？</h2>
+<p>这个也很重要。</p>
+<p>Shopify 通常可以有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Page
+</code></pre></div>
+<hr>
+<h3>Cart Drawer</h3>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击 Add to Cart
+
+       ↓
+
+右侧弹出
+
+┌─────────────────┐
+│ Your Cart       │
+│                 │
+│ T-Shirt × 1     │
+│ $29.99          │
+│                 │
+│ Subtotal        │
+│ $29.99          │
+│                 │
+│ [Checkout]      │
+└─────────────────┘
+</code></pre></div>
+<p>用户可以继续购物。</p>
+<hr>
+<h3>Cart Page</h3>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">View Cart
+</code></pre></div>
+<p>进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/cart
+</code></pre></div>
+<p>页面可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopping Cart
+
+T-Shirt
+White / M
+[-] 1 [+]
+
+$29.99
+
+Jeans
+Black / 32
+[-] 1 [+]
+
+$59.99
+
+----------------
+
+Subtotal: $89.98
+
+[ Checkout ]
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer
+</code></pre></div>
+<p>更像：</p>
+<blockquote>
+<p>快速购物车 UI</p>
+</blockquote>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Page
+</code></pre></div>
+<p>是：</p>
+<blockquote>
+<p>完整购物车页面</p>
+</blockquote>
+<hr>
+<h2>十、Checkout 是什么？</h2>
+<p>Checkout 是：</p>
+<blockquote>
+<p><strong>用户真正完成购买的结算流程。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+ ↓
+Checkout
+ ↓
+Contact information
+ ↓
+Shipping address
+ ↓
+Shipping method
+ ↓
+Payment
+ ↓
+Order
+</code></pre></div>
+<p>用户可能需要填写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Email
+Name
+Address
+City
+State
+ZIP
+Phone
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shipping
+</code></pre></div>
+<p>选择配送方式：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Standard
+$5
+
+Express
+$15
+</code></pre></div>
+<p>最后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Payment
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Credit Card
+Shop Pay
+PayPal
+Apple Pay
+Google Pay
+...
+</code></pre></div>
+<p>具体可用方式取决于商店配置、地区和条件。</p>
+<hr>
+<h2>十一、Checkout 和 Order 不是一回事</h2>
+<p>这个非常容易混淆。</p>
+<h4>Cart</h4>
+<p>用户：</p>
+<blockquote>
+<p>我准备买这些东西。</p>
+</blockquote>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+T-Shirt × 1
+Jeans × 1
+</code></pre></div>
+<h4>Checkout</h4>
+<p>用户：</p>
+<blockquote>
+<p>我要结算了。</p>
+</blockquote>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+
+Address
+Shipping
+Payment
+</code></pre></div>
+<h4>Order</h4>
+<p>用户：</p>
+<blockquote>
+<p>已经完成购买。</p>
+</blockquote>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order #1001
+
+T-Shirt × 1
+Jeans × 1
+
+Paid
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+ ↓
+Checkout
+ ↓
+Order
+</code></pre></div>
+<p>这是非常重要的数据生命周期。</p>
+<hr>
+<h2>十二、从前端角度看整个购物流程</h2>
+<p>现在把它换成你熟悉的前端语言。</p>
+<p>假设我们是 React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Page
+      ↓
+useState
+      ↓
+selectedVariant
+      ↓
+Add to Cart
+      ↓
+API Request
+      ↓
+Cart State
+      ↓
+Cart Drawer
+      ↓
+Checkout
+</code></pre></div>
+<p>Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Liquid
+      ↓
+product.variants
+      ↓
+JavaScript
+      ↓
+Variant ID
+      ↓
+Cart API
+      ↓
+Cart
+      ↓
+Cart Drawer
+      ↓
+Checkout
+</code></pre></div>
+<hr>
+<h2>十三、一个真实的商品页应该怎么实现？</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product: Nike T-Shirt
+
+Color:
+Black / White
+
+Size:
+S / M / L
+
+Price:
+$39.99
+
+[ Add to Cart ]
+[ Buy It Now ]
+</code></pre></div>
+<p>第一步：</p>
+<h4>Liquid 渲染 Variant</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for variant in product.variants %}
+  &lt;option value=&quot;{{ variant.id }}&quot;&gt;
+    {{ variant.title }}
+  &lt;/option&gt;
+{% endfor %}
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;option value=&quot;101&quot;&gt;
+  Black / S
+&lt;/option&gt;
+
+&lt;option value=&quot;102&quot;&gt;
+  Black / M
+&lt;/option&gt;
+
+&lt;option value=&quot;103&quot;&gt;
+  Black / L
+&lt;/option&gt;
+</code></pre></div>
+<hr>
+<p>第二步：</p>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black
+M
+</code></pre></div>
+<p>JS 找到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID = 102
+</code></pre></div>
+<hr>
+<p>第三步：</p>
+<p>点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>JS：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/add.js&#39;, {
+  method: &#39;POST&#39;,
+  headers: {
+    &#39;Content-Type&#39;: &#39;application/json&#39;
+  },
+  body: JSON.stringify({
+    items: [
+      {
+        id: 102,
+        quantity: 1
+      }
+    ]
+  })
+});
+</code></pre></div>
+<hr>
+<p>第四步：</p>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+
+Black / M × 1
+$39.99
+</code></pre></div>
+<hr>
+<p>第五步：</p>
+<p>前端打开：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer
+</code></pre></div>
+<hr>
+<p>第六步：</p>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+</code></pre></div>
+<p>进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+</code></pre></div>
+<hr>
+<p>第七步：</p>
+<p>完成支付。</p>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order
+</code></pre></div>
+<hr>
+<h2>十四、那么「立即购买」前端应该怎么理解？</h2>
+<p>你可以先不要把它理解得太复杂。</p>
+<p>核心是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+
+POST /cart/add.js
+        ↓
+Cart
+        ↓
+Cart Drawer
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Buy It Now
+
+当前 Variant
+        ↓
+Accelerated Checkout / Checkout
+</code></pre></div>
+<p>所以 UI 上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌──────────────────────────────┐
+│        Product Page          │
+│                              │
+│ Color: Black                 │
+│ Size: M                      │
+│                              │
+│ $39.99                       │
+│                              │
+│ [ Add to Cart ]              │
+│                              │
+│ [ Buy it now ]               │
+│                              │
+└──────────────────────────────┘
+</code></pre></div>
+<p>两个按钮背后的业务路径不同。</p>
+<hr>
+<h2>十五、一个很重要的坑：不要自己实现 Checkout</h2>
+<p>作为 Shopify 新手，这一点你一定要记住：</p>
+<blockquote>
+<p><strong>Theme 开发时，一般不要自己从零开发支付页面。</strong></p>
+</blockquote>
+<p>也就是说，不要想着：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React / Liquid
+
+自己做：
+姓名
+地址
+信用卡
+CVV
+支付
+</code></pre></div>
+<p>然后自己：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">POST payment
+</code></pre></div>
+<p>这不是 Shopify Theme 正常的开发方式。</p>
+<p>通常是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+ ↓
+Cart
+ ↓
+Shopify Checkout
+ ↓
+Payment
+ ↓
+Order
+</code></pre></div>
+<p>Checkout 是 Shopify Commerce 核心能力的一部分。</p>
+<p>如果业务需要定制 Checkout，现在 Shopify 主要通过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout Extensibility
+</code></pre></div>
+<p>等扩展机制进行，而不是随便修改一个 checkout HTML 页面。</p>
+<hr>
+<h2>十六、你可以把 Shopify 的购物系统理解成 5 层</h2>
+<p>这是我建议你现在记住的架构。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Shopify
+                       │
+          ┌────────────┴────────────┐
+          ↓                         ↓
+      Storefront                 Checkout
+          │                         │
+          ↓                         ↓
+   Product / Variant          Address / Shipping
+          │                         │
+          ↓                         ↓
+       Cart API                  Payment
+          │                         │
+          ↓                         ↓
+     Cart Drawer                  Order
+</code></pre></div>
+<p>再从前端角度看：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌─────────────────────────────────────┐
+│           Product Page              │
+│                                     │
+│  Variant Selector                   │
+│       ↓                             │
+│  selectedVariant                    │
+│       ↓                             │
+│  ┌──────────────┐                   │
+│  │ Add to Cart  │                   │
+│  └──────┬───────┘                   │
+│         ↓                           │
+│      Cart API                       │
+│         ↓                           │
+│     Cart Drawer                     │
+│         ↓                           │
+│      Cart Page                      │
+│         ↓                           │
+│      Checkout                       │
+│         ↓                           │
+│       Payment                       │
+│         ↓                           │
+│        Order                        │
+└─────────────────────────────────────┘
+</code></pre></div>
+<hr>
+<h2>十七、你现在最应该掌握的 API</h2>
+<p>接下来学习 Shopify 前端购物流程，我建议重点掌握：</p>
+<h4>① Cart API</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/cart/add.js
+/cart/change.js
+/cart/update.js
+/cart.js
+</code></pre></div>
+<p>它负责：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add
+Remove
+Change quantity
+Get cart
+Update cart
+</code></pre></div>
+<hr>
+<h4>② Section Rendering API</h4>
+<p>用于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+    ↓
+Shopify 返回最新 Cart
+    ↓
+重新渲染 Cart Drawer Section
+</code></pre></div>
+<p>这个非常适合 Theme 开发。</p>
+<hr>
+<h4>③ Product Form</h4>
+<p>商品页常见：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;form action=&quot;/cart/add&quot; method=&quot;post&quot;&gt;
+</code></pre></div>
+<p>它和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/add.js&#39;)
+</code></pre></div>
+<p>属于两种不同的提交思路。</p>
+<hr>
+<h4>④ Dynamic Checkout</h4>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Buy it now
+Shop Pay
+Apple Pay
+Google Pay
+...
+</code></pre></div>
+<p>这一块后面需要单独学习。</p>
+<hr>
+<h2>十八、你现在先记住这一张图</h2>
+<p>如果你以后面试 Shopify 前端，或者真正开始开发 Theme，这张图非常重要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                  Product
+                     │
+                     ↓
+                  Variant
+                     │
+          ┌──────────┴──────────┐
+          ↓                     ↓
+     Add to Cart            Buy It Now
+          │                     │
+          ↓                     ↓
+      Cart API            Accelerated
+          │                Checkout
+          ↓                     │
+     Cart Drawer                 │
+          │                     │
+          ↓                     ↓
+      Cart Page             Checkout
+          │                     │
+          └──────────┬──────────┘
+                     ↓
+                  Payment
+                     ↓
+                   Order
+</code></pre></div>
+<p><strong>一句话总结：</strong></p>
+<blockquote>
+<p><strong>Add to Cart 是“把 Variant 放进 Cart”；Cart Drawer 是 Cart 的前端展示层；Buy It Now 是从当前购买意图快速进入 Checkout；Checkout 负责地址、配送、支付等结算流程；完成后才形成 Order。</strong></p>
+</blockquote>
+<p>下一步最适合直接进入 <strong>「Lesson 7：Shopify Variant Selector + Add to Cart 实战」</strong>：我们可以从一个真实商品页开始，手写 <code>product.variants</code> → 颜色/尺码选择 → 自动匹配 Variant → 动态更新价格/图片 → Add to Cart → Cart Drawer → Checkout。这样你会真正把这一整套购物链路写出来。</p>
+</div></section>
+<h2 class="dialogue-followup-title">加购、Cart Drawer 和 Checkout 的分工</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T20:26:00+08:00">09-19 20:26</time></div><p>1.加购除了直接调用加购api，shopify也提供了现成的表单是吧？ 2.购物车弹窗一般自己写吗（需要通过手动调用更新购物车和查询购物车api还是shopify提供了现成的ui？） 3.结算功能一般也不需要自己写（手动调结算api），而且shopify已经做好了？</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T20:26:00+08:00">09-19 20:26</time></div>
+<p>对，你这三个理解<strong>基本正确</strong>。不过有几个关键细节需要纠正一下。你可以把 Shopify 购物体系理解成：</p>
+<blockquote>
+<p><strong>Shopify 提供“底层能力 + 标准组件/机制”，Theme 开发者主要负责“UI 和交互体验”。</strong></p>
+</blockquote>
+<p>我分别回答。</p>
+<hr>
+<h3>1. 加购：除了 Ajax API，Shopify 确实提供现成的 Product Form</h3>
+<p><strong>是的。</strong></p>
+<p>Shopify Theme 官方就提供了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% form &#39;product&#39;, product %}
+  ...
+  &lt;input type=&quot;submit&quot; value=&quot;Add to cart&quot;&gt;
+{% endform %}
+</code></pre></div>
+<p>这个 <code>product</code> form 是 Shopify 推荐的商品加购基础方式，它里面可以放：</p>
+<ul>
+<li>Variant selector</li>
+<li>Quantity</li>
+<li>Line item properties</li>
+<li>Add to Cart</li>
+<li>Accelerated checkout button</li>
+</ul>
+<p>官方文档也明确把 Product Form 定义为商品 Variant 加入购物车的主要方式。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/product/overview?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="product" aria-label="product">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% form &#39;product&#39;, product %}
+
+  &lt;select name=&quot;id&quot;&gt;
+    {% for variant in product.variants %}
+      &lt;option value=&quot;{{ variant.id }}&quot;&gt;
+        {{ variant.title }}
+      &lt;/option&gt;
+    {% endfor %}
+  &lt;/select&gt;
+
+  &lt;input
+    type=&quot;number&quot;
+    name=&quot;quantity&quot;
+    value=&quot;1&quot;
+  &gt;
+
+  &lt;button type=&quot;submit&quot;&gt;
+    Add to Cart
+  &lt;/button&gt;
+
+{% endform %}
+</code></pre></div>
+<p>这里你可以注意：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;select name=&quot;id&quot;&gt;
+</code></pre></div>
+<p>选择的是：</p>
+<blockquote>
+<p><strong>Variant ID</strong></p>
+</blockquote>
+<p>提交这个 Form，就可以完成商品加入 Cart。</p>
+<h4>那 Ajax API 是干嘛的？</h4>
+<p>如果你希望：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击 Add to Cart
+       ↓
+页面不刷新
+       ↓
+购物车数量更新
+       ↓
+Cart Drawer 打开
+</code></pre></div>
+<p>那么通常会使用 Ajax Cart API。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/add.js&#39;, {
+  method: &#39;POST&#39;,
+  ...
+})
+</code></pre></div>
+<p>Shopify 官方 Ajax Cart API 就是专门提供：</p>
+<ul>
+<li>add</li>
+<li>change</li>
+<li>update</li>
+<li>clear</li>
+</ul>
+<p>等 Cart 操作的。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="About the Shopify Ajax API" aria-label="About the Shopify Ajax API">Shopify</a><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>所以可以这样理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 加购
+                  │
+        ┌─────────┴─────────┐
+        ↓                   ↓
+ Product Form           Ajax Cart API
+        │                   │
+   Shopify标准方式       自定义交互
+        │                   │
+   页面可能跳转          无刷新体验
+</code></pre></div>
+<h4>对你来说非常重要</h4>
+<p>你以后写 Theme，不是：</p>
+<blockquote>
+<p>“Shopify 没有加购功能，我自己开发一个。”</p>
+</blockquote>
+<p>而是：</p>
+<blockquote>
+<p><strong>Shopify 已经提供 Cart 能力，我决定采用 Form 还是 Ajax API，以及怎么做 UI。</strong></p>
+</blockquote>
+<hr>
+<h2>2. Cart Drawer：这个就和你想象的不太一样</h2>
+<p>这里是最容易产生误解的地方。</p>
+<h3>Shopify Theme 并不是给你一个“所有主题通用的 Cart Drawer UI”</h3>
+<p>也就是说，并不存在一个简单的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;ShopifyCartDrawer /&gt;
+</code></pre></div>
+<p>然后 Shopify 自动给你一个漂亮的购物车弹窗。</p>
+<p><strong>传统 Liquid Theme 开发里，Cart Drawer 通常是 Theme 自己实现的 UI。</strong></p>
+<p>比如 Dawn 这样的 Shopify Theme，本身就有自己的 Cart Drawer、Cart Items、Cart Footer 等 Theme 代码。</p>
+<p>Shopify 官方的 Theme 架构也明确说明：</p>
+<blockquote>
+<p>Theme 的功能可以通过 Liquid、CSS、JavaScript、sections、snippets 等实现。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Theme architecture" aria-label="Theme architecture">Shopify</a></span></p>
+</blockquote>
+<p>所以你通常会看到类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+    cart-drawer.liquid
+
+snippets/
+    cart-drawer-item.liquid
+
+assets/
+    cart-drawer.js
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer
+      │
+      ├── HTML/Liquid
+      ├── CSS
+      └── JavaScript
+</code></pre></div>
+<hr>
+<h2>3. 那 Cart Drawer 的数据是不是也要自己获取？</h2>
+<p><strong>对。</strong></p>
+<p>但不是说 Shopify 没有能力。</p>
+<p>而是：</p>
+<blockquote>
+<p><strong>Shopify 提供 Cart 数据 API，你的 Theme 决定怎么把这些数据展示成 Drawer。</strong></p>
+</blockquote>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击 Add to Cart
+        ↓
+POST /cart/add.js
+        ↓
+Shopify Cart 更新
+        ↓
+返回数据
+        ↓
+更新 Cart Drawer
+</code></pre></div>
+<p>你可以自己：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart.js&#39;)
+</code></pre></div>
+<p>查询 Cart。</p>
+<p>也可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/change.js&#39;)
+</code></pre></div>
+<p>修改某个 Cart Item 数量。</p>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/update.js&#39;)
+</code></pre></div>
+<p>更新 Cart。</p>
+<p>这些都是 Shopify Ajax Cart API 提供的。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>4. 但是 Shopify 现在还有一个很重要的能力：Section Rendering</h2>
+<p>这对 Theme 开发非常重要。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer
+</code></pre></div>
+<p>里面有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品
+数量
+Subtotal
+Cart 数量 Bubble
+Checkout 按钮
+</code></pre></div>
+<p>你不一定要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart.js&#39;)
+        ↓
+拿 JSON
+        ↓
+自己拼 HTML
+        ↓
+innerHTML = ...
+</code></pre></div>
+<p>Shopify 的 Ajax Cart API 支持请求相关 Sections 的渲染结果。官方文档明确支持在 Cart API 请求中传 <code>sections</code> 参数。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>例如概念上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/cart/add.js&#39;, {
+  method: &#39;POST&#39;,
+  body: ...
+})
+</code></pre></div>
+<p>同时请求：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">cart-drawer
+cart-icon-bubble
+cart-footer
+</code></pre></div>
+<p>然后 Shopify 帮你根据 Liquid：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">cart-drawer.liquid
+cart-icon-bubble.liquid
+cart-footer.liquid
+</code></pre></div>
+<p>重新渲染 HTML。</p>
+<p>于是变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JavaScript
+     ↓
+Cart API
+     ↓
+Shopify
+     ↓
+Liquid Section Render
+     ↓
+HTML
+     ↓
+替换页面 DOM
+</code></pre></div>
+<p>这个模式对于 Shopify Theme 非常重要。</p>
+<hr>
+<h2>5. 所以 Cart Drawer 到底谁负责？</h2>
+<p>可以这样记：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>部分</th>
+<th>谁负责</th>
+</tr>
+</thead><tbody><tr>
+<td>Cart 数据</td>
+<td>Shopify</td>
+</tr>
+<tr>
+<td>Add / Change / Update</td>
+<td>Shopify Cart API</td>
+</tr>
+<tr>
+<td>Cart Drawer UI</td>
+<td><strong>Theme 开发者</strong></td>
+</tr>
+<tr>
+<td>Drawer 样式</td>
+<td><strong>Theme 开发者</strong></td>
+</tr>
+<tr>
+<td>Drawer 打开/关闭</td>
+<td><strong>Theme JS</strong></td>
+</tr>
+<tr>
+<td>Cart HTML</td>
+<td>Liquid / Section</td>
+</tr>
+<tr>
+<td>Cart 数据刷新</td>
+<td>Ajax Cart API</td>
+</tr>
+<tr>
+<td>局部 HTML 更新</td>
+<td>Section Rendering API</td>
+</tr>
+</tbody></table></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Shopify 提供购物车“大脑”，Theme 开发者负责购物车“脸和交互”。</strong></p>
+</blockquote>
+<hr>
+<h2>6. 不过现在 Shopify 也有一个新的例外</h2>
+<p>目前 Shopify 还提供了 <strong>Storefront Web Components</strong>，其中有 <code>shopify-cart</code> component，可以提供 mini shopping cart 能力，并支持通过组件方法添加商品、展示 Cart，以及进行样式定制。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/storefront-web-components/components/shopify-cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="shopify-cart" aria-label="shopify-cart">Shopify</a><a href="https://shopify.dev/docs/api/storefront-web-components/common-patterns?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Common patterns" aria-label="Common patterns">Shopify</a></span></p>
+<p>但是你现在是在学习：</p>
+<blockquote>
+<p><strong>传统 Shopify Liquid Theme 开发</strong></p>
+</blockquote>
+<p>所以现阶段我建议你先把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">传统 Theme：
+
+Shopify Cart API
+       +
+Liquid
+       +
+JavaScript
+       +
+CSS
+       ↓
+自己实现 Cart Drawer
+</code></pre></div>
+<p>这个才是你以后实际维护 Theme 时最常遇到的模式。</p>
+<hr>
+<h2>7. 第三个问题：Checkout</h2>
+<p>你这个理解也是：</p>
+<blockquote>
+<p><strong>基本正确。</strong></p>
+</blockquote>
+<p>而且这里 Shopify 和普通电商系统最大的区别之一就在这里。</p>
+<p>你一般<strong>不需要自己开发支付结算系统</strong>。</p>
+<p>正常 Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+ ↓
+Checkout
+ ↓
+Payment
+ ↓
+Order
+</code></pre></div>
+<p>Shopify 已经提供 Checkout。</p>
+<p>你的 Theme 一般只需要让用户进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+</code></pre></div>
+<p>例如 Cart 页面可以通过 Shopify 提供的 Cart Form：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;form
+  action=&quot;{{ routes.cart_url }}&quot;
+  method=&quot;post&quot;
+&gt;
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;input
+  type=&quot;submit&quot;
+  name=&quot;checkout&quot;
+  value=&quot;Checkout&quot;
+&gt;
+</code></pre></div>
+<p>Shopify 官方 Cart Template 文档就是这么描述从 Cart 进入 Checkout 的。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="cart" aria-label="cart">Shopify</a></span></p>
+<hr>
+<h2>8. 所以你不需要自己做这些</h2>
+<p>一般情况下你不需要自己开发：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">❌ Checkout 页面
+❌ 信用卡支付系统
+❌ 支付状态处理
+❌ 订单创建逻辑
+❌ 支付成功后的 Order 创建
+</code></pre></div>
+<p>Shopify 帮你处理：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+   ↓
+Customer Information
+   ↓
+Shipping
+   ↓
+Payment
+   ↓
+Order
+</code></pre></div>
+<hr>
+<h2>9. 那 Buy It Now 呢？</h2>
+<p>这个也很有意思。</p>
+<p>Shopify 有：</p>
+<blockquote>
+<p><strong>Accelerated Checkout</strong></p>
+</blockquote>
+<p>商品页面可以使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ form | payment_button }}
+</code></pre></div>
+<p>Shopify 会根据商店和用户环境提供相应的 accelerated checkout 按钮。官方文档现在仍然把它作为 Product Form 的一部分。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/filters/payment_button?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid filters: payment_button" aria-label="Liquid filters: payment_button">Shopify</a><a href="https://shopify.dev/docs/storefronts/themes/pricing-payments/accelerated-checkout?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Accelerated checkout" aria-label="Accelerated checkout">Shopify</a></span></p>
+<p>所以你看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">[ Add to Cart ]
+
+[ Buy it now ]
+</code></pre></div>
+<p>第二个按钮很多时候不是你自己写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">fetch(&#39;/checkout&#39;)
+</code></pre></div>
+<p>而是 Shopify 提供的 accelerated checkout 机制。</p>
+<hr>
+<h2>10. 所以你可以建立一个非常重要的认知</h2>
+<p>Shopify Theme 开发不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">我要做一个电商网站
+↓
+所有功能自己写
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                Shopify
+                   │
+        ┌──────────┼──────────┐
+        ↓          ↓          ↓
+      Cart       Checkout    Order
+        │          │          │
+      API       Shopify      Shopify
+        │       Checkout     Backend
+        │
+        ↓
+      Theme
+        │
+   ┌────┼─────┐
+   ↓    ↓     ↓
+ Liquid CSS   JS
+   │    │     │
+   └────┼─────┘
+        ↓
+       UI
+</code></pre></div>
+<p><strong>Shopify 管“电商能力”，Theme 管“店铺体验”。</strong></p>
+<hr>
+<h2>11. 最终你可以这样记</h2>
+<h4>① Add to Cart</h4>
+<p>Shopify 给你两种主要方式：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Form
+     OR
+Ajax Cart API
+</code></pre></div>
+<p><strong>Form 是 Shopify 原生机制；Ajax 是你想做无刷新/动态体验时常用的方式。</strong> <span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/product/overview?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="product" aria-label="product">Shopify</a><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h4>② Cart Drawer</h4>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">提供 Cart 数据 + API + Section Rendering
+</code></pre></div>
+<p>Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">通常自己实现 Drawer UI
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>Cart Drawer 通常是 Theme 开发者自己写。</strong></p>
+</blockquote>
+<hr>
+<h4>③ Checkout</h4>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+Payment
+Order
+</code></pre></div>
+<p>都已经提供。</p>
+<p>Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">负责把用户送进 Checkout
+</code></pre></div>
+<p>一般<strong>不自己开发 Checkout 和支付系统</strong>。</p>
+<hr>
+<h4>④ Buy It Now</h4>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Accelerated Checkout
+</code></pre></div>
+<p>Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ form | payment_button }}
+</code></pre></div>
+<p>让 Shopify 负责具体的快速结账机制。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/pricing-payments/accelerated-checkout?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Accelerated checkout" aria-label="Accelerated checkout">Shopify</a></span></p>
+<hr>
+<h3>最后给你一张“职责边界图”</h3>
+<p>你现在把这张图吃透，Shopify Theme 的购物流程就基本通了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 Shopify Platform
+                       │
+       ┌───────────────┼────────────────┐
+       ↓               ↓                ↓
+     Cart           Checkout           Order
+       │               │
+       │               │
+   Cart API       Shopify Checkout
+       │               │
+       ↓               ↓
+┌───────────────────────────────────────┐
+│              Theme                   │
+│                                       │
+│ Product Form                          │
+│ Variant Selector                      │
+│ Add to Cart                           │
+│ Cart Drawer ←──────自己实现            │
+│ Cart Page                             │
+│ Quantity +/-                          │
+│ Remove Item                           │
+│ Checkout Button                       │
+│ Buy It Now / Accelerated Checkout     │
+└───────────────────────────────────────┘
+</code></pre></div>
+<p><strong>一句话：</strong></p>
+<blockquote>
+<p><strong>Shopify 已经把“买东西的基础设施”做好了，你作为 Theme 前端开发，主要是在 Shopify 提供的 Cart / Checkout 能力之上，开发商品选择、加购体验、Cart Drawer、购物车页面以及各种 UI 交互。</strong></p>
+</blockquote>
+<p>而你下一步最值得学的就是 <strong>Cart Drawer 实战</strong>：我可以带你从 <code>product form → /cart/add.js → Section Rendering → cart-drawer.liquid → 更新商品数量 → 删除商品 → subtotal → Checkout</code> 一步一步写出来。这个学完，你对 Shopify Theme 的“购物车系统”就真正入门了。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/product/overview?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">product</a></li></ul></details>
+<details class="dialogue-references dialogue-followups"><summary>原对话建议追问</summary><ul><li>我可以带你从 <code>product form → /cart/add.js → Section Rendering → cart-drawer.liquid → 更新商品数量 → 删除商品 → subtotal → Checkout</code> 一步一步写出来<small>带我一步一步写出 Cart Drawer 实战</small></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/buying-flow.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

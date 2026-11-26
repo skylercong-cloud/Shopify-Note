@@ -1,0 +1,1428 @@
+# 第 20 课：Shopify Theme Performance
+
+## 我的提问 · 2026-09-20 Sun 08:17
+
+下一课
+
+## ChatGPT · 2026-09-20 Sun 08:17
+
+好，我们进入 **第 20 课：Shopify Theme Performance（性能优化）**。
+
+这一课很适合你，因为你本身有前端开发经验。我们会把 Shopify 性能和你熟悉的 **React / Next.js / SSR / Core Web Vitals** 对起来理解。
+
+# 第 20 课：Shopify Theme Performance
+
+先记住一个核心公式：
+
+```text
+Shopify Theme 性能
+=
+HTML 生成速度
++
+资源加载速度
++
+图片性能
++
+JavaScript 性能
++
+第三方脚本
++
+页面交互性能
+```
+
+而 Shopify Theme 有一个非常特殊的地方：
+
+> **你不仅要优化自己的代码，还要考虑 Shopify 平台、App、第三方脚本带来的成本。**
+
+---
+
+# 一、先理解 Shopify 页面是怎么变慢的
+
+一个典型 Shopify 页面：
+
+```text
+用户
+ │
+ ▼
+请求 Shopify
+ │
+ ├── Liquid Server Rendering
+ │
+ ├── Theme
+ │
+ ├── App / Platform 注入
+ │
+ ▼
+HTML
+ │
+ ├── CSS
+ ├── JS
+ ├── Images
+ ├── Fonts
+ └── Third-party scripts
+ │
+ ▼
+Browser
+ │
+ ▼
+页面显示
+ │
+ ▼
+用户交互
+```
+
+所以性能问题可能发生在任何一个阶段。
+
+---
+
+# 二、先认识 Core Web Vitals
+
+现在最重要的三个指标：
+
+```text
+LCP
+CLS
+INP
+```
+
+---
+
+## 1. LCP
+
+### Largest Contentful Paint
+
+简单理解：
+
+> **页面主要内容什么时候真正显示出来？**
+
+例如 Product 页面：
+
+```text
+┌──────────────────────────────┐
+│ Header                       │
+│                              │
+│        Product Image         │ ← 最大主要内容
+│                              │
+│ Nike Air Max                 │
+│ $129                         │
+└──────────────────────────────┘
+```
+
+如果最大的 Product Image 很晚才出现：
+
+```text
+页面打开
+ ↓
+白屏
+ ↓
+Header
+ ↓
+其他内容
+ ↓
+很久以后
+ ↓
+Product Image
+```
+
+LCP 就会受到影响。
+
+---
+
+# 三、Shopify Theme 中最常见的 LCP 问题
+
+最典型：
+
+```text
+Product Hero Image
+```
+
+比如：
+
+```liquid
+{{ product.featured_image
+  | image_url: width: 1200
+  | image_tag
+}}
+```
+
+如果你错误地给首屏主图：
+
+```html
+loading="lazy"
+```
+
+就可能产生问题。
+
+为什么？
+
+因为：
+
+```text
+lazy loading
+=
+告诉浏览器
+“这张图晚一点加载也可以”
+```
+
+但首屏最大的图片恰恰是：
+
+```text
+“现在马上就需要”
+```
+
+所以一般应该：
+
+```text
+Above the fold
+    ↓
+优先加载
+
+Below the fold
+    ↓
+Lazy loading
+```
+
+---
+
+# 四、Lazy Loading
+
+例如 Product Gallery：
+
+```liquid id="0dz0wm"
+{% for media in product.media %}
+  {{
+    media
+    | image_url: width: 1000
+    | image_tag:
+      loading: 'lazy',
+      alt: media.alt
+  }}
+{% endfor %}
+```
+
+如果有：
+
+```text
+10 张商品图片
+```
+
+没必要全部立即加载。
+
+可以：
+
+```text
+第一张
+↓
+优先加载
+
+第二张以后
+↓
+lazy loading
+```
+
+这会减少页面初始网络压力。
+
+---
+
+# 五、但是第一张图片不能简单全部 lazy
+
+这是 Shopify Theme 开发非常常见的性能细节。
+
+比如：
+
+```text
+Product Page
+│
+├── Hero Image ← LCP
+│
+├── Thumbnail
+├── Thumbnail
+├── Thumbnail
+└── Thumbnail
+```
+
+应该考虑：
+
+```text
+Hero Image
+→ eager / browser priority
+
+其他图片
+→ lazy
+```
+
+所以：
+
+```liquid id="l9v4uh"
+{% for media in product.media %}
+
+  {% if forloop.first %}
+
+    {{
+      media
+      | image_url: width: 1200
+      | image_tag:
+        loading: 'eager',
+        fetchpriority: 'high',
+        alt: media.alt
+    }}
+
+  {% else %}
+
+    {{
+      media
+      | image_url: width: 1000
+      | image_tag:
+        loading: 'lazy',
+        alt: media.alt
+    }}
+
+  {% endif %}
+
+{% endfor %}
+```
+
+这里的思想非常重要：
+
+```text
+性能优化 ≠ 所有东西 lazy
+
+性能优化 =
+知道什么应该优先
+知道什么可以延迟
+```
+
+---
+
+# 六、Shopify 的 Image CDN
+
+Shopify 一个非常大的优势就是图片 CDN。
+
+例如：
+
+```liquid id="6q9w8e"
+{{ product.featured_image
+  | image_url: width: 800
+  | image_tag
+}}
+```
+
+你不要直接：
+
+```text
+下载一个 5000 × 5000 图片
+```
+
+然后浏览器：
+
+```text
+CSS:
+width: 400px
+```
+
+这很浪费。
+
+应该尽量：
+
+```text
+实际显示尺寸
+≈
+请求图片尺寸
+```
+
+例如：
+
+```text
+图片实际显示：
+400px
+
+请求：
+800px
+```
+
+通常比：
+
+```text
+5000px
+```
+
+合理得多。
+
+---
+
+# 七、Responsive Image
+
+进一步可以使用：
+
+```html id="j69f7v"
+srcset
+sizes
+```
+
+让浏览器自己选择适合的图片。
+
+例如：
+
+```html id="6o2xwr"
+<img
+  src="image-800.jpg"
+  srcset="
+    image-400.jpg 400w,
+    image-800.jpg 800w,
+    image-1200.jpg 1200w
+  "
+  sizes="
+    (max-width: 768px) 100vw,
+    50vw
+  "
+>
+```
+
+浏览器会根据：
+
+```text
+设备
++
+Viewport
++
+sizes
++
+网络
+```
+
+选择资源。
+
+---
+
+# 八、Liquid 不要输出过多数据
+
+这是 Shopify Theme 特别容易踩的坑。
+
+比如 Product 页面：
+
+```liquid id="qjjq8r"
+{{ product | json }}
+```
+
+可能把非常多的数据输出到 HTML。
+
+或者：
+
+```liquid id="8f2h2x"
+{{ collection.products | json }}
+```
+
+直接塞一大堆数据。
+
+最终：
+
+```text
+HTML
+↓
+巨大
+↓
+网络传输增加
+↓
+浏览器解析增加
+↓
+JS 处理增加
+```
+
+所以应该：
+
+> **只输出前端真正需要的数据。**
+
+例如 Variant Picker 确实需要 Variant 数据：
+
+```liquid id="3m27b5"
+<script type="application/json" id="ProductJSON">
+  {{ product.variants | json }}
+</script>
+```
+
+但如果某个组件只需要：
+
+```text
+variant.id
+variant.price
+variant.available
+```
+
+就不要无脑把所有对象都塞进去。
+
+---
+
+# 九、JavaScript 是 Shopify Theme 性能的大敌之一
+
+特别是安装很多 App 后。
+
+页面可能出现：
+
+```text
+Theme JS
++
+Review App
++
+Chat App
++
+Analytics
++
+Marketing
++
+Upsell
++
+Tracking
++
+Popup
++
+Affiliate
+```
+
+最后：
+
+```text
+<script>
+<script>
+<script>
+<script>
+<script>
+...
+```
+
+这就是为什么 Shopify 店铺有时候：
+
+```text
+Theme 本身很快
+```
+
+但最终：
+
+```text
+实际线上页面
+很慢
+```
+
+---
+
+# 十、回到上一课的 `content_for_header`
+
+现在你就理解它为什么重要了。
+
+我们刚才讲：
+
+```liquid
+{{ content_for_header }}
+```
+
+它可能承载 Shopify / App / 平台相关的动态注入。
+
+所以：
+
+```text
+Theme Performance
+        │
+        ├── 你的代码
+        │
+        ├── Shopify
+        │
+        └── Apps / Third-party
+```
+
+你不能只盯着：
+
+```text
+assets/theme.js
+```
+
+还需要看：
+
+```text
+第三方脚本
+App
+Analytics
+Tracking
+```
+
+---
+
+# 十一、JavaScript 不要阻塞首屏
+
+例如：
+
+```html id="7fy6kd"
+<script src="{{ 'app.js' | asset_url }}"></script>
+```
+
+如果脚本很大，并且阻塞 HTML 解析，就会影响页面加载。
+
+通常更合理的是：
+
+```html id="w8ffxz"
+<script
+  src="{{ 'app.js' | asset_url }}"
+  defer
+></script>
+```
+
+`defer` 的基本含义：
+
+```text
+HTML parsing
+      │
+      ├──────────────┐
+      │              │
+      ▼              ▼
+继续解析 HTML      下载 JS
+      │              │
+      └──────┬───────┘
+             ▼
+          执行 JS
+```
+
+而不是：
+
+```text
+HTML
+ ↓
+遇到 JS
+ ↓
+暂停 HTML
+ ↓
+下载 JS
+ ↓
+执行
+ ↓
+继续 HTML
+```
+
+---
+
+# 十二、但不要“所有 JS 都 defer”
+
+又是一个很重要的思维。
+
+例如某些必须在非常早期执行的代码：
+
+```text
+Critical initialization
+```
+
+可能有特殊要求。
+
+所以性能优化不是：
+
+```text
+全部 defer
+```
+
+而是：
+
+```text
+分析脚本用途
+ ↓
+是否阻塞首屏？
+ ↓
+是否必须立即执行？
+ ↓
+是否可以延迟？
+```
+
+---
+
+# 十三、JS 应该按功能拆分
+
+不要：
+
+```text
+theme.js
+= 500KB
+```
+
+里面：
+
+```text
+Cart
++
+Search
++
+Product
++
+Collection
++
+Popup
++
+Account
++
+Checkout
+...
+```
+
+然后每一个页面全部加载。
+
+更合理：
+
+```text
+assets/
+├── theme.js
+├── product.js
+├── collection.js
+├── cart.js
+└── predictive-search.js
+```
+
+然后根据页面加载需要。
+
+例如：
+
+```liquid id="4fpl2g"
+{% if template.name == 'product' %}
+  <script
+    src="{{ 'product.js' | asset_url }}"
+    defer
+  ></script>
+{% endif %}
+```
+
+不过现代 Theme 开发也可以进一步采用模块化/按需加载，而不是大量模板条件判断。
+
+核心思想只有一个：
+
+> **用户不需要的 JS，不要让用户下载。**
+
+---
+
+# 十四、CSS 也一样
+
+例如你有：
+
+```text
+product.css
+collection.css
+cart.css
+search.css
+```
+
+不要所有页面：
+
+```text
+全部加载
+```
+
+可以根据页面需求控制。
+
+但是这里也要平衡。
+
+如果拆得太碎：
+
+```text
+20 个 CSS
+20 个请求
+```
+
+也不一定更好。
+
+现代 HTTP/2/HTTP/3 下，请求成本已经和过去不同。
+
+所以真正目标不是：
+
+> 文件越少越好。
+
+而是：
+
+> **发送给浏览器的资源应该尽量与当前页面需求匹配。**
+
+---
+
+# 十五、CLS
+
+第二个 Core Web Vital：
+
+> **Cumulative Layout Shift**
+
+简单理解：
+
+> 页面加载过程中，内容突然乱跳。
+
+比如：
+
+```text
+开始：
+
+┌──────────────┐
+│ Product      │
+│ Image        │
+└──────────────┘
+
+      ↓
+
+图片加载完成
+
+┌──────────────┐
+│              │
+│ Product      │
+│ Image        │
+└──────────────┘
+```
+
+页面下面的内容突然往下移动。
+
+这就是 Layout Shift。
+
+---
+
+# 十六、图片是 CLS 的常见来源
+
+例如：
+
+```html id="plb67t"
+<img src="product.jpg">
+```
+
+浏览器一开始不知道：
+
+```text
+图片最终多高？
+```
+
+于是：
+
+```text
+图片区域高度 ≈ 0
+```
+
+图片加载后：
+
+```text
+高度 = 600px
+```
+
+整个页面：
+
+```text
+↓
+↓
+↓
+```
+
+发生移动。
+
+所以应该让浏览器提前知道尺寸。
+
+例如：
+
+```html id="lrr3w0"
+<img
+  src="product.jpg"
+  width="800"
+  height="800"
+>
+```
+
+或者通过正确的 CSS aspect ratio。
+
+Shopify 的 `image_tag` 会根据图片信息生成相关尺寸属性，这也是为什么通常应该优先使用 Shopify 的 Image Liquid filters，而不是自己手写原始 URL。
+
+---
+
+# 十七、Product Card 也要注意
+
+Collection：
+
+```text
+Product Grid
+├── Product
+├── Product
+├── Product
+├── Product
+...
+```
+
+如果图片比例不统一：
+
+```text
+Product A
+████████
+
+Product B
+████
+
+Product C
+██████████
+```
+
+页面可能不断发生布局变化。
+
+所以电商 Theme 通常需要：
+
+```css id="9jhh0d"
+.product-card__image {
+  aspect-ratio: 1 / 1;
+}
+```
+
+然后：
+
+```css id="c8e8c6"
+.product-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+```
+
+这样浏览器一开始就知道：
+
+```text
+这个区域就是正方形
+```
+
+---
+
+# 十八、INP
+
+第三个：
+
+> **Interaction to Next Paint**
+
+它关注的是：
+
+```text
+用户点击
+ ↓
+浏览器响应
+ ↓
+页面更新
+```
+
+例如 Shopify：
+
+```text
+Add to Cart
+```
+
+用户点击：
+
+```text
+Add to Cart
+ ↓
+JS
+ ↓
+fetch()
+ ↓
+Cart API
+ ↓
+Section Rendering
+ ↓
+更新 Cart Drawer
+```
+
+如果 JS 做了大量工作：
+
+```text
+点击
+ ↓
+巨大 JS
+ ↓
+复杂 DOM
+ ↓
+大量计算
+ ↓
+页面迟迟不更新
+```
+
+INP 就可能变差。
+
+---
+
+# 十九、Shopify Cart 是一个很好的性能案例
+
+我们之前学过：
+
+```text id="s9syx1"
+Add to Cart
+ ↓
+POST /cart/add.js
+ ↓
+Section Rendering
+ ↓
+Cart Drawer
+ ↓
+Cart Icon
+```
+
+假设：
+
+```js id="2g8b9u"
+const response = await fetch(...);
+
+const data = await response.json();
+
+document.querySelector(...)
+  .innerHTML = ...;
+```
+
+这本身没有问题。
+
+真正需要注意的是：
+
+```text
+不要：
+一次请求 → 重建整个页面
+
+应该：
+一次请求 → 更新需要变化的 Section
+```
+
+也就是我们之前学的：
+
+> **Section Rendering API。**
+
+---
+
+# 二十、Section Rendering 和性能
+
+假设购物车数量从：
+
+```text
+1
+```
+
+变成：
+
+```text
+2
+```
+
+没必要：
+
+```text
+整个页面刷新
+```
+
+可以：
+
+```text
+Cart API
+ ↓
+Section Rendering
+ ↓
+Cart Drawer
+Cart Icon
+```
+
+只更新：
+
+```text
+2 个区域
+```
+
+这就是：
+
+```text
+Full Page Render
+```
+
+和：
+
+```text
+Partial Render
+```
+
+的区别。
+
+---
+
+# 二十一、一个非常重要的 Shopify 性能原则
+
+你作为 React 开发者可能会自然想到：
+
+```text
+所有交互
+↓
+JavaScript
+↓
+API
+↓
+重新 render
+```
+
+但是 Shopify Theme 更推荐：
+
+```text
+初始页面
+↓
+Liquid Server Render
+↓
+HTML
+↓
+JS Enhancement
+```
+
+也就是：
+
+> **HTML 优先，JavaScript 增强。**
+
+例如 Collection：
+
+```text id="x4w7qa"
+Shopify
+ ↓
+Liquid
+ ↓
+Product HTML
+ ↓
+Browser
+```
+
+用户即使：
+
+```text
+JS 加载失败
+```
+
+也应该尽可能看到：
+
+```text
+Product
+Title
+Price
+Image
+Link
+```
+
+而不是：
+
+```text
+<div id="app"></div>
+```
+
+然后：
+
+```text
+JS 没加载
+=
+什么都没有
+```
+
+---
+
+# 二十二、这和 Next.js 有什么区别？
+
+你可以这样理解：
+
+### 传统 React SPA
+
+```text
+Browser
+ ↓
+JS
+ ↓
+API
+ ↓
+Render
+```
+
+### Next.js SSR
+
+```text
+Server
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+JS Hydration
+```
+
+### Shopify Theme
+
+```text
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+JS Enhancement
+```
+
+所以 Shopify Theme 的性能思想和 SSR/渐进增强非常接近。
+
+---
+
+# 二十三、第三方 App 是 Shopify 性能里的特殊问题
+
+假设你安装：
+
+```text
+Review App
+Chat App
+Upsell App
+Analytics App
+Popup App
+```
+
+每个 App 都可能带来：
+
+```text
+JS
+CSS
+Network Request
+DOM
+Event Listener
+```
+
+所以：
+
+```text
+Shopify Theme 性能
+≠
+只有 Theme 代码性能
+```
+
+而是：
+
+```text
+最终线上页面性能
+=
+Theme
++
+Shopify
++
+Apps
++
+Third-party
+```
+
+因此你以后做 Shopify 项目，发现 Lighthouse 变差，不要第一时间：
+
+> “是不是我的 React/JS 写错了？”
+
+还要检查：
+
+```text
+Network
+Scripts
+Third-party
+App embeds
+```
+
+---
+
+# 二十四、App Embed 也要特别关注
+
+Shopify App 可以通过 Theme App Extension / App Embed 等方式参与 Theme。
+
+例如：
+
+```text
+App
+ ↓
+Theme App Extension
+ ↓
+App Embed
+ ↓
+Theme
+```
+
+如果商家打开了：
+
+```text
+10 个 App Embed
+```
+
+就可能产生额外资源。
+
+所以作为 Theme 开发者，你以后需要养成一个习惯：
+
+```text
+Performance Debug
+│
+├── Theme JS
+├── Theme CSS
+├── Images
+├── Fonts
+├── App scripts
+├── Third-party scripts
+└── Network requests
+```
+
+---
+
+# 二十五、Performance 最重要的优化顺序
+
+不要一上来就：
+
+```text
+优化一个 2KB JS
+```
+
+应该按照影响程度分析。
+
+我建议你的思维顺序：
+
+```text
+① LCP
+ ↓
+首屏主要内容
+ ↓
+
+② Images
+ ↓
+大小 / 格式 / lazy / priority
+ ↓
+
+③ JavaScript
+ ↓
+数量 / 大小 / 执行时间
+ ↓
+
+④ Third-party / Apps
+ ↓
+额外脚本
+ ↓
+
+⑤ CLS
+ ↓
+图片 / 字体 / 动态内容尺寸
+ ↓
+
+⑥ INP
+ ↓
+交互 JS / DOM / 长任务
+```
+
+---
+
+# 二十六、把第 20 课浓缩成一张图
+
+```text id="6t8z2a"
+              Shopify Theme
+                    │
+       ┌────────────┼─────────────┐
+       ▼            ▼             ▼
+     Liquid        CSS           JS
+       │            │             │
+       ▼            ▼             ▼
+     HTML         Layout       Interaction
+       │
+       ├──────── Images
+       │
+       ├──────── Fonts
+       │
+       └──────── Apps
+                    │
+                    ▼
+                 Browser
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+       LCP         CLS         INP
+        │           │           │
+     加载速度     布局稳定     交互响应
+```
+
+---
+
+# 二十七、你现在应该掌握的 10 个关键词
+
+| 概念 | 你应该理解成 |
+|---|---|
+| LCP | 首屏主要内容出现速度 |
+| CLS | 页面是否乱跳 |
+| INP | 用户交互响应速度 |
+| Lazy Loading | 延迟加载非关键资源 |
+| `fetchpriority` | 告诉浏览器资源优先级 |
+| `defer` | 延迟执行 JS |
+| Image CDN | Shopify 图片资源优化 |
+| Responsive Image | 根据设备加载合适图片 |
+| Section Rendering | 局部 HTML 更新 |
+| Third-party Script | App/第三方带来的额外性能成本 |
+
+---
+
+## 到这里，Theme 第一阶段基本完整了
+
+我们从：
+
+```text
+Theme
+ ↓
+Liquid
+ ↓
+Product
+ ↓
+Variant
+ ↓
+Media
+ ↓
+Collection
+ ↓
+Search
+ ↓
+Predictive Search
+ ↓
+Filter
+ ↓
+Sort
+ ↓
+Pagination
+ ↓
+SEO
+ ↓
+Performance
+```
+
+已经把一个 Shopify Theme 的核心前端体系串起来了。
+
+**下一阶段就进入你之前指定的重点：Shopify 数据模型。**
+
+下一课开始：
+
+# 第 21 课：Product / Variant 数据模型深入
+
+这次我们不再只是讲：
+
+```text
+Product = 商品
+Variant = SKU
+```
+
+而是会真正把 Shopify 的 Product 数据模型拆开：
+
+```text
+Product
+├── ID
+├── Handle
+├── Title
+├── Description
+├── Vendor
+├── Product Type
+├── Tags
+├── Status
+├── Options
+├── Variants
+├── Media
+├── Collections
+├── Metafields
+└── SEO
+
+Variant
+├── ID
+├── SKU
+├── Barcode
+├── Price
+├── Compare-at Price
+├── Inventory
+├── Options
+├── Media
+└── Selling Plan
+```
+
+然后重点讲清楚一个**非常关键的问题**：
+
+> **Product、Variant、Inventory、Location 到底是什么关系？**
+
+这个关系搞懂以后，你后面学 **库存、订单、购物车、Metafield、Metaobject、Admin API** 会轻松很多。

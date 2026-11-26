@@ -1,0 +1,792 @@
+<h1>第 3 课：Shopify 核心数据模型</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-15T21:34:00+08:00">09-15 21:34</time></div><p>进入第3课</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-15T21:34:00+08:00">09-15 21:34</time></div>
+<p>好，我们正式进入 <strong>第 3 课：Shopify 核心数据模型</strong>。</p>
+<p>这一课非常重要。作为前端工程师，你可以把它理解成：</p>
+<blockquote>
+<p><strong>上一课是在认识 Shopify 的“系统架构”，这一课开始认识 Shopify 的“数据结构”。</strong></p>
+</blockquote>
+<p>以后你开发商品详情页、购物车、搜索、会员中心、订单页，甚至 Shopify App，都会不断和这些对象打交道。</p>
+<hr>
+<h3>一、先建立一张“数据库脑图”</h3>
+<p>先不要急着记 API。</p>
+<p>把 Shopify 想象成一个电商数据库：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shop
+ │
+ ├── Products
+ │    │
+ │    ├── Product
+ │    │    ├── Variant
+ │    │    ├── Variant
+ │    │    └── Variant
+ │    │
+ │    └── Collection
+ │
+ ├── Customers
+ │
+ ├── Orders
+ │
+ ├── Pages
+ │
+ ├── Blogs
+ │
+ ├── Metafields
+ │
+ └── Metaobjects
+</code></pre></div>
+<p>同时，用户购物过程中还有另外一条非常重要的数据链：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+</code></pre></div>
+<p><strong>这两条线你一定要分清。</strong></p>
+<p>第一条主要是：</p>
+<blockquote>
+<p>“商家有什么东西？”</p>
+</blockquote>
+<p>第二条主要是：</p>
+<blockquote>
+<p>“用户买东西的过程是什么？”</p>
+</blockquote>
+<hr>
+<h2>二、Shop</h2>
+<p>首先是整个 Shopify 商店：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shop
+</code></pre></div>
+<p>你可以简单理解成：</p>
+<blockquote>
+<p><strong>一个 Shopify 店铺本身。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">my-shop.myshopify.com
+</code></pre></div>
+<p>这个 Shop 里面包含：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shop
+├── Products
+├── Collections
+├── Customers
+├── Orders
+├── Pages
+├── Blogs
+├── Themes
+├── Discounts
+├── Settings
+└── ...
+</code></pre></div>
+<p>所以以后你看到 Shopify API 中的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>graphql</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-graphql">shop
+</code></pre></div>
+<p>不要把它理解成某个商品。</p>
+<p>它代表的是：</p>
+<blockquote>
+<p><strong>当前 Shopify 商店本身。</strong></p>
+</blockquote>
+<hr>
+<h2>三、Product —— 商品</h2>
+<p>这是 Shopify 最核心的数据模型之一。</p>
+<p>例如你的跨境电商卖一件：</p>
+<blockquote>
+<p>Nike Air Max</p>
+</blockquote>
+<p>在 Shopify 中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── title
+├── description
+├── images
+├── options
+├── variants
+├── vendor
+├── productType
+└── ...
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>json</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-json">{
+  &quot;title&quot;: &quot;Nike Air Max&quot;,
+  &quot;vendor&quot;: &quot;Nike&quot;,
+  &quot;productType&quot;: &quot;Shoes&quot;
+}
+</code></pre></div>
+<p>这里有一个非常重要的认知：</p>
+<blockquote>
+<p><strong>Product ≠ 用户最终购买的具体商品规格</strong></p>
+</blockquote>
+<p>这也是 Shopify 新手最容易搞混的地方。</p>
+<hr>
+<h2>四、Product vs Variant —— Shopify 最重要的概念之一</h2>
+<p>假设你卖一件 T 恤。</p>
+<p>商品：</p>
+<blockquote>
+<p>Classic T-Shirt</p>
+</blockquote>
+<p>有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">颜色：
+Black
+White
+
+尺码：
+S
+M
+L
+</code></pre></div>
+<p>那么实际上会产生：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── Classic T-Shirt
+
+    ├── Variant
+    │   ├── Black / S
+    │   ├── Black / M
+    │   ├── Black / L
+    │   ├── White / S
+    │   ├── White / M
+    │   └── White / L
+</code></pre></div>
+<p>也就是说：</p>
+<h4>Product</h4>
+<p>描述的是：</p>
+<blockquote>
+<p>“这是什么商品？”</p>
+</blockquote>
+<h4>Variant</h4>
+<p>描述的是：</p>
+<blockquote>
+<p>“这个商品具体是哪一种规格？”</p>
+</blockquote>
+<hr>
+<h3>用前端工程师熟悉的方式理解</h3>
+<p>如果你以前开发过商品系统，可以把它近似理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>typescript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-typescript">interface Product {
+  id: string
+  title: string
+  description: string
+  images: Image[]
+  variants: Variant[]
+}
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>typescript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-typescript">interface Variant {
+  id: string
+  title: string
+  price: number
+  sku: string
+  inventoryQuantity: number
+}
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>javascript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-javascript">const product = {
+  title: &quot;Classic T-Shirt&quot;,
+
+  variants: [
+    {
+      title: &quot;Black / S&quot;,
+      price: 29.99
+    },
+    {
+      title: &quot;Black / M&quot;,
+      price: 29.99
+    },
+    {
+      title: &quot;White / S&quot;,
+      price: 29.99
+    }
+  ]
+}
+</code></pre></div>
+<p>这就是 Shopify 的一个核心思想：</p>
+<blockquote>
+<p><strong>Product 是商品概念，Variant 是可以被购买的具体规格。</strong></p>
+</blockquote>
+<hr>
+<h2>五、为什么 Variant 非常重要？</h2>
+<p>因为用户真正购买的通常不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Classic T-Shirt
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Classic T-Shirt
+Black
+M
+</code></pre></div>
+<p>所以购物车里面通常最终记录的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID
+</code></pre></div>
+<p>而不是简单的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product ID
+</code></pre></div>
+<p>这会直接影响你以后开发：</p>
+<ul>
+<li>商品详情页</li>
+<li>SKU</li>
+<li>库存</li>
+<li>加购物车</li>
+<li>快速购买</li>
+<li>商品选择器</li>
+<li>价格</li>
+<li>订单</li>
+</ul>
+<hr>
+<h2>六、Collection —— 商品集合</h2>
+<p>接下来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+</code></pre></div>
+<p>你可以把它理解成：</p>
+<blockquote>
+<p><strong>商品分类/商品集合。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+├── Men&#39;s Shoes
+├── Women&#39;s Shoes
+├── New Arrivals
+├── Best Sellers
+└── Sale
+</code></pre></div>
+<p>一个 Product 可以属于多个 Collection。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+   │
+   ├── Men&#39;s Shoes
+   ├── Running Shoes
+   ├── New Arrivals
+   └── Best Sellers
+</code></pre></div>
+<p>所以不要简单理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product → Collection
+</code></pre></div>
+<p>而应该理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product ←→ Collection
+</code></pre></div>
+<hr>
+<h2>七、Customer —— 客户</h2>
+<p>这个比较容易理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+├── id
+├── firstName
+├── lastName
+├── email
+├── phone
+├── addresses
+└── ...
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+    ↓
+Skyler
+    ↓
+Email
+    ↓
+Address
+</code></pre></div>
+<p>它代表的是：</p>
+<blockquote>
+<p><strong>购买/注册等相关的客户身份数据。</strong></p>
+</blockquote>
+<hr>
+<h2>八、Order —— 订单</h2>
+<p>Order 是：</p>
+<blockquote>
+<p><strong>已经形成的订单记录。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Order #1001
+
+Customer
+  ↓
+Skyler
+
+Products
+  ↓
+Classic T-Shirt
+  ↓
+Black / M × 2
+
+Payment
+  ↓
+Paid
+
+Fulfillment
+  ↓
+Fulfilled
+</code></pre></div>
+<p>你可以简单理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+    ↓
+Order
+    ↓
+Line Items
+    ↓
+Products / Variants
+</code></pre></div>
+<hr>
+<h2>九、Cart —— 购物车</h2>
+<p>这里开始出现一个非常关键的区别。</p>
+<p>很多前端工程师第一次接触 Shopify 会把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+Order
+</code></pre></div>
+<p>混在一起。</p>
+<p>实际上它们完全不是一个东西。</p>
+<h4>Cart</h4>
+<p>代表：</p>
+<blockquote>
+<p>用户“准备买什么”。</p>
+</blockquote>
+<h4>Order</h4>
+<p>代表：</p>
+<blockquote>
+<p>用户“已经下单了什么”。</p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户浏览商品
+
+      ↓
+
+选择 Black / M
+
+      ↓
+
+Add to Cart
+
+      ↓
+
+Cart
+├── T-Shirt Black / M × 2
+└── Shoes Size 10 × 1
+
+      ↓
+
+Checkout
+
+      ↓
+
+Payment
+
+      ↓
+
+Order
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart ≠ Order
+</code></pre></div>
+<p>这是必须记住的。</p>
+<hr>
+<h2>十、Checkout —— 结账</h2>
+<p>Checkout 位于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+ ↓
+Checkout
+ ↓
+Order
+</code></pre></div>
+<p>用户：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+     ↓
+Cart
+     ↓
+Checkout
+     ↓
+填写地址
+     ↓
+选择配送
+     ↓
+支付
+     ↓
+Order
+</code></pre></div>
+<p>所以从业务流程看：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+</code></pre></div>
+<p>这是你以后做 Shopify 前端时非常重要的一条链。</p>
+<hr>
+<h2>十一、Page —— 页面</h2>
+<p>Shopify 还有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Page
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">About Us
+Contact Us
+Privacy Policy
+Terms of Service
+</code></pre></div>
+<p>这些不是商品。</p>
+<p>它们属于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Page
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/pages/about-us
+</code></pre></div>
+<hr>
+<h2>十二、Blog —— 博客</h2>
+<p>Shopify 本身也支持内容系统。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Blog
+├── Article
+├── Article
+├── Article
+└── ...
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Blog
+  ↓
+Fashion Tips
+
+Articles
+  ↓
+How to choose running shoes
+How to wash sneakers
+Best shoes for summer
+</code></pre></div>
+<p>所以 Shopify 并不只是：</p>
+<blockquote>
+<p>商品 + 购物车</p>
+</blockquote>
+<p>它其实已经具备了一套基础的 Commerce + Content 能力。</p>
+<hr>
+<h2>十三、Metafield —— 自定义字段</h2>
+<p>这是 Shopify 开发中<strong>极其重要</strong>的东西。</p>
+<p>假设 Shopify 默认 Product 没有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material
+</code></pre></div>
+<p>但是你的业务需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material: 100% Cotton
+</code></pre></div>
+<p>你可以通过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+</code></pre></div>
+<p>给 Product 增加自定义数据。</p>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── title
+├── description
+├── price
+├── variants
+└── metafields
+      ├── material
+      ├── washing_instruction
+      └── size_guide
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+  ↓
+Metafield
+
+namespace: custom
+key: material
+value: 100% Cotton
+</code></pre></div>
+<p>然后 Theme 里面可以读取它。</p>
+<p>概念上类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material }}
+</code></pre></div>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">100% Cotton
+</code></pre></div>
+<hr>
+<h2>十四、Metafield 和数据库字段的关系</h2>
+<p>作为前端工程师，你可以暂时把它理解成：</p>
+<p>普通字段：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>typescript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-typescript">product.title
+product.description
+</code></pre></div>
+<p>自定义字段：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>typescript</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-typescript">product.metafields.custom.material
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify 默认 Schema
+        +
+你的业务自定义 Schema
+</code></pre></div>
+<p>这也是 Shopify 非常强大的地方。</p>
+<p>你不需要为了增加一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">material
+</code></pre></div>
+<p>就自己搭数据库。</p>
+<hr>
+<h2>十五、Metaobject —— 比 Metafield 更进一步</h2>
+<p>那么问题来了：</p>
+<p>如果你不是想增加一个字段，而是想创建一个完整的数据结构呢？</p>
+<p>比如：</p>
+<blockquote>
+<p>Size Guide</p>
+</blockquote>
+<p>你可能需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Size Guide
+├── Name
+├── Description
+├── Image
+├── Size S
+├── Size M
+├── Size L
+└── Size XL
+</code></pre></div>
+<p>或者：</p>
+<blockquote>
+<p>Brand</p>
+</blockquote>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Brand
+├── Name
+├── Logo
+├── Description
+├── Website
+└── Social Links
+</code></pre></div>
+<p>这时候：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+</code></pre></div>
+<p>就非常有用了。</p>
+<p>简单理解：</p>
+<h4>Metafield</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">一个额外字段
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">material = cotton
+</code></pre></div>
+<h4>Metaobject</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">一整套自定义数据结构
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Brand
+├── name
+├── logo
+├── description
+└── website
+</code></pre></div>
+<p>可以简单记成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield  = 自定义字段
+
+Metaobject = 自定义对象
+</code></pre></div>
+<hr>
+<h2>十六、把整个 Shopify 数据模型串起来</h2>
+<p>现在我们把刚才学的全部东西放在一起。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                         Shopify Shop
+                              │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+       Product             Customer            Content
+          │                   │                   │
+      ┌───┴───┐               │              ┌────┴────┐
+      │       │               │             Page      Blog
+   Variant Variant            │
+      │                       │
+      └──────────┐            │
+                 ↓            │
+                Cart          │
+                 ↓            │
+              Checkout        │
+                 ↓            │
+               Order ←────────┘
+</code></pre></div>
+<p>同时：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ├── Metafields
+   │
+   └── Metaobjects
+</code></pre></div>
+<hr>
+<h2>十七、作为前端工程师，你应该这样理解</h2>
+<p>以后看到需求：</p>
+<h4>需求 1</h4>
+<blockquote>
+<p>商品详情页增加 Material 字段</p>
+</blockquote>
+<p>第一反应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↓
+Metafield
+ ↓
+Theme
+</code></pre></div>
+<hr>
+<h4>需求 2</h4>
+<blockquote>
+<p>商品有红、蓝两个颜色，每个颜色库存不同</p>
+</blockquote>
+<p>第一反应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↓
+Variants
+</code></pre></div>
+<p>而不是创建两个 Product。</p>
+<hr>
+<h4>需求 3</h4>
+<blockquote>
+<p>用户点击 Add to Cart</p>
+</blockquote>
+<p>第一反应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+ ↓
+Cart
+</code></pre></div>
+<hr>
+<h4>需求 4</h4>
+<blockquote>
+<p>用户支付成功以后生成订单</p>
+</blockquote>
+<p>第一反应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+ ↓
+Order
+</code></pre></div>
+<hr>
+<h4>需求 5</h4>
+<blockquote>
+<p>做一个“品牌”数据管理系统</p>
+</blockquote>
+<p>可能是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject
+</code></pre></div>
+<hr>
+<h2>十八、这一课最重要的 8 个概念</h2>
+<p>如果今天只能记住 8 个：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>概念</th>
+<th>你应该怎么理解</th>
+</tr>
+</thead><tbody><tr>
+<td><strong>Shop</strong></td>
+<td>整个 Shopify 商店</td>
+</tr>
+<tr>
+<td><strong>Product</strong></td>
+<td>商品概念</td>
+</tr>
+<tr>
+<td><strong>Variant</strong></td>
+<td>商品具体可购买规格</td>
+</tr>
+<tr>
+<td><strong>Collection</strong></td>
+<td>商品集合/分类</td>
+</tr>
+<tr>
+<td><strong>Customer</strong></td>
+<td>客户</td>
+</tr>
+<tr>
+<td><strong>Cart</strong></td>
+<td>用户当前准备购买的商品</td>
+</tr>
+<tr>
+<td><strong>Order</strong></td>
+<td>已经形成的订单</td>
+</tr>
+<tr>
+<td><strong>Metafield</strong></td>
+<td>自定义字段</td>
+</tr>
+</tbody></table></div>
+<p>再加两个进阶概念：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metaobject = 自定义结构化对象
+
+Checkout = 从购物车到订单之间的结账过程
+</code></pre></div>
+<hr>
+<h2>十九、给你一个非常重要的“工程师心智模型”</h2>
+<p>以后你看到 Shopify 数据，可以先问自己：</p>
+<blockquote>
+<p><strong>这是“商品本身的数据”，还是“用户购买过程的数据”？</strong></p>
+</blockquote>
+<p>如果是商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+  ↓
+Variant
+  ↓
+Collection
+  ↓
+Metafield
+  ↓
+Metaobject
+</code></pre></div>
+<p>如果是购买过程：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Customer
+  ↓
+Cart
+  ↓
+Checkout
+  ↓
+Order
+</code></pre></div>
+<p>这个思维方式会让你后面学 Shopify API 容易很多。</p>
+<hr>
+<h2>🧠 Teach Me 小测验</h2>
+<p>现在先<strong>不要看上面的答案</strong>，用你自己的话回答下面 5 个问题。</p>
+<h4>1.</h4>
+<p>如果一个商品：</p>
+<blockquote>
+<p>T-Shirt</p>
+</blockquote>
+<p>有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Red / S
+Red / M
+Blue / S
+Blue / M
+</code></pre></div>
+<p>那么：</p>
+<p><strong>Product 和 Variant 应该分别是什么？</strong></p>
+<hr>
+<h4>2.</h4>
+<p>为什么下面这个理解是错误的？</p>
+<blockquote>
+<p>“用户加购了一个 Product，所以 Cart 里面保存 Product。”</p>
+</blockquote>
+<p>你认为更准确的关系是什么？</p>
+<hr>
+<h4>3.</h4>
+<p>下面这个需求应该优先考虑什么？</p>
+<blockquote>
+<p>PM：商品详情页增加一个“面料 Material”字段，而且后台运营可以编辑。</p>
+</blockquote>
+<p>你会选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">A. 修改 Product 数据库结构
+B. Metafield
+C. Collection
+D. Customer
+</code></pre></div>
+<hr>
+<h4>4.</h4>
+<p>解释一下：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart → Checkout → Order
+</code></pre></div>
+<p>分别代表什么阶段？</p>
+<hr>
+<h4>5. ⭐ 综合题</h4>
+<p>假设你现在接到一个真实项目：</p>
+<blockquote>
+<p>“做一个 Shopify 商品详情页。商品有颜色、尺码选择；不同规格有不同库存和价格；商品下面还要显示 Material 和 Size Guide。”</p>
+</blockquote>
+<p>你会如何拆解 Shopify 数据模型？</p>
+<p>可以按照这种格式回答：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品本身：
+？
+
+规格：
+？
+
+库存/价格：
+？
+
+Material：
+？
+
+Size Guide：
+？
+</code></pre></div>
+<p><strong>你直接回答这 5 题就行。</strong></p>
+<p>我会按照 Teach Me 的方式逐题批改：如果你某个概念已经真正理解了，就不再重复；如果有概念只是“看懂了但还没形成工程思维”，我会换一种方式重新讲。</p>
+<p>然后我们进入 <strong>第 4 课：Theme、Liquid、JavaScript 到底是怎么运行的</strong>。这一课会开始真正进入 Shopify 前端开发。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-03.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

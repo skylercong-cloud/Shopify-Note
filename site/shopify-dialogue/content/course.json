@@ -1,0 +1,253 @@
+{
+  "version": "2026-11-26",
+  "groups": [
+    {
+      "id": "origin",
+      "title": "对话原点",
+      "description": "从 Teach Me 的提问方式开始。"
+    },
+    {
+      "id": "foundations",
+      "title": "Shopify 架构与 Theme 基础",
+      "description": "认识 Shopify、数据模型、Theme 渲染与 Liquid，随后讨论变体和 Metafield。"
+    },
+    {
+      "id": "commerce",
+      "title": "购物链路与活动价",
+      "description": "从商品购买链路到 Variant Selector、Cart API、Cart Drawer、活动价与 Functions。"
+    },
+    {
+      "id": "storefront",
+      "title": "商品列表与店面体验",
+      "description": "从 Collection、媒体、搜索学到筛选、排序、分页、SEO 和性能。"
+    },
+    {
+      "id": "data-model",
+      "title": "Shopify 数据模型深入",
+      "description": "从 Product、Variant 和 Collection 学到库存、购物链路与扩展字段。"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "guide",
+      "title": "开场问答 · Grill Me 与 Teach Me",
+      "level": "origin",
+      "kind": "reference",
+      "file": "content/lessons/guide.html"
+    },
+    {
+      "id": "lesson-01",
+      "title": "Shopify 学习地图与认识 Theme",
+      "level": "foundations",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-01.html",
+      "label": "第 1 课"
+    },
+    {
+      "id": "lesson-02",
+      "title": "建立 Shopify 整体架构地图",
+      "level": "foundations",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-02.html",
+      "label": "第 2 课"
+    },
+    {
+      "id": "lesson-03",
+      "title": "Shopify 核心数据模型",
+      "level": "foundations",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-03.html",
+      "label": "第 3 课"
+    },
+    {
+      "id": "lesson-04",
+      "title": "Shopify Theme 的真实运行机制",
+      "level": "foundations",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-04.html",
+      "label": "第 4 课"
+    },
+    {
+      "id": "lesson-05",
+      "title": "Shopify Theme 开发模式与项目结构",
+      "level": "foundations",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-05.html",
+      "label": "第 5 课"
+    },
+    {
+      "id": "lesson-06",
+      "title": "Liquid 深入与数据对象",
+      "level": "foundations",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-06.html",
+      "label": "第 6 课"
+    },
+    {
+      "id": "buying-flow",
+      "title": "购买链路 · 立即购买、加购、Cart Drawer 与 Checkout",
+      "level": "commerce",
+      "kind": "reference",
+      "file": "content/lessons/buying-flow.html"
+    },
+    {
+      "id": "lesson-07",
+      "title": "Variant Selector 实战",
+      "level": "commerce",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-07.html",
+      "label": "第 7 课"
+    },
+    {
+      "id": "lesson-08",
+      "title": "Add to Cart 实战",
+      "level": "commerce",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-08.html",
+      "label": "第 8 课"
+    },
+    {
+      "id": "lesson-09",
+      "title": "Cart Drawer 实战",
+      "level": "commerce",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-09.html",
+      "label": "第 9 课"
+    },
+    {
+      "id": "lesson-10",
+      "title": "Shopify Cart API 全家桶",
+      "level": "commerce",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-10.html",
+      "label": "第 10 课"
+    },
+    {
+      "id": "lesson-11",
+      "title": "活动页特殊价格到底怎么实现？",
+      "level": "commerce",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-11.html",
+      "label": "第 11 课"
+    },
+    {
+      "id": "lesson-12",
+      "title": "Metafield + Shopify Functions，让活动规则配置化",
+      "level": "commerce",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-12.html",
+      "label": "第 12 课"
+    },
+    {
+      "id": "learning-path",
+      "title": "阶段复盘 · Shopify 学习路线与 App / Function",
+      "level": "commerce",
+      "kind": "reference",
+      "file": "content/lessons/learning-path.html"
+    },
+    {
+      "id": "lesson-13",
+      "title": "Shopify Collection 页面",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-13.html",
+      "label": "第 13 课"
+    },
+    {
+      "id": "lesson-14",
+      "title": "Product Media",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-14.html",
+      "label": "第 14 课"
+    },
+    {
+      "id": "lesson-15",
+      "title": "Shopify Search",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-15.html",
+      "label": "第 15 课"
+    },
+    {
+      "id": "lesson-16",
+      "title": "Predictive Search（预测搜索）",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-16.html",
+      "label": "第 16 课"
+    },
+    {
+      "id": "lesson-17",
+      "title": "Collection Filtering —— Shopify 商品筛选",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-17.html",
+      "label": "第 17 课"
+    },
+    {
+      "id": "lesson-18",
+      "title": "Pagination / Sort / URL State",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-18.html",
+      "label": "第 18 课"
+    },
+    {
+      "id": "lesson-19",
+      "title": "Shopify Theme SEO",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-19.html",
+      "label": "第 19 课"
+    },
+    {
+      "id": "lesson-20",
+      "title": "Shopify Theme Performance",
+      "level": "storefront",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-20.html",
+      "label": "第 20 课"
+    },
+    {
+      "id": "lesson-21",
+      "title": "Shopify Product / Variant 数据模型深入",
+      "level": "data-model",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-21.html",
+      "label": "第 21 课"
+    },
+    {
+      "id": "lesson-22",
+      "title": "Shopify Collection 数据模型",
+      "level": "data-model",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-22.html",
+      "label": "第 22 课"
+    },
+    {
+      "id": "lesson-23",
+      "title": "Inventory / Location —— Shopify 库存模型",
+      "level": "data-model",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-23.html",
+      "label": "第 23 课"
+    },
+    {
+      "id": "lesson-25",
+      "title": "Cart / Checkout / Order —— Shopify 购物链路",
+      "level": "data-model",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-25.html",
+      "label": "第 25 课"
+    },
+    {
+      "id": "lesson-27",
+      "title": "Metafield —— Shopify 的扩展字段系统",
+      "level": "data-model",
+      "kind": "lesson",
+      "file": "content/lessons/lesson-27.html",
+      "label": "第 27 课"
+    }
+  ]
+}

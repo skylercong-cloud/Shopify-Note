@@ -1,0 +1,914 @@
+# 第 14 课：Product Media
+
+## 我的提问 · 2026-09-19 Sat 22:19
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 22:19
+
+好，我们继续。上一课的 Collection 已经把 **Template → Section → Product → Snippet → Pagination** 串起来了。
+
+今天进入：
+
+# 第 14 课：Product Media
+
+这一课非常重要，因为它会把你之前学的：
+
+```text
+Product
+Variant
+Liquid
+JavaScript
+Theme
+```
+
+真正串起来。
+
+---
+
+# 一、先搞清楚：Image 和 Media 不完全一样
+
+以前我们经常写：
+
+```liquid
+{{ product.featured_image }}
+```
+
+但 Shopify 现在的 Product 媒体模型更完整。
+
+可以先理解成：
+
+```text
+Product
+  │
+  └── Media
+       ├── Image
+       ├── Video
+       ├── External Video
+       └── Model / 3D
+```
+
+也就是说：
+
+> **Image 是 Media 的一种。**
+
+所以不要把：
+
+```text
+Product Image
+```
+
+和：
+
+```text
+Product Media
+```
+
+完全当成同一个概念。
+
+---
+
+# 二、Product Media 是什么？
+
+假设你卖一双鞋：
+
+```text
+Nike Air Max
+```
+
+它可能有：
+
+```text
+Media
+├── 正面照片
+├── 侧面照片
+├── 鞋底照片
+├── 模特照片
+├── 产品视频
+└── 3D 模型
+```
+
+所以商品详情页可以做成：
+
+```text
+┌─────────────────────────────────────────┐
+│                                         │
+│   ┌──────────────┐   Nike Air Max       │
+│   │              │                       │
+│   │              │   $129.99             │
+│   │    IMAGE     │                       │
+│   │              │   Color: Black        │
+│   │              │   Size: M             │
+│   │              │                       │
+│   └──────────────┘   [Add to Cart]       │
+│                                         │
+│   ● ● ● ● ●                             │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+左边就是 Media Gallery。
+
+---
+
+# 三、Product 的 Media 怎么访问？
+
+最重要的对象：
+
+```liquid
+product.media
+```
+
+例如：
+
+```liquid
+{% for media in product.media %}
+  {{ media }}
+{% endfor %}
+```
+
+但是我们不能简单地把 `media` 当成 Image。
+
+因为：
+
+```text
+media
+├── image
+├── video
+├── external_video
+└── model
+```
+
+类型可能不同。
+
+---
+
+# 四、最常用的 Media 类型判断
+
+Liquid 中可以判断：
+
+```liquid
+{% case media.media_type %}
+
+  {% when 'image' %}
+    ...
+
+  {% when 'video' %}
+    ...
+
+  {% when 'external_video' %}
+    ...
+
+  {% when 'model' %}
+    ...
+
+{% endcase %}
+```
+
+这和 React 的：
+
+```js
+switch (media.type) {
+  case 'image':
+    ...
+}
+```
+
+很像。
+
+---
+
+# 五、先实现最简单的 Gallery
+
+我们先只处理 Image。
+
+```liquid
+<div class="product-gallery">
+
+  {% for media in product.media %}
+
+    {% if media.media_type == 'image' %}
+
+      <div class="product-media">
+        {{
+          media
+          | image_url: width: 1000
+          | image_tag:
+            loading: 'lazy',
+            alt: media.alt
+        }}
+      </div>
+
+    {% endif %}
+
+  {% endfor %}
+
+</div>
+```
+
+这里有一个值得你注意的地方：
+
+```liquid
+media | image_url
+```
+
+和以前：
+
+```liquid
+product.featured_image | image_url
+```
+
+本质上是同一个思路。
+
+---
+
+# 六、为什么推荐 image_tag？
+
+以前我们经常手写：
+
+```liquid
+<img
+  src="{{ product.featured_image | image_url: width: 500 }}"
+  alt="{{ product.title | escape }}"
+>
+```
+
+Shopify Theme 中还可以使用：
+
+```liquid
+{{ media | image_tag }}
+```
+
+例如：
+
+```liquid
+{{
+  media
+  | image_url: width: 1000
+  | image_tag:
+    loading: 'lazy',
+    alt: media.alt
+}}
+```
+
+这样 Shopify 可以帮助你生成更加完整的图片 HTML。
+
+你可以把它理解成：
+
+```text
+React
+↓
+Image Component
+
+Shopify
+↓
+image_tag
+```
+
+---
+
+# 七、Featured Image 和 Media 的关系
+
+之前你学过：
+
+```liquid
+product.featured_image
+```
+
+它代表商品的主要/特色图片。
+
+而：
+
+```liquid
+product.media
+```
+
+代表整个 Media 集合。
+
+所以：
+
+```text
+product.featured_image
+        ↓
+一张主要图片
+
+product.media
+        ↓
+整个 Gallery
+```
+
+这是非常重要的区别。
+
+---
+
+# 八、为什么 Shopify 不直接让我们用 images？
+
+因为现代电商商品媒体已经不只是图片。
+
+例如：
+
+```text
+Product
+│
+└── Media
+    │
+    ├── Image
+    ├── Video
+    ├── External Video
+    └── 3D Model
+```
+
+如果你的 Theme 只设计：
+
+```liquid
+<img>
+```
+
+那么以后遇到视频和 3D 就需要重新设计。
+
+所以 Shopify 用统一的：
+
+```text
+Media
+```
+
+来抽象这些东西。
+
+这其实是一个很典型的数据建模思想。
+
+---
+
+# 九、Variant 和 Media 开始发生关系
+
+这才是今天真正重要的地方。
+
+假设：
+
+```text
+Product: T-Shirt
+
+Color:
+Black
+White
+Blue
+```
+
+每种颜色可能对应不同图片：
+
+```text
+Black
+ ├── Black front
+ ├── Black back
+ └── Black model
+
+White
+ ├── White front
+ ├── White back
+ └── White model
+```
+
+于是：
+
+```text
+Product
+   │
+   ├── Variants
+   │     ├── Black / S
+   │     ├── Black / M
+   │     ├── White / S
+   │     └── White / M
+   │
+   └── Media
+         ├── Black images
+         ├── White images
+         └── ...
+```
+
+这就是为什么：
+
+> **Product Media 和 Variant Selection 经常必须配合 JavaScript。**
+
+---
+
+# 十、为什么 Liquid 不够？
+
+假设用户现在选择：
+
+```text
+Color = Black
+```
+
+页面加载时：
+
+```text
+Black
+ ↓
+显示 Black 图片
+```
+
+用户突然点击：
+
+```text
+Color = White
+```
+
+这时候浏览器已经加载完成了。
+
+你需要：
+
+```text
+用户点击 White
+       ↓
+JavaScript
+       ↓
+找到 White Variant
+       ↓
+找到对应 Media
+       ↓
+更新 Gallery
+```
+
+这就是：
+
+```text
+Liquid
++
+JavaScript
+```
+
+共同完成 Product Page。
+
+---
+
+# 十一、建立一个非常重要的运行模型
+
+你现在应该开始习惯这个：
+
+```text
+Shopify Server
+      │
+      ↓
+Liquid
+      │
+      ↓
+初始 HTML
+      │
+      ↓
+Browser
+      │
+      ↓
+JavaScript
+      │
+      ↓
+用户交互
+      │
+      ├── Variant
+      ├── Gallery
+      ├── Quantity
+      └── Cart
+```
+
+这和 React 最大的区别之一就是：
+
+```text
+React
+服务器/API
+   ↓
+JSON
+   ↓
+React State
+   ↓
+React Render
+```
+
+而 Shopify Theme 经常是：
+
+```text
+Shopify
+   ↓
+Liquid
+   ↓
+HTML
+   ↓
+JS 操作 DOM
+```
+
+---
+
+# 十二、把 Variant 数据传给 JS
+
+我们之前已经学过这种思路：
+
+```liquid
+<script type="application/json" id="ProductJSON">
+  {{ product.variants | json }}
+</script>
+```
+
+现在我们可以把 Media 信息也考虑进去。
+
+例如：
+
+```liquid
+<script type="application/json" id="ProductMediaJSON">
+  {{ product.media | json }}
+</script>
+```
+
+然后 JS：
+
+```js
+const mediaElement = document.querySelector('#ProductMediaJSON');
+
+const media = JSON.parse(mediaElement.textContent);
+```
+
+不过这里要特别注意：
+
+> **实际生产项目不要为了方便把所有 Shopify 对象无脑 JSON 化塞进页面。**
+
+商品数据很多的时候，会增加 HTML Payload。
+
+所以实际 Theme 开发要考虑：
+
+```text
+需要什么数据
+      ↓
+只输出什么数据
+```
+
+这会和我们后面的 **Performance** 课程连接起来。
+
+---
+
+# 十三、Gallery 的基本 JS 思路
+
+假设 HTML：
+
+```html
+<div id="ProductGallery">
+  ...
+</div>
+```
+
+用户选择 Variant：
+
+```js
+function handleVariantChange(variant) {
+  // variant.media_id
+  // 找到对应媒体
+  // 更新 Gallery
+}
+```
+
+概念上就是：
+
+```text
+Variant
+   ↓
+Media
+   ↓
+Gallery
+```
+
+---
+
+# 十四、Thumbnail Gallery
+
+真实电商页面一般不会只显示一张图。
+
+通常：
+
+```text
+┌──────────┐
+│ Thumbnail│
+│ Thumbnail│
+│ Thumbnail│
+│ Thumbnail│
+└──────────┘
+
+┌────────────────────┐
+│                    │
+│      MAIN IMAGE    │
+│                    │
+└────────────────────┘
+```
+
+HTML 可以这样组织：
+
+```liquid
+<div class="product-gallery">
+
+  <div class="product-gallery__thumbnails">
+
+    {% for media in product.media %}
+
+      <button
+        type="button"
+        data-media-id="{{ media.id }}"
+      >
+        {{
+          media.preview_image
+          | image_url: width: 120
+          | image_tag
+        }}
+      </button>
+
+    {% endfor %}
+
+  </div>
+
+
+  <div class="product-gallery__main">
+
+    {% for media in product.media %}
+
+      <div
+        class="product-gallery__item"
+        data-media-id="{{ media.id }}"
+      >
+
+        {% if media.media_type == 'image' %}
+
+          {{
+            media
+            | image_url: width: 1000
+            | image_tag
+          }}
+
+        {% endif %}
+
+      </div>
+
+    {% endfor %}
+
+  </div>
+
+</div>
+```
+
+这里出现了一个非常重要的前端思想：
+
+```text
+data-media-id
+```
+
+我们用它建立：
+
+```text
+Thumbnail
+     ↓
+Media ID
+     ↓
+Main Media
+```
+
+---
+
+# 十五、JS 控制 Gallery
+
+例如：
+
+```js
+const thumbnails =
+  document.querySelectorAll('[data-media-id]');
+
+const mediaItems =
+  document.querySelectorAll('.product-gallery__item');
+
+thumbnails.forEach(thumbnail => {
+
+  thumbnail.addEventListener('click', () => {
+
+    const mediaId =
+      thumbnail.dataset.mediaId;
+
+    mediaItems.forEach(item => {
+
+      item.hidden =
+        item.dataset.mediaId !== mediaId;
+
+    });
+
+  });
+
+});
+```
+
+这个逻辑你作为前端应该非常熟悉。
+
+本质就是：
+
+```text
+点击 Thumbnail
+      ↓
+拿 mediaId
+      ↓
+找到对应 DOM
+      ↓
+显示
+      ↓
+隐藏其他
+```
+
+---
+
+# 十六、这里可以看到 Shopify Theme 的一个核心模式
+
+以后你会经常看到：
+
+```text
+Liquid
+  ↓
+生成 HTML
+  ↓
+data-* 属性
+  ↓
+JavaScript
+  ↓
+读取 DOM / State
+  ↓
+更新 UI
+```
+
+比如：
+
+```html
+data-variant-id="123"
+data-media-id="456"
+data-product-id="789"
+```
+
+这些东西实际上就是：
+
+> **Liquid 给 JavaScript 注入上下文。**
+
+这是 Shopify Theme 前端开发非常重要的技巧。
+
+---
+
+# 十七、Product Media 和 Product Card 的区别
+
+Collection 页面：
+
+```text
+Product Card
+   ↓
+通常只需要：
+featured_image
+title
+price
+url
+```
+
+Product 页面：
+
+```text
+Product Page
+   ↓
+完整 Media Gallery
+   ↓
+Variant
+   ↓
+Variant Media
+   ↓
+Video
+   ↓
+3D
+```
+
+所以：
+
+```text
+Collection
+   ↓
+轻量 Product Card
+
+Product
+   ↓
+完整 Product Media
+```
+
+不要在 Product Card 里把整个 Product Media Gallery 都渲染出来。
+
+这也是性能考虑。
+
+---
+
+# 十八、今天最重要的数据关系
+
+现在把 Product 再画一次：
+
+```text
+Product
+│
+├── title
+├── description
+│
+├── variants
+│    ├── Variant A
+│    ├── Variant B
+│    └── Variant C
+│
+├── media
+│    ├── Image
+│    ├── Image
+│    ├── Video
+│    └── Model
+│
+├── collections
+│
+├── metafields
+│
+└── ...
+```
+
+然后：
+
+```text
+Variant
+   │
+   └── 对应 Media
+           ↓
+       Product Gallery
+```
+
+这就是我们马上要继续深入的地方。
+
+---
+
+# 十九、你现在应该形成这张脑图
+
+```text
+                 Product
+                    │
+        ┌───────────┴───────────┐
+        ↓                       ↓
+     Variants                 Media
+        │                       │
+        ↓                       ├── Image
+ Black / M / ...                ├── Video
+        │                       ├── External Video
+        ↓                       └── 3D
+ JavaScript
+        │
+        ↓
+ Variant Selection
+        │
+        ↓
+   Media Selection
+        │
+        ↓
+ Product Gallery
+        │
+        ↓
+    Add to Cart
+```
+
+这样我们就开始把：
+
+**Product → Variant → Media → Cart**
+
+串成一条完整链路了。
+
+---
+
+# 二十、下一课
+
+下一课我建议直接进入：
+
+## 第 15 课：Shopify Search
+
+我们会研究：
+
+```text
+/search?q=shirt
+        ↓
+Search Template
+        ↓
+search
+        ↓
+search.results
+        ↓
+Product / Page / Article
+        ↓
+Search Result Card
+        ↓
+Pagination
+```
+
+然后再继续：
+
+```text
+Search
+  ↓
+Predictive Search
+  ↓
+Collection Filter
+  ↓
+Sort
+  ↓
+URL State
+```
+
+这几课学完以后，你的 Theme 前端能力就会从“会写 Product/Cart”进入到**真正能独立搭建商城列表、搜索和筛选系统**的阶段。

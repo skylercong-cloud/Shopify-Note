@@ -1,0 +1,1118 @@
+# 第 12 课：Metafield + Shopify Functions，让活动规则配置化
+
+## 我的提问 · 2026-09-19 Sat 21:52
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 21:52
+
+好，我们继续第 12 课。今天把你刚才问到的核心问题彻底打通：
+
+# 第 12 课：Metafield + Shopify Functions —— 让活动规则“配置化”
+
+上一课我们有一个活动：
+
+```text
+Summer Sale
+T-Shirt
+$29.99 → $19.99
+```
+
+我们已经知道：
+
+```text
+Theme
+  ↓
+展示活动页
+  ↓
+Cart API
+  ↓
+Cart
+  ↓
+Discount Function
+  ↓
+最终优惠
+```
+
+但还有一个问题：
+
+> **Discount Function 怎么知道哪个商品参加活动、活动价格是多少、什么时候开始结束？**
+
+答案就是：
+
+```text
+配置数据
+   ↓
+Metafield
+   ↓
+Function
+```
+
+Shopify 官方现在也明确支持把 Discount Function 的配置存储在 discount 对象的 metafield 中，然后 Function 在运行时读取这些配置。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com) [DiscountAutomaticAppInput - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/2026-01/input-objects/DiscountAutomaticAppInput?utm_source=chatgpt.com)
+
+---
+
+# 一、先建立一个完整的数据模型
+
+我们设计一个活动：
+
+```text
+活动名称：
+Summer Sale
+
+活动时间：
+2026-09-01
+~
+2026-09-30
+
+活动商品：
+T-Shirt
+
+活动价格：
+$19.99
+```
+
+我们可以把它抽象成：
+
+```js
+{
+  "campaign": "summer_sale",
+  "startsAt": "2026-09-01T00:00:00Z",
+  "endsAt": "2026-09-30T23:59:59Z",
+  "targetVariantIds": [
+    "gid://shopify/ProductVariant/123"
+  ],
+  "price": "19.99"
+}
+```
+
+注意：
+
+**这不是让浏览器传给 Shopify 的数据。**
+
+而是：
+
+> **商家/你的 App 配置在 Shopify 后台的数据。**
+
+---
+
+# 二、为什么要放 Metafield？
+
+假设你直接写死：
+
+```js
+if (variantId === '123') {
+  price = 19.99;
+}
+```
+
+那以后活动改商品怎么办？
+
+改价格怎么办？
+
+改日期怎么办？
+
+你只能：
+
+```text
+修改代码
+↓
+重新部署 Function
+```
+
+这显然不适合运营。
+
+---
+
+## 配置化以后
+
+变成：
+
+```text
+Shopify Admin
+      ↓
+活动配置
+      ↓
+Metafield
+      ↓
+Function
+```
+
+运营人员可以修改：
+
+```text
+活动价格：19.99
+```
+
+Function 不需要重新部署。
+
+---
+
+# 三、一个非常重要的概念
+
+这里其实有两种 Metafield：
+
+### 普通业务数据
+
+例如：
+
+```text
+Product
+└── custom.material
+```
+
+这是我们之前学习的：
+
+```liquid
+{{ product.metafields.custom.material.value }}
+```
+
+---
+
+### Function Configuration
+
+例如：
+
+```text
+Discount
+└── function-configuration
+```
+
+它不是简单拿来给 Theme 显示的。
+
+它的目的主要是：
+
+> **给 Function 提供运行时配置。**
+
+Shopify 官方的 Discount Function 示例就是从 discount metafield 中读取 JSON 配置，例如目标 SKU 和折扣百分比。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com)
+
+---
+
+# 四、为什么配置通常是 JSON？
+
+比如：
+
+```json
+{
+  "percentage": 20,
+  "skus": [
+    "TSHIRT-BLACK",
+    "TSHIRT-WHITE"
+  ]
+}
+```
+
+Function 读取：
+
+```graphql
+discount {
+  metafield(
+    namespace: "$app",
+    key: "function-configuration"
+  ) {
+    jsonValue
+  }
+}
+```
+
+然后 Function：
+
+```js
+const configuration =
+  input.discount?.metafield?.jsonValue ?? {};
+```
+
+得到：
+
+```js
+{
+  percentage: 20,
+  skus: [
+    "TSHIRT-BLACK",
+    "TSHIRT-WHITE"
+  ]
+}
+```
+
+官方文档现在也推荐复杂 Function 配置使用 JSON metafield，因为活动规则经常是嵌套结构。 [Metafields for input queries](https://shopify.dev/docs/apps/build/functions/input-queries/metafields-for-input-queries?utm_source=chatgpt.com)
+
+---
+
+# 五、这样 Function 就变成“通用引擎”
+
+这是今天最重要的思想。
+
+不要：
+
+```text
+Function
+↓
+写死 Summer Sale
+```
+
+而应该：
+
+```text
+Function
+↓
+读取 Configuration
+↓
+执行通用规则
+```
+
+比如：
+
+```json
+{
+  "percentage": 20,
+  "targetVariantIds": [
+    "gid://shopify/ProductVariant/123",
+    "gid://shopify/ProductVariant/456"
+  ]
+}
+```
+
+Function：
+
+```text
+读取配置
+   ↓
+遍历 Cart Lines
+   ↓
+Variant 是否匹配？
+   ↓
+是
+   ↓
+20% Discount
+```
+
+这样同一个 Function 可以服务：
+
+```text
+Summer Sale
+Black Friday
+Christmas Sale
+VIP Sale
+Flash Sale
+```
+
+只需要不同的配置。
+
+---
+
+# 六、把它类比成 React
+
+你作为前端开发，可以这样理解：
+
+传统写法：
+
+```js
+function Product({ product }) {
+  if (product.id === 123) {
+    return <SalePrice />;
+  }
+
+  return <NormalPrice />;
+}
+```
+
+这是：
+
+> **业务规则硬编码。**
+
+配置化：
+
+```js
+const config = {
+  saleProductIds: [123, 456],
+  discount: 20
+};
+```
+
+然后：
+
+```js
+function Product({ product, config }) {
+  if (config.saleProductIds.includes(product.id)) {
+    return <SalePrice />;
+  }
+
+  return <NormalPrice />;
+}
+```
+
+这就是：
+
+> **业务逻辑 + 配置分离。**
+
+Shopify Functions 也是同样的思想。
+
+---
+
+# 七、现在我们把活动完整设计出来
+
+我们的 Discount 配置：
+
+```json
+{
+  "campaign": "summer_sale",
+
+  "startsAt": "2026-09-01T00:00:00Z",
+
+  "endsAt": "2026-09-30T23:59:59Z",
+
+  "targetVariantIds": [
+    "gid://shopify/ProductVariant/123"
+  ],
+
+  "discountType": "fixed_price",
+
+  "price": "19.99"
+}
+```
+
+注意这里我故意设计成：
+
+```text
+discountType = fixed_price
+```
+
+而不是：
+
+```text
+percentage = 20
+```
+
+因为我们的业务需求是：
+
+```text
+正常：
+$29.99
+
+活动：
+$19.99
+```
+
+而不是：
+
+```text
+打八折
+```
+
+---
+
+# 八、但 Discount Function 的思路更适合“计算折扣”
+
+这时候出现一个非常重要的设计问题。
+
+原价：
+
+```text
+$29.99
+```
+
+活动价：
+
+```text
+$19.99
+```
+
+实际上等价于：
+
+```text
+Discount
+=
+$29.99 - $19.99
+
+=
+$10.00
+```
+
+所以 Function 可以计算：
+
+```text
+discountAmount = originalPrice - campaignPrice
+```
+
+例如：
+
+```js
+const originalPrice = 29.99;
+const campaignPrice = 19.99;
+
+const discount = originalPrice - campaignPrice;
+// 10.00
+```
+
+然后给 Cart Line：
+
+```text
+-$10
+```
+
+这样最终：
+
+```text
+$29.99
+- $10.00
+──────────
+$19.99
+```
+
+---
+
+# 九、Function 真正看到什么？
+
+我们可以让 input query 请求：
+
+```graphql
+query Input {
+  cart {
+    lines {
+      id
+      quantity
+
+      merchandise {
+        __typename
+
+        ... on ProductVariant {
+          id
+          product {
+            id
+          }
+        }
+      }
+
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+    }
+  }
+
+  discount {
+    metafield(
+      namespace: "$app",
+      key: "function-configuration"
+    ) {
+      jsonValue
+    }
+  }
+}
+```
+
+于是 Function 拿到：
+
+```js
+{
+  cart: {
+    lines: [
+      {
+        id: "gid://shopify/CartLine/1",
+
+        quantity: 1,
+
+        merchandise: {
+          id: "gid://shopify/ProductVariant/123"
+        },
+
+        cost: {
+          amountPerQuantity: {
+            amount: "29.99"
+          }
+        }
+      }
+    ]
+  },
+
+  discount: {
+    metafield: {
+      jsonValue: {
+        campaign: "summer_sale",
+        price: "19.99",
+        targetVariantIds: [
+          "gid://shopify/ProductVariant/123"
+        ]
+      }
+    }
+  }
+}
+```
+
+这正是 Shopify 官方 Discount Function 当前支持的模式：Input Query 可以同时读取 Cart Lines 和 discount 上的 metafield 配置。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com) [Discount Function API](https://shopify.dev/docs/api/functions/unstable/discount?contentToggled=true&utm_source=chatgpt.com)
+
+---
+
+# 十、然后 Function 做判断
+
+伪代码：
+
+```js
+for (const line of input.cart.lines) {
+
+  const variantId = line.merchandise.id;
+
+  const isTarget =
+    config.targetVariantIds.includes(variantId);
+
+  if (!isTarget) {
+    continue;
+  }
+
+  const originalPrice =
+    Number(line.cost.amountPerQuantity.amount);
+
+  const campaignPrice =
+    Number(config.price);
+
+  const discount =
+    originalPrice - campaignPrice;
+
+  if (discount <= 0) {
+    continue;
+  }
+
+  // 创建 discount candidate
+}
+```
+
+例如：
+
+```text
+Variant
+123
+
+原价
+29.99
+
+活动价
+19.99
+
+↓
+
+Discount
+10.00
+```
+
+---
+
+# 十一、这时候活动价格就真正安全了
+
+用户可以在浏览器里改：
+
+```js
+{
+  price: 0.01
+}
+```
+
+但是没关系。
+
+因为 Function **不信任这个 price**。
+
+真正的：
+
+```text
+19.99
+```
+
+来自：
+
+```text
+Shopify Discount
+    ↓
+Metafield
+    ↓
+Function
+```
+
+而不是：
+
+```text
+Browser
+    ↓
+price: 19.99
+```
+
+这是我们前面讨论的安全边界。
+
+---
+
+# 十二、那么活动页 Theme 怎么知道 $19.99？
+
+这里出现一个很有意思的问题：
+
+> Function 能读配置，那 Theme 怎么读？
+
+这里要根据你的架构选择。
+
+例如你的活动数据可以存放在：
+
+```text
+Metaobject
+```
+
+而不是只放在：
+
+```text
+Discount Function configuration
+```
+
+于是我们可以设计：
+
+```text
+                    Campaign
+                       │
+                ┌──────┴──────┐
+                ↓             ↓
+             Theme         Function
+                │             │
+                ↓             ↓
+             UI价格        最终折扣
+```
+
+这就非常漂亮。
+
+---
+
+# 十三、为什么 Metaobject 很适合活动？
+
+我们之前学过：
+
+```text
+Metafield
+```
+
+更像：
+
+```text
+一个字段
+```
+
+而：
+
+```text
+Metaobject
+```
+
+更像：
+
+```text
+一个完整的数据结构
+```
+
+例如：
+
+```text
+Campaign Metaobject
+
+id
+name
+handle
+start_at
+end_at
+banner_image
+target_products
+sale_price
+description
+```
+
+可以理解成：
+
+```js
+{
+  id,
+  name,
+  handle,
+  startAt,
+  endAt,
+  bannerImage,
+  targetProducts,
+  salePrice,
+  description
+}
+```
+
+这已经非常像你平时在前端/后端设计的数据模型了。
+
+---
+
+# 十四、于是我们的最终架构可以升级成这样
+
+```text
+                 Campaign Metaobject
+                         │
+              ┌──────────┴──────────┐
+              ↓                     ↓
+            Theme                App / Function
+              │                     │
+              ↓                     ↓
+         活动页 UI              活动规则
+         活动价格                商品匹配
+         Banner                  时间判断
+              │                     │
+              ↓                     ↓
+           Cart API            Discount
+              │                     │
+              └──────────┬──────────┘
+                         ↓
+                       Checkout
+```
+
+这就是开始接近**真正的 Shopify 商业项目架构**了。
+
+---
+
+# 十五、Theme 不一定要直接读取 Function 的配置
+
+这一点也非常重要。
+
+你可能会想：
+
+> “既然 Function 有配置，Theme 直接读取 Function 配置不就行了？”
+
+不一定。
+
+因为：
+
+```text
+Function Configuration
+```
+
+的主要责任是：
+
+> **Function runtime configuration**
+
+而：
+
+```text
+Campaign Metaobject
+```
+
+的责任是：
+
+> **业务内容/活动数据**
+
+这两个概念最好不要混在一起。
+
+---
+
+# 十六、我推荐你这样设计
+
+例如：
+
+## Campaign Metaobject
+
+```text
+Campaign
+├── title
+├── handle
+├── start_at
+├── end_at
+├── banner
+├── description
+├── target_variants
+└── sale_price
+```
+
+Theme：
+
+```text
+Campaign
+ ↓
+Liquid
+ ↓
+活动页面
+```
+
+App：
+
+```text
+Campaign
+ ↓
+创建/管理 Discount
+ ↓
+写入 Function Configuration
+```
+
+Function：
+
+```text
+Discount Configuration
+ ↓
+读取
+ ↓
+计算
+ ↓
+Apply Discount
+```
+
+于是：
+
+```text
+Metaobject
+=
+业务数据
+
+Function Metafield
+=
+Function 配置
+```
+
+这是一个很好的架构分层。
+
+---
+
+# 十七、如果活动有 1000 个商品怎么办？
+
+这个问题就开始有意思了。
+
+比如：
+
+```text
+Summer Sale
+```
+
+有：
+
+```text
+10,000 个 Variant
+```
+
+你不能简单在 Function 配置里塞一个超大的数组。
+
+因为 Shopify Functions 的 input query、metafield 和运行时都有相应的大小/复杂度限制；官方也建议复杂配置合理使用 JSON，并注意输入大小和查询复杂度。 [Use variables in input queries](https://shopify.dev/docs/apps/build/functions/input-queries/use-variables-input-queries?utm_source=chatgpt.com) [Function APIs](https://shopify.dev/docs/api/functions/unstable?utm_source=chatgpt.com)
+
+这时候通常要考虑：
+
+```text
+Product / Variant Metafield
+```
+
+例如：
+
+```text
+Variant
+custom.campaign_price
+
+= 19.99
+```
+
+或者：
+
+```text
+Variant
+custom.campaign_id
+
+= summer_sale
+```
+
+Function 直接读取目标 Variant 的相关数据。
+
+---
+
+# 十八、所以现在出现三个层级
+
+你应该开始建立这个认知：
+
+### Level 1：简单字段
+
+```text
+Metafield
+```
+
+例如：
+
+```text
+product.metafields.custom.material
+```
+
+---
+
+### Level 2：复杂业务对象
+
+```text
+Metaobject
+```
+
+例如：
+
+```text
+Campaign
+```
+
+---
+
+### Level 3：Function Runtime Configuration
+
+```text
+Discount Metafield
+```
+
+例如：
+
+```json
+{
+  "percentage": 20,
+  "targetVariantIds": [...]
+}
+```
+
+三者虽然都叫：
+
+```text
+Metafield / Metaobject
+```
+
+但**职责不同**。
+
+---
+
+# 十九、最后再看一次完整架构
+
+现在你已经可以理解：
+
+```text
+                    Shopify Admin
+                         │
+                         ↓
+                 Campaign Metaobject
+                         │
+             ┌───────────┴───────────┐
+             ↓                       ↓
+          Theme                     App
+             ↓                       ↓
+         活动页面               创建 Discount
+             ↓                       ↓
+         Variant              Function Config
+             │                       │
+             └───────────┬───────────┘
+                         ↓
+                     Cart API
+                         ↓
+                       Cart
+                         ↓
+                 Discount Function
+                         ↓
+                   Final Discount
+                         ↓
+                      Checkout
+                         ↓
+                       Order
+```
+
+这条链路你现在已经能完整讲出来了。
+
+---
+
+# 二十、一个非常重要的架构判断
+
+以后产品经理告诉你：
+
+> “我要做一个双十一活动。”
+
+不要马上开始写 Liquid。
+
+先拆：
+
+```text
+① 活动数据
+      ↓
+Metaobject
+
+② 活动页面
+      ↓
+Theme
+
+③ 加购
+      ↓
+Cart API
+
+④ 活动规则
+      ↓
+Discount Function
+
+⑤ 商家配置
+      ↓
+App / Admin UI
+
+⑥ 最终价格
+      ↓
+Shopify Checkout
+```
+
+这就是一个完整的 Shopify 电商功能。
+
+---
+
+## 🧠 今天最重要的 5 个结论
+
+你把下面这 5 个记住，第 12 课就算真正掌握了：
+
+**1. Metafield 不只是给商品加字段。**
+
+它也可以作为 Shopify Functions 的配置数据。 [Metafields for input queries](https://shopify.dev/docs/apps/build/functions/input-queries/metafields-for-input-queries?utm_source=chatgpt.com)
+
+**2. Function 不应该把活动规则硬编码。**
+
+应该：
+
+```text
+Function Logic
++
+Configuration
+```
+
+**3. 活动业务数据和 Function 配置可以分开。**
+
+```text
+Metaobject
+=
+Campaign Business Data
+
+Discount Metafield
+=
+Function Configuration
+```
+
+**4. 浏览器永远不是最终价格的可信来源。**
+
+```text
+Browser
+→ 提出购买请求
+
+Shopify
+→ 决定最终交易结果
+```
+
+**5. Discount Function 是“计算优惠”的核心能力。**
+
+Shopify 当前 Discount Function API 支持商品、订单和配送三类折扣，并可通过 metafield 配置 Function 行为。 [Discount Function API](https://shopify.dev/docs/api/functions/2026-01/discount?utm_source=chatgpt.com) [DiscountAutomaticAppInput - GraphQL Admin](https://shopify.dev/docs/api/admin-graphql/2026-01/input-objects/DiscountAutomaticAppInput?utm_source=chatgpt.com)
+
+---
+
+下一课我们就不再停留在概念层了，直接开始**真正写一个 Shopify Function**：
+
+```text
+第 13 课
+Shopify Function 实战
+
+shopify app init
+      ↓
+创建 Discount Function
+      ↓
+GraphQL Input Query
+      ↓
+读取 Cart Line
+      ↓
+读取 Metafield Configuration
+      ↓
+匹配 Variant
+      ↓
+生成 Discount Candidate
+      ↓
+返回 Discount
+```
+
+这会是你从 **Theme Developer → Shopify App/Functions Developer** 的第一个真正跨越。

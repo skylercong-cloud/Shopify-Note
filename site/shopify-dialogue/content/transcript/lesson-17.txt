@@ -1,0 +1,3276 @@
+# 第 17 课：Collection Filtering —— Shopify 商品筛选
+
+## 我的提问 · 2026-09-19 Sat 22:34
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 22:34
+
+# 第 17 课：Collection Filtering —— Shopify 商品筛选
+
+这一课非常重要。
+
+因为到了这里，你会发现 Shopify Theme 已经不只是：
+
+> Liquid 把商品循环出来
+
+而开始变成真正的**电商前端系统**：
+
+```text
+Collection Page
+      ↓
+   Filters
+      ↓
+用户选择条件
+      ↓
+URL Query Parameters
+      ↓
+Shopify 根据条件筛选
+      ↓
+Liquid 重新渲染商品
+      ↓
+Section Rendering
+      ↓
+局部更新 DOM
+```
+
+这和你熟悉的 React：
+
+```text
+filters state
+    ↓
+URLSearchParams
+    ↓
+API
+    ↓
+data
+    ↓
+setState
+    ↓
+React render
+```
+
+已经非常接近了。
+
+---
+
+# 一、什么是 Storefront Filtering？
+
+Shopify 官方现在推荐使用 **Storefront filtering** 来实现 Collection 和 Search 页面筛选。 [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com) [Filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering?utm_source=chatgpt.com)
+
+例如一个鞋子 Collection：
+
+```text
+Shoes
+│
+├── Availability
+│   ├── In stock
+│   └── Out of stock
+│
+├── Color
+│   ├── Black
+│   ├── White
+│   └── Red
+│
+├── Size
+│   ├── S
+│   ├── M
+│   └── L
+│
+├── Price
+│   ├── $0 - $50
+│   └── $50 - $100
+│
+└── Brand
+    ├── Nike
+    └── Adidas
+```
+
+用户选择：
+
+```text
+Color = Black
+Size = M
+```
+
+Shopify 会根据这些条件返回符合条件的商品。
+
+---
+
+# 二、Shopify Filtering 和普通 JS Filter 的区别
+
+这个概念一定要理解。
+
+你可能会想到：
+
+```js
+products.filter(product => ...)
+```
+
+但是 Shopify Collection Filtering **不是这么工作的**。
+
+因为：
+
+```text
+Shopify 上可能有 10000 个商品
+```
+
+你不可能先把 10000 个商品全部传到浏览器：
+
+```js
+const products = [...]
+```
+
+然后：
+
+```js
+products.filter(...)
+```
+
+这会非常浪费。
+
+Shopify 的方式是：
+
+```text
+Browser
+   ↓
+发送筛选条件
+   ↓
+Shopify Server
+   ↓
+筛选商品
+   ↓
+Liquid
+   ↓
+返回符合条件的 HTML
+```
+
+也就是说：
+
+> **筛选主要发生在 Shopify 服务端，而不是浏览器端。**
+
+这也是为什么 Shopify Theme 可以保持比较好的性能。
+
+官方也推荐让 Liquid 服务端渲染商品网格，再使用 Section Rendering API 做筛选/排序后的局部更新。 [Render essential content in Liquid and HTML, not JavaScript](https://shopify.dev/docs/storefronts/themes/best-practices/performance/render-essential-content-server-side?utm_source=chatgpt.com)
+
+---
+
+# 三、核心对象：`collection.filters`
+
+这是这一课最重要的 Liquid 对象。
+
+例如：
+
+```liquid
+{% for filter in collection.filters %}
+
+  <h3>{{ filter.label }}</h3>
+
+{% endfor %}
+```
+
+假设 Shopify 后台配置了：
+
+```text
+Availability
+Color
+Size
+Price
+Brand
+```
+
+那么：
+
+```liquid
+collection.filters
+```
+
+就代表这些筛选器。
+
+官方的 Theme Filtering 实现就是通过 `filter` 对象配合 `collection` 或 `search` 对象完成的。 [Support storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering/support-storefront-filtering?utm_source=chatgpt.com)
+
+---
+
+# 四、最基本的 Filter UI
+
+我们先写一个简单版本：
+
+```liquid
+{% for filter in collection.filters %}
+
+  <div class="filter-group">
+
+    <h3>
+      {{ filter.label }}
+    </h3>
+
+    {% for value in filter.values %}
+
+      <label>
+        <input
+          type="checkbox"
+          name="{{ value.param_name }}"
+          value="{{ value.value }}"
+        >
+
+        {{ value.label }}
+
+      </label>
+
+    {% endfor %}
+
+  </div>
+
+{% endfor %}
+```
+
+你可以把它理解成 React：
+
+```jsx
+collection.filters.map(filter => (
+  <FilterGroup filter={filter} />
+))
+```
+
+而：
+
+```liquid
+{% for value in filter.values %}
+```
+
+类似：
+
+```jsx
+filter.values.map(value => ...)
+```
+
+---
+
+# 五、Filter 真正厉害的地方：URL
+
+假设用户选择：
+
+```text
+Color = Red
+```
+
+URL 会出现类似：
+
+```text
+/collections/shoes?filter.v.option.color=red
+```
+
+如果再选择：
+
+```text
+Size = L
+```
+
+可能变成：
+
+```text
+/collections/shoes
+?filter.v.option.color=red
+&filter.v.option.size=L
+```
+
+Shopify 官方规定了 Storefront Filtering 的 URL 参数结构。 [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+这意味着：
+
+```text
+Filter
+ ↓
+URL
+ ↓
+Shopify
+ ↓
+Collection
+```
+
+而不是：
+
+```text
+Filter
+ ↓
+React state
+ ↓
+本地 products.filter()
+```
+
+---
+
+# 六、为什么 Shopify 要把 Filter 放进 URL？
+
+这是一个非常重要的电商设计。
+
+比如用户筛选：
+
+```text
+Color = Black
+Size = M
+```
+
+URL：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&filter.v.option.size=M
+```
+
+那么用户可以：
+
+### 1. 刷新页面
+
+筛选状态还在。
+
+### 2. 分享链接
+
+把 URL 发给别人：
+
+```text
+https://store.com/collections/shoes?filter...
+```
+
+别人打开也是相同筛选结果。
+
+### 3. 浏览器后退
+
+```text
+All Shoes
+   ↓
+Black
+   ↓
+Black + M
+   ↓
+Back
+```
+
+URL 状态可以恢复。
+
+### 4. SEO / 可访问性
+
+页面状态不是完全依赖 JS 内存。
+
+所以 Shopify Filtering 的一个核心思想就是：
+
+> **URL 是筛选状态的一部分。**
+
+---
+
+# 七、AND 和 OR
+
+这里特别容易搞混。
+
+Shopify Storefront Filtering 的规则是：
+
+> 不同 Filter 之间通常是 AND，同一个 Filter 的多个值通常是 OR。 [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+例如：
+
+```text
+Color = Black
+Size = M
+```
+
+相当于：
+
+```text
+Color = Black
+AND
+Size = M
+```
+
+商品必须同时满足。
+
+---
+
+但是：
+
+```text
+Color = Black
+Color = White
+```
+
+相当于：
+
+```text
+Color = Black
+OR
+Color = White
+```
+
+所以：
+
+```text
+不同 filter
+     ↓
+    AND
+
+同一个 filter 多个 value
+     ↓
+    OR
+```
+
+这是电商筛选非常常见的设计。
+
+---
+
+# 八、Shopify 支持哪些 Filter？
+
+当前 Storefront Filtering 可以基于很多商品/Variant 数据，例如：
+
+- Availability
+- Category
+- Price
+- Product tags
+- Product type
+- Vendor
+- Variant options
+- Metafields
+
+官方文档也明确说明了这些过滤维度。 [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+因此你可以做：
+
+```text
+商品类型
+品牌
+颜色
+尺码
+价格
+库存
+材质
+性别
+风格
+```
+
+等等。
+
+---
+
+# 九、Metafield Filtering 非常重要
+
+这部分和我们之前学的 **Metafield** 直接连起来了。
+
+假设我们之前创建：
+
+```text
+Product Metafield
+
+namespace: custom
+key: material
+type: single_line_text_field
+```
+
+商品：
+
+```text
+Nike Air Max
+material = Leather
+```
+
+另一个：
+
+```text
+Adidas Runner
+material = Mesh
+```
+
+那么就可以把：
+
+```text
+Material
+├── Leather
+├── Mesh
+└── Cotton
+```
+
+作为筛选条件。
+
+这就是：
+
+```text
+Metafield
+   ↓
+Storefront Filter
+   ↓
+Collection Filtering
+```
+
+所以你会开始发现：
+
+> Shopify 的 Data Model 和 Theme Development 是连起来的。
+
+---
+
+# 十、Filter 的数量不是无限的
+
+当前 Shopify 文档说明，一个商店最多可以创建 **25 个 storefront filters**。 [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+所以实际项目里不能无限设计：
+
+```text
+品牌
+颜色
+尺码
+材质
+风格
+长度
+重量
+产地
+季节
+...
+```
+
+而是要考虑：
+
+```text
+哪些 Filter 真正有商业价值？
+```
+
+这属于后面的电商 UX / 数据建模问题。
+
+---
+
+# 十一、Active Filters
+
+现在考虑一个实际问题。
+
+用户选择：
+
+```text
+Color = Black
+Size = M
+```
+
+页面最好显示：
+
+```text
+Active filters:
+
+[ Black × ] [ M × ]
+
+Clear all
+```
+
+这样用户知道当前到底筛选了什么。
+
+在 Liquid 中，你可以围绕 Filter 的 active values 来构建这个 UI。
+
+概念上：
+
+```liquid
+{% for filter in collection.filters %}
+
+  {% for value in filter.active_values %}
+
+    <a href="{{ value.url_to_remove }}">
+      {{ value.label }} ×
+    </a>
+
+  {% endfor %}
+
+{% endfor %}
+```
+
+这里的核心思想是：
+
+```text
+用户选中的 Filter
+        ↓
+active_values
+        ↓
+生成 remove URL
+        ↓
+点击后取消这个条件
+```
+
+这比自己手工拼 URL 安全很多。
+
+---
+
+# 十二、Clear All
+
+还需要：
+
+```text
+[ Clear all ]
+```
+
+也就是：
+
+```text
+/collections/shoes
+```
+
+恢复成没有 Filter 的状态。
+
+一个优秀的 Filter UI 通常至少有：
+
+```text
+Filters
+
+Color
+☑ Black
+☐ White
+☐ Red
+
+Size
+☐ S
+☑ M
+☐ L
+
+----------------
+
+Selected:
+[ Black × ]
+[ M × ]
+
+[ Clear all ]
+```
+
+---
+
+# 十三、价格筛选
+
+价格比较特殊。
+
+例如：
+
+```text
+$20 ~ $100
+```
+
+Shopify URL 可以使用价格条件。
+
+官方文档中的价格过滤使用：
+
+```text
+filter.v.price.gte
+```
+
+和：
+
+```text
+filter.v.price.lte
+```
+
+例如：
+
+```text
+filter.v.price.gte=20
+filter.v.price.lte=100
+```
+
+表示：
+
+```text
+price >= 20
+AND
+price <= 100
+```
+
+也就是：
+
+```text
+$20 ≤ Price ≤ $100
+```
+
+ [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+---
+
+# 十四、Availability
+
+库存筛选也非常常见：
+
+```text
+Availability
+
+☑ In stock
+☐ Out of stock
+```
+
+Shopify 当前对应的参数可以是：
+
+```text
+filter.v.availability=1
+```
+
+其中：
+
+```text
+1 = in stock
+0 = out of stock
+```
+
+ [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+---
+
+# 十五、Filter Count
+
+非常重要的一个 UX：
+
+```text
+Color
+
+Black      (42)
+White      (18)
+Red        (7)
+```
+
+这个：
+
+```text
+(42)
+```
+
+就是告诉用户：
+
+> 如果选择 Black，会有多少商品匹配。
+
+因此 Filter UI 不只是：
+
+```text
+<label>
+  <input>
+  Black
+</label>
+```
+
+还可以展示对应 count。
+
+这对大型电商网站非常重要。
+
+---
+
+# 十六、Filter + Sort
+
+Collection 页面通常还有：
+
+```text
+Sort by:
+
+Featured
+Price, low to high
+Price, high to low
+Best selling
+Newest
+```
+
+Shopify Collection 对象提供：
+
+```liquid
+collection.sort_options
+collection.sort_by
+collection.default_sort_by
+```
+
+并通过 URL 的：
+
+```text
+sort_by
+```
+
+控制排序。 [collection](https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com)
+
+例如：
+
+```text
+/collections/shoes?sort_by=price-ascending
+```
+
+于是：
+
+```text
+Filter
++
+Sort
+```
+
+可以组合：
+
+```text
+/collections/shoes
+?filter.v.option.color=black
+&filter.v.option.size=M
+&sort_by=price-ascending
+```
+
+这就已经非常接近真实电商 Collection 页面了。
+
+---
+
+# 十七、现在我们进入关键部分：不用刷新整个页面
+
+如果每次用户点击 Filter 都：
+
+```text
+点击
+↓
+浏览器刷新
+↓
+重新加载整个页面
+```
+
+体验会比较差。
+
+我们之前已经学过：
+
+> **Section Rendering API**
+
+所以可以做成：
+
+```text
+用户点击 Black
+        ↓
+JavaScript
+        ↓
+修改 URL / 请求筛选 URL
+        ↓
+Shopify
+        ↓
+重新渲染 Collection Section
+        ↓
+返回 HTML
+        ↓
+JS 替换商品 Grid
+```
+
+这就是 Shopify Theme 中非常经典的：
+
+> **Server-rendered HTML + AJAX enhancement**
+
+---
+
+# 十八、为什么不是 React 全量接管？
+
+这是 Shopify Theme 和传统 React SPA 一个很重要的区别。
+
+传统 React：
+
+```text
+Browser
+ ↓
+React
+ ↓
+API
+ ↓
+JSON
+ ↓
+React state
+ ↓
+React DOM
+```
+
+Shopify Theme：
+
+```text
+Browser
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+```
+
+加入 AJAX 后：
+
+```text
+Browser
+ ↓
+Fetch
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+替换 Section
+```
+
+所以 Shopify 官方也推荐：
+
+> 核心商品内容应该优先由 Liquid/HTML 服务端渲染，而不是完全依赖 JavaScript 在客户端生成。 [Render essential content in Liquid and HTML, not JavaScript](https://shopify.dev/docs/storefronts/themes/best-practices/performance/render-essential-content-server-side?utm_source=chatgpt.com)
+
+---
+
+# 十九、一个真实的架构
+
+我们现在可以设计：
+
+```text
+sections/
+│
+├── main-collection-product-grid.liquid
+│
+└── collection-filters.liquid
+```
+
+然后：
+
+```text
+templates/
+└── collection.json
+```
+
+结构：
+
+```text
+Collection Page
+│
+├── Collection Header
+│
+├── Filters
+│   ├── Availability
+│   ├── Color
+│   ├── Size
+│   ├── Price
+│   └── Brand
+│
+├── Sort
+│
+└── Product Grid
+    ├── Product Card
+    ├── Product Card
+    ├── Product Card
+    └── Product Card
+```
+
+---
+
+# 二十、完整数据流
+
+现在把我们已经学过的东西串起来：
+
+```text
+                Shopify Admin
+                     │
+                     ↓
+          创建 Storefront Filters
+                     │
+                     ↓
+               Collection
+                     │
+          ┌──────────┴──────────┐
+          ↓                     ↓
+      collection.filters   collection.products
+          ↓                     ↓
+       Filter UI            Product Grid
+          │                     │
+          └──────────┬──────────┘
+                     ↓
+                  用户点击
+                     ↓
+                URL Parameters
+                     ↓
+              Shopify Server
+                     ↓
+                 Liquid
+                     ↓
+            Section Rendering
+                     ↓
+               返回 HTML
+                     ↓
+               JS 更新 DOM
+```
+
+这就是你现在应该建立起来的完整心智模型。
+
+---
+
+# 二十一、和 React 对照一下
+
+如果你来自 React，这个映射非常重要：
+
+| React | Shopify Theme |
+|---|---|
+| `useState()` | URL / Shopify 当前请求状态 |
+| `useMemo()` | Liquid 服务端计算 |
+| API 请求 | Shopify URL / Section Rendering |
+| JSON | HTML Section |
+| React component | Section / Snippet |
+| `.map()` | `{% for %}` |
+| 条件渲染 | `{% if %}` |
+| Router Query | URL Query Parameters |
+| State → UI | URL → Shopify → Liquid → UI |
+
+尤其是：
+
+```text
+React：
+
+state
+ ↓
+render
+ ↓
+DOM
+```
+
+Shopify：
+
+```text
+URL
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+```
+
+这是 Shopify Theme 最重要的思维方式之一。
+
+---
+
+# 二十二、你现在已经走到一个关键节点
+
+到目前为止，我们已经学：
+
+```text
+Theme
+│
+├── Liquid
+├── Layout
+├── Template
+├── Section
+├── Block
+├── Snippet
+│
+├── Product
+├── Variant
+├── Product Media
+│
+├── Collection
+├── Search
+├── Predictive Search
+│
+├── Cart
+├── Cart Drawer
+├── Section Rendering
+│
+└── Collection Filtering ← 今天
+```
+
+下一节就是：
+
+# 第 18 课：Pagination / Sort / URL State
+
+这一课会把现在的 Collection Filtering 再往前推进一步，重点解决三个非常实际的问题：
+
+```text
+Filter
++
+Sort
++
+Pagination
+```
+
+最终形成：
+
+```text
+/collections/shoes
+?page=2
+&sort_by=price-ascending
+&filter.v.option.color=black
+&filter.v.option.size=M
+```
+
+然后我们会重点讲：
+
+- 为什么筛选后 `page=2` 经常需要处理
+- `sort_by` 怎么和 Filter 共存
+- URLSearchParams 怎么在 Theme JS 里管理
+- Filter / Sort / Pagination 如何统一
+- Section Rendering 如何做到**筛选、排序、翻页都不刷新整个页面**
+- 最后做一个接近真实 Shopify 商城的 Collection 页面
+
+这部分学完，你的 **Collection 页面 Theme 能力就基本成型了**。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 22:43
+
+这一课我没明白，一个集合页怎么定义筛选、排序的那些item 我的意思比如我想让该集合页按价格、颜色、材质、产地排序或者筛选，我该怎么去配置这些字段？
+
+## ChatGPT · 2026-09-19 Sat 22:43
+
+对，你这个问题问到了**这一课真正的核心**。
+
+我上一节直接讲 `collection.filters`，跳过了最重要的一层：**这些 Filter 到底是谁定义的、数据从哪里来。**
+
+你可以先记住一句话：
+
+> **Collection 页面不是自己定义“价格/颜色/材质/产地”这些筛选项的。你是在 Shopify 后台配置 Filter，而 Filter 的数据来源于 Product、Variant、Metafield、Metaobject 等数据。Theme 只是把这些已经配置好的 Filter 渲染出来。**
+
+Shopify 目前主要通过 **Search & Discovery** 来配置 Storefront Filters。 [Shopify Help Center | Adding filters with Shopify Search & Discovery](https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com) [Storefront filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com)
+
+---
+
+# 一、先看完整关系
+
+假设你有一个：
+
+```text
+男鞋 Collection
+```
+
+你希望用户可以：
+
+```text
+价格
+颜色
+材质
+产地
+```
+
+进行筛选。
+
+真正的数据结构应该是：
+
+```text
+                 Shopify Admin
+                      │
+                      ↓
+               产品数据 Product
+                      │
+        ┌─────────────┼─────────────┐
+        ↓             ↓             ↓
+      Price          Color        Material
+                                    │
+                                 Metafield
+                                    │
+                                  Origin
+                                    │
+                                 Metafield
+                      ↓
+              Search & Discovery
+                      ↓
+                创建 Filters
+                      ↓
+              collection.filters
+                      ↓
+                   Theme
+                      ↓
+              显示筛选 UI
+```
+
+所以要分成 **3 层**：
+
+### 第一层：产品数据
+
+```text
+Product
+├── Price
+├── Color
+├── Material
+└── Origin
+```
+
+### 第二层：Filter 配置
+
+告诉 Shopify：
+
+> 哪些字段允许消费者拿来筛选？
+
+### 第三层：Theme
+
+负责：
+
+```text
+把 Filter 画出来
+```
+
+---
+
+# 二、你的四个字段应该怎么设计？
+
+我们直接按照你的例子来。
+
+你想要：
+
+```text
+价格
+颜色
+材质
+产地
+```
+
+我会这样设计：
+
+| 筛选项 | 数据来源 | 推荐方式 |
+|---|---|---|
+| 价格 | Product/Variant Price | Shopify 标准 Price Filter |
+| 颜色 | Product Option / Category Metafield | Color |
+| 材质 | Product Metafield | `custom.material` |
+| 产地 | Product Metafield | `custom.origin` |
+
+其中：
+
+**价格不需要你自己创建字段。**
+
+颜色如果是商品规格，比如：
+
+```text
+Color:
+Black
+White
+Red
+```
+
+可以直接利用 Product Option。
+
+而：
+
+```text
+材质
+产地
+```
+
+这种不是 Shopify 默认 Product 字段的东西，就非常适合用 **Metafield**。
+
+Shopify 当前支持用 Product Option、Product Metafield、Category Metafield、Variant Metafield 等作为自定义筛选来源。 [Shopify Help Center | Adding filters with Shopify Search & Discovery](https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com)
+
+---
+
+# 三、先配置「价格」
+
+价格最简单。
+
+商品：
+
+```text
+Nike Air Max
+Price: $99
+```
+
+价格本身就是 Shopify Product/Variant 的标准数据。
+
+所以你**不用创建**：
+
+```text
+custom.price
+```
+
+不要这样干。
+
+直接在：
+
+```text
+Shopify Admin
+→ Apps
+→ Search & Discovery
+→ Filters
+→ Add filter
+```
+
+选择：
+
+```text
+Price
+```
+
+就可以了。Shopify 把 Price 列为标准 Filter。 [Shopify 帮助中心 | 使用 Shopify Search & Discovery 添加筛选条件](https://help.shopify.com/zh-CN/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com)
+
+最终消费者看到：
+
+```text
+Price
+
+$0 ───────── $200
+```
+
+或者：
+
+```text
+Under $50
+$50 - $100
+$100 - $200
+```
+
+具体 UI 怎么呈现，还取决于你的 Theme。
+
+---
+
+# 四、再配置「颜色」
+
+这里有两种情况。
+
+## 情况 A：颜色本身是商品规格
+
+例如：
+
+```text
+Product
+
+Nike Air Max
+
+Color:
+├── Black
+├── White
+└── Red
+
+Size:
+├── 8
+├── 9
+└── 10
+```
+
+那么：
+
+```text
+Color
+```
+
+本身就是 Product Option。
+
+所以 Search & Discovery 可以直接基于：
+
+```text
+Product Option
+```
+
+创建 Color Filter。 [Shopify Help Center | Adding filters with Shopify Search & Discovery](https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com)
+
+---
+
+# 五、那「颜色」到底存在哪里？
+
+比如一个商品：
+
+```text
+Nike Air Max
+```
+
+它可能有 Variant：
+
+```text
+Black / 8
+Black / 9
+White / 8
+White / 9
+```
+
+这里：
+
+```text
+Color
+```
+
+实际上是 Variant Option。
+
+也就是：
+
+```text
+Product
+   │
+   └── Options
+        ├── Color
+        │    ├── Black
+        │    └── White
+        │
+        └── Size
+             ├── 8
+             └── 9
+```
+
+所以如果你的颜色就是 SKU 维度的一部分：
+
+> **优先使用 Product Option。**
+
+---
+
+# 六、如果你想要漂亮的颜色色块呢？
+
+比如：
+
+```text
+Color
+
+⚫ Black
+⚪ White
+🔴 Red
+🔵 Blue
+```
+
+甚至：
+
+```text
+● ● ● ●
+```
+
+这种叫 **Visual Filter / Swatch**。
+
+Shopify 现在可以通过 Category Metafield、Product Metafield 或 Variant Metafield 的 Metaobject Reference 来做可视化 Filter。 [Shopify Help Center | Adding filters with Shopify Search & Discovery](https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com) [Shopify 帮助中心 | 使用分类元字段添加颜色样本](https://help.shopify.com/zh-CN/manual/custom-data/metafields/category-metafields/using-category-metafields?utm_source=chatgpt.com)
+
+这个我们后面专门讲 **Metaobject + Filter**。
+
+现在你先理解数据结构即可。
+
+---
+
+# 七、重点来了：「材质」
+
+比如你的商品：
+
+```text
+Nike Air Max
+Material = Leather
+```
+
+这个：
+
+```text
+Material
+```
+
+Shopify 默认 Product 数据里面没有一个通用的：
+
+```text
+product.material
+```
+
+所以我们自己定义一个 **Product Metafield**。
+
+进入：
+
+```text
+Shopify Admin
+→ Settings
+→ Custom data
+→ Products
+```
+
+创建：
+
+```text
+Name:
+Material
+
+Namespace and key:
+custom.material
+
+Type:
+Single line text
+```
+
+于是我们的 Product 数据就变成：
+
+```text
+Product
+│
+├── title
+├── price
+├── variants
+├── media
+│
+└── metafields
+     └── custom.material
+```
+
+---
+
+# 八、然后给每个商品填写材质
+
+例如：
+
+### 商品 A
+
+```text
+Nike Air Max
+
+Material:
+Leather
+```
+
+### 商品 B
+
+```text
+Adidas Runner
+
+Material:
+Mesh
+```
+
+### 商品 C
+
+```text
+New Balance
+
+Material:
+Cotton
+```
+
+数据实际上类似：
+
+```text
+Product A
+custom.material = Leather
+
+Product B
+custom.material = Mesh
+
+Product C
+custom.material = Cotton
+```
+
+---
+
+# 九、然后把这个 Metafield 变成 Filter
+
+这一步非常关键。
+
+你现在已经有：
+
+```text
+Product Metafield
+        ↓
+custom.material
+```
+
+但是：
+
+> **有 Metafield ≠ 自动成为 Storefront Filter。**
+
+你还需要：
+
+```text
+Apps
+↓
+Search & Discovery
+↓
+Filters
+↓
+Add filter
+↓
+选择 Product Metafield
+↓
+custom.material
+↓
+Save
+```
+
+Shopify 官方当前就是通过 Search & Discovery 的 **Add filter → Source** 来选择 Product Metafield 等来源。 [Shopify Help Center | Adding filters with Shopify Search & Discovery](https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com) [Shopify 帮助中心 | 使用 Shopify Search & Discovery 添加筛选条件](https://help.shopify.com/zh-CN/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com)
+
+---
+
+# 十、于是就形成了完整链路
+
+这时候你应该能看到：
+
+```text
+Product Metafield
+        │
+        │
+        ↓
+custom.material
+        │
+        ↓
+Search & Discovery
+        │
+        ↓
+Material Filter
+        │
+        ↓
+collection.filters
+        │
+        ↓
+Theme
+        │
+        ↓
+Material
+☐ Leather
+☐ Mesh
+☐ Cotton
+```
+
+这就是你刚才问的：
+
+> “一个集合页怎么定义筛选 item？”
+
+答案就是：
+
+**不是在 Collection Liquid 里面定义。**
+
+而是：
+
+```text
+商品数据
+  ↓
+Search & Discovery Filter 配置
+  ↓
+Theme 自动读取
+```
+
+---
+
+# 十一、再来看「产地」
+
+同样的方法。
+
+创建：
+
+```text
+Product Metafield
+
+Name:
+Origin
+
+Namespace:
+custom
+
+Key:
+origin
+
+Type:
+Single line text
+```
+
+然后商品：
+
+```text
+Nike Air Max
+Origin = China
+
+Adidas Runner
+Origin = Vietnam
+
+New Balance
+Origin = USA
+```
+
+然后：
+
+```text
+Search & Discovery
+↓
+Add filter
+↓
+Product Metafield
+↓
+custom.origin
+```
+
+于是：
+
+```text
+Origin
+
+☐ China
+☐ Vietnam
+☐ USA
+```
+
+---
+
+# 十二、最终你的 Collection 就变成这样
+
+假设：
+
+```text
+/collections/shoes
+```
+
+后台配置：
+
+```text
+Search & Discovery
+│
+├── Price
+├── Color
+├── Material
+└── Origin
+```
+
+Collection 页面 Theme：
+
+```text
+Shoes
+│
+├── Filters
+│
+│   ├── Price
+│   │   ├── $0 - $50
+│   │   ├── $50 - $100
+│   │   └── $100+
+│   │
+│   ├── Color
+│   │   ├── Black
+│   │   ├── White
+│   │   └── Red
+│   │
+│   ├── Material
+│   │   ├── Leather
+│   │   ├── Mesh
+│   │   └── Cotton
+│   │
+│   └── Origin
+│       ├── China
+│       ├── Vietnam
+│       └── USA
+│
+└── Products
+```
+
+而 Theme 不需要写死：
+
+```liquid
+if filter == 'Material'
+```
+
+这种东西。
+
+而是：
+
+```liquid id="gk9t8k"
+{% for filter in collection.filters %}
+
+  <h3>{{ filter.label }}</h3>
+
+  {% for value in filter.values %}
+
+    <label>
+      <input
+        type="checkbox"
+        name="{{ value.param_name }}"
+        value="{{ value.value }}"
+      >
+
+      {{ value.label }}
+    </label>
+
+  {% endfor %}
+
+{% endfor %}
+```
+
+所以你以后后台新增：
+
+```text
+Brand
+```
+
+Theme **通常不需要修改代码**。
+
+Search & Discovery：
+
+```text
+Add filter
+→ Vendor
+```
+
+Theme 就能通过：
+
+```liquid
+collection.filters
+```
+
+把它渲染出来。
+
+这就是 Shopify Theme 非常强的地方。
+
+---
+
+# 十三、但是你说了「排序」，这里要区分一下
+
+你刚才说：
+
+> “按价格、颜色、材质、产地排序或者筛选”
+
+这里其实有两个完全不同的概念。
+
+### Filter
+
+```text
+筛选
+
+Price:
+$50 - $100
+
+Color:
+Black
+
+Material:
+Leather
+
+Origin:
+China
+```
+
+意思是：
+
+> **我要哪些商品？**
+
+---
+
+### Sort
+
+```text
+排序
+
+Featured
+Price: Low → High
+Price: High → Low
+Newest
+Best Selling
+```
+
+意思是：
+
+> **这些商品应该怎么排列？**
+
+所以：
+
+```text
+Filter = 缩小商品集合
+
+Sort = 改变商品顺序
+```
+
+例如：
+
+```text
+1000 个鞋子
+   ↓
+Color = Black
+   ↓
+200 个
+   ↓
+Material = Leather
+   ↓
+50 个
+   ↓
+Price Low → High
+   ↓
+50 个按照价格排序
+```
+
+---
+
+# 十四、材质和产地通常不是「Sort」
+
+比如你说：
+
+```text
+按材质排序
+```
+
+Shopify 默认的 Collection Sort 并不是让你随便指定：
+
+```text
+Leather
+Mesh
+Cotton
+```
+
+然后排序。
+
+如果你真正想做：
+
+```text
+Material
+
+Leather
+Mesh
+Cotton
+```
+
+通常它应该是：
+
+> **Filter**
+
+而不是 Sort。
+
+所以你的需求更合理地拆成：
+
+```text
+Filter
+├── Price
+├── Color
+├── Material
+└── Origin
+
+Sort
+├── Featured
+├── Price low → high
+├── Price high → low
+├── Newest
+└── Best selling
+```
+
+---
+
+# 十五、你现在最应该建立的一个思维模型
+
+把 Shopify 商品系统想成数据库。
+
+```text
+Product
+│
+├── Shopify 原生字段
+│   ├── title
+│   ├── vendor
+│   ├── product_type
+│   ├── price
+│   └── tags
+│
+├── Options
+│   ├── Color
+│   └── Size
+│
+├── Metafields
+│   ├── material
+│   ├── origin
+│   ├── style
+│   └── season
+│
+└── Metaobjects
+    └── 更复杂的结构化数据
+```
+
+然后：
+
+```text
+这些数据
+   ↓
+Search & Discovery
+   ↓
+选择哪些作为 Filter
+   ↓
+Collection.filters
+   ↓
+Theme
+```
+
+---
+
+# 十六、所以你刚才没理解，其实是因为我跳过了这一层
+
+正确的学习顺序应该是：
+
+```text
+① Product 数据怎么定义
+        ↓
+② Metafield 怎么定义
+        ↓
+③ 产品怎么填写这些数据
+        ↓
+④ Search & Discovery 怎么把数据变成 Filter
+        ↓
+⑤ collection.filters 怎么读取
+        ↓
+⑥ Theme 怎么渲染 Filter
+        ↓
+⑦ Filter 点击以后 URL 怎么变化
+        ↓
+⑧ Section Rendering 怎么无刷新更新商品
+```
+
+而我上一节直接从：
+
+```text
+⑤ collection.filters
+```
+
+开始讲了。
+
+所以你会觉得：
+
+> “等等，`filter` 从哪里来的？”
+
+这个疑问完全正确。
+
+---
+
+## 我建议我们把第 17 课重新学一遍
+
+而且按照真正开发一个 Shopify 商城的顺序来。
+
+下一步我们可以直接做一个**完整实战**：
+
+```text
+创建一个 Shoes Collection
+
+Product:
+├── Color → Product Option
+├── Size → Product Option
+├── Material → Metafield
+└── Origin → Metafield
+
+        ↓
+
+Search & Discovery
+
+        ↓
+
+Filters:
+├── Price
+├── Color
+├── Material
+└── Origin
+
+        ↓
+
+Collection Theme
+
+        ↓
+
+collection.filters
+
+        ↓
+
+真正渲染出：
+┌─────────────────────┐
+│ Filters             │
+│                     │
+│ Price               │
+│ □ $0-$50            │
+│ □ $50-$100          │
+│                     │
+│ Color               │
+│ □ Black             │
+│ □ White             │
+│                     │
+│ Material            │
+│ □ Leather           │
+│ □ Mesh              │
+│                     │
+│ Origin              │
+│ □ China             │
+│ □ Vietnam           │
+└─────────────────────┘
+```
+
+然后我再带你写 **Liquid + URL + Section Rendering**，你会一下把整个过滤系统串起来。
+
+这次建议我们就按这个实战方式继续，而不是继续抽象讲 API。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 22:57
+
+不用重新学，我把材质作为sort条件确实不合适。那我换个例子，必须需要按产品上架时间sort或者一些其他自定义的（适合sort）的条件怎么办
+
+## ChatGPT · 2026-09-19 Sat 22:57
+
+对，这个问题就进入了 **“Shopify 原生 Sort 能做到什么，以及自定义 Sort 到底怎么做”**。
+
+先给你结论：
+
+> **Shopify Theme 原生 Collection Sort 只能使用 Shopify 提供的那些排序维度。你可以配置“默认排序”，但不能仅靠 Theme 后台随便创建一个 `material`、`rating`、`priority`、`launch_date` 之类的新 `sort_by`。**
+>
+> 如果要做真正的自定义排序，就要看你的业务需求，通常有 3 种方案。
+
+目前 Collection 原生支持的排序包括：
+
+```text
+manual
+best-selling
+title-ascending
+title-descending
+price-ascending
+price-descending
+created-ascending
+created-descending
+```
+
+其中 `created-descending` 就可以理解为“最新上架优先”。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com) [Liquid filters: sort_by](https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com)
+
+---
+
+# 1. 你的“按上架时间排序”其实 Shopify 原生就支持
+
+比如你想要：
+
+```text
+排序方式：
+
+推荐
+最新上架
+价格：低 → 高
+价格：高 → 低
+销量
+商品名称：A → Z
+```
+
+其中：
+
+```text
+最新上架
+```
+
+直接对应：
+
+```text
+created-descending
+```
+
+例如：
+
+```text
+/collections/shoes?sort_by=created-descending
+```
+
+而：
+
+```text
+最早上架
+```
+
+对应：
+
+```text
+created-ascending
+```
+
+所以 Theme 里可以直接：
+
+```liquid
+{% for option in collection.sort_options %}
+  <option
+    value="{{ option.value }}"
+    {% if option.value == collection.sort_by %}
+      selected
+    {% endif %}
+  >
+    {{ option.name }}
+  </option>
+{% endfor %}
+```
+
+Shopify 会把当前 Collection 可用的排序选项放到：
+
+```liquid
+collection.sort_options
+```
+
+里。 [collection](https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com) [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com)
+
+---
+
+# 2. 那“自定义排序”怎么办？
+
+这里需要区分三种需求。
+
+---
+
+## 情况 A：Shopify 原生已经支持
+
+例如：
+
+```text
+价格
+销量
+上架时间
+标题
+```
+
+直接用 Shopify 原生 Sort。
+
+例如：
+
+```text
+Price Low → High
+```
+
+```text
+sort_by=price-ascending
+```
+
+---
+
+## 情况 B：你只是想调整“默认排序”
+
+例如你的 Collection 默认希望：
+
+> 最新商品优先
+
+那么可以在 Collection 设置里把默认排序设成：
+
+```text
+Created → Newest
+```
+
+Shopify 的 `collection.default_sort_by` 就对应 Collection 默认排序。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com)
+
+这种情况下甚至不需要自己开发。
+
+---
+
+# 3. 情况 C：我要真正自定义一个排序维度
+
+这个才是你真正问的问题。
+
+假设你有：
+
+```text
+Product
+├── title
+├── price
+├── created_at
+├── ...
+└── custom.priority
+```
+
+你想让用户选择：
+
+```text
+排序：
+
+推荐
+最新
+价格
+热度
+评分
+```
+
+其中：
+
+```text
+推荐
+```
+
+由你自己的：
+
+```text
+custom.priority
+```
+
+决定。
+
+例如：
+
+```text
+Nike
+priority = 100
+
+Adidas
+priority = 80
+
+Puma
+priority = 60
+```
+
+你可能希望：
+
+```text
+priority DESC
+```
+
+作为：
+
+```text
+推荐
+```
+
+这时候就不能简单写：
+
+```text
+/collections/shoes?sort_by=custom.priority
+```
+
+因为 Shopify 原生 `sort_by` 并没有提供这种任意 Metafield 排序选项。当前 Liquid Collection 的原生排序值就是那组固定值。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com) [Liquid filters: sort_by](https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com)
+
+---
+
+# 4. 那能不能用 Metafield？
+
+这里非常容易产生一个误解：
+
+### Metafield 可以作为 Filter
+
+例如：
+
+```text
+custom.material
+custom.origin
+custom.brand
+```
+
+可以拿来做：
+
+```text
+Filter
+```
+
+Shopify Search & Discovery 官方支持 Product Metafield、Category Metafield、Variant Metafield 等作为自定义筛选来源。 [Shopify Help Center | Adding filters with Shopify Search & Discovery](https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com)
+
+但是：
+
+> **“可以作为 Filter” ≠ “可以作为 Collection Sort”。**
+
+这是两个完全不同的系统。
+
+```text
+Metafield
+   │
+   ├── Filter ✅
+   │
+   └── 任意 Collection Sort ❌
+```
+
+---
+
+# 5. 那如果我要“推荐排序”怎么办？
+
+这时候 Shopify 有一个很重要的东西：
+
+## `manual`
+
+Collection 原生支持：
+
+```text
+manual
+```
+
+也就是：
+
+> **Collection 手工排序。**
+
+例如后台：
+
+```text
+Shoes Collection
+
+1. Nike Air Max
+2. Adidas Ultra Boost
+3. New Balance 990
+4. Puma Runner
+5. ...
+```
+
+你可以人为决定顺序。
+
+然后：
+
+```text
+sort_by=manual
+```
+
+就是按照 Collection 当前的手动顺序。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com) [Liquid filters: sort_by](https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com)
+
+所以很多 Shopify 商城的：
+
+```text
+Featured
+推荐
+```
+
+实际上可以对应：
+
+```text
+manual
+```
+
+---
+
+# 6. 如果“推荐”需要算法呢？
+
+例如你说：
+
+> 我不想人工拖拽，我希望按照：
+
+```text
+销量 × 40%
+点击率 × 20%
+转化率 × 30%
+库存 × 10%
+```
+
+计算出一个：
+
+```text
+recommendation_score
+```
+
+然后：
+
+```text
+score DESC
+```
+
+这就不是普通 Theme Sort 能解决的问题了。
+
+这时候就进入：
+
+```text
+App / 后端 / 数据分析 / Shopify 能力扩展
+```
+
+的范围。
+
+---
+
+# 7. 一个非常典型的电商需求
+
+比如你开发一个鞋店：
+
+```text
+Collection: Running Shoes
+```
+
+用户看到：
+
+```text
+Sort by:
+
+┌───────────────────────┐
+│ Featured           ↓  │
+│ Newest             │
+│ Best Selling        │
+│ Price: Low → High   │
+│ Price: High → Low   │
+└───────────────────────┘
+```
+
+你可以这样映射：
+
+| 前端显示 | Shopify Sort |
+|---|---|
+| Featured | `manual` |
+| Newest | `created-descending` |
+| Oldest | `created-ascending` |
+| Best Selling | `best-selling` |
+| Price Low → High | `price-ascending` |
+| Price High → Low | `price-descending` |
+| A → Z | `title-ascending` |
+| Z → A | `title-descending` |
+
+这些全部是 Shopify 原生能力。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com) [Liquid filters: sort_by](https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com)
+
+---
+
+# 8. 但如果我要“评分最高”呢？
+
+这就开始有意思了。
+
+假设你的商品有：
+
+```text
+custom.rating = 4.9
+```
+
+你希望：
+
+```text
+Sort by:
+
+Rating: High → Low
+```
+
+**不能简单地把它塞进 `collection.sort_options`。**
+
+你不能期待：
+
+```liquid
+{% for option in collection.sort_options %}
+```
+
+自动出现：
+
+```text
+rating-descending
+```
+
+因为 Shopify 原生 Collection Sort 没有这个排序键。 [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com)
+
+---
+
+# 9. 这时候可以考虑“预计算 + 手动排序”
+
+比如你的 App 每天计算：
+
+```text
+Product A → score 100
+Product B → score 80
+Product C → score 60
+```
+
+然后通过 Shopify Admin API / 后台逻辑维护 Collection 的商品顺序。
+
+最终：
+
+```text
+manual
+```
+
+就代表：
+
+```text
+你的推荐顺序
+```
+
+于是消费者看到：
+
+```text
+Featured
+```
+
+实际上背后是：
+
+```text
+你的算法
+    ↓
+计算推荐分
+    ↓
+调整 Collection 商品顺序
+    ↓
+Shopify manual sort
+    ↓
+Theme
+```
+
+这是一个比较典型的“Shopify 原生能力 + App”方案。
+
+---
+
+# 10. 还有一种情况：你不需要让 Shopify 真正排序
+
+假设你只是做一个非常特殊的页面：
+
+```text
+/collections/shoes
+```
+
+然后你想：
+
+```text
+Rating ↓
+```
+
+如果你自己控制一个外部数据源/后端，那么可以由后端把商品按照评分排序，再交给前端。
+
+但这里就已经不是传统 Shopify Collection Theme 的：
+
+```text
+collection.products
+```
+
+自然排序模型了。
+
+如果你开始大量这样做，通常就要考虑：
+
+```text
+Headless
++
+Storefront API
+```
+
+或者 App/backend 架构。
+
+---
+
+# 11. 所以你可以这样判断
+
+以后碰到一个新的 Sort 需求，先问：
+
+### 第一问
+
+**Shopify 原生支持吗？**
+
+```text
+价格       ✅
+销量       ✅
+上架时间   ✅
+标题       ✅
+手动排序   ✅
+```
+
+直接使用。
+
+---
+
+### 第二问
+
+**我只是想控制“推荐顺序”吗？**
+
+如果是：
+
+```text
+manual
+```
+
+可能就够了。
+
+---
+
+### 第三问
+
+**我要根据一个自定义字段动态排序吗？**
+
+例如：
+
+```text
+rating
+priority
+margin
+conversion_rate
+sales_score
+recommendation_score
+```
+
+那么：
+
+```text
+普通 Theme Sort
+        ↓
+       不够
+```
+
+需要考虑 App / 后端 / Shopify 的其他扩展能力。
+
+---
+
+# 12. 最重要的一个区别
+
+你现在已经可以把 Shopify 的：
+
+```text
+Filter
+Sort
+```
+
+彻底分开了。
+
+### Filter
+
+回答：
+
+> **哪些商品应该出现？**
+
+例如：
+
+```text
+Color = Black
+Material = Leather
+Origin = China
+Price = $50~$100
+```
+
+---
+
+### Sort
+
+回答：
+
+> **出现的这些商品按照什么顺序排列？**
+
+例如：
+
+```text
+Newest
+Price
+Best Selling
+Featured
+```
+
+---
+
+### 最终可以组合：
+
+```text
+/collections/shoes
+    ?
+    filter.v.option.color=Black
+    &
+    filter.p.m.custom.material=Leather
+    &
+    sort_by=created-descending
+```
+
+逻辑就是：
+
+```text
+1000 个商品
+     ↓
+Color = Black
+     ↓
+300 个
+     ↓
+Material = Leather
+     ↓
+80 个
+     ↓
+Newest
+     ↓
+按照 created_at DESC 排列
+```
+
+**所以“上架时间”这个需求你完全不用自己造字段，Shopify 原生已经给你了。**  [collection](https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com) [Liquid objects: collection](https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com)
+
+而你真正需要记住的是：
+
+> **Filter 的自定义能力很强，可以基于 Metafield / Metaobject 等数据；Sort 的原生能力相对固定。想做任意自定义动态排序，就不能简单把 Metafield 当成 `sort_by` 使用。**
+
+另外，Shopify 当前 Storefront API 的 Collection 排序枚举也仍然是固定的一组键（如 `BEST_SELLING`、`CREATED`、`PRICE`、`TITLE`、`MANUAL` 等），这也说明了“任意 Metafield Sort”不是标准 Collection Sort 能力。 [ProductCollectionSortKeys - Storefront API](https://shopify.dev/docs/api/storefront/latest/enums/ProductCollectionSortKeys?utm_source=chatgpt.com)
+
+如果继续我们的课程，**第 18 课就正好可以把 `Filter + Sort + Pagination + URL` 四个东西串起来**，到时候你会真正理解一个 Shopify Collection 页是怎么工作的。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 23:03
+
+我还有一个问题，假设我现在不是一个集合页，是一个别的页面。有一些产品，我想对这些产品排序（假设是按照shopify原生支持的排序）可以做到吗
+
+## ChatGPT · 2026-09-19 Sat 23:03
+
+可以，但这里有一个非常关键的区别：
+
+> **Shopify 原生的 `sort_by` 是 Collection 的排序能力，不是一个可以对“任意 Product 数组”调用的通用排序函数。**
+
+所以如果你现在是一个普通页面，例如：
+
+```text
+/pages/sale
+```
+
+页面上想展示：
+
+```text
+Product A
+Product B
+Product C
+Product D
+```
+
+然后希望：
+
+```text
+按价格从低到高
+按最新上架
+按销量
+```
+
+**不能直接对一个 Liquid 里的 `products` 数组写类似 `sort_by=price-ascending`。**
+
+---
+
+# 但有几种实现方式
+
+## 方案 1：最推荐——建立一个 Collection
+
+如果这批产品本身具有明确的业务意义，比如：
+
+```text
+限时促销商品
+新品
+夏季商品
+跑鞋
+Top Picks
+```
+
+最自然的 Shopify 建模方式就是：
+
+```text
+Products
+   ↓
+Collection
+   ↓
+Collection Products
+   ↓
+sort_by
+```
+
+例如创建：
+
+```text
+Summer Sale
+```
+
+把这 50 个商品放进去。
+
+你的普通页面：
+
+```text
+/pages/summer-sale
+```
+
+实际上只是**展示这个 Collection 的商品**。
+
+然后你就可以使用：
+
+```text
+created-descending
+price-ascending
+price-descending
+best-selling
+manual
+```
+
+等原生排序。
+
+这通常是 Shopify 思维里最合理的做法。
+
+---
+
+# 方案 2：普通页面 + Collection
+
+你甚至不一定要让用户访问：
+
+```text
+/collections/summer-sale
+```
+
+你可以自己做：
+
+```text
+/pages/summer-sale
+```
+
+然后这个 Page Template 里面展示某个 Collection。
+
+比如：
+
+```text
+pages/summer-sale
+        ↓
+找到 summer-sale collection
+        ↓
+collection.products
+        ↓
+按照 Collection Sort
+        ↓
+Product Card
+```
+
+概念上：
+
+```liquid
+{% assign products_collection = collections['summer-sale'] %}
+
+{% for product in products_collection.products %}
+  {% render 'product-card', product: product %}
+{% endfor %}
+```
+
+这样你的页面虽然是：
+
+```text
+/pages/summer-sale
+```
+
+但商品数据来源还是：
+
+```text
+Collection
+```
+
+---
+
+# 方案 3：如果这批产品是动态的
+
+这个就更有意思。
+
+比如你说：
+
+> 我有一个首页模块，想展示“最新上架的 12 个商品”。
+
+这时候你甚至不需要自己创建一个 Collection。
+
+Shopify Theme 本身有一些产品来源可以使用，比如通过 **Collection** 作为商品来源，让 Theme Editor 让商家选择一个 Collection，然后：
+
+```liquid
+{% assign products = section.settings.collection.products %}
+```
+
+但是这里有一个限制：
+
+**如果你只是拿到一个 Liquid Product 数组，不能把 Shopify Collection 的 `sort_by` 机制直接套在这个数组上。**
+
+也就是说，不是：
+
+```liquid
+{% assign products = section.settings.collection.products %}
+
+{% assign products = products | sort: 'price' %}
+```
+
+然后期待它等价于 Shopify：
+
+```text
+price-ascending
+```
+
+这两个东西不是一回事。
+
+---
+
+# 4. 一个很典型的例子
+
+假设你做首页：
+
+```text
+Home
+│
+├── Hero
+│
+├── Featured Products
+│
+├── New Arrivals
+│
+└── Best Sellers
+```
+
+你希望：
+
+### New Arrivals
+
+```text
+最新上架
+```
+
+### Best Sellers
+
+```text
+销量最高
+```
+
+### Featured Products
+
+```text
+人工推荐
+```
+
+最 Shopify 的设计通常是：
+
+```text
+Collections
+│
+├── Featured
+│   └── manual
+│
+├── New Arrivals
+│   └── created-descending
+│
+└── Best Sellers
+    └── best-selling
+```
+
+然后首页 Section：
+
+```text
+Featured Products
+      ↓
+Featured Collection
+
+New Arrivals
+      ↓
+New Arrivals Collection
+
+Best Sellers
+      ↓
+Best Sellers Collection
+```
+
+---
+
+# 5. 这其实是 Shopify 一个非常重要的设计思想
+
+你可能会觉得：
+
+> “我只是想在一个页面上展示几个 Product，为什么非要 Collection？”
+
+因为 Shopify 把 **Collection 当成商品集合的核心查询/组织单位之一**。
+
+所以：
+
+```text
+Product
+   ↓
+Collection
+   ↓
+Filter / Sort / Pagination
+```
+
+是一条非常成熟的路径。
+
+而不是：
+
+```text
+Product
+   ↓
+随便拿一个数组
+   ↓
+自己实现所有电商查询逻辑
+```
+
+---
+
+# 6. 如果我就是不想用 Collection 呢？
+
+那就分情况。
+
+### 如果只是简单排序
+
+例如你已经有：
+
+```liquid
+{% assign products = ... %}
+```
+
+某些 Liquid 数组可以使用 `sort` 等 Liquid filter 做基础排序。
+
+例如概念上：
+
+```liquid
+{% assign sorted_products = products | sort: 'title' %}
+```
+
+但是注意：
+
+> 这和 Shopify Collection 的 `sort_by=price-ascending`、`best-selling`、`created-descending` 不是一个能力。
+
+尤其是：
+
+```text
+Best Selling
+```
+
+这种需要 Shopify 后端销售数据参与的排序，不能简单理解成：
+
+```liquid
+products | sort: 'sales'
+```
+
+因为你根本没有一个普通 Product 属性：
+
+```text
+product.sales
+```
+
+---
+
+# 7. 所以你的问题可以总结成一张表
+
+| 场景 | 推荐方案 |
+|---|---|
+| Collection 页面排序 | `collection.sort_options` |
+| 普通页面展示一组有明确业务意义的商品 | 建 Collection |
+| 首页“新品” | Collection + `created-descending` |
+| 首页“热卖” | Collection + `best-selling` |
+| 首页“精选” | Collection + `manual` |
+| 普通页面展示某 Collection | 可以 |
+| 任意 Liquid Product 数组使用 Collection `sort_by` | ❌ |
+| 自己对数组按简单字段排序 | 部分可以用 Liquid `sort` |
+| 按 Shopify 销量等后端数据动态排序 | 不能靠普通 Liquid `sort` |
+
+---
+
+# 8. 还有一个非常重要的架构问题
+
+假设你的需求是：
+
+> “我做一个 Landing Page，里面有 20 个指定商品，并且用户可以选择价格低到高 / 高到低 / 最新。”
+
+我不会首先想到：
+
+```text
+Landing Page
+    ↓
+20 个 Product
+    ↓
+自己实现 Sort
+```
+
+我会优先考虑：
+
+```text
+Landing Page
+       ↓
+指定 Collection
+       ↓
+20 个 Product
+       ↓
+Shopify 原生 Sort
+```
+
+甚至可以让 Theme Editor 配置：
+
+```text
+Product Source:
+[ Summer Sale ▼ ]
+
+Sort:
+[ Price: Low to High ▼ ]
+
+Products per page:
+[ 20 ]
+```
+
+这样你的 Section 就非常灵活。
+
+---
+
+## 但有一个边界值得你记住
+
+如果你的需求变成：
+
+> “这个页面里的产品来自 5 个不同 Collection，我把它们合并，然后按照 Shopify 的 Best Selling 重新排序。”
+
+这时候就不是简单的 Collection Sort 了。
+
+因为你实际上是在做：
+
+```text
+Collection A
+      +
+Collection B
+      +
+Collection C
+      ↓
+   合并 Product
+      ↓
+  全局排序
+```
+
+这时就需要进一步考虑 **Storefront API / App / 后端查询** 等方案，而不是简单依赖 Liquid 的 Collection Sort。
+
+---
+
+所以你刚才这个问题其实非常好，因为它揭示了一个很重要的 Shopify 数据模型：
+
+```text
+                Product
+                   │
+          ┌────────┴────────┐
+          ↓                 ↓
+     Collection         Metafield
+          │
+          ↓
+   Query / Filter / Sort
+          │
+          ↓
+        Theme
+```
+
+**Collection 不只是“给商品分组的文件夹”，在 Shopify 里它还是 Storefront 商品查询和排序的重要载体。**
+
+这也是为什么我们后面学 **Collection → Product → Variant → Metafield** 时，数据模型一定要连起来理解。
+
+---
+
+## 我的提问 · 2026-09-19 Sat 23:06
+
+但还是没法实现按评分排序对吧
+
+## ChatGPT · 2026-09-19 Sat 23:06
+
+对，**如果你说的是 Shopify 原生 Collection 的 `sort_by`，还是不能直接按“评分”排序。**
+
+比如你有：
+
+```text
+Product A → rating = 4.9
+Product B → rating = 4.7
+Product C → rating = 4.5
+```
+
+你想让用户选择：
+
+```text
+Sort by:
+- Rating: High → Low
+```
+
+不能直接写成：
+
+```text
+/collections/shoes?sort_by=rating-descending
+```
+
+因为 Shopify 原生 Collection Sort 并没有这个排序键。
+
+### 但“评分排序”并不是做不到
+
+只是要换实现方式。
+
+如果评分来自某个 Review App，例如：
+
+```text
+Product
+└── rating = 4.9
+```
+
+你可以：
+
+**方案 A：App / 后端计算排序**
+
+```text
+Review 数据
+   ↓
+计算 rating / score
+   ↓
+你的 App / 后端
+   ↓
+得到排序后的 Product
+   ↓
+展示
+```
+
+**方案 B：把评分转化成推荐顺序**
+
+例如：
+
+```text
+评分 + 销量 + 评论数
+        ↓
+recommendation_score
+        ↓
+计算商品排名
+        ↓
+维护 Collection 的 manual 顺序
+```
+
+然后前台：
+
+```text
+Sort by:
+Featured
+```
+
+实际上对应：
+
+```text
+manual
+```
+
+这样 Shopify 原生 Collection 仍然可以负责分页、展示等。
+
+---
+
+所以你可以记住一个非常重要的边界：
+
+```text
+Shopify 原生 Collection Sort
+│
+├── Price              ✅
+├── Created / Newest   ✅
+├── Best Selling       ✅
+├── Title              ✅
+└── Manual             ✅
+```
+
+而：
+
+```text
+自定义字段
+│
+├── Rating             ❌ 不能直接作为 sort_by
+├── Review Count       ❌
+├── Profit Margin      ❌
+├── Custom Score       ❌
+└── Recommendation    ❌
+```
+
+**不是这些数据不能存在 Shopify 里，而是 Shopify 原生 Collection Sort 没有提供“任意字段排序”的接口。**
+
+如果你以后做一个类似美柚这种自己的电商/内容产品，这个区别也很重要：**“数据能不能存” 和 “Shopify Storefront 能不能直接拿这个字段做服务端排序”是两回事。**

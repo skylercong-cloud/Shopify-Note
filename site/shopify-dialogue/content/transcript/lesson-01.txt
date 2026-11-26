@@ -1,0 +1,1074 @@
+# 第 1 课：Shopify 学习地图与认识 Theme
+
+## 我的提问 · 2026-09-15 Tue 21:12
+
+现在按照teach me 这种方式来教我shopify相关知识。背景为：我是一名跨境电商公司的前端开发工程师，有一定的前端开发经验（2-3年），但是没有shopify网站开发相关的经验，现在教我shopify网站开发相关的知识。要求：通俗易懂、循序渐进、有层次有结构、系统的教会我
+
+## ChatGPT · 2026-09-15 Tue 21:12
+
+可以。你的背景非常适合用 **Teach Me 式**学习 Shopify：你已经有 2–3 年前端经验，所以我不会从 HTML/CSS/JS 这种基础开始，而是把重点放在：
+
+> **“把一个有前端经验的工程师，系统训练成能独立负责 Shopify 商店开发的前端工程师。”**
+
+我们也不采用“看一堆知识点 → 背 API”的方式，而是采用：
+
+**概念 → 类比 → 实际代码 → 小练习 → 复盘 → 项目实战 → 下一阶段**
+
+而且我会持续检查你是否真的理解，而不是默认“看过 = 学会”。
+
+---
+
+# 一、先给你整个 Shopify 学习地图
+
+先建立一张地图。
+
+你以后遇到 Shopify 的任何东西，都可以把它放到这张地图里。
+
+### Level 0：认识 Shopify
+
+先解决：
+
+- Shopify 到底是什么
+- Shopify 和普通网站有什么区别
+- Shopify Store、Theme、App 分别是什么
+- Shopify Admin 在做什么
+- Storefront 在做什么
+- Shopify 的数据从哪里来
+- 一个 Shopify 网站到底是怎么跑起来的
+
+↓
+
+### Level 1：Shopify Theme 开发
+
+这是你**最应该先学**的部分。
+
+核心：
+
+- Liquid
+- Theme 文件结构
+- Layout
+- Templates
+- Sections
+- Blocks
+- Snippets
+- Assets
+- JSON templates
+- Theme settings
+- Metafields
+- Shopify CLI
+- Theme development workflow
+
+最终目标：
+
+> 能从 0 开发/修改一个 Shopify Online Store 2.0 Theme。
+
+↓
+
+### Level 2：Shopify 前端开发
+
+这里会开始非常接近你熟悉的前端开发。
+
+学习：
+
+- HTML/CSS/JS 在 Shopify 中怎么用
+- Liquid + JavaScript
+- AJAX Cart
+- Product Form
+- Variant
+- Product Media
+- Collection
+- Search
+- Predictive Search
+- Cart Drawer
+- Sections Rendering API
+- Shopify Web Components
+- 性能优化
+- 响应式
+- SEO
+
+↓
+
+### Level 3：Shopify 数据模型
+
+这一层非常重要。
+
+理解：
+
+```text
+Shop
+ ├── Products
+ │    ├── Product
+ │    ├── Variant
+ │    ├── Media
+ │    └── Metafields
+ │
+ ├── Collections
+ │
+ ├── Customers
+ │
+ ├── Orders
+ │
+ └── Content
+```
+
+然后理解：
+
+- Product
+- Product Variant
+- Collection
+- Customer
+- Order
+- Cart
+- Checkout
+- Metafield
+- Metaobject
+
+以及它们之间的关系。
+
+↓
+
+### Level 4：Shopify App 开发
+
+当你掌握 Theme 后，再进入：
+
+- Shopify App 是什么
+- Embedded App
+- Shopify Admin
+- Shopify App Bridge
+- Polaris
+- Admin API
+- GraphQL
+- Webhooks
+- OAuth
+- App Proxy
+- Billing
+
+这时候你才真正进入：
+
+> **Shopify 全栈开发**
+
+↓
+
+### Level 5：Headless Shopify
+
+再往后：
+
+- Storefront API
+- GraphQL
+- Hydrogen
+- Remix
+- React
+- Headless Commerce
+- Custom storefront
+
+你本身有前端经验，所以这一阶段你会比较容易上手。
+
+↓
+
+### Level 6：企业级 Shopify
+
+最后才学习：
+
+- Shopify Plus
+- Checkout Extensibility
+- Shopify Functions
+- Markets
+- 多语言
+- 多币种
+- B2B
+- ERP
+- OMS
+- CRM
+- 第三方支付
+- 第三方物流
+- 数据分析
+- 性能与架构
+- CI/CD
+- 大型团队协作
+
+---
+
+# 二、你需要先建立一个最重要的认知
+
+如果你以前主要做普通前端项目，那么你脑子里可能是：
+
+```text
+React / Vue
+      ↓
+Component
+      ↓
+API
+      ↓
+Backend
+      ↓
+Database
+```
+
+而 Shopify Theme 更接近：
+
+```text
+Shopify Admin
+      ↓
+Shopify 数据
+      ↓
+Liquid
+      ↓
+Theme
+      ↓
+HTML
+      ↓
+Browser
+      ↓
+JavaScript
+```
+
+也就是说：
+
+**Shopify Theme 不是传统意义上的 React/Vue SPA。**
+
+这是你进入 Shopify 后第一个非常重要的思维转换。
+
+---
+
+# 三、Shopify 到底是什么？
+
+先不要急着学 Liquid。
+
+我们先回答：
+
+> **Shopify 是什么？**
+
+最简单的理解：
+
+**Shopify 是一个电商基础设施平台。**
+
+假设你自己从 0 做一个电商网站，你需要：
+
+```text
+Frontend
+Backend
+Database
+User System
+Product System
+Order System
+Payment
+Cart
+Checkout
+Inventory
+Shipping
+Email
+Admin CMS
+Security
+Hosting
+...
+```
+
+非常麻烦。
+
+Shopify 帮你把这些基础设施都做好了。
+
+所以你可以把 Shopify 想成：
+
+> **“已经把电商后端做好的一套 SaaS 平台，然后让你通过 Theme / API / App 去定制。”**
+
+---
+
+# 四、Shopify 开发者到底在开发什么？
+
+这是一个特别重要的问题。
+
+很多刚接触 Shopify 的前端工程师会产生误解：
+
+> “Shopify 开发是不是就是写 Liquid？”
+
+不是。
+
+实际上 Shopify 开发大致分成三块。
+
+```text
+                 Shopify
+                    │
+        ┌───────────┼───────────┐
+        ↓           ↓           ↓
+      Theme        App       Headless
+        │           │           │
+      Liquid      API        React
+      JS/CSS      GraphQL    Hydrogen
+        │           │           │
+        ↓           ↓           ↓
+   商店前台       后台扩展      自定义前台
+```
+
+### ① Theme Development
+
+主要负责：
+
+> **消费者看到的 Shopify 商店。**
+
+比如：
+
+- 首页
+- 商品详情页
+- 商品列表
+- Cart
+- Header
+- Footer
+- Search
+- Banner
+- Product Card
+
+这是我们**第一阶段重点**。
+
+---
+
+### ② App Development
+
+主要负责：
+
+> **给 Shopify 增加 Shopify 本身没有的能力。**
+
+例如：
+
+商家安装你的 App：
+
+```text
+Shopify Admin
+      ↓
+你的 App
+      ↓
+自动给商品添加标签
+      ↓
+同步 ERP
+      ↓
+统计销售数据
+      ↓
+自动化营销
+```
+
+这时候就会大量使用：
+
+```text
+GraphQL
+API
+Webhook
+OAuth
+App Bridge
+Polaris
+```
+
+---
+
+### ③ Headless
+
+这个思路更加接近现代前端：
+
+```text
+Shopify
+   │
+Storefront API
+   │
+   ↓
+React / Next.js / Hydrogen
+   │
+   ↓
+用户浏览器
+```
+
+也就是说：
+
+**Shopify 负责电商后端，你自己负责整个前端。**
+
+---
+
+# 五、我们为什么先学 Theme？
+
+因为你现在是：
+
+> **前端工程师 + 0 Shopify 经验**
+
+最合理的路线不是直接跳 GraphQL。
+
+而是：
+
+```text
+Shopify 基础概念
+       ↓
+Liquid
+       ↓
+Theme Architecture
+       ↓
+Online Store 2.0
+       ↓
+Theme 开发
+       ↓
+Shopify 数据模型
+       ↓
+JavaScript / AJAX
+       ↓
+Shopify API
+       ↓
+App Development
+       ↓
+Headless
+```
+
+这样你会发现：
+
+**Shopify 并没有那么神秘。**
+
+很多东西其实都是你已经知道的前端概念，只是 Shopify 有自己的一套约定。
+
+---
+
+# 六、第一课：Shopify Theme 到底是什么？
+
+我们现在正式开始。
+
+假设一个 Shopify 商店：
+
+```text
+www.example.com
+```
+
+用户打开：
+
+```text
+/
+```
+
+Shopify 会根据当前页面找到对应的 Theme 结构。
+
+一个现代 Shopify Theme 大概是：
+
+```text
+theme/
+│
+├── assets/
+├── config/
+├── layout/
+├── locales/
+├── sections/
+├── snippets/
+├── templates/
+└── ...
+```
+
+你可以暂时把它理解成：
+
+```text
+React 项目
+
+src/
+├── components/
+├── pages/
+├── styles/
+└── ...
+```
+
+只是 Shopify 有自己的目录约定。
+
+---
+
+# 七、最重要的 4 个目录
+
+第一阶段你只需要记住：
+
+```text
+layout
+templates
+sections
+snippets
+```
+
+其他东西我们后面再学。
+
+---
+
+## 1. layout
+
+可以理解成：
+
+> **整个网站的外壳。**
+
+最经典的是：
+
+```text
+layout/theme.liquid
+```
+
+你可以把它类比成 React：
+
+```jsx
+<App>
+   <Header />
+
+   <Page />
+
+   <Footer />
+</App>
+```
+
+比如：
+
+```liquid
+<!doctype html>
+<html>
+<head>
+  {{ content_for_header }}
+</head>
+
+<body>
+
+  {% section 'header' %}
+
+  {{ content_for_layout }}
+
+  {% section 'footer' %}
+
+</body>
+</html>
+```
+
+这里最重要的是：
+
+```liquid
+{{ content_for_layout }}
+```
+
+它的意思可以简单理解成：
+
+> **“把当前页面的内容放到这里。”**
+
+所以：
+
+```text
+theme.liquid
+        │
+        ├── Header
+        │
+        ├── content_for_layout
+        │          ↓
+        │      当前页面
+        │
+        └── Footer
+```
+
+---
+
+# 八、templates 是什么？
+
+如果：
+
+```text
+layout = 整个网站的外壳
+```
+
+那么：
+
+```text
+template = 某一种页面的结构
+```
+
+例如：
+
+```text
+templates/
+├── index.json
+├── product.json
+├── collection.json
+├── cart.json
+├── page.json
+└── search.json
+```
+
+它们分别对应：
+
+```text
+index       → 首页
+product     → 商品详情
+collection  → 商品列表
+cart        → 购物车
+page        → 普通页面
+search      → 搜索
+```
+
+这时候你应该开始发现：
+
+Shopify 的页面结构其实很有规律。
+
+---
+
+# 九、sections 是 Shopify Theme 最重要的概念之一
+
+假设你的首页：
+
+```text
+Home
+│
+├── Hero Banner
+├── Featured Products
+├── Image + Text
+├── Testimonials
+└── Newsletter
+```
+
+Shopify 可以把它拆成：
+
+```text
+sections/
+├── hero-banner.liquid
+├── featured-products.liquid
+├── image-text.liquid
+├── testimonials.liquid
+└── newsletter.liquid
+```
+
+这和 React Component 的思想非常像：
+
+```jsx
+<Home>
+  <HeroBanner />
+  <FeaturedProducts />
+  <ImageText />
+  <Testimonials />
+  <Newsletter />
+</Home>
+```
+
+所以：
+
+> **Section ≈ 一个可以被商家配置/管理的页面组件。**
+
+这个概念你一定要记住。
+
+---
+
+# 十、Snippets 又是什么？
+
+Snippet 更接近：
+
+> **可复用的小型代码片段。**
+
+例如：
+
+```text
+snippets/
+├── product-card.liquid
+├── price.liquid
+├── icon-cart.liquid
+└── button.liquid
+```
+
+例如：
+
+```liquid
+{% render 'product-card', product: product %}
+```
+
+你可以类比：
+
+```jsx
+<ProductCard product={product} />
+```
+
+所以目前可以先记：
+
+```text
+Layout
+  ↓
+网站外壳
+
+Template
+  ↓
+页面类型
+
+Section
+  ↓
+页面模块
+
+Snippet
+  ↓
+可复用小组件
+```
+
+这四个概念非常重要。
+
+---
+
+# 十一、现在我们看一个完整请求
+
+假设用户打开：
+
+```text
+/products/shoes
+```
+
+Shopify 大概会按照这样的思路处理：
+
+```text
+用户
+ ↓
+Shopify
+ ↓
+这是 product 页面
+ ↓
+product template
+ ↓
+sections
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+JavaScript
+```
+
+最后用户看到：
+
+```text
+┌──────────────────────┐
+│ Header               │
+├──────────────────────┤
+│                      │
+│ Product Image        │
+│                      │
+│ Nike Shoes           │
+│ $129                  │
+│                      │
+│ [ Add to Cart ]      │
+│                      │
+├──────────────────────┤
+│ Footer               │
+└──────────────────────┘
+```
+
+---
+
+# 十二、这里出现了一个关键问题
+
+如果你做过 React，你可能马上会问：
+
+> “那 Shopify 的 Product 数据从哪里来？”
+
+例如：
+
+```liquid
+{{ product.title }}
+```
+
+这里的：
+
+```text
+product
+```
+
+并不是你自己：
+
+```js
+fetch('/api/products')
+```
+
+拿到的。
+
+而是 Shopify 在渲染页面的时候，已经提供给 Liquid 的对象。
+
+例如：
+
+```liquid
+<h1>
+  {{ product.title }}
+</h1>
+```
+
+如果 Shopify 商品名字是：
+
+```text
+Classic Running Shoes
+```
+
+最终 HTML 可能就是：
+
+```html
+<h1>
+  Classic Running Shoes
+</h1>
+```
+
+所以：
+
+```text
+Shopify 数据
+      ↓
+Liquid
+      ↓
+HTML
+      ↓
+Browser
+```
+
+这就是 Shopify Theme 非常核心的工作方式。
+
+---
+
+# 十三、Liquid 是什么？
+
+现在终于可以正式认识 Liquid。
+
+Liquid 是 Shopify 使用的一种：
+
+> **Server-side template language（服务端模板语言）**
+
+你可以把它理解成：
+
+```text
+HTML
+ +
+变量
+ +
+条件
+ +
+循环
+ +
+过滤器
+ =
+Liquid
+```
+
+例如普通 HTML：
+
+```html
+<h1>Product Name</h1>
+```
+
+Liquid：
+
+```liquid
+<h1>{{ product.title }}</h1>
+```
+
+---
+
+循环：
+
+```liquid
+{% for product in collection.products %}
+
+  <h2>
+    {{ product.title }}
+  </h2>
+
+{% endfor %}
+```
+
+你马上应该能看出来：
+
+```js
+products.map(product => ...)
+```
+
+在 Liquid 里面类似：
+
+```liquid
+{% for product in products %}
+```
+
+---
+
+条件：
+
+JavaScript：
+
+```js
+if (product.available) {
+  ...
+}
+```
+
+Liquid：
+
+```liquid
+{% if product.available %}
+  Add to Cart
+{% endif %}
+```
+
+所以你会发现：
+
+**Liquid 本身并不难。**
+
+真正需要学习的是：
+
+> Shopify 给 Liquid 提供了哪些对象、数据结构和能力。
+
+---
+
+# 十四、今天先不要学太多
+
+第一课你只需要真正理解这张图：
+
+```text
+                    Shopify
+                       │
+                       ↓
+                 Store 数据
+                       │
+                       ↓
+                    Liquid
+                       │
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+       Layout       Template      Section
+                                     │
+                                     ↓
+                                  Snippet
+                                     │
+                                     ↓
+                                    HTML
+                                     │
+                                     ↓
+                                  Browser
+                                     │
+                                     ↓
+                               JavaScript
+```
+
+以及这张表：
+
+| Shopify | 你可以暂时类比 |
+|---|---|
+| Theme | 前端项目 |
+| Layout | App/Layout |
+| Template | Page |
+| Section | Component |
+| Snippet | 可复用小组件 |
+| Liquid | 模板语言 |
+| Shopify Object | 后端数据 |
+| Theme Settings | Component 配置 |
+| Metafield | 自定义业务字段 |
+
+注意：
+
+**这些只是帮助你建立直觉的类比，不是严格的一一对应。**
+
+---
+
+# 十五、接下来我们的教学方式
+
+后面我会按照真正的课程体系来带你。
+
+### 第一阶段：Theme 基础
+
+```text
+01 Shopify 基础架构       ← 今天
+02 Liquid 基础
+03 Liquid Objects
+04 Liquid Tags / Filters
+05 Theme 文件结构
+06 Layout
+07 Templates
+08 Sections
+09 Blocks
+10 Snippets
+11 JSON Templates
+12 Theme Settings
+```
+
+### 第二阶段：真正做一个 Theme
+
+我们会自己做：
+
+```text
+Shopify Demo Store
+│
+├── Header
+├── Announcement Bar
+├── Hero
+├── Collection
+├── Product Card
+├── Product Page
+├── Variant Selector
+├── Cart Drawer
+├── Search
+├── Footer
+└── Responsive Design
+```
+
+而不是只学概念。
+
+### 第三阶段：Shopify 前端工程化
+
+```text
+JavaScript
+   ↓
+AJAX Cart
+   ↓
+Section Rendering
+   ↓
+Events
+   ↓
+Web Components
+   ↓
+Performance
+   ↓
+SEO
+   ↓
+Accessibility
+```
+
+### 第四阶段：Shopify API
+
+```text
+GraphQL
+   ↓
+Admin API
+   ↓
+Storefront API
+   ↓
+Webhook
+   ↓
+App
+```
+
+### 第五阶段：高级 Shopify
+
+```text
+Checkout Extensibility
+Shopify Functions
+Shopify Plus
+Markets
+B2B
+Headless
+Hydrogen
+```
+
+---
+
+# 十六、你的第一个“小测验”
+
+Teach Me 的关键不是我一直讲，而是：
+
+> **讲完 → 让你自己解释。**
+
+所以现在不要查资料，也不用写代码。
+
+请你用自己的话回答下面 3 个问题：
+
+**① `layout/theme.liquid` 你认为主要负责什么？**
+
+**② `section` 和 `snippet` 最大的区别是什么？**
+
+**③ 如果把 Shopify Theme 类比成 React 项目，你会怎么类比：**
+
+```text
+Layout      ≈ ?
+Template    ≈ ?
+Section     ≈ ?
+Snippet     ≈ ?
+Liquid      ≈ ?
+```
+
+不用回答得很专业，**哪怕理解得不完整也没关系**。我会根据你的回答判断你目前的理解程度，然后进入第 2 课，而不是机械地继续往下讲。
+
+**你下一步想走哪条路线：A. 先把 Liquid 学扎实，B. 直接边学边做一个 Theme，C. 先系统搞懂 Shopify 整体架构？**

@@ -1,0 +1,1007 @@
+# 第 16 课：Predictive Search（预测搜索）
+
+## 我的提问 · 2026-09-19 Sat 22:31
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 22:31
+
+好，我们进入 **第 16 课：Predictive Search（预测搜索）**。
+
+这一课开始，你会明显感觉 Shopify Theme 和普通 React 前端越来越接近了：
+
+```text
+用户输入
+   ↓
+JavaScript
+   ↓
+Shopify Predictive Search
+   ↓
+JSON
+   ↓
+JavaScript
+   ↓
+DOM
+```
+
+---
+
+# 一、先理解 Predictive Search 是什么
+
+普通搜索是：
+
+```text
+用户输入 shirt
+       ↓
+点击搜索
+       ↓
+/search?q=shirt
+       ↓
+完整搜索页面
+```
+
+Predictive Search 是：
+
+```text
+用户输入 s
+       ↓
+立即请求
+       ↓
+显示预测结果
+
+用户输入 sh
+       ↓
+再次请求
+       ↓
+更新预测结果
+
+用户输入 shi
+       ↓
+再次请求
+       ↓
+更新预测结果
+```
+
+最终：
+
+```text id="xk8p31"
+┌──────────────────────────────┐
+│ shi                          │
+├──────────────────────────────┤
+│ Products                     │
+│                              │
+│ 👕 Classic T-Shirt     $29   │
+│ 👕 Oversized Shirt     $39   │
+│ 👕 Shirt Jacket        $59   │
+│                              │
+│ Collections                  │
+│                              │
+│ Shirts                       │
+│                              │
+│ Search for "shi" →           │
+└──────────────────────────────┘
+```
+
+这就是 Predictive Search。
+
+---
+
+# 二、它和普通 Search 最大的区别
+
+普通 Search：
+
+```text id="w4n7m2"
+Browser
+ ↓
+/search?q=shirt
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+页面刷新
+```
+
+Predictive Search：
+
+```text id="p9x3r6"
+Browser
+ ↓
+JavaScript
+ ↓
+Predictive Search API
+ ↓
+JSON
+ ↓
+JavaScript
+ ↓
+DOM
+```
+
+所以这一次我们第一次真正进入：
+
+> **Shopify Theme 的 Ajax / API 驱动 UI。**
+
+---
+
+# 三、为什么它很像 React？
+
+React：
+
+```jsx id="m3z7k2"
+const [query, setQuery] = useState('');
+const [results, setResults] = useState([]);
+
+async function search(query) {
+  const response = await fetch(...);
+  const data = await response.json();
+
+  setResults(data);
+}
+```
+
+Shopify Theme：
+
+```js id="v8q2n5"
+const input = document.querySelector(
+  '#SearchInput'
+);
+
+input.addEventListener('input', async () => {
+
+  const query = input.value;
+
+  const response = await fetch(...);
+
+  const data = await response.json();
+
+  renderResults(data);
+});
+```
+
+本质完全一样：
+
+```text id="j6r1p8"
+Input
+ ↓
+State / Query
+ ↓
+API
+ ↓
+Data
+ ↓
+Render
+```
+
+区别主要是：
+
+```text
+React
+↓
+React State
+↓
+React Render
+
+Shopify Theme
+↓
+DOM
+↓
+手动更新
+```
+
+---
+
+# 四、Predictive Search 的核心 API
+
+Shopify 提供 Predictive Search API。
+
+我们先记住它的基本请求思想：
+
+```text id="c2k7m9"
+/search/suggest.json?q=shirt
+```
+
+你可以把它理解成：
+
+```text
+/search
+```
+
+是完整搜索页面。
+
+而：
+
+```text
+/search/suggest.json
+```
+
+是：
+
+> **给 JavaScript 使用的预测搜索接口。**
+
+---
+
+# 五、最简单的 fetch
+
+JavaScript：
+
+```js id="u7n3p4"
+const query = 'shirt';
+
+const response = await fetch(
+  `/search/suggest.json?q=${encodeURIComponent(query)}`
+);
+
+const data = await response.json();
+
+console.log(data);
+```
+
+这里你应该注意：
+
+```js id="e8m2r6"
+encodeURIComponent(query)
+```
+
+不要直接把用户输入拼接进 URL。
+
+例如用户输入：
+
+```text
+red shirt & shoes
+```
+
+需要正确编码。
+
+---
+
+# 六、URL 构造
+
+实际 Theme 中更推荐考虑 Shopify 的 locale 路径。
+
+我们之前已经讲过：
+
+```js id="b5q9k3"
+window.Shopify.routes.root
+```
+
+所以可以构造：
+
+```js id="d4x8m1"
+const url =
+  `${window.Shopify.routes.root}search/suggest.json?q=${encodeURIComponent(query)}`;
+```
+
+例如：
+
+```text id="h2m6r8"
+window.Shopify.routes.root
+        ↓
+/
+        ↓
+/search/suggest.json?q=shirt
+```
+
+如果商店存在语言路径，则根路径也可以随商店环境变化。
+
+---
+
+# 七、先做一个最简单的搜索框
+
+HTML：
+
+```html id="f3k8p2"
+<div class="predictive-search">
+
+  <input
+    id="SearchInput"
+    type="search"
+    placeholder="Search"
+    autocomplete="off"
+  >
+
+  <div id="SearchResults"></div>
+
+</div>
+```
+
+然后：
+
+```js id="q6v2n9"
+const input =
+  document.querySelector('#SearchInput');
+
+const results =
+  document.querySelector('#SearchResults');
+```
+
+---
+
+# 八、监听输入
+
+```js id="m9r4k7"
+input.addEventListener('input', async () => {
+
+  const query = input.value.trim();
+
+  if (!query) {
+    results.innerHTML = '';
+    return;
+  }
+
+  const url =
+    `${window.Shopify.routes.root}search/suggest.json?q=${encodeURIComponent(query)}`;
+
+  const response = await fetch(url);
+
+  const data = await response.json();
+
+  console.log(data);
+});
+```
+
+这时候完整流程就是：
+
+```text id="x8f3q1"
+用户输入
+   ↓
+input event
+   ↓
+query
+   ↓
+fetch()
+   ↓
+Shopify
+   ↓
+JSON
+```
+
+---
+
+# 九、但是这里有一个重要问题
+
+如果用户快速输入：
+
+```text
+s
+sh
+shi
+shir
+shirt
+```
+
+你可能会发送：
+
+```text id="v7m2n9"
+5 次请求
+```
+
+这就不太好。
+
+所以 Predictive Search 实际开发中非常重要的一个技术：
+
+# Debounce
+
+---
+
+# 十、什么是 Debounce？
+
+假设用户输入：
+
+```text
+s
+```
+
+等待。
+
+又输入：
+
+```text
+sh
+```
+
+重新等待。
+
+又输入：
+
+```text
+shi
+```
+
+重新等待。
+
+只有用户停止输入一小段时间：
+
+```text
+shi
+   ↓
+300ms 没有继续输入
+   ↓
+发送请求
+```
+
+React 里你肯定见过类似：
+
+```js
+setTimeout
+clearTimeout
+```
+
+---
+
+# 十一、自己实现一个 debounce
+
+```js id="r4k8x2"
+let timer;
+
+input.addEventListener('input', () => {
+
+  clearTimeout(timer);
+
+  timer = setTimeout(() => {
+
+    search(input.value.trim());
+
+  }, 300);
+
+});
+```
+
+然后：
+
+```js id="n6p3w9"
+async function search(query) {
+
+  if (!query) {
+    results.innerHTML = '';
+    return;
+  }
+
+  const url =
+    `${window.Shopify.routes.root}search/suggest.json?q=${encodeURIComponent(query)}`;
+
+  const response = await fetch(url);
+
+  const data = await response.json();
+
+  console.log(data);
+}
+```
+
+现在：
+
+```text id="c8v2m5"
+输入
+ ↓
+clearTimeout
+ ↓
+等待 300ms
+ ↓
+search()
+```
+
+---
+
+# 十二、为什么 Shopify Theme 里经常自己写 DOM？
+
+因为 Theme 本身没有 React。
+
+所以：
+
+```text id="t5q8x1"
+React
+
+setResults(data)
+      ↓
+React
+      ↓
+重新渲染
+```
+
+Shopify Theme：
+
+```text id="y3m7k9"
+data
+ ↓
+createElement / innerHTML
+ ↓
+DOM
+```
+
+例如：
+
+```js id="z6p2n4"
+results.innerHTML = `
+  <div class="search-result">
+    ${product.title}
+  </div>
+`;
+```
+
+---
+
+# 十三、但不要马上大量使用 innerHTML
+
+为什么？
+
+因为你需要考虑：
+
+- HTML 转义
+- 用户输入
+- 数据来源
+- XSS
+- DOM 性能
+- 可维护性
+
+对于 Shopify 返回的数据，官方提供的预测搜索响应结构和 Theme API 用法应以当前 Shopify 文档为准；生产项目里不要把任意未处理字符串直接拼进 HTML。
+
+你可以先把：
+
+```text id="q9w3m7"
+API 数据
+```
+
+理解成：
+
+```text
+数据
+ ↓
+UI
+```
+
+而不是急着写复杂 DOM。
+
+---
+
+# 十四、Predictive Search 的结果类型
+
+概念上通常会有：
+
+```text id="h7n4p2"
+Predictive Search
+│
+├── Products
+├── Collections
+├── Queries
+├── Pages
+└── Articles
+```
+
+例如：
+
+```text id="r8m2x6"
+shirt
+│
+├── Products
+│   ├── Classic Shirt
+│   └── Oversized Shirt
+│
+├── Collections
+│   └── Shirts
+│
+└── Queries
+    ├── shirt
+    └── shirt jacket
+```
+
+所以和普通 Search 一样：
+
+> **预测搜索也不是“只搜索 Product”。**
+
+---
+
+# 十五、一个真实的 UI 架构
+
+我们可以设计成：
+
+```text id="p5k8m3"
+Search
+│
+├── Input
+│
+└── Predictive Search
+     │
+     ├── Queries
+     │
+     ├── Products
+     │
+     ├── Collections
+     │
+     └── Articles
+```
+
+HTML：
+
+```html id="j4m7x2"
+<div class="search">
+
+  <input
+    id="SearchInput"
+    type="search"
+  >
+
+  <div
+    id="PredictiveSearch"
+    hidden
+  >
+
+    <div class="predictive-search__queries"></div>
+
+    <div class="predictive-search__products"></div>
+
+    <div class="predictive-search__collections"></div>
+
+  </div>
+
+</div>
+```
+
+---
+
+# 十六、打开和关闭下拉框
+
+例如：
+
+```js id="k8r3v6"
+function openPredictiveSearch() {
+  results.hidden = false;
+}
+
+function closePredictiveSearch() {
+  results.hidden = true;
+}
+```
+
+然后：
+
+```js id="m2q7n4"
+if (!query) {
+  closePredictiveSearch();
+  return;
+}
+
+openPredictiveSearch();
+```
+
+这就是最基础的 UI State。
+
+---
+
+# 十七、点击外部关闭
+
+电商网站很常见：
+
+```text id="x6n9p3"
+点击搜索框
+ ↓
+打开
+
+点击外部
+ ↓
+关闭
+```
+
+可以：
+
+```js id="a7m4k2"
+document.addEventListener('click', event => {
+
+  if (
+    !event.target.closest('.search')
+  ) {
+    closePredictiveSearch();
+  }
+
+});
+```
+
+这就是普通 DOM Event。
+
+---
+
+# 十八、键盘操作
+
+真正生产级搜索框还应该考虑：
+
+```text id="s5f8m2"
+ArrowDown
+ArrowUp
+Enter
+Escape
+```
+
+例如：
+
+```text id="q8k3n6"
+输入
+ ↓
+搜索结果
+ ↓
+ArrowDown
+ ↓
+选中 Product
+ ↓
+Enter
+ ↓
+进入 Product Page
+```
+
+`Escape`：
+
+```text id="d4m7x1"
+Escape
+ ↓
+关闭 Predictive Search
+```
+
+这部分属于：
+
+> **Accessibility + Keyboard UX**
+
+我们后面 SEO / Accessibility 课程还会专门深入。
+
+---
+
+# 十九、一个很重要的问题：竞态条件
+
+现在假设：
+
+```text id="r3n8k5"
+请求 A：shirt
+请求 B：shoes
+```
+
+网络环境下可能：
+
+```text id="w7m2q9"
+B 先返回
+A 后返回
+```
+
+如果你简单：
+
+```js id="k4p8x1"
+results.innerHTML = ...
+```
+
+那么可能发生：
+
+```text
+用户最后输入：shoes
+
+但是页面最终显示：
+shirt
+```
+
+这就是：
+
+# Race Condition
+
+---
+
+# 二十、AbortController
+
+前端常见解决方法：
+
+```js id="n5q8r2"
+let controller = null;
+
+async function search(query) {
+
+  if (controller) {
+    controller.abort();
+  }
+
+  controller = new AbortController();
+
+  const url =
+    `${window.Shopify.routes.root}search/suggest.json?q=${encodeURIComponent(query)}`;
+
+  const response = await fetch(url, {
+    signal: controller.signal
+  });
+
+  const data = await response.json();
+
+  return data;
+}
+```
+
+流程：
+
+```text id="x2m7k9"
+用户输入 shirt
+      ↓
+Request A
+
+用户马上输入 shoes
+      ↓
+Abort Request A
+      ↓
+Request B
+      ↓
+显示 shoes
+```
+
+这就是你作为前端开发者非常应该掌握的生产级思维。
+
+---
+
+# 二十一、现在把整个 Predictive Search 串起来
+
+最终架构：
+
+```text id="p8n4m2"
+                    Input
+                      │
+                      ↓
+                 input event
+                      │
+                      ↓
+                   Debounce
+                      │
+                      ↓
+              Abort previous request
+                      │
+                      ↓
+                 fetch()
+                      │
+                      ↓
+        Shopify Predictive Search
+                      │
+                      ↓
+                    JSON
+                      │
+          ┌───────────┼───────────┐
+          ↓           ↓           ↓
+       Products   Collections   Queries
+          │
+          ↓
+      Render DOM
+          │
+          ↓
+   Keyboard / Click
+          │
+          ↓
+       Navigate
+```
+
+这一张图非常值得记。
+
+---
+
+# 二十二、Predictive Search 和普通 Search 的关系
+
+不要把它们当成两个完全独立的功能。
+
+它们实际上是：
+
+```text id="c9m3x7"
+             Search System
+                   │
+          ┌────────┴────────┐
+          ↓                 ↓
+    Predictive Search    Full Search
+          │                 │
+       JSON/API           HTML
+          │                 │
+      Dropdown          Search Page
+```
+
+用户输入：
+
+```text
+shirt
+```
+
+可以：
+
+```text id="v7x2m9"
+Predictive Search
+        ↓
+用户看到建议
+        ↓
+点击 "Search for shirt"
+        ↓
+/search?q=shirt
+        ↓
+Full Search Page
+```
+
+这就是一个完整的电商搜索体验。
+
+---
+
+# 二十三、今天最重要的 8 个知识点
+
+记住这几个：
+
+```text id="q3m7x8"
+① Predictive Search ≠ Full Search
+
+② Predictive Search 主要是异步请求
+
+③ /search/suggest.json 是预测搜索接口
+
+④ JavaScript 负责请求和 UI 更新
+
+⑤ Debounce 减少请求
+
+⑥ AbortController 处理请求竞态
+
+⑦ search.results 和预测搜索结果都不是简单等同于 Product
+
+⑧ Search UI = Input + API + Rendering + Keyboard Interaction
+```
+
+---
+
+# 二十四、到这里，你的 Theme 前端能力已经开始升级
+
+目前我们已经走过：
+
+```text id="f8m3q1"
+Collection
+   ↓
+Product Card
+   ↓
+Pagination
+   ↓
+Product Media
+   ↓
+Variant + Media
+   ↓
+Search
+   ↓
+Predictive Search
+```
+
+下一步就是非常关键的一课：
+
+# 第 17 课：Collection Filtering
+
+我们会解决真实电商网站里的这个问题：
+
+```text
+Shoes
+
+Brand
+☐ Nike
+☐ Adidas
+☐ New Balance
+
+Size
+☐ 40
+☐ 41
+☐ 42
+
+Color
+☐ Black
+☐ White
+
+Price
+☐ $0 - $50
+☐ $50 - $100
+```
+
+然后用户选择：
+
+```text
+Nike
++
+Size 42
++
+Black
+```
+
+页面变成：
+
+```text
+/collections/shoes?...filters...
+```
+
+这时候我们会正式学习 **Shopify Filters / Facets、URL 状态、Liquid、Ajax/Section Rendering** 是怎么组合起来的。
+
+这会是 Theme 深入里非常核心的一课。

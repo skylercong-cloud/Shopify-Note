@@ -1,0 +1,2330 @@
+<h1>第 17 课：Collection Filtering —— Shopify 商品筛选</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T22:34:00+08:00">09-19 22:34</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:34:00+08:00">09-19 22:34</time></div>
+<p>这一课非常重要。</p>
+<p>因为到了这里，你会发现 Shopify Theme 已经不只是：</p>
+<blockquote>
+<p>Liquid 把商品循环出来</p>
+</blockquote>
+<p>而开始变成真正的<strong>电商前端系统</strong>：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection Page
+      ↓
+   Filters
+      ↓
+用户选择条件
+      ↓
+URL Query Parameters
+      ↓
+Shopify 根据条件筛选
+      ↓
+Liquid 重新渲染商品
+      ↓
+Section Rendering
+      ↓
+局部更新 DOM
+</code></pre></div>
+<p>这和你熟悉的 React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filters state
+    ↓
+URLSearchParams
+    ↓
+API
+    ↓
+data
+    ↓
+setState
+    ↓
+React render
+</code></pre></div>
+<p>已经非常接近了。</p>
+<hr>
+<h2>一、什么是 Storefront Filtering？</h2>
+<p>Shopify 官方现在推荐使用 <strong>Storefront filtering</strong> 来实现 Collection 和 Search 页面筛选。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Filtering" aria-label="Filtering">Shopify</a></span></p>
+<p>例如一个鞋子 Collection：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes
+│
+├── Availability
+│   ├── In stock
+│   └── Out of stock
+│
+├── Color
+│   ├── Black
+│   ├── White
+│   └── Red
+│
+├── Size
+│   ├── S
+│   ├── M
+│   └── L
+│
+├── Price
+│   ├── $0 - $50
+│   └── $50 - $100
+│
+└── Brand
+    ├── Nike
+    └── Adidas
+</code></pre></div>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Size = M
+</code></pre></div>
+<p>Shopify 会根据这些条件返回符合条件的商品。</p>
+<hr>
+<h2>二、Shopify Filtering 和普通 JS Filter 的区别</h2>
+<p>这个概念一定要理解。</p>
+<p>你可能会想到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">products.filter(product =&gt; ...)
+</code></pre></div>
+<p>但是 Shopify Collection Filtering <strong>不是这么工作的</strong>。</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify 上可能有 10000 个商品
+</code></pre></div>
+<p>你不可能先把 10000 个商品全部传到浏览器：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const products = [...]
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">products.filter(...)
+</code></pre></div>
+<p>这会非常浪费。</p>
+<p>Shopify 的方式是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+   ↓
+发送筛选条件
+   ↓
+Shopify Server
+   ↓
+筛选商品
+   ↓
+Liquid
+   ↓
+返回符合条件的 HTML
+</code></pre></div>
+<p>也就是说：</p>
+<blockquote>
+<p><strong>筛选主要发生在 Shopify 服务端，而不是浏览器端。</strong></p>
+</blockquote>
+<p>这也是为什么 Shopify Theme 可以保持比较好的性能。</p>
+<p>官方也推荐让 Liquid 服务端渲染商品网格，再使用 Section Rendering API 做筛选/排序后的局部更新。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/render-essential-content-server-side?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Render essential content in Liquid and HTML, not JavaScript" aria-label="Render essential content in Liquid and HTML, not JavaScript">Shopify</a></span></p>
+<hr>
+<h2>三、核心对象：<code>collection.filters</code></h2>
+<p>这是这一课最重要的 Liquid 对象。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for filter in collection.filters %}
+
+  &lt;h3&gt;{{ filter.label }}&lt;/h3&gt;
+
+{% endfor %}
+</code></pre></div>
+<p>假设 Shopify 后台配置了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Availability
+Color
+Size
+Price
+Brand
+</code></pre></div>
+<p>那么：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.filters
+</code></pre></div>
+<p>就代表这些筛选器。</p>
+<p>官方的 Theme Filtering 实现就是通过 <code>filter</code> 对象配合 <code>collection</code> 或 <code>search</code> 对象完成的。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering/support-storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Support storefront filtering" aria-label="Support storefront filtering">Shopify</a></span></p>
+<hr>
+<h2>四、最基本的 Filter UI</h2>
+<p>我们先写一个简单版本：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for filter in collection.filters %}
+
+  &lt;div class=&quot;filter-group&quot;&gt;
+
+    &lt;h3&gt;
+      {{ filter.label }}
+    &lt;/h3&gt;
+
+    {% for value in filter.values %}
+
+      &lt;label&gt;
+        &lt;input
+          type=&quot;checkbox&quot;
+          name=&quot;{{ value.param_name }}&quot;
+          value=&quot;{{ value.value }}&quot;
+        &gt;
+
+        {{ value.label }}
+
+      &lt;/label&gt;
+
+    {% endfor %}
+
+  &lt;/div&gt;
+
+{% endfor %}
+</code></pre></div>
+<p>你可以把它理解成 React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">collection.filters.map(filter =&gt; (
+  &lt;FilterGroup filter={filter} /&gt;
+))
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for value in filter.values %}
+</code></pre></div>
+<p>类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>jsx</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-jsx">filter.values.map(value =&gt; ...)
+</code></pre></div>
+<hr>
+<h2>五、Filter 真正厉害的地方：URL</h2>
+<p>假设用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Red
+</code></pre></div>
+<p>URL 会出现类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?filter.v.option.color=red
+</code></pre></div>
+<p>如果再选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Size = L
+</code></pre></div>
+<p>可能变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?filter.v.option.color=red
+&amp;filter.v.option.size=L
+</code></pre></div>
+<p>Shopify 官方规定了 Storefront Filtering 的 URL 参数结构。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+<p>这意味着：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
+ ↓
+URL
+ ↓
+Shopify
+ ↓
+Collection
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
+ ↓
+React state
+ ↓
+本地 products.filter()
+</code></pre></div>
+<hr>
+<h2>六、为什么 Shopify 要把 Filter 放进 URL？</h2>
+<p>这是一个非常重要的电商设计。</p>
+<p>比如用户筛选：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Size = M
+</code></pre></div>
+<p>URL：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?filter.v.option.color=black
+&amp;filter.v.option.size=M
+</code></pre></div>
+<p>那么用户可以：</p>
+<h4>1. 刷新页面</h4>
+<p>筛选状态还在。</p>
+<h4>2. 分享链接</h4>
+<p>把 URL 发给别人：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">https://store.com/collections/shoes?filter...
+</code></pre></div>
+<p>别人打开也是相同筛选结果。</p>
+<h4>3. 浏览器后退</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">All Shoes
+   ↓
+Black
+   ↓
+Black + M
+   ↓
+Back
+</code></pre></div>
+<p>URL 状态可以恢复。</p>
+<h4>4. SEO / 可访问性</h4>
+<p>页面状态不是完全依赖 JS 内存。</p>
+<p>所以 Shopify Filtering 的一个核心思想就是：</p>
+<blockquote>
+<p><strong>URL 是筛选状态的一部分。</strong></p>
+</blockquote>
+<hr>
+<h2>七、AND 和 OR</h2>
+<p>这里特别容易搞混。</p>
+<p>Shopify Storefront Filtering 的规则是：</p>
+<blockquote>
+<p>不同 Filter 之间通常是 AND，同一个 Filter 的多个值通常是 OR。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Size = M
+</code></pre></div>
+<p>相当于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+AND
+Size = M
+</code></pre></div>
+<p>商品必须同时满足。</p>
+<hr>
+<p>但是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Color = White
+</code></pre></div>
+<p>相当于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+OR
+Color = White
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">不同 filter
+     ↓
+    AND
+
+同一个 filter 多个 value
+     ↓
+    OR
+</code></pre></div>
+<p>这是电商筛选非常常见的设计。</p>
+<hr>
+<h2>八、Shopify 支持哪些 Filter？</h2>
+<p>当前 Storefront Filtering 可以基于很多商品/Variant 数据，例如：</p>
+<ul>
+<li>Availability</li>
+<li>Category</li>
+<li>Price</li>
+<li>Product tags</li>
+<li>Product type</li>
+<li>Vendor</li>
+<li>Variant options</li>
+<li>Metafields</li>
+</ul>
+<p>官方文档也明确说明了这些过滤维度。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+<p>因此你可以做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品类型
+品牌
+颜色
+尺码
+价格
+库存
+材质
+性别
+风格
+</code></pre></div>
+<p>等等。</p>
+<hr>
+<h2>九、Metafield Filtering 非常重要</h2>
+<p>这部分和我们之前学的 <strong>Metafield</strong> 直接连起来了。</p>
+<p>假设我们之前创建：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Metafield
+
+namespace: custom
+key: material
+type: single_line_text_field
+</code></pre></div>
+<p>商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+material = Leather
+</code></pre></div>
+<p>另一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Adidas Runner
+material = Mesh
+</code></pre></div>
+<p>那么就可以把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material
+├── Leather
+├── Mesh
+└── Cotton
+</code></pre></div>
+<p>作为筛选条件。</p>
+<p>这就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+   ↓
+Storefront Filter
+   ↓
+Collection Filtering
+</code></pre></div>
+<p>所以你会开始发现：</p>
+<blockquote>
+<p>Shopify 的 Data Model 和 Theme Development 是连起来的。</p>
+</blockquote>
+<hr>
+<h2>十、Filter 的数量不是无限的</h2>
+<p>当前 Shopify 文档说明，一个商店最多可以创建 <strong>25 个 storefront filters</strong>。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+<p>所以实际项目里不能无限设计：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">品牌
+颜色
+尺码
+材质
+风格
+长度
+重量
+产地
+季节
+...
+</code></pre></div>
+<p>而是要考虑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">哪些 Filter 真正有商业价值？
+</code></pre></div>
+<p>这属于后面的电商 UX / 数据建模问题。</p>
+<hr>
+<h2>十一、Active Filters</h2>
+<p>现在考虑一个实际问题。</p>
+<p>用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Size = M
+</code></pre></div>
+<p>页面最好显示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Active filters:
+
+[ Black × ] [ M × ]
+
+Clear all
+</code></pre></div>
+<p>这样用户知道当前到底筛选了什么。</p>
+<p>在 Liquid 中，你可以围绕 Filter 的 active values 来构建这个 UI。</p>
+<p>概念上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for filter in collection.filters %}
+
+  {% for value in filter.active_values %}
+
+    &lt;a href=&quot;{{ value.url_to_remove }}&quot;&gt;
+      {{ value.label }} ×
+    &lt;/a&gt;
+
+  {% endfor %}
+
+{% endfor %}
+</code></pre></div>
+<p>这里的核心思想是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户选中的 Filter
+        ↓
+active_values
+        ↓
+生成 remove URL
+        ↓
+点击后取消这个条件
+</code></pre></div>
+<p>这比自己手工拼 URL 安全很多。</p>
+<hr>
+<h2>十二、Clear All</h2>
+<p>还需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">[ Clear all ]
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>恢复成没有 Filter 的状态。</p>
+<p>一个优秀的 Filter UI 通常至少有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filters
+
+Color
+☑ Black
+☐ White
+☐ Red
+
+Size
+☐ S
+☑ M
+☐ L
+
+----------------
+
+Selected:
+[ Black × ]
+[ M × ]
+
+[ Clear all ]
+</code></pre></div>
+<hr>
+<h2>十三、价格筛选</h2>
+<p>价格比较特殊。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$20 ~ $100
+</code></pre></div>
+<p>Shopify URL 可以使用价格条件。</p>
+<p>官方文档中的价格过滤使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filter.v.price.gte
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filter.v.price.lte
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filter.v.price.gte=20
+filter.v.price.lte=100
+</code></pre></div>
+<p>表示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">price &gt;= 20
+AND
+price &lt;= 100
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$20 ≤ Price ≤ $100
+</code></pre></div>
+<p><span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+<hr>
+<h2>十四、Availability</h2>
+<p>库存筛选也非常常见：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Availability
+
+☑ In stock
+☐ Out of stock
+</code></pre></div>
+<p>Shopify 当前对应的参数可以是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">filter.v.availability=1
+</code></pre></div>
+<p>其中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1 = in stock
+0 = out of stock
+</code></pre></div>
+<p><span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+<hr>
+<h2>十五、Filter Count</h2>
+<p>非常重要的一个 UX：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+
+Black      (42)
+White      (18)
+Red        (7)
+</code></pre></div>
+<p>这个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">(42)
+</code></pre></div>
+<p>就是告诉用户：</p>
+<blockquote>
+<p>如果选择 Black，会有多少商品匹配。</p>
+</blockquote>
+<p>因此 Filter UI 不只是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">&lt;label&gt;
+  &lt;input&gt;
+  Black
+&lt;/label&gt;
+</code></pre></div>
+<p>还可以展示对应 count。</p>
+<p>这对大型电商网站非常重要。</p>
+<hr>
+<h2>十六、Filter + Sort</h2>
+<p>Collection 页面通常还有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort by:
+
+Featured
+Price, low to high
+Price, high to low
+Best selling
+Newest
+</code></pre></div>
+<p>Shopify Collection 对象提供：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.sort_options
+collection.sort_by
+collection.default_sort_by
+</code></pre></div>
+<p>并通过 URL 的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sort_by
+</code></pre></div>
+<p>控制排序。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="collection" aria-label="collection">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=price-ascending
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
++
+Sort
+</code></pre></div>
+<p>可以组合：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?filter.v.option.color=black
+&amp;filter.v.option.size=M
+&amp;sort_by=price-ascending
+</code></pre></div>
+<p>这就已经非常接近真实电商 Collection 页面了。</p>
+<hr>
+<h2>十七、现在我们进入关键部分：不用刷新整个页面</h2>
+<p>如果每次用户点击 Filter 都：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击
+↓
+浏览器刷新
+↓
+重新加载整个页面
+</code></pre></div>
+<p>体验会比较差。</p>
+<p>我们之前已经学过：</p>
+<blockquote>
+<p><strong>Section Rendering API</strong></p>
+</blockquote>
+<p>所以可以做成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户点击 Black
+        ↓
+JavaScript
+        ↓
+修改 URL / 请求筛选 URL
+        ↓
+Shopify
+        ↓
+重新渲染 Collection Section
+        ↓
+返回 HTML
+        ↓
+JS 替换商品 Grid
+</code></pre></div>
+<p>这就是 Shopify Theme 中非常经典的：</p>
+<blockquote>
+<p><strong>Server-rendered HTML + AJAX enhancement</strong></p>
+</blockquote>
+<hr>
+<h2>十八、为什么不是 React 全量接管？</h2>
+<p>这是 Shopify Theme 和传统 React SPA 一个很重要的区别。</p>
+<p>传统 React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+ ↓
+React
+ ↓
+API
+ ↓
+JSON
+ ↓
+React state
+ ↓
+React DOM
+</code></pre></div>
+<p>Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+</code></pre></div>
+<p>加入 AJAX 后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Browser
+ ↓
+Fetch
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+Browser
+ ↓
+替换 Section
+</code></pre></div>
+<p>所以 Shopify 官方也推荐：</p>
+<blockquote>
+<p>核心商品内容应该优先由 Liquid/HTML 服务端渲染，而不是完全依赖 JavaScript 在客户端生成。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/render-essential-content-server-side?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Render essential content in Liquid and HTML, not JavaScript" aria-label="Render essential content in Liquid and HTML, not JavaScript">Shopify</a></span></p>
+</blockquote>
+<hr>
+<h2>十九、一个真实的架构</h2>
+<p>我们现在可以设计：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+│
+├── main-collection-product-grid.liquid
+│
+└── collection-filters.liquid
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">templates/
+└── collection.json
+</code></pre></div>
+<p>结构：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection Page
+│
+├── Collection Header
+│
+├── Filters
+│   ├── Availability
+│   ├── Color
+│   ├── Size
+│   ├── Price
+│   └── Brand
+│
+├── Sort
+│
+└── Product Grid
+    ├── Product Card
+    ├── Product Card
+    ├── Product Card
+    └── Product Card
+</code></pre></div>
+<hr>
+<h2>二十、完整数据流</h2>
+<p>现在把我们已经学过的东西串起来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                Shopify Admin
+                     │
+                     ↓
+          创建 Storefront Filters
+                     │
+                     ↓
+               Collection
+                     │
+          ┌──────────┴──────────┐
+          ↓                     ↓
+      collection.filters   collection.products
+          ↓                     ↓
+       Filter UI            Product Grid
+          │                     │
+          └──────────┬──────────┘
+                     ↓
+                  用户点击
+                     ↓
+                URL Parameters
+                     ↓
+              Shopify Server
+                     ↓
+                 Liquid
+                     ↓
+            Section Rendering
+                     ↓
+               返回 HTML
+                     ↓
+               JS 更新 DOM
+</code></pre></div>
+<p>这就是你现在应该建立起来的完整心智模型。</p>
+<hr>
+<h2>二十一、和 React 对照一下</h2>
+<p>如果你来自 React，这个映射非常重要：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>React</th>
+<th>Shopify Theme</th>
+</tr>
+</thead><tbody><tr>
+<td><code>useState()</code></td>
+<td>URL / Shopify 当前请求状态</td>
+</tr>
+<tr>
+<td><code>useMemo()</code></td>
+<td>Liquid 服务端计算</td>
+</tr>
+<tr>
+<td>API 请求</td>
+<td>Shopify URL / Section Rendering</td>
+</tr>
+<tr>
+<td>JSON</td>
+<td>HTML Section</td>
+</tr>
+<tr>
+<td>React component</td>
+<td>Section / Snippet</td>
+</tr>
+<tr>
+<td><code>.map()</code></td>
+<td><code>{% for %}</code></td>
+</tr>
+<tr>
+<td>条件渲染</td>
+<td><code>{% if %}</code></td>
+</tr>
+<tr>
+<td>Router Query</td>
+<td>URL Query Parameters</td>
+</tr>
+<tr>
+<td>State → UI</td>
+<td>URL → Shopify → Liquid → UI</td>
+</tr>
+</tbody></table></div>
+<p>尤其是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React：
+
+state
+ ↓
+render
+ ↓
+DOM
+</code></pre></div>
+<p>Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">URL
+ ↓
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+</code></pre></div>
+<p>这是 Shopify Theme 最重要的思维方式之一。</p>
+<hr>
+<h2>二十二、你现在已经走到一个关键节点</h2>
+<p>到目前为止，我们已经学：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+│
+├── Liquid
+├── Layout
+├── Template
+├── Section
+├── Block
+├── Snippet
+│
+├── Product
+├── Variant
+├── Product Media
+│
+├── Collection
+├── Search
+├── Predictive Search
+│
+├── Cart
+├── Cart Drawer
+├── Section Rendering
+│
+└── Collection Filtering ← 今天
+</code></pre></div>
+<p>下一节就是：</p>
+<h2>第 18 课：Pagination / Sort / URL State</h2>
+<p>这一课会把现在的 Collection Filtering 再往前推进一步，重点解决三个非常实际的问题：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
++
+Sort
++
+Pagination
+</code></pre></div>
+<p>最终形成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+?page=2
+&amp;sort_by=price-ascending
+&amp;filter.v.option.color=black
+&amp;filter.v.option.size=M
+</code></pre></div>
+<p>然后我们会重点讲：</p>
+<ul>
+<li>为什么筛选后 <code>page=2</code> 经常需要处理</li>
+<li><code>sort_by</code> 怎么和 Filter 共存</li>
+<li>URLSearchParams 怎么在 Theme JS 里管理</li>
+<li>Filter / Sort / Pagination 如何统一</li>
+<li>Section Rendering 如何做到<strong>筛选、排序、翻页都不刷新整个页面</strong></li>
+<li>最后做一个接近真实 Shopify 商城的 Collection 页面</li>
+</ul>
+<p>这部分学完，你的 <strong>Collection 页面 Theme 能力就基本成型了</strong>。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Storefront filtering</a></li></ul></details>
+</div></section>
+<h2 class="dialogue-followup-title">在后台配置筛选与排序字段</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T22:43:00+08:00">09-19 22:43</time></div><p>这一课我没明白，一个集合页怎么定义筛选、排序的那些item 我的意思比如我想让该集合页按价格、颜色、材质、产地排序或者筛选，我该怎么去配置这些字段？</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:43:00+08:00">09-19 22:43</time></div>
+<p>对，你这个问题问到了<strong>这一课真正的核心</strong>。</p>
+<p>我上一节直接讲 <code>collection.filters</code>，跳过了最重要的一层：<strong>这些 Filter 到底是谁定义的、数据从哪里来。</strong></p>
+<p>你可以先记住一句话：</p>
+<blockquote>
+<p><strong>Collection 页面不是自己定义“价格/颜色/材质/产地”这些筛选项的。你是在 Shopify 后台配置 Filter，而 Filter 的数据来源于 Product、Variant、Metafield、Metaobject 等数据。Theme 只是把这些已经配置好的 Filter 渲染出来。</strong></p>
+</blockquote>
+<p>Shopify 目前主要通过 <strong>Search &amp; Discovery</strong> 来配置 Storefront Filters。<span class="dialogue-cites"><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery" aria-label="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery">Shopify Help Center</a><a href="https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Storefront filtering" aria-label="Storefront filtering">Shopify</a></span></p>
+<hr>
+<h2>一、先看完整关系</h2>
+<p>假设你有一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">男鞋 Collection
+</code></pre></div>
+<p>你希望用户可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">价格
+颜色
+材质
+产地
+</code></pre></div>
+<p>进行筛选。</p>
+<p>真正的数据结构应该是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 Shopify Admin
+                      │
+                      ↓
+               产品数据 Product
+                      │
+        ┌─────────────┼─────────────┐
+        ↓             ↓             ↓
+      Price          Color        Material
+                                    │
+                                 Metafield
+                                    │
+                                  Origin
+                                    │
+                                 Metafield
+                      ↓
+              Search &amp; Discovery
+                      ↓
+                创建 Filters
+                      ↓
+              collection.filters
+                      ↓
+                   Theme
+                      ↓
+              显示筛选 UI
+</code></pre></div>
+<p>所以要分成 <strong>3 层</strong>：</p>
+<h4>第一层：产品数据</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── Price
+├── Color
+├── Material
+└── Origin
+</code></pre></div>
+<h4>第二层：Filter 配置</h4>
+<p>告诉 Shopify：</p>
+<blockquote>
+<p>哪些字段允许消费者拿来筛选？</p>
+</blockquote>
+<h4>第三层：Theme</h4>
+<p>负责：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">把 Filter 画出来
+</code></pre></div>
+<hr>
+<h2>二、你的四个字段应该怎么设计？</h2>
+<p>我们直接按照你的例子来。</p>
+<p>你想要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">价格
+颜色
+材质
+产地
+</code></pre></div>
+<p>我会这样设计：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>筛选项</th>
+<th>数据来源</th>
+<th>推荐方式</th>
+</tr>
+</thead><tbody><tr>
+<td>价格</td>
+<td>Product/Variant Price</td>
+<td>Shopify 标准 Price Filter</td>
+</tr>
+<tr>
+<td>颜色</td>
+<td>Product Option / Category Metafield</td>
+<td>Color</td>
+</tr>
+<tr>
+<td>材质</td>
+<td>Product Metafield</td>
+<td><code>custom.material</code></td>
+</tr>
+<tr>
+<td>产地</td>
+<td>Product Metafield</td>
+<td><code>custom.origin</code></td>
+</tr>
+</tbody></table></div>
+<p>其中：</p>
+<p><strong>价格不需要你自己创建字段。</strong></p>
+<p>颜色如果是商品规格，比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color:
+Black
+White
+Red
+</code></pre></div>
+<p>可以直接利用 Product Option。</p>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">材质
+产地
+</code></pre></div>
+<p>这种不是 Shopify 默认 Product 字段的东西，就非常适合用 <strong>Metafield</strong>。</p>
+<p>Shopify 当前支持用 Product Option、Product Metafield、Category Metafield、Variant Metafield 等作为自定义筛选来源。<span class="dialogue-cites"><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery" aria-label="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery">Shopify Help Center</a></span></p>
+<hr>
+<h2>三、先配置「价格」</h2>
+<p>价格最简单。</p>
+<p>商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Price: $99
+</code></pre></div>
+<p>价格本身就是 Shopify Product/Variant 的标准数据。</p>
+<p>所以你<strong>不用创建</strong>：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.price
+</code></pre></div>
+<p>不要这样干。</p>
+<p>直接在：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Admin
+→ Apps
+→ Search &amp; Discovery
+→ Filters
+→ Add filter
+</code></pre></div>
+<p>选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Price
+</code></pre></div>
+<p>就可以了。Shopify 把 Price 列为标准 Filter。<span class="dialogue-cites"><a href="https://help.shopify.com/zh-CN/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify 帮助中心 | 使用 Shopify Search &amp; Discovery 添加筛选条件" aria-label="Shopify 帮助中心 | 使用 Shopify Search &amp; Discovery 添加筛选条件">Shopify Help Center</a></span></p>
+<p>最终消费者看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Price
+
+$0 ───────── $200
+</code></pre></div>
+<p>或者：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Under $50
+$50 - $100
+$100 - $200
+</code></pre></div>
+<p>具体 UI 怎么呈现，还取决于你的 Theme。</p>
+<hr>
+<h2>四、再配置「颜色」</h2>
+<p>这里有两种情况。</p>
+<h3>情况 A：颜色本身是商品规格</h3>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+
+Nike Air Max
+
+Color:
+├── Black
+├── White
+└── Red
+
+Size:
+├── 8
+├── 9
+└── 10
+</code></pre></div>
+<p>那么：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+</code></pre></div>
+<p>本身就是 Product Option。</p>
+<p>所以 Search &amp; Discovery 可以直接基于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Option
+</code></pre></div>
+<p>创建 Color Filter。<span class="dialogue-cites"><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery" aria-label="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery">Shopify Help Center</a></span></p>
+<hr>
+<h2>五、那「颜色」到底存在哪里？</h2>
+<p>比如一个商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>它可能有 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / 8
+Black / 9
+White / 8
+White / 9
+</code></pre></div>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+</code></pre></div>
+<p>实际上是 Variant Option。</p>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   └── Options
+        ├── Color
+        │    ├── Black
+        │    └── White
+        │
+        └── Size
+             ├── 8
+             └── 9
+</code></pre></div>
+<p>所以如果你的颜色就是 SKU 维度的一部分：</p>
+<blockquote>
+<p><strong>优先使用 Product Option。</strong></p>
+</blockquote>
+<hr>
+<h2>六、如果你想要漂亮的颜色色块呢？</h2>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color
+
+⚫ Black
+⚪ White
+🔴 Red
+🔵 Blue
+</code></pre></div>
+<p>甚至：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">● ● ● ●
+</code></pre></div>
+<p>这种叫 <strong>Visual Filter / Swatch</strong>。</p>
+<p>Shopify 现在可以通过 Category Metafield、Product Metafield 或 Variant Metafield 的 Metaobject Reference 来做可视化 Filter。<span class="dialogue-cites"><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery" aria-label="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery">Shopify Help Center</a><a href="https://help.shopify.com/zh-CN/manual/custom-data/metafields/category-metafields/using-category-metafields?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify 帮助中心 | 使用分类元字段添加颜色样本" aria-label="Shopify 帮助中心 | 使用分类元字段添加颜色样本">Shopify Help Center</a></span></p>
+<p>这个我们后面专门讲 <strong>Metaobject + Filter</strong>。</p>
+<p>现在你先理解数据结构即可。</p>
+<hr>
+<h2>七、重点来了：「材质」</h2>
+<p>比如你的商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Material = Leather
+</code></pre></div>
+<p>这个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material
+</code></pre></div>
+<p>Shopify 默认 Product 数据里面没有一个通用的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.material
+</code></pre></div>
+<p>所以我们自己定义一个 <strong>Product Metafield</strong>。</p>
+<p>进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Admin
+→ Settings
+→ Custom data
+→ Products
+</code></pre></div>
+<p>创建：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Name:
+Material
+
+Namespace and key:
+custom.material
+
+Type:
+Single line text
+</code></pre></div>
+<p>于是我们的 Product 数据就变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── title
+├── price
+├── variants
+├── media
+│
+└── metafields
+     └── custom.material
+</code></pre></div>
+<hr>
+<h2>八、然后给每个商品填写材质</h2>
+<p>例如：</p>
+<h4>商品 A</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+
+Material:
+Leather
+</code></pre></div>
+<h4>商品 B</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Adidas Runner
+
+Material:
+Mesh
+</code></pre></div>
+<h4>商品 C</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">New Balance
+
+Material:
+Cotton
+</code></pre></div>
+<p>数据实际上类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product A
+custom.material = Leather
+
+Product B
+custom.material = Mesh
+
+Product C
+custom.material = Cotton
+</code></pre></div>
+<hr>
+<h2>九、然后把这个 Metafield 变成 Filter</h2>
+<p>这一步非常关键。</p>
+<p>你现在已经有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Metafield
+        ↓
+custom.material
+</code></pre></div>
+<p>但是：</p>
+<blockquote>
+<p><strong>有 Metafield ≠ 自动成为 Storefront Filter。</strong></p>
+</blockquote>
+<p>你还需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Apps
+↓
+Search &amp; Discovery
+↓
+Filters
+↓
+Add filter
+↓
+选择 Product Metafield
+↓
+custom.material
+↓
+Save
+</code></pre></div>
+<p>Shopify 官方当前就是通过 Search &amp; Discovery 的 <strong>Add filter → Source</strong> 来选择 Product Metafield 等来源。<span class="dialogue-cites"><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery" aria-label="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery">Shopify Help Center</a><a href="https://help.shopify.com/zh-CN/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify 帮助中心 | 使用 Shopify Search &amp; Discovery 添加筛选条件" aria-label="Shopify 帮助中心 | 使用 Shopify Search &amp; Discovery 添加筛选条件">Shopify Help Center</a></span></p>
+<hr>
+<h2>十、于是就形成了完整链路</h2>
+<p>这时候你应该能看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Metafield
+        │
+        │
+        ↓
+custom.material
+        │
+        ↓
+Search &amp; Discovery
+        │
+        ↓
+Material Filter
+        │
+        ↓
+collection.filters
+        │
+        ↓
+Theme
+        │
+        ↓
+Material
+☐ Leather
+☐ Mesh
+☐ Cotton
+</code></pre></div>
+<p>这就是你刚才问的：</p>
+<blockquote>
+<p>“一个集合页怎么定义筛选 item？”</p>
+</blockquote>
+<p>答案就是：</p>
+<p><strong>不是在 Collection Liquid 里面定义。</strong></p>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品数据
+  ↓
+Search &amp; Discovery Filter 配置
+  ↓
+Theme 自动读取
+</code></pre></div>
+<hr>
+<h2>十一、再来看「产地」</h2>
+<p>同样的方法。</p>
+<p>创建：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Metafield
+
+Name:
+Origin
+
+Namespace:
+custom
+
+Key:
+origin
+
+Type:
+Single line text
+</code></pre></div>
+<p>然后商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Origin = China
+
+Adidas Runner
+Origin = Vietnam
+
+New Balance
+Origin = USA
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search &amp; Discovery
+↓
+Add filter
+↓
+Product Metafield
+↓
+custom.origin
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Origin
+
+☐ China
+☐ Vietnam
+☐ USA
+</code></pre></div>
+<hr>
+<h2>十二、最终你的 Collection 就变成这样</h2>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>后台配置：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search &amp; Discovery
+│
+├── Price
+├── Color
+├── Material
+└── Origin
+</code></pre></div>
+<p>Collection 页面 Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes
+│
+├── Filters
+│
+│   ├── Price
+│   │   ├── $0 - $50
+│   │   ├── $50 - $100
+│   │   └── $100+
+│   │
+│   ├── Color
+│   │   ├── Black
+│   │   ├── White
+│   │   └── Red
+│   │
+│   ├── Material
+│   │   ├── Leather
+│   │   ├── Mesh
+│   │   └── Cotton
+│   │
+│   └── Origin
+│       ├── China
+│       ├── Vietnam
+│       └── USA
+│
+└── Products
+</code></pre></div>
+<p>而 Theme 不需要写死：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">if filter == &#39;Material&#39;
+</code></pre></div>
+<p>这种东西。</p>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for filter in collection.filters %}
+
+  &lt;h3&gt;{{ filter.label }}&lt;/h3&gt;
+
+  {% for value in filter.values %}
+
+    &lt;label&gt;
+      &lt;input
+        type=&quot;checkbox&quot;
+        name=&quot;{{ value.param_name }}&quot;
+        value=&quot;{{ value.value }}&quot;
+      &gt;
+
+      {{ value.label }}
+    &lt;/label&gt;
+
+  {% endfor %}
+
+{% endfor %}
+</code></pre></div>
+<p>所以你以后后台新增：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Brand
+</code></pre></div>
+<p>Theme <strong>通常不需要修改代码</strong>。</p>
+<p>Search &amp; Discovery：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add filter
+→ Vendor
+</code></pre></div>
+<p>Theme 就能通过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.filters
+</code></pre></div>
+<p>把它渲染出来。</p>
+<p>这就是 Shopify Theme 非常强的地方。</p>
+<hr>
+<h2>十三、但是你说了「排序」，这里要区分一下</h2>
+<p>你刚才说：</p>
+<blockquote>
+<p>“按价格、颜色、材质、产地排序或者筛选”</p>
+</blockquote>
+<p>这里其实有两个完全不同的概念。</p>
+<h4>Filter</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">筛选
+
+Price:
+$50 - $100
+
+Color:
+Black
+
+Material:
+Leather
+
+Origin:
+China
+</code></pre></div>
+<p>意思是：</p>
+<blockquote>
+<p><strong>我要哪些商品？</strong></p>
+</blockquote>
+<hr>
+<h4>Sort</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">排序
+
+Featured
+Price: Low → High
+Price: High → Low
+Newest
+Best Selling
+</code></pre></div>
+<p>意思是：</p>
+<blockquote>
+<p><strong>这些商品应该怎么排列？</strong></p>
+</blockquote>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter = 缩小商品集合
+
+Sort = 改变商品顺序
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1000 个鞋子
+   ↓
+Color = Black
+   ↓
+200 个
+   ↓
+Material = Leather
+   ↓
+50 个
+   ↓
+Price Low → High
+   ↓
+50 个按照价格排序
+</code></pre></div>
+<hr>
+<h2>十四、材质和产地通常不是「Sort」</h2>
+<p>比如你说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">按材质排序
+</code></pre></div>
+<p>Shopify 默认的 Collection Sort 并不是让你随便指定：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Leather
+Mesh
+Cotton
+</code></pre></div>
+<p>然后排序。</p>
+<p>如果你真正想做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Material
+
+Leather
+Mesh
+Cotton
+</code></pre></div>
+<p>通常它应该是：</p>
+<blockquote>
+<p><strong>Filter</strong></p>
+</blockquote>
+<p>而不是 Sort。</p>
+<p>所以你的需求更合理地拆成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
+├── Price
+├── Color
+├── Material
+└── Origin
+
+Sort
+├── Featured
+├── Price low → high
+├── Price high → low
+├── Newest
+└── Best selling
+</code></pre></div>
+<hr>
+<h2>十五、你现在最应该建立的一个思维模型</h2>
+<p>把 Shopify 商品系统想成数据库。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Shopify 原生字段
+│   ├── title
+│   ├── vendor
+│   ├── product_type
+│   ├── price
+│   └── tags
+│
+├── Options
+│   ├── Color
+│   └── Size
+│
+├── Metafields
+│   ├── material
+│   ├── origin
+│   ├── style
+│   └── season
+│
+└── Metaobjects
+    └── 更复杂的结构化数据
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">这些数据
+   ↓
+Search &amp; Discovery
+   ↓
+选择哪些作为 Filter
+   ↓
+Collection.filters
+   ↓
+Theme
+</code></pre></div>
+<hr>
+<h2>十六、所以你刚才没理解，其实是因为我跳过了这一层</h2>
+<p>正确的学习顺序应该是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">① Product 数据怎么定义
+        ↓
+② Metafield 怎么定义
+        ↓
+③ 产品怎么填写这些数据
+        ↓
+④ Search &amp; Discovery 怎么把数据变成 Filter
+        ↓
+⑤ collection.filters 怎么读取
+        ↓
+⑥ Theme 怎么渲染 Filter
+        ↓
+⑦ Filter 点击以后 URL 怎么变化
+        ↓
+⑧ Section Rendering 怎么无刷新更新商品
+</code></pre></div>
+<p>而我上一节直接从：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">⑤ collection.filters
+</code></pre></div>
+<p>开始讲了。</p>
+<p>所以你会觉得：</p>
+<blockquote>
+<p>“等等，<code>filter</code> 从哪里来的？”</p>
+</blockquote>
+<p>这个疑问完全正确。</p>
+<hr>
+<h3>我建议我们把第 17 课重新学一遍</h3>
+<p>而且按照真正开发一个 Shopify 商城的顺序来。</p>
+<p>下一步我们可以直接做一个<strong>完整实战</strong>：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">创建一个 Shoes Collection
+
+Product:
+├── Color → Product Option
+├── Size → Product Option
+├── Material → Metafield
+└── Origin → Metafield
+
+        ↓
+
+Search &amp; Discovery
+
+        ↓
+
+Filters:
+├── Price
+├── Color
+├── Material
+└── Origin
+
+        ↓
+
+Collection Theme
+
+        ↓
+
+collection.filters
+
+        ↓
+
+真正渲染出：
+┌─────────────────────┐
+│ Filters             │
+│                     │
+│ Price               │
+│ □ $0-$50            │
+│ □ $50-$100          │
+│                     │
+│ Color               │
+│ □ Black             │
+│ □ White             │
+│                     │
+│ Material            │
+│ □ Leather           │
+│ □ Mesh              │
+│                     │
+│ Origin              │
+│ □ China             │
+│ □ Vietnam           │
+└─────────────────────┘
+</code></pre></div>
+<p>然后我再带你写 <strong>Liquid + URL + Section Rendering</strong>，你会一下把整个过滤系统串起来。</p>
+<p>这次建议我们就按这个实战方式继续，而不是继续抽象讲 API。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Shopify Help Center | Adding filters with Shopify Search &amp; Discovery</a></li></ul></details>
+</div></section>
+<h2 class="dialogue-followup-title">按上架时间及自定义维度排序</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T22:57:00+08:00">09-19 22:57</time></div><p>不用重新学，我把材质作为sort条件确实不合适。那我换个例子，必须需要按产品上架时间sort或者一些其他自定义的（适合sort）的条件怎么办</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:57:00+08:00">09-19 22:57</time></div>
+<p>对，这个问题就进入了 <strong>“Shopify 原生 Sort 能做到什么，以及自定义 Sort 到底怎么做”</strong>。</p>
+<p>先给你结论：</p>
+<blockquote>
+<p><strong>Shopify Theme 原生 Collection Sort 只能使用 Shopify 提供的那些排序维度。你可以配置“默认排序”，但不能仅靠 Theme 后台随便创建一个 <code>material</code>、<code>rating</code>、<code>priority</code>、<code>launch_date</code> 之类的新 <code>sort_by</code>。</strong></p>
+<p>如果要做真正的自定义排序，就要看你的业务需求，通常有 3 种方案。</p>
+</blockquote>
+<p>目前 Collection 原生支持的排序包括：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">manual
+best-selling
+title-ascending
+title-descending
+price-ascending
+price-descending
+created-ascending
+created-descending
+</code></pre></div>
+<p>其中 <code>created-descending</code> 就可以理解为“最新上架优先”。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid filters: sort_by" aria-label="Liquid filters: sort_by">Shopify</a></span></p>
+<hr>
+<h2>1. 你的“按上架时间排序”其实 Shopify 原生就支持</h2>
+<p>比如你想要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">排序方式：
+
+推荐
+最新上架
+价格：低 → 高
+价格：高 → 低
+销量
+商品名称：A → Z
+</code></pre></div>
+<p>其中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">最新上架
+</code></pre></div>
+<p>直接对应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">created-descending
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=created-descending
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">最早上架
+</code></pre></div>
+<p>对应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">created-ascending
+</code></pre></div>
+<p>所以 Theme 里可以直接：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for option in collection.sort_options %}
+  &lt;option
+    value=&quot;{{ option.value }}&quot;
+    {% if option.value == collection.sort_by %}
+      selected
+    {% endif %}
+  &gt;
+    {{ option.name }}
+  &lt;/option&gt;
+{% endfor %}
+</code></pre></div>
+<p>Shopify 会把当前 Collection 可用的排序选项放到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">collection.sort_options
+</code></pre></div>
+<p>里。<span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="collection" aria-label="collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a></span></p>
+<hr>
+<h2>2. 那“自定义排序”怎么办？</h2>
+<p>这里需要区分三种需求。</p>
+<hr>
+<h3>情况 A：Shopify 原生已经支持</h3>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">价格
+销量
+上架时间
+标题
+</code></pre></div>
+<p>直接用 Shopify 原生 Sort。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Price Low → High
+</code></pre></div>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sort_by=price-ascending
+</code></pre></div>
+<hr>
+<h3>情况 B：你只是想调整“默认排序”</h3>
+<p>例如你的 Collection 默认希望：</p>
+<blockquote>
+<p>最新商品优先</p>
+</blockquote>
+<p>那么可以在 Collection 设置里把默认排序设成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Created → Newest
+</code></pre></div>
+<p>Shopify 的 <code>collection.default_sort_by</code> 就对应 Collection 默认排序。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a></span></p>
+<p>这种情况下甚至不需要自己开发。</p>
+<hr>
+<h2>3. 情况 C：我要真正自定义一个排序维度</h2>
+<p>这个才是你真正问的问题。</p>
+<p>假设你有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+├── title
+├── price
+├── created_at
+├── ...
+└── custom.priority
+</code></pre></div>
+<p>你想让用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">排序：
+
+推荐
+最新
+价格
+热度
+评分
+</code></pre></div>
+<p>其中：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">推荐
+</code></pre></div>
+<p>由你自己的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.priority
+</code></pre></div>
+<p>决定。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike
+priority = 100
+
+Adidas
+priority = 80
+
+Puma
+priority = 60
+</code></pre></div>
+<p>你可能希望：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">priority DESC
+</code></pre></div>
+<p>作为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">推荐
+</code></pre></div>
+<p>这时候就不能简单写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=custom.priority
+</code></pre></div>
+<p>因为 Shopify 原生 <code>sort_by</code> 并没有提供这种任意 Metafield 排序选项。当前 Liquid Collection 的原生排序值就是那组固定值。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid filters: sort_by" aria-label="Liquid filters: sort_by">Shopify</a></span></p>
+<hr>
+<h2>4. 那能不能用 Metafield？</h2>
+<p>这里非常容易产生一个误解：</p>
+<h4>Metafield 可以作为 Filter</h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material
+custom.origin
+custom.brand
+</code></pre></div>
+<p>可以拿来做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
+</code></pre></div>
+<p>Shopify Search &amp; Discovery 官方支持 Product Metafield、Category Metafield、Variant Metafield 等作为自定义筛选来源。<span class="dialogue-cites"><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery" aria-label="Shopify Help Center | Adding filters with Shopify Search &amp; Discovery">Shopify Help Center</a></span></p>
+<p>但是：</p>
+<blockquote>
+<p><strong>“可以作为 Filter” ≠ “可以作为 Collection Sort”。</strong></p>
+</blockquote>
+<p>这是两个完全不同的系统。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Metafield
+   │
+   ├── Filter ✅
+   │
+   └── 任意 Collection Sort ❌
+</code></pre></div>
+<hr>
+<h2>5. 那如果我要“推荐排序”怎么办？</h2>
+<p>这时候 Shopify 有一个很重要的东西：</p>
+<h3><code>manual</code></h3>
+<p>Collection 原生支持：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">manual
+</code></pre></div>
+<p>也就是：</p>
+<blockquote>
+<p><strong>Collection 手工排序。</strong></p>
+</blockquote>
+<p>例如后台：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shoes Collection
+
+1. Nike Air Max
+2. Adidas Ultra Boost
+3. New Balance 990
+4. Puma Runner
+5. ...
+</code></pre></div>
+<p>你可以人为决定顺序。</p>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sort_by=manual
+</code></pre></div>
+<p>就是按照 Collection 当前的手动顺序。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid filters: sort_by" aria-label="Liquid filters: sort_by">Shopify</a></span></p>
+<p>所以很多 Shopify 商城的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Featured
+推荐
+</code></pre></div>
+<p>实际上可以对应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">manual
+</code></pre></div>
+<hr>
+<h2>6. 如果“推荐”需要算法呢？</h2>
+<p>例如你说：</p>
+<blockquote>
+<p>我不想人工拖拽，我希望按照：</p>
+</blockquote>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">销量 × 40%
+点击率 × 20%
+转化率 × 30%
+库存 × 10%
+</code></pre></div>
+<p>计算出一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">recommendation_score
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">score DESC
+</code></pre></div>
+<p>这就不是普通 Theme Sort 能解决的问题了。</p>
+<p>这时候就进入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">App / 后端 / 数据分析 / Shopify 能力扩展
+</code></pre></div>
+<p>的范围。</p>
+<hr>
+<h2>7. 一个非常典型的电商需求</h2>
+<p>比如你开发一个鞋店：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection: Running Shoes
+</code></pre></div>
+<p>用户看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort by:
+
+┌───────────────────────┐
+│ Featured           ↓  │
+│ Newest             │
+│ Best Selling        │
+│ Price: Low → High   │
+│ Price: High → Low   │
+└───────────────────────┘
+</code></pre></div>
+<p>你可以这样映射：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>前端显示</th>
+<th>Shopify Sort</th>
+</tr>
+</thead><tbody><tr>
+<td>Featured</td>
+<td><code>manual</code></td>
+</tr>
+<tr>
+<td>Newest</td>
+<td><code>created-descending</code></td>
+</tr>
+<tr>
+<td>Oldest</td>
+<td><code>created-ascending</code></td>
+</tr>
+<tr>
+<td>Best Selling</td>
+<td><code>best-selling</code></td>
+</tr>
+<tr>
+<td>Price Low → High</td>
+<td><code>price-ascending</code></td>
+</tr>
+<tr>
+<td>Price High → Low</td>
+<td><code>price-descending</code></td>
+</tr>
+<tr>
+<td>A → Z</td>
+<td><code>title-ascending</code></td>
+</tr>
+<tr>
+<td>Z → A</td>
+<td><code>title-descending</code></td>
+</tr>
+</tbody></table></div>
+<p>这些全部是 Shopify 原生能力。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/filters/sort_by?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid filters: sort_by" aria-label="Liquid filters: sort_by">Shopify</a></span></p>
+<hr>
+<h2>8. 但如果我要“评分最高”呢？</h2>
+<p>这就开始有意思了。</p>
+<p>假设你的商品有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.rating = 4.9
+</code></pre></div>
+<p>你希望：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort by:
+
+Rating: High → Low
+</code></pre></div>
+<p><strong>不能简单地把它塞进 <code>collection.sort_options</code>。</strong></p>
+<p>你不能期待：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for option in collection.sort_options %}
+</code></pre></div>
+<p>自动出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">rating-descending
+</code></pre></div>
+<p>因为 Shopify 原生 Collection Sort 没有这个排序键。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a></span></p>
+<hr>
+<h2>9. 这时候可以考虑“预计算 + 手动排序”</h2>
+<p>比如你的 App 每天计算：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product A → score 100
+Product B → score 80
+Product C → score 60
+</code></pre></div>
+<p>然后通过 Shopify Admin API / 后台逻辑维护 Collection 的商品顺序。</p>
+<p>最终：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">manual
+</code></pre></div>
+<p>就代表：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">你的推荐顺序
+</code></pre></div>
+<p>于是消费者看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Featured
+</code></pre></div>
+<p>实际上背后是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">你的算法
+    ↓
+计算推荐分
+    ↓
+调整 Collection 商品顺序
+    ↓
+Shopify manual sort
+    ↓
+Theme
+</code></pre></div>
+<p>这是一个比较典型的“Shopify 原生能力 + App”方案。</p>
+<hr>
+<h2>10. 还有一种情况：你不需要让 Shopify 真正排序</h2>
+<p>假设你只是做一个非常特殊的页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+</code></pre></div>
+<p>然后你想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Rating ↓
+</code></pre></div>
+<p>如果你自己控制一个外部数据源/后端，那么可以由后端把商品按照评分排序，再交给前端。</p>
+<p>但这里就已经不是传统 Shopify Collection Theme 的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">collection.products
+</code></pre></div>
+<p>自然排序模型了。</p>
+<p>如果你开始大量这样做，通常就要考虑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Headless
++
+Storefront API
+</code></pre></div>
+<p>或者 App/backend 架构。</p>
+<hr>
+<h2>11. 所以你可以这样判断</h2>
+<p>以后碰到一个新的 Sort 需求，先问：</p>
+<h4>第一问</h4>
+<p><strong>Shopify 原生支持吗？</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">价格       ✅
+销量       ✅
+上架时间   ✅
+标题       ✅
+手动排序   ✅
+</code></pre></div>
+<p>直接使用。</p>
+<hr>
+<h4>第二问</h4>
+<p><strong>我只是想控制“推荐顺序”吗？</strong></p>
+<p>如果是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">manual
+</code></pre></div>
+<p>可能就够了。</p>
+<hr>
+<h4>第三问</h4>
+<p><strong>我要根据一个自定义字段动态排序吗？</strong></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">rating
+priority
+margin
+conversion_rate
+sales_score
+recommendation_score
+</code></pre></div>
+<p>那么：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">普通 Theme Sort
+        ↓
+       不够
+</code></pre></div>
+<p>需要考虑 App / 后端 / Shopify 的其他扩展能力。</p>
+<hr>
+<h2>12. 最重要的一个区别</h2>
+<p>你现在已经可以把 Shopify 的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Filter
+Sort
+</code></pre></div>
+<p>彻底分开了。</p>
+<h4>Filter</h4>
+<p>回答：</p>
+<blockquote>
+<p><strong>哪些商品应该出现？</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Material = Leather
+Origin = China
+Price = $50~$100
+</code></pre></div>
+<hr>
+<h4>Sort</h4>
+<p>回答：</p>
+<blockquote>
+<p><strong>出现的这些商品按照什么顺序排列？</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Newest
+Price
+Best Selling
+Featured
+</code></pre></div>
+<hr>
+<h4>最终可以组合：</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes
+    ?
+    filter.v.option.color=Black
+    &amp;
+    filter.p.m.custom.material=Leather
+    &amp;
+    sort_by=created-descending
+</code></pre></div>
+<p>逻辑就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1000 个商品
+     ↓
+Color = Black
+     ↓
+300 个
+     ↓
+Material = Leather
+     ↓
+80 个
+     ↓
+Newest
+     ↓
+按照 created_at DESC 排列
+</code></pre></div>
+<p><strong>所以“上架时间”这个需求你完全不用自己造字段，Shopify 原生已经给你了。</strong> <span class="dialogue-cites"><a href="https://shopify.dev/docs/storefronts/themes/architecture/templates/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="collection" aria-label="collection">Shopify</a><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Liquid objects: collection" aria-label="Liquid objects: collection">Shopify</a></span></p>
+<p>而你真正需要记住的是：</p>
+<blockquote>
+<p><strong>Filter 的自定义能力很强，可以基于 Metafield / Metaobject 等数据；Sort 的原生能力相对固定。想做任意自定义动态排序，就不能简单把 Metafield 当成 <code>sort_by</code> 使用。</strong></p>
+</blockquote>
+<p>另外，Shopify 当前 Storefront API 的 Collection 排序枚举也仍然是固定的一组键（如 <code>BEST_SELLING</code>、<code>CREATED</code>、<code>PRICE</code>、<code>TITLE</code>、<code>MANUAL</code> 等），这也说明了“任意 Metafield Sort”不是标准 Collection Sort 能力。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/storefront/latest/enums/ProductCollectionSortKeys?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="ProductCollectionSortKeys - Storefront API" aria-label="ProductCollectionSortKeys - Storefront API">Shopify</a></span></p>
+<p>如果继续我们的课程，<strong>第 18 课就正好可以把 <code>Filter + Sort + Pagination + URL</code> 四个东西串起来</strong>，到时候你会真正理解一个 Shopify Collection 页是怎么工作的。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/api/liquid/objects/collection?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Liquid objects: collection</a></li><li><a href="https://help.shopify.com/en/manual/online-store/storefront-search/search-and-discovery-filters?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Shopify Help Center | Adding filters with Shopify Search &amp; Discovery</a></li></ul></details>
+</div></section>
+<h2 class="dialogue-followup-title">在普通页面排序商品</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T23:03:00+08:00">09-19 23:03</time></div><p>我还有一个问题，假设我现在不是一个集合页，是一个别的页面。有一些产品，我想对这些产品排序（假设是按照shopify原生支持的排序）可以做到吗</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T23:03:00+08:00">09-19 23:03</time></div>
+<p>可以，但这里有一个非常关键的区别：</p>
+<blockquote>
+<p><strong>Shopify 原生的 <code>sort_by</code> 是 Collection 的排序能力，不是一个可以对“任意 Product 数组”调用的通用排序函数。</strong></p>
+</blockquote>
+<p>所以如果你现在是一个普通页面，例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/pages/sale
+</code></pre></div>
+<p>页面上想展示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product A
+Product B
+Product C
+Product D
+</code></pre></div>
+<p>然后希望：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">按价格从低到高
+按最新上架
+按销量
+</code></pre></div>
+<p><strong>不能直接对一个 Liquid 里的 <code>products</code> 数组写类似 <code>sort_by=price-ascending</code>。</strong></p>
+<hr>
+<h2>但有几种实现方式</h2>
+<h3>方案 1：最推荐——建立一个 Collection</h3>
+<p>如果这批产品本身具有明确的业务意义，比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">限时促销商品
+新品
+夏季商品
+跑鞋
+Top Picks
+</code></pre></div>
+<p>最自然的 Shopify 建模方式就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Products
+   ↓
+Collection
+   ↓
+Collection Products
+   ↓
+sort_by
+</code></pre></div>
+<p>例如创建：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+</code></pre></div>
+<p>把这 50 个商品放进去。</p>
+<p>你的普通页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/pages/summer-sale
+</code></pre></div>
+<p>实际上只是<strong>展示这个 Collection 的商品</strong>。</p>
+<p>然后你就可以使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">created-descending
+price-ascending
+price-descending
+best-selling
+manual
+</code></pre></div>
+<p>等原生排序。</p>
+<p>这通常是 Shopify 思维里最合理的做法。</p>
+<hr>
+<h2>方案 2：普通页面 + Collection</h2>
+<p>你甚至不一定要让用户访问：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/summer-sale
+</code></pre></div>
+<p>你可以自己做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/pages/summer-sale
+</code></pre></div>
+<p>然后这个 Page Template 里面展示某个 Collection。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">pages/summer-sale
+        ↓
+找到 summer-sale collection
+        ↓
+collection.products
+        ↓
+按照 Collection Sort
+        ↓
+Product Card
+</code></pre></div>
+<p>概念上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% assign products_collection = collections[&#39;summer-sale&#39;] %}
+
+{% for product in products_collection.products %}
+  {% render &#39;product-card&#39;, product: product %}
+{% endfor %}
+</code></pre></div>
+<p>这样你的页面虽然是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/pages/summer-sale
+</code></pre></div>
+<p>但商品数据来源还是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+</code></pre></div>
+<hr>
+<h2>方案 3：如果这批产品是动态的</h2>
+<p>这个就更有意思。</p>
+<p>比如你说：</p>
+<blockquote>
+<p>我有一个首页模块，想展示“最新上架的 12 个商品”。</p>
+</blockquote>
+<p>这时候你甚至不需要自己创建一个 Collection。</p>
+<p>Shopify Theme 本身有一些产品来源可以使用，比如通过 <strong>Collection</strong> 作为商品来源，让 Theme Editor 让商家选择一个 Collection，然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% assign products = section.settings.collection.products %}
+</code></pre></div>
+<p>但是这里有一个限制：</p>
+<p><strong>如果你只是拿到一个 Liquid Product 数组，不能把 Shopify Collection 的 <code>sort_by</code> 机制直接套在这个数组上。</strong></p>
+<p>也就是说，不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% assign products = section.settings.collection.products %}
+
+{% assign products = products | sort: &#39;price&#39; %}
+</code></pre></div>
+<p>然后期待它等价于 Shopify：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">price-ascending
+</code></pre></div>
+<p>这两个东西不是一回事。</p>
+<hr>
+<h2>4. 一个很典型的例子</h2>
+<p>假设你做首页：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Home
+│
+├── Hero
+│
+├── Featured Products
+│
+├── New Arrivals
+│
+└── Best Sellers
+</code></pre></div>
+<p>你希望：</p>
+<h4>New Arrivals</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">最新上架
+</code></pre></div>
+<h4>Best Sellers</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">销量最高
+</code></pre></div>
+<h4>Featured Products</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">人工推荐
+</code></pre></div>
+<p>最 Shopify 的设计通常是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collections
+│
+├── Featured
+│   └── manual
+│
+├── New Arrivals
+│   └── created-descending
+│
+└── Best Sellers
+    └── best-selling
+</code></pre></div>
+<p>然后首页 Section：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Featured Products
+      ↓
+Featured Collection
+
+New Arrivals
+      ↓
+New Arrivals Collection
+
+Best Sellers
+      ↓
+Best Sellers Collection
+</code></pre></div>
+<hr>
+<h2>5. 这其实是 Shopify 一个非常重要的设计思想</h2>
+<p>你可能会觉得：</p>
+<blockquote>
+<p>“我只是想在一个页面上展示几个 Product，为什么非要 Collection？”</p>
+</blockquote>
+<p>因为 Shopify 把 <strong>Collection 当成商品集合的核心查询/组织单位之一</strong>。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Collection
+   ↓
+Filter / Sort / Pagination
+</code></pre></div>
+<p>是一条非常成熟的路径。</p>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+随便拿一个数组
+   ↓
+自己实现所有电商查询逻辑
+</code></pre></div>
+<hr>
+<h2>6. 如果我就是不想用 Collection 呢？</h2>
+<p>那就分情况。</p>
+<h4>如果只是简单排序</h4>
+<p>例如你已经有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% assign products = ... %}
+</code></pre></div>
+<p>某些 Liquid 数组可以使用 <code>sort</code> 等 Liquid filter 做基础排序。</p>
+<p>例如概念上：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% assign sorted_products = products | sort: &#39;title&#39; %}
+</code></pre></div>
+<p>但是注意：</p>
+<blockquote>
+<p>这和 Shopify Collection 的 <code>sort_by=price-ascending</code>、<code>best-selling</code>、<code>created-descending</code> 不是一个能力。</p>
+</blockquote>
+<p>尤其是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Best Selling
+</code></pre></div>
+<p>这种需要 Shopify 后端销售数据参与的排序，不能简单理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">products | sort: &#39;sales&#39;
+</code></pre></div>
+<p>因为你根本没有一个普通 Product 属性：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.sales
+</code></pre></div>
+<hr>
+<h2>7. 所以你的问题可以总结成一张表</h2>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>场景</th>
+<th>推荐方案</th>
+</tr>
+</thead><tbody><tr>
+<td>Collection 页面排序</td>
+<td><code>collection.sort_options</code></td>
+</tr>
+<tr>
+<td>普通页面展示一组有明确业务意义的商品</td>
+<td>建 Collection</td>
+</tr>
+<tr>
+<td>首页“新品”</td>
+<td>Collection + <code>created-descending</code></td>
+</tr>
+<tr>
+<td>首页“热卖”</td>
+<td>Collection + <code>best-selling</code></td>
+</tr>
+<tr>
+<td>首页“精选”</td>
+<td>Collection + <code>manual</code></td>
+</tr>
+<tr>
+<td>普通页面展示某 Collection</td>
+<td>可以</td>
+</tr>
+<tr>
+<td>任意 Liquid Product 数组使用 Collection <code>sort_by</code></td>
+<td>❌</td>
+</tr>
+<tr>
+<td>自己对数组按简单字段排序</td>
+<td>部分可以用 Liquid <code>sort</code></td>
+</tr>
+<tr>
+<td>按 Shopify 销量等后端数据动态排序</td>
+<td>不能靠普通 Liquid <code>sort</code></td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>8. 还有一个非常重要的架构问题</h2>
+<p>假设你的需求是：</p>
+<blockquote>
+<p>“我做一个 Landing Page，里面有 20 个指定商品，并且用户可以选择价格低到高 / 高到低 / 最新。”</p>
+</blockquote>
+<p>我不会首先想到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Landing Page
+    ↓
+20 个 Product
+    ↓
+自己实现 Sort
+</code></pre></div>
+<p>我会优先考虑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Landing Page
+       ↓
+指定 Collection
+       ↓
+20 个 Product
+       ↓
+Shopify 原生 Sort
+</code></pre></div>
+<p>甚至可以让 Theme Editor 配置：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Source:
+[ Summer Sale ▼ ]
+
+Sort:
+[ Price: Low to High ▼ ]
+
+Products per page:
+[ 20 ]
+</code></pre></div>
+<p>这样你的 Section 就非常灵活。</p>
+<hr>
+<h3>但有一个边界值得你记住</h3>
+<p>如果你的需求变成：</p>
+<blockquote>
+<p>“这个页面里的产品来自 5 个不同 Collection，我把它们合并，然后按照 Shopify 的 Best Selling 重新排序。”</p>
+</blockquote>
+<p>这时候就不是简单的 Collection Sort 了。</p>
+<p>因为你实际上是在做：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection A
+      +
+Collection B
+      +
+Collection C
+      ↓
+   合并 Product
+      ↓
+  全局排序
+</code></pre></div>
+<p>这时就需要进一步考虑 <strong>Storefront API / App / 后端查询</strong> 等方案，而不是简单依赖 Liquid 的 Collection Sort。</p>
+<hr>
+<p>所以你刚才这个问题其实非常好，因为它揭示了一个很重要的 Shopify 数据模型：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                Product
+                   │
+          ┌────────┴────────┐
+          ↓                 ↓
+     Collection         Metafield
+          │
+          ↓
+   Query / Filter / Sort
+          │
+          ↓
+        Theme
+</code></pre></div>
+<p><strong>Collection 不只是“给商品分组的文件夹”，在 Shopify 里它还是 Storefront 商品查询和排序的重要载体。</strong></p>
+<p>这也是为什么我们后面学 <strong>Collection → Product → Variant → Metafield</strong> 时，数据模型一定要连起来理解。</p>
+</div></section>
+<h2 class="dialogue-followup-title">按商品评分排序</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T23:06:00+08:00">09-19 23:06</time></div><p>但还是没法实现按评分排序对吧</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T23:06:00+08:00">09-19 23:06</time></div>
+<p>对，<strong>如果你说的是 Shopify 原生 Collection 的 <code>sort_by</code>，还是不能直接按“评分”排序。</strong></p>
+<p>比如你有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product A → rating = 4.9
+Product B → rating = 4.7
+Product C → rating = 4.5
+</code></pre></div>
+<p>你想让用户选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort by:
+- Rating: High → Low
+</code></pre></div>
+<p>不能直接写成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/collections/shoes?sort_by=rating-descending
+</code></pre></div>
+<p>因为 Shopify 原生 Collection Sort 并没有这个排序键。</p>
+<h4>但“评分排序”并不是做不到</h4>
+<p>只是要换实现方式。</p>
+<p>如果评分来自某个 Review App，例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── rating = 4.9
+</code></pre></div>
+<p>你可以：</p>
+<p><strong>方案 A：App / 后端计算排序</strong></p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Review 数据
+   ↓
+计算 rating / score
+   ↓
+你的 App / 后端
+   ↓
+得到排序后的 Product
+   ↓
+展示
+</code></pre></div>
+<p><strong>方案 B：把评分转化成推荐顺序</strong></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">评分 + 销量 + 评论数
+        ↓
+recommendation_score
+        ↓
+计算商品排名
+        ↓
+维护 Collection 的 manual 顺序
+</code></pre></div>
+<p>然后前台：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Sort by:
+Featured
+</code></pre></div>
+<p>实际上对应：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">manual
+</code></pre></div>
+<p>这样 Shopify 原生 Collection 仍然可以负责分页、展示等。</p>
+<hr>
+<p>所以你可以记住一个非常重要的边界：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify 原生 Collection Sort
+│
+├── Price              ✅
+├── Created / Newest   ✅
+├── Best Selling       ✅
+├── Title              ✅
+└── Manual             ✅
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">自定义字段
+│
+├── Rating             ❌ 不能直接作为 sort_by
+├── Review Count       ❌
+├── Profit Margin      ❌
+├── Custom Score       ❌
+└── Recommendation    ❌
+</code></pre></div>
+<p><strong>不是这些数据不能存在 Shopify 里，而是 Shopify 原生 Collection Sort 没有提供“任意字段排序”的接口。</strong></p>
+<p>如果你以后做一个类似美柚这种自己的电商/内容产品，这个区别也很重要：<strong>“数据能不能存” 和 “Shopify Storefront 能不能直接拿这个字段做服务端排序”是两回事。</strong></p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-17.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

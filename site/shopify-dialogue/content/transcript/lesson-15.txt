@@ -1,0 +1,865 @@
+# 第 15 课：Shopify Search
+
+## 我的提问 · 2026-09-19 Sat 22:27
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 22:27
+
+好，继续进入 **第 15 课：Shopify Search 搜索系统**。
+
+这一课非常适合你，因为它会把你熟悉的前端概念：
+
+```text
+URL
+↓
+Query Params
+↓
+Server Data
+↓
+Rendering
+↓
+Pagination
+```
+
+和 Shopify Theme 结合起来。
+
+---
+
+# 第 15 课：Shopify Search
+
+## 1. 先看完整流程
+
+用户在搜索框输入：
+
+```text
+shirt
+```
+
+点击搜索后：
+
+```text id="x4p8k2"
+/search?q=shirt
+        ↓
+Shopify
+        ↓
+Search Template
+        ↓
+search 对象
+        ↓
+search.results
+        ↓
+搜索结果
+        ↓
+Product Card
+```
+
+所以最核心的一句话：
+
+> **Shopify Search 页面，本质上就是 Shopify 根据 URL 中的搜索关键词生成 `search` 对象，然后 Theme 把搜索结果渲染出来。**
+
+---
+
+# 2. Search URL
+
+Shopify 默认搜索 URL：
+
+```text id="8k2d1q"
+/search?q=shirt
+```
+
+这里：
+
+```text id="9m5c3e"
+search
+```
+
+是搜索页面。
+
+而：
+
+```text id="x2j7fa"
+q=shirt
+```
+
+是搜索关键词。
+
+你作为 React 开发者，可以把它理解成：
+
+```js id="b3w5n8"
+const params = new URLSearchParams(
+  window.location.search
+);
+
+const query = params.get('q');
+```
+
+得到：
+
+```text
+shirt
+```
+
+Shopify 则会把这个搜索请求转换成：
+
+```liquid id="p1w7xk"
+search.terms
+```
+
+---
+
+# 3. Search 对象
+
+进入：
+
+```text id="5k9c2m"
+/search?q=shirt
+```
+
+Liquid 中就可以访问：
+
+```liquid id="q6f4t1"
+{{ search.terms }}
+```
+
+结果：
+
+```text
+shirt
+```
+
+然后：
+
+```liquid id="h2m8z7"
+{{ search.results_count }}
+```
+
+可以得到搜索结果数量。
+
+还有：
+
+```liquid id="k3p6v9"
+search.performed
+```
+
+它可以帮助判断用户是否真的执行了搜索。
+
+---
+
+# 4. 第一个搜索页面
+
+我们先写一个最基础版本：
+
+```liquid id="r7d2m4"
+<h1>
+  Search
+</h1>
+
+{% if search.performed %}
+
+  <p>
+    Results for:
+    "{{ search.terms }}"
+  </p>
+
+  {% if search.results_count > 0 %}
+
+    <div class="search-results">
+
+      {% for result in search.results %}
+
+        <div class="search-result">
+
+          <a href="{{ result.url }}">
+            {{ result.title }}
+          </a>
+
+        </div>
+
+      {% endfor %}
+
+    </div>
+
+  {% else %}
+
+    <p>
+      No results found.
+    </p>
+
+  {% endif %}
+
+{% endif %}
+```
+
+---
+
+# 5. search.results 是什么？
+
+这里非常重要。
+
+不要一看到：
+
+```liquid
+search.results
+```
+
+就认为它一定是 Product。
+
+它是：
+
+> **Shopify 搜索返回的结果集合。**
+
+结果可能包含不同类型的资源。
+
+例如：
+
+```text id="7s1m4p"
+search.results
+│
+├── Product
+├── Page
+├── Article
+└── Collection
+```
+
+具体搜索结果类型和可搜索内容会受到 Shopify 搜索配置、资源状态等影响。
+
+所以你要建立这个概念：
+
+```text id="f8d3k1"
+Search
+   ↓
+Results
+   ↓
+不同资源
+```
+
+---
+
+# 6. 这和 Collection 有什么区别？
+
+这是一个非常重要的区别。
+
+### Collection
+
+```text id="n4x6c8"
+Collection
+   ↓
+明确的一组 Product
+```
+
+例如：
+
+```text
+Shoes
+├── Nike
+├── Adidas
+└── New Balance
+```
+
+---
+
+### Search
+
+```text id="v2m9q5"
+Search
+   ↓
+用户输入关键词
+   ↓
+Shopify 搜索
+   ↓
+返回匹配结果
+```
+
+例如：
+
+```text
+shirt
+   ↓
+T-Shirt
+Shirt Jacket
+Dress Shirt
+Shirt Accessories
+...
+```
+
+所以：
+
+> **Collection 是“预先定义的一组商品”，Search 是“根据用户查询动态产生的结果”。**
+
+---
+
+# 7. Search Result Card
+
+实际项目中我们也不会把所有 HTML 都写在 Search Template。
+
+例如：
+
+```text id="p8w3s6"
+snippets/
+├── product-card.liquid
+└── search-result-card.liquid
+```
+
+Search：
+
+```liquid id="v5r9k2"
+{% for result in search.results %}
+
+  {% render 'search-result-card',
+    result: result
+  %}
+
+{% endfor %}
+```
+
+这样结构就非常清晰：
+
+```text id="z1m4c7"
+Search Page
+    ↓
+Search Results
+    ↓
+Search Result Card
+```
+
+---
+
+# 8. 如果结果是 Product
+
+我们可以判断：
+
+```liquid id="q8w2n5"
+{% for result in search.results %}
+
+  {% if result.object_type == 'product' %}
+
+    {% render 'product-card',
+      product: result
+    %}
+
+  {% endif %}
+
+{% endfor %}
+```
+
+于是：
+
+```text id="m3f7x9"
+Search
+ ↓
+Product Result
+ ↓
+Product Card
+```
+
+这样就可以复用我们上一课写的 Product Card。
+
+---
+
+# 9. Search Form
+
+现在问题来了：
+
+> 用户怎么输入搜索关键词？
+
+Theme 通常会有 Search Form。
+
+最简单可以理解成：
+
+```html id="w7n2k4"
+<form action="/search" method="get">
+
+  <input
+    type="search"
+    name="q"
+    placeholder="Search products"
+  >
+
+  <button type="submit">
+    Search
+  </button>
+
+</form>
+```
+
+用户输入：
+
+```text
+shirt
+```
+
+提交之后：
+
+```text id="e4p8s2"
+/search?q=shirt
+```
+
+Shopify 接下来处理搜索。
+
+---
+
+# 10. 这里你应该看到一个非常典型的 Web 模式
+
+```text id="c7n3m1"
+Form
+ ↓
+GET
+ ↓
+URL Query
+ ↓
+Shopify
+ ↓
+Liquid
+```
+
+和普通 Web 开发完全一样。
+
+React/Next.js 里：
+
+```text id="g6v2k8"
+/search?q=shirt
+        ↓
+searchParams.q
+```
+
+Shopify Theme：
+
+```text id="s9d4f1"
+/search?q=shirt
+        ↓
+search.terms
+```
+
+这个对应关系非常值得记。
+
+---
+
+# 11. Search Pagination
+
+假设：
+
+```text id="u5j8r3"
+搜索结果
+100 个
+```
+
+当然不能一次全部渲染。
+
+所以和 Collection 一样：
+
+```liquid id="d2k7m9"
+{% paginate search.results by 24 %}
+
+  {% for result in search.results %}
+
+    {% render 'search-result-card',
+      result: result
+    %}
+
+  {% endfor %}
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+```
+
+于是：
+
+```text id="r1n6v4"
+/search?q=shirt
+```
+
+第一页。
+
+第二页：
+
+```text id="p9x3k7"
+/search?q=shirt&page=2
+```
+
+---
+
+# 12. Search 和 Collection 的共同结构
+
+现在把两个页面放在一起：
+
+```text id="z5f1m8"
+Collection
+   ↓
+collection.products
+   ↓
+Pagination
+   ↓
+Product Card
+```
+
+Search：
+
+```text id="c4n7q2"
+Search
+   ↓
+search.results
+   ↓
+Pagination
+   ↓
+Search Result Card
+```
+
+所以：
+
+> **Collection 和 Search 的 Theme 开发模式非常相似。**
+
+---
+
+# 13. 但是 Search 更复杂
+
+因为：
+
+```text id="t6m2p9"
+collection.products
+```
+
+基本就是 Product。
+
+而：
+
+```text id="y8k4r1"
+search.results
+```
+
+可能是不同资源类型。
+
+所以实际项目通常会：
+
+```text id="v3p7d2"
+search.results
+      │
+      ├── Product
+      │     ↓
+      │  Product Card
+      │
+      ├── Page
+      │     ↓
+      │  Page Card
+      │
+      └── Article
+            ↓
+        Article Card
+```
+
+这就是 Search 和 Collection 一个非常核心的区别。
+
+---
+
+# 14. Search Template
+
+Theme 中通常有：
+
+```text id="b9w2s5"
+templates/
+└── search.json
+```
+
+它负责搜索页面的 Section 组合。
+
+比如：
+
+```json id="x4m7q1"
+{
+  "sections": {
+    "main": {
+      "type": "main-search"
+    }
+  },
+  "order": [
+    "main"
+  ]
+}
+```
+
+于是：
+
+```text id="n8f3k6"
+/search?q=shirt
+       ↓
+search.json
+       ↓
+main-search.liquid
+       ↓
+search
+       ↓
+search.results
+```
+
+和 Collection 完全可以类比：
+
+```text id="j2s5v8"
+Collection
+ ↓
+collection.json
+ ↓
+main-collection
+```
+
+Search：
+
+```text id="q7d4m1"
+Search
+ ↓
+search.json
+ ↓
+main-search
+```
+
+---
+
+# 15. Search Page 的完整架构
+
+现在把它完整画出来：
+
+```text id="h5n8r2"
+                 /search?q=shirt
+                         │
+                         ↓
+                    search.json
+                         │
+                         ↓
+                    main-search
+                         │
+              ┌──────────┴──────────┐
+              ↓                     ↓
+        Search Header          Search Results
+              │                     │
+              ↓                     ↓
+       search.terms          search.results
+                                    │
+                           ┌────────┼────────┐
+                           ↓        ↓        ↓
+                        Product   Page    Article
+                           │
+                           ↓
+                     Product Card
+                                   
+                         ↓
+                    Pagination
+```
+
+这张图你可以和上一课 Collection 的图放在一起。
+
+---
+
+# 16. Search Input 和 Predictive Search
+
+这里开始进入下一阶段。
+
+普通 Search：
+
+```text id="d1w8s5"
+用户输入
+   ↓
+点击 Search
+   ↓
+/search?q=shirt
+   ↓
+完整页面加载
+```
+
+Predictive Search：
+
+```text id="m6q2v9"
+用户输入：
+
+s
+ ↓
+sh
+ ↓
+shi
+ ↓
+shir
+ ↓
+shirt
+
+每输入一次
+      ↓
+请求 Shopify
+      ↓
+返回预测结果
+      ↓
+更新下拉框
+```
+
+例如：
+
+```text id="k9f3x7"
+┌───────────────────────────┐
+│ shirt                     │
+├───────────────────────────┤
+│ Products                  │
+│                           │
+│ 👕 Classic T-Shirt  $29   │
+│ 👕 Oversized Shirt $39    │
+│                           │
+│ Collections               │
+│                           │
+│ Shirts                    │
+│                           │
+│ Search for "shirt" →      │
+└───────────────────────────┘
+```
+
+这个就是我们下一课要学的：
+
+# Predictive Search
+
+---
+
+# 17. 为什么 Predictive Search 对你很重要？
+
+因为它第一次真正把 Shopify Theme 里的：
+
+```text id="a6v2k9"
+Liquid
++
+JavaScript
++
+Shopify API
+```
+
+组合起来。
+
+传统 Search：
+
+```text id="n3x7p1"
+HTML Form
+ ↓
+GET /search
+ ↓
+Shopify
+ ↓
+Liquid
+```
+
+Predictive Search：
+
+```text id="r8m4q2"
+JavaScript
+ ↓
+请求 Shopify
+ ↓
+JSON
+ ↓
+JavaScript
+ ↓
+DOM
+```
+
+这就更接近你熟悉的 React 前端开发。
+
+---
+
+# 18. 你现在应该掌握的核心知识
+
+这一课先记住下面这张表：
+
+| 概念 | 作用 |
+|---|---|
+| `/search` | Search 页面 |
+| `q` | 搜索关键词 URL 参数 |
+| `search` | 当前搜索对象 |
+| `search.terms` | 搜索关键词 |
+| `search.results` | 搜索结果 |
+| `search.results_count` | 结果数量 |
+| `search.performed` | 是否执行过搜索 |
+| `search.json` | Search Template |
+| `paginate` | 搜索结果分页 |
+
+---
+
+# 19. 一个小练习
+
+现在你可以自己实现：
+
+```text id="p4x8n2"
+/search?q=shirt
+```
+
+页面：
+
+```text
+Search
+
+Search results for "shirt"
+
+┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Product  │ │ Product  │ │ Product  │
+│          │ │          │ │          │
+│ T-Shirt  │ │ Shirt    │ │ Polo     │
+│ $29      │ │ $39      │ │ $49      │
+└──────────┘ └──────────┘ └──────────┘
+
+Previous  1  2  3  Next
+```
+
+要求：
+
+1. 使用 `search.terms`
+2. 使用 `search.results`
+3. 使用 `paginate`
+4. Product 结果复用 `product-card`
+5. 没有结果时显示：
+   `No products found`
+
+---
+
+# 20. 我们现在的位置
+
+我们的 Theme 主线已经变成：
+
+```text id="r6x2m8"
+Collection
+    ↓
+Product Card
+    ↓
+Pagination
+    ↓
+Product Media
+    ↓
+Variant + Media
+    ↓
+Search
+    ↓
+Predictive Search ← 下一课
+    ↓
+Filtering
+    ↓
+Sort / URL
+    ↓
+SEO
+    ↓
+Performance
+```
+
+而数据模型线会同步往下走：
+
+```text id="f3m8q1"
+Product
+ ↓
+Variant
+ ↓
+Media
+ ↓
+Collection
+ ↓
+Inventory
+ ↓
+Customer
+ ↓
+Order
+ ↓
+Metafield
+ ↓
+Metaobject
+```
+
+**下一课直接进入第 16 课：Predictive Search。**这一课会开始真正写 `fetch()`、处理 JSON、做搜索下拉框，并把 **Shopify Search API + Theme JavaScript** 串起来。

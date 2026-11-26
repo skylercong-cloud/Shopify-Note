@@ -1,0 +1,657 @@
+<h1>第 14 课：Product Media</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T22:19:00+08:00">09-19 22:19</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T22:19:00+08:00">09-19 22:19</time></div>
+<p>好，我们继续。上一课的 Collection 已经把 <strong>Template → Section → Product → Snippet → Pagination</strong> 串起来了。</p>
+<figure class="dialogue-figure"><img src="assets/product-media.jpg" alt="拍摄台上的绿色 T 恤、相机和面料小样。" decoding="async" width="506" height="506"><figcaption>示意配图 · 同一件商品可以用整体、细节等多种媒体素材来展示。</figcaption></figure>
+
+<p>今天进入：</p>
+<p>这一课非常重要，因为它会把你之前学的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Variant
+Liquid
+JavaScript
+Theme
+</code></pre></div>
+<p>真正串起来。</p>
+<hr>
+<h2>一、先搞清楚：Image 和 Media 不完全一样</h2>
+<p>以前我们经常写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.featured_image }}
+</code></pre></div>
+<p>但 Shopify 现在的 Product 媒体模型更完整。</p>
+<p>可以先理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+  │
+  └── Media
+       ├── Image
+       ├── Video
+       ├── External Video
+       └── Model / 3D
+</code></pre></div>
+<p>也就是说：</p>
+<blockquote>
+<p><strong>Image 是 Media 的一种。</strong></p>
+</blockquote>
+<p>所以不要把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Image
+</code></pre></div>
+<p>和：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Media
+</code></pre></div>
+<p>完全当成同一个概念。</p>
+<hr>
+<h2>二、Product Media 是什么？</h2>
+<p>假设你卖一双鞋：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>它可能有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Media
+├── 正面照片
+├── 侧面照片
+├── 鞋底照片
+├── 模特照片
+├── 产品视频
+└── 3D 模型
+</code></pre></div>
+<p>所以商品详情页可以做成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌─────────────────────────────────────────┐
+│                                         │
+│   ┌──────────────┐   Nike Air Max       │
+│   │              │                       │
+│   │              │   $129.99             │
+│   │    IMAGE     │                       │
+│   │              │   Color: Black        │
+│   │              │   Size: M             │
+│   │              │                       │
+│   └──────────────┘   [Add to Cart]       │
+│                                         │
+│   ● ● ● ● ●                             │
+│                                         │
+└─────────────────────────────────────────┘
+</code></pre></div>
+<p>左边就是 Media Gallery。</p>
+<hr>
+<h2>三、Product 的 Media 怎么访问？</h2>
+<p>最重要的对象：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">product.media
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for media in product.media %}
+  {{ media }}
+{% endfor %}
+</code></pre></div>
+<p>但是我们不能简单地把 <code>media</code> 当成 Image。</p>
+<p>因为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">media
+├── image
+├── video
+├── external_video
+└── model
+</code></pre></div>
+<p>类型可能不同。</p>
+<hr>
+<h2>四、最常用的 Media 类型判断</h2>
+<p>Liquid 中可以判断：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% case media.media_type %}
+
+  {% when &#39;image&#39; %}
+    ...
+
+  {% when &#39;video&#39; %}
+    ...
+
+  {% when &#39;external_video&#39; %}
+    ...
+
+  {% when &#39;model&#39; %}
+    ...
+
+{% endcase %}
+</code></pre></div>
+<p>这和 React 的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">switch (media.type) {
+  case &#39;image&#39;:
+    ...
+}
+</code></pre></div>
+<p>很像。</p>
+<hr>
+<h2>五、先实现最简单的 Gallery</h2>
+<p>我们先只处理 Image。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;div class=&quot;product-gallery&quot;&gt;
+
+  {% for media in product.media %}
+
+    {% if media.media_type == &#39;image&#39; %}
+
+      &lt;div class=&quot;product-media&quot;&gt;
+        {{
+          media
+          | image_url: width: 1000
+          | image_tag:
+            loading: &#39;lazy&#39;,
+            alt: media.alt
+        }}
+      &lt;/div&gt;
+
+    {% endif %}
+
+  {% endfor %}
+
+&lt;/div&gt;
+</code></pre></div>
+<p>这里有一个值得你注意的地方：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">media | image_url
+</code></pre></div>
+<p>和以前：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">product.featured_image | image_url
+</code></pre></div>
+<p>本质上是同一个思路。</p>
+<hr>
+<h2>六、为什么推荐 image_tag？</h2>
+<p>以前我们经常手写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;img
+  src=&quot;{{ product.featured_image | image_url: width: 500 }}&quot;
+  alt=&quot;{{ product.title | escape }}&quot;
+&gt;
+</code></pre></div>
+<p>Shopify Theme 中还可以使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ media | image_tag }}
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{
+  media
+  | image_url: width: 1000
+  | image_tag:
+    loading: &#39;lazy&#39;,
+    alt: media.alt
+}}
+</code></pre></div>
+<p>这样 Shopify 可以帮助你生成更加完整的图片 HTML。</p>
+<p>你可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React
+↓
+Image Component
+
+Shopify
+↓
+image_tag
+</code></pre></div>
+<hr>
+<h2>七、Featured Image 和 Media 的关系</h2>
+<p>之前你学过：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">product.featured_image
+</code></pre></div>
+<p>它代表商品的主要/特色图片。</p>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">product.media
+</code></pre></div>
+<p>代表整个 Media 集合。</p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">product.featured_image
+        ↓
+一张主要图片
+
+product.media
+        ↓
+整个 Gallery
+</code></pre></div>
+<p>这是非常重要的区别。</p>
+<hr>
+<h2>八、为什么 Shopify 不直接让我们用 images？</h2>
+<p>因为现代电商商品媒体已经不只是图片。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+└── Media
+    │
+    ├── Image
+    ├── Video
+    ├── External Video
+    └── 3D Model
+</code></pre></div>
+<p>如果你的 Theme 只设计：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;img&gt;
+</code></pre></div>
+<p>那么以后遇到视频和 3D 就需要重新设计。</p>
+<p>所以 Shopify 用统一的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Media
+</code></pre></div>
+<p>来抽象这些东西。</p>
+<p>这其实是一个很典型的数据建模思想。</p>
+<hr>
+<h2>九、Variant 和 Media 开始发生关系</h2>
+<p>这才是今天真正重要的地方。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product: T-Shirt
+
+Color:
+Black
+White
+Blue
+</code></pre></div>
+<p>每种颜色可能对应不同图片：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black
+ ├── Black front
+ ├── Black back
+ └── Black model
+
+White
+ ├── White front
+ ├── White back
+ └── White model
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ├── Variants
+   │     ├── Black / S
+   │     ├── Black / M
+   │     ├── White / S
+   │     └── White / M
+   │
+   └── Media
+         ├── Black images
+         ├── White images
+         └── ...
+</code></pre></div>
+<p>这就是为什么：</p>
+<blockquote>
+<p><strong>Product Media 和 Variant Selection 经常必须配合 JavaScript。</strong></p>
+</blockquote>
+<hr>
+<h2>十、为什么 Liquid 不够？</h2>
+<p>假设用户现在选择：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+</code></pre></div>
+<p>页面加载时：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black
+ ↓
+显示 Black 图片
+</code></pre></div>
+<p>用户突然点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = White
+</code></pre></div>
+<p>这时候浏览器已经加载完成了。</p>
+<p>你需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户点击 White
+       ↓
+JavaScript
+       ↓
+找到 White Variant
+       ↓
+找到对应 Media
+       ↓
+更新 Gallery
+</code></pre></div>
+<p>这就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
++
+JavaScript
+</code></pre></div>
+<p>共同完成 Product Page。</p>
+<hr>
+<h2>十一、建立一个非常重要的运行模型</h2>
+<p>你现在应该开始习惯这个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Server
+      │
+      ↓
+Liquid
+      │
+      ↓
+初始 HTML
+      │
+      ↓
+Browser
+      │
+      ↓
+JavaScript
+      │
+      ↓
+用户交互
+      │
+      ├── Variant
+      ├── Gallery
+      ├── Quantity
+      └── Cart
+</code></pre></div>
+<p>这和 React 最大的区别之一就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">React
+服务器/API
+   ↓
+JSON
+   ↓
+React State
+   ↓
+React Render
+</code></pre></div>
+<p>而 Shopify Theme 经常是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify
+   ↓
+Liquid
+   ↓
+HTML
+   ↓
+JS 操作 DOM
+</code></pre></div>
+<hr>
+<h2>十二、把 Variant 数据传给 JS</h2>
+<p>我们之前已经学过这种思路：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;script type=&quot;application/json&quot; id=&quot;ProductJSON&quot;&gt;
+  {{ product.variants | json }}
+&lt;/script&gt;
+</code></pre></div>
+<p>现在我们可以把 Media 信息也考虑进去。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;script type=&quot;application/json&quot; id=&quot;ProductMediaJSON&quot;&gt;
+  {{ product.media | json }}
+&lt;/script&gt;
+</code></pre></div>
+<p>然后 JS：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const mediaElement = document.querySelector(&#39;#ProductMediaJSON&#39;);
+
+const media = JSON.parse(mediaElement.textContent);
+</code></pre></div>
+<p>不过这里要特别注意：</p>
+<blockquote>
+<p><strong>实际生产项目不要为了方便把所有 Shopify 对象无脑 JSON 化塞进页面。</strong></p>
+</blockquote>
+<p>商品数据很多的时候，会增加 HTML Payload。</p>
+<p>所以实际 Theme 开发要考虑：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">需要什么数据
+      ↓
+只输出什么数据
+</code></pre></div>
+<p>这会和我们后面的 <strong>Performance</strong> 课程连接起来。</p>
+<hr>
+<h2>十三、Gallery 的基本 JS 思路</h2>
+<p>假设 HTML：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;div id=&quot;ProductGallery&quot;&gt;
+  ...
+&lt;/div&gt;
+</code></pre></div>
+<p>用户选择 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">function handleVariantChange(variant) {
+  // variant.media_id
+  // 找到对应媒体
+  // 更新 Gallery
+}
+</code></pre></div>
+<p>概念上就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+   ↓
+Media
+   ↓
+Gallery
+</code></pre></div>
+<hr>
+<h2>十四、Thumbnail Gallery</h2>
+<p>真实电商页面一般不会只显示一张图。</p>
+<p>通常：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">┌──────────┐
+│ Thumbnail│
+│ Thumbnail│
+│ Thumbnail│
+│ Thumbnail│
+└──────────┘
+
+┌────────────────────┐
+│                    │
+│      MAIN IMAGE    │
+│                    │
+└────────────────────┘
+</code></pre></div>
+<p>HTML 可以这样组织：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;div class=&quot;product-gallery&quot;&gt;
+
+  &lt;div class=&quot;product-gallery__thumbnails&quot;&gt;
+
+    {% for media in product.media %}
+
+      &lt;button
+        type=&quot;button&quot;
+        data-media-id=&quot;{{ media.id }}&quot;
+      &gt;
+        {{
+          media.preview_image
+          | image_url: width: 120
+          | image_tag
+        }}
+      &lt;/button&gt;
+
+    {% endfor %}
+
+  &lt;/div&gt;
+
+
+  &lt;div class=&quot;product-gallery__main&quot;&gt;
+
+    {% for media in product.media %}
+
+      &lt;div
+        class=&quot;product-gallery__item&quot;
+        data-media-id=&quot;{{ media.id }}&quot;
+      &gt;
+
+        {% if media.media_type == &#39;image&#39; %}
+
+          {{
+            media
+            | image_url: width: 1000
+            | image_tag
+          }}
+
+        {% endif %}
+
+      &lt;/div&gt;
+
+    {% endfor %}
+
+  &lt;/div&gt;
+
+&lt;/div&gt;
+</code></pre></div>
+<p>这里出现了一个非常重要的前端思想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">data-media-id
+</code></pre></div>
+<p>我们用它建立：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Thumbnail
+     ↓
+Media ID
+     ↓
+Main Media
+</code></pre></div>
+<hr>
+<h2>十五、JS 控制 Gallery</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const thumbnails =
+  document.querySelectorAll(&#39;[data-media-id]&#39;);
+
+const mediaItems =
+  document.querySelectorAll(&#39;.product-gallery__item&#39;);
+
+thumbnails.forEach(thumbnail =&gt; {
+
+  thumbnail.addEventListener(&#39;click&#39;, () =&gt; {
+
+    const mediaId =
+      thumbnail.dataset.mediaId;
+
+    mediaItems.forEach(item =&gt; {
+
+      item.hidden =
+        item.dataset.mediaId !== mediaId;
+
+    });
+
+  });
+
+});
+</code></pre></div>
+<p>这个逻辑你作为前端应该非常熟悉。</p>
+<p>本质就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击 Thumbnail
+      ↓
+拿 mediaId
+      ↓
+找到对应 DOM
+      ↓
+显示
+      ↓
+隐藏其他
+</code></pre></div>
+<hr>
+<h2>十六、这里可以看到 Shopify Theme 的一个核心模式</h2>
+<p>以后你会经常看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+  ↓
+生成 HTML
+  ↓
+data-* 属性
+  ↓
+JavaScript
+  ↓
+读取 DOM / State
+  ↓
+更新 UI
+</code></pre></div>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">data-variant-id=&quot;123&quot;
+data-media-id=&quot;456&quot;
+data-product-id=&quot;789&quot;
+</code></pre></div>
+<p>这些东西实际上就是：</p>
+<blockquote>
+<p><strong>Liquid 给 JavaScript 注入上下文。</strong></p>
+</blockquote>
+<p>这是 Shopify Theme 前端开发非常重要的技巧。</p>
+<hr>
+<h2>十七、Product Media 和 Product Card 的区别</h2>
+<p>Collection 页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Card
+   ↓
+通常只需要：
+featured_image
+title
+price
+url
+</code></pre></div>
+<p>Product 页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Page
+   ↓
+完整 Media Gallery
+   ↓
+Variant
+   ↓
+Variant Media
+   ↓
+Video
+   ↓
+3D
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+   ↓
+轻量 Product Card
+
+Product
+   ↓
+完整 Product Media
+</code></pre></div>
+<p>不要在 Product Card 里把整个 Product Media Gallery 都渲染出来。</p>
+<p>这也是性能考虑。</p>
+<hr>
+<h2>十八、今天最重要的数据关系</h2>
+<p>现在把 Product 再画一次：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── title
+├── description
+│
+├── variants
+│    ├── Variant A
+│    ├── Variant B
+│    └── Variant C
+│
+├── media
+│    ├── Image
+│    ├── Image
+│    ├── Video
+│    └── Model
+│
+├── collections
+│
+├── metafields
+│
+└── ...
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+   │
+   └── 对应 Media
+           ↓
+       Product Gallery
+</code></pre></div>
+<p>这就是我们马上要继续深入的地方。</p>
+<hr>
+<h2>十九、你现在应该形成这张脑图</h2>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                 Product
+                    │
+        ┌───────────┴───────────┐
+        ↓                       ↓
+     Variants                 Media
+        │                       │
+        ↓                       ├── Image
+ Black / M / ...                ├── Video
+        │                       ├── External Video
+        ↓                       └── 3D
+ JavaScript
+        │
+        ↓
+ Variant Selection
+        │
+        ↓
+   Media Selection
+        │
+        ↓
+ Product Gallery
+        │
+        ↓
+    Add to Cart
+</code></pre></div>
+<p>这样我们就开始把：</p>
+<p><strong>Product → Variant → Media → Cart</strong></p>
+<p>串成一条完整链路了。</p>
+<hr>
+<h2>二十、下一课</h2>
+<p>下一课我建议直接进入：</p>
+<h3>第 15 课：Shopify Search</h3>
+<p>我们会研究：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">/search?q=shirt
+        ↓
+Search Template
+        ↓
+search
+        ↓
+search.results
+        ↓
+Product / Page / Article
+        ↓
+Search Result Card
+        ↓
+Pagination
+</code></pre></div>
+<p>然后再继续：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Search
+  ↓
+Predictive Search
+  ↓
+Collection Filter
+  ↓
+Sort
+  ↓
+URL State
+</code></pre></div>
+<p>这几课学完以后，你的 Theme 前端能力就会从“会写 Product/Cart”进入到<strong>真正能独立搭建商城列表、搜索和筛选系统</strong>的阶段。</p>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-14.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

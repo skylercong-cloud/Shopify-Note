@@ -1,0 +1,1260 @@
+# 第 5 课：Shopify Theme 开发模式与项目结构
+
+## 我的提问 · 2026-09-15 Tue 21:51
+
+进入第5课
+
+## ChatGPT · 2026-09-15 Tue 21:51
+
+好，我们进入 **第 5 课：Shopify Theme 开发模式与项目结构**。
+
+这一课我们要解决一个非常实际的问题：
+
+> **当你真正拿到一个 Shopify 项目时，到底应该怎么开始写代码？**
+
+前 4 课你已经建立了：
+
+```text
+第1/2课：Shopify 是什么、整体架构
+        ↓
+第3课：Shopify 数据模型
+        ↓
+第4课：Liquid / Theme / JS 的运行机制
+        ↓
+第5课：真正开始认识 Shopify Theme 项目
+```
+
+---
+
+# 第 5 课：Shopify Theme 开发模式与项目结构
+
+## 一、先回答一个最现实的问题
+
+作为前端工程师，你打开一个 Shopify 项目，可能看到：
+
+```text
+assets/
+config/
+layout/
+locales/
+sections/
+snippets/
+templates/
+```
+
+你可能会想：
+
+> “这跟我以前的 React 项目差别也太大了。”
+
+确实。
+
+React 项目可能是：
+
+```text
+src/
+├── components/
+├── pages/
+├── hooks/
+├── services/
+├── utils/
+└── App.tsx
+```
+
+Shopify Theme 则是：
+
+```text
+theme/
+├── assets/
+├── config/
+├── layout/
+├── locales/
+├── sections/
+├── snippets/
+└── templates/
+```
+
+**不要试图把 Shopify 硬套成 React 项目。**
+
+你需要理解 Shopify 自己的组织方式。
+
+---
+
+# 二、先建立 Theme 的完整地图
+
+先记住这张：
+
+```text
+Theme
+│
+├── layout/
+│   └── theme.liquid
+│
+├── templates/
+│   ├── index.json
+│   ├── product.json
+│   ├── collection.json
+│   ├── cart.json
+│   └── page.json
+│
+├── sections/
+│   ├── header.liquid
+│   ├── footer.liquid
+│   ├── main-product.liquid
+│   └── image-banner.liquid
+│
+├── snippets/
+│   ├── price.liquid
+│   ├── product-card.liquid
+│   └── icon-cart.liquid
+│
+├── assets/
+│   ├── theme.css
+│   ├── theme.js
+│   └── ...
+│
+├── config/
+│   ├── settings_schema.json
+│   └── settings_data.json
+│
+└── locales/
+    ├── en.default.json
+    └── ...
+```
+
+先不要背。
+
+我们一个一个理解。
+
+---
+
+# 三、layout：整个网站的外壳
+
+我们之前已经讲过：
+
+```text
+layout/theme.liquid
+```
+
+它类似：
+
+```text
+App Shell
+```
+
+例如：
+
+```liquid
+<!doctype html>
+<html>
+<head>
+  {{ content_for_header }}
+</head>
+
+<body>
+  {% section 'header' %}
+
+  {{ content_for_layout }}
+
+  {% section 'footer' %}
+</body>
+</html>
+```
+
+整体关系：
+
+```text
+theme.liquid
+│
+├── Header
+│
+├── 当前页面
+│
+└── Footer
+```
+
+所以你以后想修改：
+
+> 全站 `<head>`、全站 Header、Footer、全局脚本
+
+通常第一时间想到：
+
+```text
+layout/
+```
+
+---
+
+# 四、templates：决定“这是什么页面”
+
+比如：
+
+```text
+/products/t-shirt
+```
+
+这是：
+
+```text
+Product Page
+```
+
+所以对应：
+
+```text
+templates/product.json
+```
+
+而：
+
+```text
+/collections/shoes
+```
+
+对应：
+
+```text
+templates/collection.json
+```
+
+首页：
+
+```text
+/
+```
+
+对应：
+
+```text
+templates/index.json
+```
+
+所以：
+
+```text
+URL
+ ↓
+页面类型
+ ↓
+Template
+```
+
+你可以建立这个映射：
+
+```text
+首页
+ ↓
+index
+
+商品详情
+ ↓
+product
+
+商品集合
+ ↓
+collection
+
+购物车
+ ↓
+cart
+
+普通页面
+ ↓
+page
+```
+
+---
+
+# 五、JSON Template 是什么？
+
+现代 Shopify Theme 中你会大量看到：
+
+```text
+product.json
+```
+
+例如：
+
+```json
+{
+  "sections": {
+    "main": {
+      "type": "main-product"
+    },
+    "recommendations": {
+      "type": "related-products"
+    }
+  },
+
+  "order": [
+    "main",
+    "recommendations"
+  ]
+}
+```
+
+它表达的是：
+
+> **这个页面由哪些 Section 组成，以及顺序是什么。**
+
+例如：
+
+```text
+product.json
+       │
+       ├── main-product
+       │
+       ├── product-description
+       │
+       └── related-products
+```
+
+这非常像一个：
+
+> **页面配置文件。**
+
+---
+
+# 六、所以 Template 和 Section 是什么关系？
+
+这是非常重要的一层。
+
+```text
+Template
+   │
+   ├── Section
+   ├── Section
+   └── Section
+```
+
+比如 Product Page：
+
+```text
+Product Template
+│
+├── Main Product
+├── Product Description
+├── Reviews
+└── Related Products
+```
+
+所以：
+
+> **Template 决定页面由哪些模块组成。**
+
+而：
+
+> **Section 负责具体模块怎么渲染。**
+
+---
+
+# 七、Section 才是真正干活的地方
+
+比如：
+
+```text
+sections/main-product.liquid
+```
+
+里面可能有：
+
+```liquid
+<h1>{{ product.title }}</h1>
+
+<div class="product-price">
+  {{ product.selected_or_first_available_variant.price | money }}
+</div>
+
+{% render 'product-form', product: product %}
+```
+
+所以：
+
+```text
+product.json
+      ↓
+main-product
+      ↓
+Liquid
+      ↓
+HTML
+```
+
+---
+
+# 八、Section = “可配置组件”
+
+假设：
+
+```text
+sections/image-banner.liquid
+```
+
+定义：
+
+```liquid
+{% schema %}
+{
+  "name": "Image Banner",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Image"
+    }
+  ]
+}
+{% endschema %}
+```
+
+那么商家进入 Theme Editor：
+
+```text
+Image Banner
+
+Heading
+[ Summer Sale ]
+
+Image
+[ banner.jpg ]
+```
+
+然后：
+
+```liquid
+{{ section.settings.heading }}
+```
+
+读取：
+
+```text
+Summer Sale
+```
+
+---
+
+# 九、这里有一个很重要的开发思想
+
+普通 React：
+
+```text
+开发者
+ ↓
+Component
+ ↓
+Props
+```
+
+Shopify：
+
+```text
+开发者
+ ↓
+Section
+ ↓
+Schema
+ ↓
+Theme Editor
+ ↓
+商家配置
+ ↓
+section.settings
+```
+
+所以 Shopify Theme 开发时，你经常不是简单地：
+
+> “把 UI 写出来。”
+
+而是在思考：
+
+> “这个 UI 哪些东西应该让运营人员自己配置？”
+
+例如：
+
+```text
+标题 → text
+图片 → image_picker
+颜色 → color
+商品 → product
+商品集合 → collection
+链接 → url
+```
+
+---
+
+# 十、Snippet：解决重复代码
+
+假设你在很多地方都需要：
+
+```text
+商品图片
+商品标题
+价格
+```
+
+你可以创建：
+
+```text
+snippets/product-card.liquid
+```
+
+然后：
+
+```liquid
+{% render 'product-card', product: product %}
+```
+
+这和 React：
+
+```jsx
+<ProductCard product={product} />
+```
+
+非常类似。
+
+所以：
+
+```text
+Section
+=
+页面级、可配置组件
+
+Snippet
+=
+小型复用组件
+```
+
+---
+
+# 十一、一个实际例子：商品卡片
+
+假设 Collection 页面有：
+
+```text
+┌──────────────┐
+│    Image     │
+│              │
+│ Nike Shoes   │
+│ $99.00       │
+└──────────────┘
+```
+
+你可能有：
+
+```text
+sections/main-collection.liquid
+```
+
+里面循环商品：
+
+```liquid
+{% for product in collection.products %}
+
+  {% render 'product-card', product: product %}
+
+{% endfor %}
+```
+
+然后：
+
+```text
+snippets/product-card.liquid
+```
+
+负责：
+
+```liquid
+<article class="product-card">
+
+  <img src="{{ product.featured_image | image_url }}">
+
+  <h3>
+    {{ product.title }}
+  </h3>
+
+  <span>
+    {{ product.price | money }}
+  </span>
+
+</article>
+```
+
+最终：
+
+```text
+Collection Section
+        ↓
+for products
+        ↓
+Product Card Snippet
+        ↓
+HTML
+```
+
+这就是 Shopify Theme 中非常典型的开发模式。
+
+---
+
+# 十二、assets：你的 CSS / JS 世界
+
+接下来：
+
+```text
+assets/
+```
+
+这里就是你熟悉的前端资源。
+
+例如：
+
+```text
+assets/
+├── theme.css
+├── theme.js
+├── product.js
+├── cart.js
+└── ...
+```
+
+CSS：
+
+```css
+.product-card {
+  display: grid;
+}
+```
+
+JavaScript：
+
+```javascript
+document
+  .querySelector('.add-to-cart')
+```
+
+所以可以简单理解：
+
+```text
+Liquid
+ ↓
+HTML
+
+assets/*.css
+ ↓
+样式
+
+assets/*.js
+ ↓
+交互
+```
+
+---
+
+# 十三、config：Theme 的全局配置
+
+例如：
+
+```text
+config/settings_schema.json
+```
+
+这里可以定义：
+
+```text
+Theme Settings
+```
+
+例如：
+
+```text
+Logo
+Primary Color
+Font
+Social Links
+Favicon
+```
+
+商家在 Theme Settings 里修改：
+
+```text
+Logo
+[ xxx.png ]
+
+Primary Color
+[ #000000 ]
+```
+
+然后 Theme 可以读取对应设置。
+
+---
+
+# 十四、config 和 Section Schema 有什么区别？
+
+这个很容易混。
+
+### Section Schema
+
+控制：
+
+> **某一个 Section**
+
+例如：
+
+```text
+Hero Banner
+├── Title
+├── Image
+└── Button
+```
+
+---
+
+### Theme Settings
+
+控制：
+
+> **整个 Theme**
+
+例如：
+
+```text
+Theme Settings
+├── Logo
+├── Colors
+├── Typography
+└── Social Media
+```
+
+所以：
+
+```text
+Section Schema
+   ↓
+局部配置
+
+Theme Settings
+   ↓
+全局配置
+```
+
+---
+
+# 十五、locales：国际化
+
+跨境电商一定会遇到：
+
+```text
+English
+French
+German
+Spanish
+Japanese
+Chinese
+...
+```
+
+Theme 里面：
+
+```text
+locales/
+├── en.default.json
+├── fr.json
+├── de.json
+└── ...
+```
+
+例如：
+
+```json
+{
+  "products": {
+    "add_to_cart": "Add to cart"
+  }
+}
+```
+
+Liquid：
+
+```liquid
+{{ 'products.add_to_cart' | t }}
+```
+
+这样就能实现多语言。
+
+所以：
+
+```text
+locales
+ ↓
+i18n
+```
+
+作为跨境电商前端，这部分你后面会经常遇到。
+
+---
+
+# 十六、现在我们做一次“页面组装”
+
+假设用户访问：
+
+```text
+/products/t-shirt
+```
+
+整个过程可以想成：
+
+```text
+Browser
+   │
+   │ GET /products/t-shirt
+   ↓
+Shopify
+   │
+   ↓
+Product Template
+   │
+   ↓
+product.json
+   │
+   ├───────────────┐
+   ↓               ↓
+main-product    related-products
+   │               │
+   ↓               ↓
+Liquid          Liquid
+   │               │
+   └───────┬───────┘
+           ↓
+       theme.liquid
+           │
+           ↓
+       Final HTML
+           │
+           ↓
+        Browser
+           │
+           ↓
+       theme.js
+           │
+           ↓
+       User Interaction
+```
+
+这张图你一定要理解。
+
+---
+
+# 十七、现在进入 Shopify 开发最重要的一个选择
+
+你以后会遇到两种完全不同的开发方式。
+
+## 模式 A：Theme Development
+
+```text
+Shopify
+ ↓
+Theme
+ ↓
+Liquid
+ ↓
+HTML/CSS/JS
+```
+
+适合：
+
+- 普通 Shopify 商店
+- 商品详情页
+- 首页
+- Collection
+- Cart
+- SEO
+- Theme Editor
+- 商家自定义页面
+
+这是你**现在应该优先学习的方向**。
+
+---
+
+# 十八、模式 B：Headless
+
+另一种：
+
+```text
+Shopify
+ ↓
+Storefront API
+ ↓
+Next.js / React
+ ↓
+Custom Frontend
+```
+
+例如：
+
+```text
+Next.js
+├── Product Page
+├── Collection
+├── Cart
+└── Checkout
+
+       ↓
+
+Storefront API
+
+       ↓
+
+Shopify
+```
+
+这时候你甚至可以：
+
+```text
+不使用 Shopify Theme
+```
+
+直接自己写：
+
+```text
+React
+Next.js
+CSS
+TypeScript
+```
+
+前端。
+
+但是：
+
+> **这不意味着 Headless 更高级，所以应该先学 Headless。**
+
+对于你现在的学习路径，我建议：
+
+```text
+先 Theme
+ ↓
+理解 Shopify 数据模型
+ ↓
+理解 Shopify API
+ ↓
+再 Headless
+```
+
+否则很容易出现：
+
+> “我会 React，但是我其实不懂 Shopify。”
+
+---
+
+# 十九、Theme / App / Headless 怎么选择？
+
+这一张表你以后工作中会非常有用：
+
+| 需求 | 优先考虑 |
+|---|---|
+| 修改商品详情页 UI | Theme |
+| 修改首页 | Theme |
+| 做 Banner | Section |
+| 做商品卡片 | Snippet |
+| Add to Cart | Theme + Cart API |
+| 自定义商品字段 | Metafield |
+| 自定义结构化内容 | Metaobject |
+| 商家后台功能 | App |
+| ERP 对接 | App + Admin API |
+| 订单同步 | App + Admin API/Webhook |
+| React/Next.js 自定义商城 | Headless |
+| 完全自定义 Storefront | Storefront API |
+| Checkout 深度定制 | Shopify Checkout Extensibility |
+
+---
+
+# 二十、作为前端工程师，你现在应该开始转换思维
+
+以后 PM 给你一个需求：
+
+> “商品详情页增加一个 Size Guide。”
+
+不要马上开始：
+
+```text
+React Component
+```
+
+而应该先问：
+
+```text
+这是 UI？
+ ↓
+Theme
+
+数据在哪里？
+ ↓
+Metaobject / Metafield
+
+这个 UI 是否需要运营配置？
+ ↓
+Section Schema
+
+是否需要动态交互？
+ ↓
+JavaScript
+
+是否涉及 Shopify 数据？
+ ↓
+Liquid / API
+```
+
+这才是 Shopify 工程师的思考方式。
+
+---
+
+# 二十一、给你一个真实需求，我们一起拆
+
+假设 PM 给你：
+
+> **“商品详情页增加一个 Size Guide 弹窗，运营可以在后台维护不同品牌的尺码表。”**
+
+如果你是普通前端工程师，可能马上想到：
+
+```text
+React Modal
+ ↓
+API
+ ↓
+Database
+```
+
+但 Shopify 的思考方式应该是：
+
+### 第一步：数据
+
+不同品牌有不同尺码表。
+
+比较适合：
+
+```text
+Metaobject
+```
+
+例如：
+
+```text
+Size Guide
+├── Brand
+├── Title
+├── Description
+└── Size Table
+```
+
+---
+
+### 第二步：页面
+
+商品详情页显示：
+
+```text
+Size Guide
+```
+
+使用：
+
+```text
+Section / Block
+```
+
+或者在现有 Product Section 中实现。
+
+---
+
+### 第三步：关联
+
+Product：
+
+```text
+Product
+   ↓
+Metafield
+   ↓
+Size Guide Metaobject
+```
+
+---
+
+### 第四步：交互
+
+用户点击：
+
+```text
+Size Guide
+```
+
+↓
+
+JavaScript：
+
+```text
+打开 Modal
+```
+
+---
+
+于是整个架构变成：
+
+```text
+Product
+   │
+   ↓
+Metafield
+   │
+   ↓
+Size Guide Metaobject
+   │
+   ↓
+Liquid
+   │
+   ↓
+HTML
+   │
+   ↓
+JavaScript
+   │
+   ↓
+Modal
+```
+
+这就是我们前 3、4、5 课知识真正串起来的地方。
+
+---
+
+# 二十二、到这里，你已经拥有第一套 Shopify 工程思维
+
+可以浓缩成：
+
+```text
+                    Shopify
+                       │
+                ┌──────┴──────┐
+                ↓             ↓
+              Data           Theme
+                │             │
+        Product/Variant       │
+        Collection             │
+        Customer               │
+        Order                  │
+        Metafield              │
+        Metaobject             │
+                              │
+                         ┌────┴────┐
+                         ↓         ↓
+                      Template   Section
+                                   │
+                                   ↓
+                                Snippet
+                                   │
+                                   ↓
+                              Liquid / HTML
+                                   │
+                                   ↓
+                              CSS / JavaScript
+```
+
+---
+
+# 🎯 第 5 课核心知识点
+
+今天你不需要记所有文件。
+
+先把下面这句话记住：
+
+> **Template 决定页面结构，Section 负责页面模块，Snippet 负责代码复用，Liquid 负责 Shopify 数据渲染，JavaScript 负责浏览器交互。**
+
+再加上：
+
+> **Schema 决定商家在 Theme Editor 里能配置什么。**
+
+以及：
+
+> **Metafield / Metaobject 负责扩展 Shopify 的数据模型。**
+
+这几个概念一旦真正掌握，你就已经开始从“前端开发工程师”转换成“Shopify Theme 开发工程师”了。
+
+---
+
+# 🧠 第 5 课实战题
+
+我们暂时不急着进入下一课。
+
+假设你现在加入一家 Shopify 跨境电商公司，拿到一个需求：
+
+> **商品详情页需要：**
+>
+> 1. 商品标题
+> 2. 商品价格
+> 3. 颜色/尺码 Variant 选择
+> 4. Add to Cart
+> 5. Material 信息
+> 6. Size Guide 弹窗
+> 7. 运营可以在后台修改 Size Guide 标题和内容
+
+请你尝试设计：
+
+```text
+1. 商品标题/价格
+   ↓
+用什么？
+
+2. Variant 选择
+   ↓
+用什么？
+
+3. Add to Cart
+   ↓
+用什么？
+
+4. Material
+   ↓
+用什么？
+
+5. Size Guide 数据
+   ↓
+用什么？
+
+6. Size Guide 弹窗
+   ↓
+用什么？
+
+7. 运营后台修改 Size Guide
+   ↓
+用什么？
+```
+
+你不需要写代码，**只需要写技术选型和理由**。
+
+下一课我们会进入一个非常关键的阶段：
+
+# **第 6 课：从零创建一个 Shopify Theme 项目**
+
+届时会开始真正动手：
+
+```text
+Shopify CLI
+ ↓
+创建 Theme
+ ↓
+本地开发环境
+ ↓
+启动开发服务器
+ ↓
+认识 Dawn
+ ↓
+修改第一个 Section
+ ↓
+Liquid 实战
+ ↓
+在浏览器看到自己的代码
+```
+
+也就是说，从第 6 课开始，我们会逐渐从**“理解 Shopify”切换到“真正开发 Shopify”**。

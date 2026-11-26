@@ -1,0 +1,794 @@
+<h1>第 21 课：Shopify Product / Variant 数据模型深入</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-20T08:25:00+08:00">09-20 08:25</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-20T08:25:00+08:00">09-20 08:25</time></div>
+<p>好，我们正式进入第二阶段。</p>
+<p>这一课先不要急着写代码。</p>
+<p>我们先把 Shopify 最核心的商品数据模型彻底搞明白。</p>
+<p>如果把 Shopify 比作一个电商数据库，那么：</p>
+<blockquote>
+<p><strong>Product 是商品主体，Variant 是可购买的具体商品单元。</strong></p>
+</blockquote>
+<p>而后面我们还会继续把它连接到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Inventory
+Location
+Cart
+Order
+Fulfillment
+Metafield
+Metaobject
+</code></pre></div>
+<hr>
+<h2>一、先看整体关系</h2>
+<p>先看这张图：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                         Product
+                            │
+             ┌──────────────┼──────────────┐
+             │              │              │
+             ▼              ▼              ▼
+          Options        Variants         Media
+             │              │
+             │              │
+             │      ┌───────┼────────┐
+             │      │       │        │
+             │      ▼       ▼        ▼
+             │     SKU     Price   Inventory
+             │                       │
+             │                       ▼
+             │                    Location
+             │
+             ▼
+       Color / Size / ...
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Nike Air Max
+│
+├── Option: Color
+│     ├── Black
+│     └── White
+│
+├── Option: Size
+│     ├── 8
+│     ├── 9
+│     └── 10
+│
+└── Variants
+      ├── Black / 8
+      ├── Black / 9
+      ├── Black / 10
+      ├── White / 8
+      ├── White / 9
+      └── White / 10
+</code></pre></div>
+<hr>
+<h2>二、Product 到底是什么？</h2>
+<p>你可以把 Product 理解成：</p>
+<blockquote>
+<p><strong>消费者眼中的“一个商品”。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>它可能有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Title:
+Nike Air Max
+
+Description:
+Running shoes...
+
+Vendor:
+Nike
+
+Product Type:
+Running Shoes
+
+Tags:
+running, nike, shoes
+
+Options:
+Color
+Size
+
+Variants:
+6 个
+
+Media:
+8 张图片
+2 个视频
+
+Collections:
+Running Shoes
+Nike
+Featured
+</code></pre></div>
+<p>所以 Product 是一个<strong>商品容器 / 商品主体</strong>。</p>
+<hr>
+<h2>三、Variant 是什么？</h2>
+<p>Variant 是：</p>
+<blockquote>
+<p><strong>这个 Product 下真正可以购买的具体规格组合。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product:
+T-Shirt
+
+Options:
+Color
+Size
+</code></pre></div>
+<p>有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color:
+Black
+White
+
+Size:
+S
+M
+L
+</code></pre></div>
+<p>最终 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / S
+Black / M
+Black / L
+
+White / S
+White / M
+White / L
+</code></pre></div>
+<p>每一个 Variant 都是一个独立的可购买实体。</p>
+<hr>
+<h2>四、为什么 Shopify 要把 Product 和 Variant 分开？</h2>
+<p>这是理解 Shopify 数据模型最关键的一步。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / 8   $100
+Black / 9   $105
+Black / 10  $110
+</code></pre></div>
+<p>如果没有 Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+</code></pre></div>
+<p>只能有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">price = ?
+sku = ?
+inventory = ?
+</code></pre></div>
+<p>问题来了：</p>
+<blockquote>
+<p>到底哪个价格？</p>
+</blockquote>
+<blockquote>
+<p>到底哪个库存？</p>
+</blockquote>
+<blockquote>
+<p>到底哪个 SKU？</p>
+</blockquote>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ├── Variant A
+   │     price
+   │     sku
+   │     inventory
+   │
+   ├── Variant B
+   │     price
+   │     sku
+   │     inventory
+   │
+   └── Variant C
+         price
+         sku
+         inventory
+</code></pre></div>
+<p>这些具体商业属性应该落到 Variant。</p>
+<hr>
+<h2>五、Product Option 和 Variant 的关系</h2>
+<p>这是另一个很容易混的地方。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Option 1: Color
+│      ├── Black
+│      └── White
+│
+└── Option 2: Size
+       ├── S
+       ├── M
+       └── L
+</code></pre></div>
+<p>Option 是：</p>
+<blockquote>
+<p><strong>规格维度。</strong></p>
+</blockquote>
+<p>而 Variant 是：</p>
+<blockquote>
+<p><strong>规格维度的具体组合。</strong></p>
+</blockquote>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Color = Black
+Size = M
+</code></pre></div>
+<p>组合起来：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / M
+</code></pre></div>
+<p>这才是一个 Variant。</p>
+<hr>
+<h2>六、从前端角度看 Variant</h2>
+<p>这就是我们之前写过的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{% for variant in product.variants %}
+
+  {{ variant.id }}
+  {{ variant.title }}
+  {{ variant.price }}
+  {{ variant.available }}
+
+{% endfor %}
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+├── id: 123456
+├── title: Black / M
+├── price: $29.99
+├── sku: TS-BLK-M
+└── available: true
+</code></pre></div>
+<p>前端真正 Add to Cart 的时候：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">User
+ ↓
+选择 Black
+ ↓
+选择 M
+ ↓
+找到 Black/M Variant
+ ↓
+Variant ID
+ ↓
+Cart
+</code></pre></div>
+<p>所以：</p>
+<blockquote>
+<p><strong>购物车加的不是 Product，而是 Variant。</strong></p>
+</blockquote>
+<p>这是非常重要的一句话。</p>
+<hr>
+<h2>七、Product ID 和 Variant ID 是两个不同 ID</h2>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product ID
+= 1001
+
+Variant ID
+= 2001
+</code></pre></div>
+<p>关系：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product 1001
+│
+├── Variant 2001
+├── Variant 2002
+└── Variant 2003
+</code></pre></div>
+<p>所以不要写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">addToCart(product.id)
+</code></pre></div>
+<p>而应该：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">addToCart(variant.id)
+</code></pre></div>
+<p>这就是为什么我们之前的 Product Form：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">&lt;select name=&quot;id&quot;&gt;
+  {% for variant in product.variants %}
+    &lt;option value=&quot;{{ variant.id }}&quot;&gt;
+      {{ variant.title }}
+    &lt;/option&gt;
+  {% endfor %}
+&lt;/select&gt;
+</code></pre></div>
+<p>里面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">name=&quot;id&quot;
+</code></pre></div>
+<p>实际上提交的是：</p>
+<blockquote>
+<p><strong>Variant ID</strong></p>
+</blockquote>
+<hr>
+<h2>八、Variant 最重要的几个字段</h2>
+<p>你现在重点记这些：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+│
+├── id
+├── title
+├── sku
+├── barcode
+├── price
+├── compare_at_price
+├── available
+├── options
+├── featured_image / media
+└── inventory
+</code></pre></div>
+<p>其中：</p>
+<h4><code>id</code></h4>
+<p>Variant 唯一标识。</p>
+<hr>
+<h4><code>title</code></h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Black / M
+</code></pre></div>
+<p>它通常是 Variant 的规格组合展示名称。</p>
+<hr>
+<h4><code>sku</code></h4>
+<p>库存管理 / ERP / OMS 等系统经常使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">TS-BLK-M
+</code></pre></div>
+<p>SKU 和 Shopify Variant ID 不是一个概念。</p>
+<hr>
+<h4><code>barcode</code></h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">6901234567890
+</code></pre></div>
+<p>可能用于：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">商品条码
+仓库扫描
+POS
+物流
+</code></pre></div>
+<hr>
+<h4><code>price</code></h4>
+<p>Variant 的价格。</p>
+<hr>
+<h4><code>compare_at_price</code></h4>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">compare_at_price = $59.99
+price = $39.99
+</code></pre></div>
+<p>Theme 可能展示：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$59.99  ~~$39.99~~
+</code></pre></div>
+<p>具体展示逻辑由 Theme 决定。</p>
+<hr>
+<h2>九、<code>available</code> 不等于“库存数量”</h2>
+<p>这是一个非常重要的区别。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ variant.available }}
+</code></pre></div>
+<p>得到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">true
+</code></pre></div>
+<p>这只能告诉 Theme：</p>
+<blockquote>
+<p>当前 Variant 是否可购买。</p>
+</blockquote>
+<p>它不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">inventory_quantity = 37
+</code></pre></div>
+<p>所以不要理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">variant.available === true
+</code></pre></div>
+<p>意味着：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">库存 = 1+
+</code></pre></div>
+<p>它是更高层次的可购买状态。</p>
+<p>后面我们专门学 Inventory 时再把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">InventoryItem
+InventoryLevel
+Location
+available
+</code></pre></div>
+<p>全部拆开。</p>
+<hr>
+<h2>十、Variant 和 Media</h2>
+<p>Variant 也可以和商品图片/媒体产生关联。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Black
+│    └── Black Product Image
+│
+└── White
+     └── White Product Image
+</code></pre></div>
+<p>用户：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">选择 Black
+</code></pre></div>
+<p>Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant selected
+ ↓
+Variant Media
+ ↓
+Gallery switch
+</code></pre></div>
+<p>所以我们之前学 Product Media 时：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Media
++
+Variant
+</code></pre></div>
+<p>实际上已经开始接触这个数据模型。</p>
+<hr>
+<h2>十一、Product 和 Collection 的关系</h2>
+<p>这个也非常重要。</p>
+<p>很多初学者容易想成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+   │
+   └── Product
+</code></pre></div>
+<p>好像 Product 只能属于一个 Collection。</p>
+<p>实际上不是。</p>
+<p>一个 Product 可以属于多个 Collection：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+   │
+   ├── Running Shoes
+   ├── Nike
+   ├── Best Sellers
+   └── Men&#39;s Shoes
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+ ↕
+Collections
+</code></pre></div>
+<p>更接近：</p>
+<blockquote>
+<p><strong>多对多关系。</strong></p>
+</blockquote>
+<p>这也是为什么我们之前讲 Collection 时说：</p>
+<blockquote>
+<p>Collection 不是 Product 的父对象。</p>
+</blockquote>
+<hr>
+<h2>十二、Product 和 Metafield</h2>
+<p>再连接我们之前学过的 Metafield：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── title
+├── description
+├── vendor
+├── tags
+│
+└── metafields
+      ├── custom.material
+      ├── custom.origin
+      ├── custom.size_guide
+      └── custom.rating
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
++
+Metafield
+</code></pre></div>
+<p>可以扩展 Shopify 原生 Product 数据。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">custom.material = Cotton
+custom.origin = China
+</code></pre></div>
+<p>Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>liquid</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-liquid">{{ product.metafields.custom.material.value }}
+</code></pre></div>
+<hr>
+<h2>十三、Product / Variant / Metafield 的层级</h2>
+<p>现在非常值得记住：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── Product-level data
+│   ├── title
+│   ├── description
+│   ├── vendor
+│   └── ...
+│
+├── Product Metafields
+│   ├── material
+│   ├── origin
+│   └── ...
+│
+└── Variants
+    │
+    ├── Variant A
+    │   ├── price
+    │   ├── sku
+    │   └── ...
+    │
+    ├── Variant B
+    │   ├── price
+    │   ├── sku
+    │   └── ...
+    │
+    └── Variant C
+</code></pre></div>
+<p>这是后面学习 API 非常重要的基础。</p>
+<hr>
+<h2>十四、一个真实商品模型</h2>
+<p>假设我们有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product:
+Classic T-Shirt
+</code></pre></div>
+<p>数据：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Title:
+Classic T-Shirt
+
+Vendor:
+ABC Brand
+
+Type:
+T-Shirt
+
+Options:
+1. Color
+2. Size
+</code></pre></div>
+<p>Variant：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant 1
+Black / S
+SKU: TS-BLK-S
+Price: $29
+
+Variant 2
+Black / M
+SKU: TS-BLK-M
+Price: $29
+
+Variant 3
+White / S
+SKU: TS-WHT-S
+Price: $29
+
+Variant 4
+White / M
+SKU: TS-WHT-M
+Price: $31
+</code></pre></div>
+<p>你就会发现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+  ├── 产品描述
+  ├── 品牌
+  ├── 类型
+  ├── 图片
+  └── Variants
+        ├── SKU
+        ├── Price
+        └── Inventory
+</code></pre></div>
+<hr>
+<h2>十五、为什么 Variant 会影响前端这么多功能？</h2>
+<p>因为 Variant 是整个电商购买链路的核心。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   ▼
+用户选择 Option
+   │
+   ▼
+匹配 Variant
+   │
+   ├── Price
+   ├── Compare Price
+   ├── SKU
+   ├── Availability
+   ├── Media
+   └── Inventory
+   │
+   ▼
+Variant ID
+   │
+   ▼
+Cart
+   │
+   ▼
+Checkout
+   │
+   ▼
+Order
+</code></pre></div>
+<p>所以你以后看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+Variant
+Cart
+Order
+Inventory
+</code></pre></div>
+<p>千万不要把它们当成孤立的数据。</p>
+<p>它们是一条链。</p>
+<hr>
+<h2>十六、最重要的概念：购买单位</h2>
+<p>我们可以用一个非常简单的问题判断 Product 和 Variant：</p>
+<blockquote>
+<p><strong>客户最终买的到底是什么？</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">客户：
+我要买 Nike Air Max
+</code></pre></div>
+<p>实际上系统需要知道：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Nike Air Max
+Color = Black
+Size = 9
+</code></pre></div>
+<p>于是系统找到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant ID = 987654
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant 987654
+Quantity = 1
+</code></pre></div>
+<p>进入 Cart。</p>
+<p>所以：</p>
+<blockquote>
+<p><strong>Variant 才是购物交易中的具体购买单位。</strong></p>
+</blockquote>
+<hr>
+<h2>十七、这和数据库设计很像</h2>
+<p>如果你有数据库经验，可以粗略理解：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">products
+────────────
+id
+title
+description
+vendor
+...
+
+        1
+        │
+        │
+        │ N
+
+product_variants
+────────────────
+id
+product_id
+sku
+price
+barcode
+...
+</code></pre></div>
+<p>关系：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">products
+   1
+   │
+   └────── N
+          variants
+</code></pre></div>
+<p>但是 Shopify 内部真实的数据模型远比这个复杂，尤其是 Inventory、Media、Metafield、Selling Plans 等，所以这里先用这个模型建立认知。</p>
+<hr>
+<h2>十八、为什么 Shopify API 用 GraphQL 后会感觉复杂？</h2>
+<p>因为你之后会看到类似：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>graphql</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-graphql">product(id: &quot;...&quot;) {
+  id
+  title
+
+  variants(first: 10) {
+    nodes {
+      id
+      title
+      price
+      sku
+    }
+  }
+}
+</code></pre></div>
+<p>这个时候你就不会觉得奇怪：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   │
+   └── variants
+           │
+           ├── Variant
+           ├── Variant
+           └── Variant
+</code></pre></div>
+<p>这就是我们现在建立的数据模型。</p>
+<hr>
+<h2>十九、GraphQL mental model</h2>
+<p>以后你学习 Shopify Admin GraphQL API 时：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>graphql</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-graphql">product {
+  title
+  variants {
+    nodes {
+      id
+      sku
+      price
+    }
+  }
+}
+</code></pre></div>
+<p>你应该脑子里马上出现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+│
+├── title
+│
+└── Variants
+     ├── id
+     ├── sku
+     └── price
+</code></pre></div>
+<p>而不是把 GraphQL 当成一堆陌生语法。</p>
+<hr>
+<h2>二十、今天先记住这张关系图</h2>
+<p>这是第 21 课最重要的一张图：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                         Product
+                            │
+          ┌─────────────────┼─────────────────┐
+          │                 │                 │
+          ▼                 ▼                 ▼
+      Product Data       Options            Media
+          │                 │
+          │                 ▼
+          │          Color / Size
+          │                 │
+          │                 ▼
+          │              Variants
+          │                 │
+          │       ┌─────────┼──────────┐
+          │       │         │          │
+          │       ▼         ▼          ▼
+          │     Price      SKU      Availability
+          │                            │
+          │                            ▼
+          │                        Inventory
+          │                            │
+          │                            ▼
+          │                         Location
+          │
+          ▼
+      Metafields
+</code></pre></div>
+<p>你现在可以把 Shopify 商品体系理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+  ↓
+“这是什么商品？”
+
+Variant
+  ↓
+“具体买哪一个规格？”
+
+Inventory
+  ↓
+“这个规格还有多少？”
+
+Location
+  ↓
+“库存在哪个仓库？”
+
+Cart
+  ↓
+“客户准备买什么？”
+
+Order
+  ↓
+“客户最终买了什么？”
+
+Fulfillment
+  ↓
+“这笔订单从哪里发货？”
+</code></pre></div>
+<p>这条链就是 Shopify Commerce 数据模型的主干。</p>
+<hr>
+<h3>下一课：第 22 课 —— Collection 数据模型</h3>
+<p>下一课我们会专门解决一个很容易被误解的问题：</p>
+<blockquote>
+<p><strong>Collection 到底是数据库里的什么东西？</strong></p>
+</blockquote>
+<p>会继续深入：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
+├── id
+├── title
+├── handle
+├── description
+├── image
+├── products
+├── sort order
+├── manual
+├── smart collection
+└── conditions
+</code></pre></div>
+<p>尤其会讲清楚：</p>
+<p><strong>Manual Collection 和 Smart Collection 到底有什么区别，以及 Shopify 是怎么根据条件自动把 Product 放进 Collection 的。</strong></p>
+<p>这会直接连接你前面学过的：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Collection
++
+Filter
++
+Sort
++
+Product
+</code></pre></div>
+<p>然后再进入 <strong>第 23 课 Inventory / Location</strong>，把库存模型真正搞明白。</p>
+<details class="dialogue-references dialogue-followups"><summary>原对话建议追问</summary><ul><li>第 23 课 Inventory / Location<small>Tell me about 第 23 课 Inventory / Location</small></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-21.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

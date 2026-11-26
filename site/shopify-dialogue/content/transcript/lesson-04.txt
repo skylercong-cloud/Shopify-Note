@@ -1,0 +1,1410 @@
+# 第 4 课：Shopify Theme 的真实运行机制
+
+## 我的提问 · 2026-09-15 Tue 21:41
+
+进入第4课
+
+## ChatGPT · 2026-09-15 Tue 21:41
+
+好，我们进入 **第 4 课：Theme、Liquid、JavaScript 到底是怎么运行的**。
+
+这一课开始真正进入 Shopify 前端开发。你已经有 2–3 年前端经验，所以我会尽量用你熟悉的 **浏览器、SSR、组件、HTTP、JS** 来解释，而不是把 Shopify 当成一个完全陌生的体系。
+
+---
+
+# 第 4 课：Shopify Theme 的真实运行机制
+
+## 一、先解决一个最核心的问题
+
+你以后开发 Shopify Theme，可能会看到：
+
+```text
+Liquid
+HTML
+CSS
+JavaScript
+JSON
+```
+
+第一反应可能是：
+
+> “这不就是前端吗？”
+
+**对，但它和 React/Vue 的运行方式完全不同。**
+
+你可以先记住：
+
+```text
+React/Vue
+
+服务器
+  ↓
+API / 数据
+  ↓
+浏览器
+  ↓
+React/Vue
+  ↓
+DOM
+```
+
+而 Shopify Theme 更接近：
+
+```text
+Shopify
+  ↓
+Liquid
+  ↓
+HTML
+  ↓
+浏览器
+  ↓
+JavaScript
+  ↓
+DOM 交互
+```
+
+也就是说：
+
+> **Liquid 主要负责“服务器端生成页面”，JavaScript 主要负责“浏览器端交互”。**
+
+这是今天最重要的知识。
+
+---
+
+# 二、如果你是 React 工程师，可以这样类比
+
+假设我们做一个商品详情页。
+
+React 可能写：
+
+```jsx
+function ProductPage({ product }) {
+  return (
+    <div>
+      <h1>{product.title}</h1>
+      <p>{product.description}</p>
+    </div>
+  )
+}
+```
+
+这里：
+
+```text
+product
+   ↓
+React
+   ↓
+HTML
+```
+
+Shopify Theme 则可能是：
+
+```liquid
+<div>
+  <h1>{{ product.title }}</h1>
+  <p>{{ product.description }}</p>
+</div>
+```
+
+这里：
+
+```text
+Shopify Product
+       ↓
+Liquid
+       ↓
+HTML
+```
+
+所以你可以暂时把：
+
+```liquid
+{{ product.title }}
+```
+
+理解成类似：
+
+```jsx
+{product.title}
+```
+
+但**不要把 Liquid 当成 React**。
+
+这是两个完全不同的东西。
+
+---
+
+# 三、Liquid 到底是什么？
+
+Liquid 是 Shopify 使用的模板语言。
+
+你可以把它理解成：
+
+> **“Shopify 服务端模板层”。**
+
+最简单的 Liquid：
+
+```liquid
+<h1>{{ product.title }}</h1>
+```
+
+如果商品叫：
+
+```text
+Classic T-Shirt
+```
+
+Shopify 在生成 HTML 时，会把它变成：
+
+```html
+<h1>Classic T-Shirt</h1>
+```
+
+浏览器最终看到的是：
+
+```html
+<h1>Classic T-Shirt</h1>
+```
+
+浏览器**不知道 Liquid 是什么**。
+
+这点非常重要。
+
+---
+
+# 四、浏览器不会执行 Liquid
+
+比如你写：
+
+```liquid
+<h1>{{ product.title }}</h1>
+```
+
+浏览器不会：
+
+```text
+解析 Liquid
+ ↓
+寻找 product
+ ↓
+读取 title
+```
+
+实际上是：
+
+```text
+Shopify Server
+     ↓
+解析 Liquid
+     ↓
+生成 HTML
+     ↓
+发送给浏览器
+     ↓
+Browser
+```
+
+所以：
+
+```text
+Liquid → Server
+JavaScript → Browser
+```
+
+这是 Shopify Theme 开发最重要的边界之一。
+
+---
+
+# 五、那 JavaScript 干什么？
+
+假设商品页面有：
+
+```text
+颜色：
+🔴 Red
+🔵 Blue
+
+尺码：
+S
+M
+L
+```
+
+用户点击：
+
+```text
+Blue
+```
+
+然后页面：
+
+```text
+价格
+库存
+图片
+Variant ID
+```
+
+发生变化。
+
+这种**浏览器交互**一般由 JavaScript 完成。
+
+例如：
+
+```javascript
+document.querySelectorAll('.color-option')
+```
+
+然后监听：
+
+```javascript
+button.addEventListener('click', ...)
+```
+
+所以可以简单理解：
+
+```text
+Liquid
+ ↓
+把“初始页面”渲染出来
+
+JavaScript
+ ↓
+让页面“动起来”
+```
+
+---
+
+# 六、一个非常经典的 Shopify 页面
+
+假设：
+
+```text
+Product
+Title: Classic T-Shirt
+Price: $29.99
+```
+
+Liquid：
+
+```liquid
+<h1>{{ product.title }}</h1>
+
+<div class="price">
+  {{ product.price | money }}
+</div>
+```
+
+Shopify 服务器处理：
+
+```text
+product.title
+     ↓
+Classic T-Shirt
+
+product.price
+     ↓
+2999
+```
+
+最终浏览器收到类似：
+
+```html
+<h1>Classic T-Shirt</h1>
+
+<div class="price">
+  $29.99
+</div>
+```
+
+然后 JavaScript 再接管交互。
+
+---
+
+# 七、Liquid 的三个核心语法
+
+你现在先掌握三个。
+
+## ① 输出变量
+
+```liquid
+{{ product.title }}
+```
+
+意思：
+
+> 把值输出到 HTML。
+
+例如：
+
+```liquid
+{{ product.vendor }}
+```
+
+---
+
+## ② 条件
+
+```liquid
+{% if product.available %}
+  <button>Add to cart</button>
+{% else %}
+  <button disabled>Sold out</button>
+{% endif %}
+```
+
+这里：
+
+```text
+{{ }}
+```
+
+主要用于：
+
+> 输出数据
+
+而：
+
+```text
+{% %}
+```
+
+主要用于：
+
+> 执行 Liquid 逻辑
+
+---
+
+## ③ 循环
+
+例如一个商品有多个 Variant：
+
+```liquid
+{% for variant in product.variants %}
+  <div>
+    {{ variant.title }}
+  </div>
+{% endfor %}
+```
+
+逻辑类似：
+
+```javascript
+product.variants.forEach(variant => {
+  ...
+})
+```
+
+但还是那句话：
+
+> **Liquid 不是 JavaScript。**
+
+只是语法上的某些思维方式类似。
+
+---
+
+# 八、Filter —— Liquid 一个非常重要的概念
+
+例如：
+
+```liquid
+{{ product.price | money }}
+```
+
+这里：
+
+```text
+product.price
+      ↓
+    money
+      ↓
+格式化价格
+```
+
+你可以把：
+
+```liquid
+{{ value | filter }}
+```
+
+暂时理解成：
+
+```javascript
+format(value)
+```
+
+例如：
+
+```liquid
+{{ product.title | upcase }}
+```
+
+可以把文字转换成大写。
+
+还有很多 Filter：
+
+```text
+money
+upcase
+downcase
+escape
+default
+image_url
+asset_url
+json
+```
+
+以后你会大量使用。
+
+---
+
+# 九、现在进入 Theme 的核心结构
+
+你前面已经知道：
+
+```text
+Theme
+```
+
+负责 Storefront 的 UI。
+
+但是一个 Theme 到底由什么组成？
+
+可以先建立这个结构：
+
+```text
+Theme
+│
+├── layout
+│
+├── templates
+│
+├── sections
+│
+├── snippets
+│
+├── assets
+│
+├── config
+│
+└── locales
+```
+
+今天我们重点理解前 5 个。
+
+---
+
+# 十、Layout —— 整个网站的“外壳”
+
+最重要的：
+
+```text
+layout/theme.liquid
+```
+
+你可以把它类比成 React：
+
+```jsx
+<App>
+  <Header />
+  {children}
+  <Footer />
+</App>
+```
+
+例如：
+
+```liquid
+<!doctype html>
+
+<html>
+<head>
+  ...
+</head>
+
+<body>
+
+  {% section 'header' %}
+
+  {{ content_for_layout }}
+
+  {% section 'footer' %}
+
+</body>
+</html>
+```
+
+这里最关键的是：
+
+```liquid
+{{ content_for_layout }}
+```
+
+你可以暂时理解成：
+
+```text
+当前页面内容
+```
+
+所以：
+
+```text
+theme.liquid
+      │
+      ├── Header
+      │
+      ├── 当前页面
+      │
+      └── Footer
+```
+
+---
+
+# 十一、Template —— “页面类型”
+
+假设用户访问：
+
+```text
+/products/shoes
+```
+
+Shopify 需要知道：
+
+> 这是一个什么类型的页面？
+
+可能是：
+
+```text
+Product
+Collection
+Cart
+Search
+Page
+Blog
+Article
+```
+
+于是就有：
+
+```text
+templates
+```
+
+例如：
+
+```text
+templates/
+├── product.json
+├── collection.json
+├── cart.json
+├── page.json
+└── index.json
+```
+
+你可以暂时理解成：
+
+> **Template = 页面类型。**
+
+类似你在前端项目里定义：
+
+```text
+ProductPage
+CollectionPage
+CartPage
+HomePage
+```
+
+但 Shopify 的机制更特殊。
+
+---
+
+# 十二、Section —— Shopify Theme 的“超级组件”
+
+这是你作为前端工程师必须重点理解的。
+
+```text
+sections
+```
+
+例如：
+
+```text
+sections/
+├── header.liquid
+├── footer.liquid
+├── product-main.liquid
+├── featured-products.liquid
+└── image-banner.liquid
+```
+
+Section 可以理解成：
+
+> **可以被商家在 Theme Editor 中配置的页面模块。**
+
+比如首页：
+
+```text
+Home
+│
+├── Announcement Bar
+├── Header
+├── Hero Banner
+├── Featured Products
+├── Image Banner
+├── Newsletter
+└── Footer
+```
+
+这些就非常适合做成：
+
+```text
+Section
+```
+
+---
+
+# 十三、为什么 Section 和 React Component 不完全一样？
+
+React：
+
+```jsx
+<HeroBanner
+  title="Summer Sale"
+  image="xxx.jpg"
+/>
+```
+
+Shopify Section 更强调：
+
+> **商家可以在后台 Theme Editor 自己配置。**
+
+例如：
+
+```text
+Hero Banner
+
+标题：
+[ Summer Sale ]
+
+按钮：
+[ Shop Now ]
+
+图片：
+[ xxx.jpg ]
+
+背景：
+[ xxx.jpg ]
+```
+
+所以 Section 本质上不仅是：
+
+```text
+UI Component
+```
+
+还包括：
+
+```text
+UI
++
+Schema
++
+Theme Editor 配置能力
+```
+
+---
+
+# 十四、Schema —— Section 为什么能被后台配置？
+
+这就是 Shopify Theme 一个非常关键的设计。
+
+一个 Section 可以定义：
+
+```liquid
+{% schema %}
+{
+  "name": "Hero Banner",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title"
+    }
+  ]
+}
+{% endschema %}
+```
+
+那么 Theme Editor 就可以出现：
+
+```text
+Hero Banner
+
+Title:
+[ Summer Sale          ]
+```
+
+商家修改：
+
+```text
+Summer Sale
+```
+
+Liquid 就可以读取：
+
+```liquid
+{{ section.settings.title }}
+```
+
+最终：
+
+```html
+<h1>Summer Sale</h1>
+```
+
+---
+
+# 十五、这其实是 Shopify Theme 最有意思的地方
+
+你作为 React 工程师可能习惯：
+
+```text
+开发者写代码
+      ↓
+Component Props
+      ↓
+Component
+```
+
+Shopify：
+
+```text
+开发者
+ ↓
+Section Schema
+ ↓
+Theme Editor
+ ↓
+商家配置
+ ↓
+Section Settings
+ ↓
+Liquid
+ ↓
+HTML
+```
+
+所以：
+
+> **Theme 开发不仅是在写页面，更是在设计“商家可以怎么配置页面”。**
+
+这是 Shopify 前端和普通网站前端一个非常大的区别。
+
+---
+
+# 十六、Snippet —— 小型可复用组件
+
+还有：
+
+```text
+snippets
+```
+
+例如：
+
+```text
+snippets/
+├── product-card.liquid
+├── price.liquid
+├── icon-cart.liquid
+└── button.liquid
+```
+
+它更接近：
+
+```text
+React Component
+```
+
+比如：
+
+```liquid
+{% render 'product-card', product: product %}
+```
+
+可以理解成：
+
+```jsx
+<ProductCard product={product} />
+```
+
+所以暂时记：
+
+```text
+Section
+= 页面级 / 可配置模块
+
+Snippet
+= 小型可复用 UI
+```
+
+---
+
+# 十七、把 Theme 文件结构串起来
+
+现在你应该能看到：
+
+```text
+Theme
+│
+├── layout
+│    └── theme.liquid
+│
+├── templates
+│    └── product.json
+│
+├── sections
+│    └── product-main.liquid
+│
+├── snippets
+│    └── product-card.liquid
+│
+├── assets
+│    ├── theme.css
+│    └── theme.js
+│
+└── config
+     └── settings_schema.json
+```
+
+可以这样理解：
+
+```text
+Layout
+ ↓
+整个网站外壳
+
+Template
+ ↓
+页面类型
+
+Section
+ ↓
+页面模块
+
+Snippet
+ ↓
+可复用小组件
+
+Asset
+ ↓
+CSS / JS / 图片等资源
+```
+
+---
+
+# 十八、现在讲一个非常关键的真实请求流程
+
+假设用户打开：
+
+```text
+/products/t-shirt
+```
+
+发生什么？
+
+### Step 1
+
+浏览器发送：
+
+```http
+GET /products/t-shirt
+```
+
+↓
+
+### Step 2
+
+Shopify 找到对应 Product。
+
+↓
+
+### Step 3
+
+Shopify 根据 Theme 和页面类型找到对应 Template。
+
+↓
+
+### Step 4
+
+Template 组合 Sections。
+
+↓
+
+### Step 5
+
+Liquid 读取 Shopify 数据。
+
+比如：
+
+```liquid
+{{ product.title }}
+{{ product.description }}
+{{ product.variants }}
+```
+
+↓
+
+### Step 6
+
+Shopify 服务器生成 HTML。
+
+↓
+
+### Step 7
+
+HTML 返回浏览器。
+
+↓
+
+### Step 8
+
+浏览器加载：
+
+```text
+CSS
+JavaScript
+Images
+```
+
+↓
+
+### Step 9
+
+JavaScript 开始处理用户交互。
+
+例如：
+
+```text
+Variant 选择
+Add to Cart
+Cart Drawer
+数量增加
+数量减少
+商品图片切换
+```
+
+---
+
+# 十九、你现在应该形成这个架构图
+
+```text
+                   Shopify
+                      │
+                      │
+                Shopify Data
+                      │
+                      ↓
+                  Liquid
+                      │
+                      ↓
+                    HTML
+                      │
+                      ↓
+                  Browser
+                      │
+              ┌───────┴───────┐
+              ↓               ↓
+             CSS             JS
+              │               │
+              └───────┬───────┘
+                      ↓
+                    DOM
+                      ↓
+                   用户交互
+```
+
+这就是 Shopify Theme 最核心的运行模型。
+
+---
+
+# 二十、那么 AJAX Cart 是怎么回事？
+
+现在我们进入 Shopify 前端开发非常重要的一部分。
+
+假设用户点击：
+
+```text
+Add to Cart
+```
+
+你当然不希望：
+
+```text
+点击
+ ↓
+整个页面刷新
+ ↓
+Cart 页面
+```
+
+现代 Shopify Theme 通常会通过浏览器 JS 请求 Cart API。
+
+概念上：
+
+```text
+User
+ ↓
+Click Add to Cart
+ ↓
+JavaScript
+ ↓
+Shopify Cart API
+ ↓
+Cart 更新
+ ↓
+返回 JSON
+ ↓
+JavaScript 更新 DOM
+ ↓
+Cart Drawer 打开
+```
+
+例如概念代码：
+
+```javascript
+fetch('/cart/add.js', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    items: [
+      {
+        id: variantId,
+        quantity: 1
+      }
+    ]
+  })
+})
+```
+
+注意这里：
+
+```text
+variantId
+```
+
+还记得第 3 课吗？
+
+**购物车添加的是 Variant，而不是简单的 Product。**
+
+这就是为什么第 3 课的数据模型非常重要。
+
+---
+
+# 二十一、所以 Shopify Theme 实际上是“两套世界”
+
+这一点你一定要建立起来。
+
+### 服务端世界
+
+```text
+Shopify
+ ↓
+Liquid
+ ↓
+HTML
+```
+
+负责：
+
+- 页面初始渲染
+- Shopify 数据展示
+- SEO
+- 模板
+- Section
+- Theme Editor
+
+---
+
+### 浏览器世界
+
+```text
+Browser
+ ↓
+JavaScript
+ ↓
+Shopify APIs
+ ↓
+DOM
+```
+
+负责：
+
+- 点击
+- 弹窗
+- Variant 切换
+- Add to Cart
+- Cart Drawer
+- Ajax
+- 动态更新
+- 页面交互
+
+---
+
+# 二十二、一个真实的 Product Page 会是什么样？
+
+最终你可以把它想成：
+
+```text
+                    Product Page
+                         │
+             ┌───────────┴───────────┐
+             ↓                       ↓
+          Liquid                    JS
+             │                       │
+       初始页面渲染                动态交互
+             │                       │
+       ┌─────┼─────┐           ┌─────┼─────┐
+       ↓     ↓     ↓           ↓     ↓     ↓
+     Title  Price  Image     Variant  Cart  Gallery
+```
+
+所以：
+
+> **Liquid 不是用来替代 JavaScript 的。**
+
+它们是两个不同阶段。
+
+---
+
+# 二十三、作为前端工程师，最容易踩的 3 个坑
+
+### 坑 1：把 Liquid 当 JavaScript
+
+错误思维：
+
+> “我能不能在 Liquid 里面做浏览器交互？”
+
+不能这样理解。
+
+Liquid：
+
+```text
+服务器渲染阶段
+```
+
+JS：
+
+```text
+浏览器运行阶段
+```
+
+---
+
+### 坑 2：以为 Shopify Theme 就是传统 SSR React
+
+也不能完全这么理解。
+
+Shopify Theme 是 Shopify 自己的一套：
+
+```text
+Template
++
+Liquid
++
+Section
++
+Snippet
++
+Schema
++
+Theme Editor
+```
+
+生态。
+
+---
+
+### 坑 3：所有东西都用 JavaScript 做
+
+例如商品标题：
+
+```javascript
+fetch(...)
+```
+
+然后 JS 再渲染：
+
+```text
+Product title
+```
+
+通常没有必要。
+
+如果 Shopify Liquid 已经能直接得到：
+
+```liquid
+{{ product.title }}
+```
+
+就应该优先利用 Theme 的服务器渲染能力。
+
+---
+
+# 二十四、今天真正需要掌握的东西
+
+如果这一课结束后你能理解下面这张表，就已经非常不错了：
+
+| 东西 | 作用 |
+|---|---|
+| **Liquid** | Shopify 模板语言 |
+| **HTML** | 页面结构 |
+| **CSS** | 样式 |
+| **JavaScript** | 浏览器交互 |
+| **Layout** | 整个网站外壳 |
+| **Template** | 页面类型 |
+| **Section** | 可配置页面模块 |
+| **Schema** | 定义 Section 如何配置 |
+| **Snippet** | 可复用小组件 |
+| **Asset** | CSS/JS/图片等资源 |
+| **Cart API** | 浏览器操作购物车 |
+
+---
+
+# 🧠 Teach Me 第 4 课测验
+
+这次我不要求你背语法，而是检查你有没有真正理解**运行机制**。
+
+### 题 1
+
+下面这段：
+
+```liquid
+<h1>{{ product.title }}</h1>
+```
+
+是谁执行的？
+
+**A. 浏览器 JavaScript**
+
+**B. Shopify / Liquid**
+
+**C. React**
+
+为什么？
+
+---
+
+### 题 2
+
+用户点击：
+
+```text
+Add to Cart
+```
+
+你希望**不刷新整个页面**，直接打开 Cart Drawer。
+
+那么这个过程应该主要由谁负责？
+
+```text
+Liquid
+还是
+JavaScript？
+```
+
+为什么？
+
+---
+
+### 题 3
+
+请解释下面四者的区别：
+
+```text
+Layout
+Template
+Section
+Snippet
+```
+
+不用专业术语，用你自己的话解释就行。
+
+---
+
+### 题 4 ⭐
+
+假设 PM 提出：
+
+> “首页做一个 Banner，运营人员以后可以在 Shopify 后台修改标题、图片和按钮文字，不需要开发人员改代码。”
+
+你会怎么设计？
+
+提示：
+
+```text
+Section
+？
+Schema
+？
+Liquid
+？
+Theme Editor
+？
+```
+
+---
+
+### 题 5 ⭐⭐
+
+最后一个真实工程场景：
+
+用户打开：
+
+```text
+/products/t-shirt
+```
+
+然后选择：
+
+```text
+Blue / M
+```
+
+页面价格变成 `$39.99`，接着点击：
+
+```text
+Add to Cart
+```
+
+Cart Drawer 出现商品。
+
+请你尝试描述整个过程：
+
+```text
+浏览器请求商品页
+        ↓
+？
+        ↓
+？
+        ↓
+用户选择 Variant
+        ↓
+？
+        ↓
+Add to Cart
+        ↓
+？
+        ↓
+Cart Drawer
+```
+
+**不用担心答错。**
+
+这道题的目的，是检查你是否已经把 **第 3 课的数据模型 + 第 4 课的 Theme 运行机制** 串起来。
+
+你答完后，我会根据你的答案决定是直接进入 **第 5 课：Shopify Theme 开发模式与项目结构**，还是针对你没真正理解的部分补一层。

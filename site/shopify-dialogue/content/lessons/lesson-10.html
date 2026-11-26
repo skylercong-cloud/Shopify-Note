@@ -1,0 +1,1345 @@
+<h1>第 10 课：Shopify Cart API 全家桶</h1>
+<section class="dialogue-turn" aria-label="开课问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的提问</strong><time datetime="2026-09-19T20:55:00+08:00">09-19 20:55</time></div><p>继续</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T20:55:00+08:00">09-19 20:55</time></div>
+<p>好，我们继续。今天进入 <strong>第 10 课：Cart API 全家桶</strong>。</p>
+<p>这一课非常重要，因为前面我们已经分别学了：</p>
+<blockquote>
+<p>Product → Variant → Add to Cart → Cart Drawer</p>
+</blockquote>
+<p>现在把它们真正串起来。</p>
+<hr>
+<p>先建立一个整体认识：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">用户操作
+   ↓
+JavaScript
+   ↓
+Shopify Ajax Cart API
+   ↓
+Shopify Cart
+   ↓
+Section Rendering
+   ↓
+重新生成 Liquid HTML
+   ↓
+更新 DOM
+</code></pre></div>
+<p>Shopify 当前的 Theme Ajax API 提供了购物车相关接口，包括添加、修改、更新、清空等操作。它主要用于 Shopify Hosted Theme，而不是 Headless Custom Storefront。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a><a href="https://shopify.dev/docs/api/ajax?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="About the Shopify Ajax API" aria-label="About the Shopify Ajax API">Shopify</a></span></p>
+<hr>
+<h2>一、先认识 5 个核心 API</h2>
+<p>我们先记住：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>API</th>
+<th>用途</th>
+</tr>
+</thead><tbody><tr>
+<td><code>GET /cart.js</code></td>
+<td>获取当前购物车</td>
+</tr>
+<tr>
+<td><code>POST /cart/add.js</code></td>
+<td>添加商品</td>
+</tr>
+<tr>
+<td><code>POST /cart/change.js</code></td>
+<td>修改已有 Cart Line</td>
+</tr>
+<tr>
+<td><code>POST /cart/update.js</code></td>
+<td>批量更新购物车</td>
+</tr>
+<tr>
+<td><code>POST /cart/clear.js</code></td>
+<td>清空购物车</td>
+</tr>
+</tbody></table></div>
+<p>官方当前文档也是按照这个模型设计的。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>二、<code>GET /cart.js</code></h2>
+<p>这是最简单的。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const response = await fetch(
+  window.Shopify.routes.root + &#39;cart.js&#39;
+);
+
+const cart = await response.json();
+
+console.log(cart);
+</code></pre></div>
+<p>返回的核心数据可以理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  item_count: 3,
+
+  total_price: 5999,
+
+  items: [
+    {
+      id: 123456,
+      variant_id: 123456,
+      quantity: 2,
+      product_title: &quot;Classic T-Shirt&quot;,
+      variant_title: &quot;Black / M&quot;,
+      price: 2999
+    }
+  ]
+}
+</code></pre></div>
+<p>实际返回字段比这个丰富得多。</p>
+<hr>
+<h2>三、为什么需要 <code>/cart.js</code>？</h2>
+<p>比如用户刚进入网站：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">页面加载
+   ↓
+GET /cart.js
+   ↓
+Shopify 返回购物车
+   ↓
+显示：
+购物车 3 件
+Subtotal $59.99
+</code></pre></div>
+<p>所以它很像 React 里面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const [cart, setCart] = useState(null);
+
+useEffect(() =&gt; {
+  fetchCart().then(setCart);
+}, []);
+</code></pre></div>
+<p>也就是说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Cart ≈ 后端状态
+
+/cart.js ≈ 获取后端状态
+</code></pre></div>
+<hr>
+<h2>四、<code>POST /cart/add.js</code></h2>
+<p>前面我们已经用过。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function addToCart(variantId, quantity) {
+  const response = await fetch(
+    window.Shopify.routes.root + &#39;cart/add.js&#39;,
+    {
+      method: &#39;POST&#39;,
+      headers: {
+        &#39;Content-Type&#39;: &#39;application/json&#39;
+      },
+      body: JSON.stringify({
+        items: [
+          {
+            id: variantId,
+            quantity
+          }
+        ]
+      })
+    }
+  );
+
+  return response.json();
+}
+</code></pre></div>
+<p>调用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">await addToCart(123456, 1);
+</code></pre></div>
+<p>就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant 123456
+      +
+Quantity 1
+      ↓
+/cart/add.js
+      ↓
+Shopify Cart
+</code></pre></div>
+<p>官方文档目前支持一次添加一个或多个 variant。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  items: [
+    {
+      id: 123,
+      quantity: 2
+    },
+    {
+      id: 456,
+      quantity: 1
+    }
+  ]
+}
+</code></pre></div>
+<hr>
+<h2>五、<code>change.js</code></h2>
+<p>这个是购物车开发非常重要的 API。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
+Quantity: 2
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">+
+</code></pre></div>
+<p>变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Quantity: 3
+</code></pre></div>
+<p>可以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function changeQuantity(id, quantity) {
+  const response = await fetch(
+    window.Shopify.routes.root + &#39;cart/change.js&#39;,
+    {
+      method: &#39;POST&#39;,
+      headers: {
+        &#39;Content-Type&#39;: &#39;application/json&#39;
+      },
+      body: JSON.stringify({
+        id,
+        quantity
+      })
+    }
+  );
+
+  return response.json();
+}
+</code></pre></div>
+<p>调用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">await changeQuantity(
+  &#39;794864053:83503fd282b94a4737d2c95bd95db0b8&#39;,
+  3
+);
+</code></pre></div>
+<p>Shopify 当前文档允许使用 line item 的 <code>variant_id</code> 或 <code>key</code> 来识别要修改的 line；<code>change.js</code> 一次修改一个已有 line item。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>六、特别注意：Cart Line ≠ Variant</h2>
+<p>这里是 Shopify Theme 开发最容易混淆的地方之一。</p>
+<p>假设：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── T-Shirt
+
+Variant
+└── Black / M
+
+Cart
+└── Line Item
+    ├── Variant: Black / M
+    └── Quantity: 2
+</code></pre></div>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+   ↓
+Variant
+   ↓
+Cart Line
+</code></pre></div>
+<p>一个 Variant 在购物车中并不一定简单等于一个 Line。</p>
+<p>例如同一个 Variant 如果具有不同的：</p>
+<ul>
+<li>properties</li>
+<li>selling plan</li>
+<li>price 情况</li>
+</ul>
+<p>可能形成不同的 line item。Shopify 官方文档也明确说明，相同商品在这些条件不同的情况下可能拆成不同 line items。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>所以以后做 Cart Drawer：</p>
+<p><strong>不要简单地把 <code>variant_id</code> 当成整个 Cart Line 的唯一业务概念。</strong></p>
+<hr>
+<h2>七、<code>change.js</code> 删除商品</h2>
+<p>这个非常简单。</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">await changeQuantity(lineId, 0);
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">quantity = 0
+</code></pre></div>
+<p>代表删除这个 Cart Line。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>所以：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function removeItem(id) {
+  return changeQuantity(id, 0);
+}
+</code></pre></div>
+<hr>
+<h2>八、<code>update.js</code></h2>
+<p>这个和 <code>change.js</code> 有一个非常重要的区别。</p>
+<p><code>update.js</code> 更适合：</p>
+<blockquote>
+<p><strong>一次批量更新多个购物车项目，或者同时更新 note / attributes / discount 等购物车信息。</strong></p>
+</blockquote>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const updates = {
+  123456: 2,
+  789012: 1
+};
+
+const response = await fetch(
+  window.Shopify.routes.root + &#39;cart/update.js&#39;,
+  {
+    method: &#39;POST&#39;,
+    headers: {
+      &#39;Content-Type&#39;: &#39;application/json&#39;
+    },
+    body: JSON.stringify({
+      updates
+    })
+  }
+);
+
+const cart = await response.json();
+</code></pre></div>
+<p>也就是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant/Line Key A → 2
+Variant/Line Key B → 1
+</code></pre></div>
+<p>一次提交。</p>
+<p>Shopify 当前文档说明，<code>updates</code> 可以使用 line item&#39;s <code>variant_id</code> 或 <code>key</code> 作为 key；也可以使用数组按购物车 line 顺序更新。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>九、<code>change</code> 和 <code>update</code> 怎么选？</h2>
+<p>你可以先这样记：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">change.js
+↓
+我正在修改某一个已有 Cart Line
+
+update.js
+↓
+我正在批量更新 Cart
+</code></pre></div>
+<p>例如：</p>
+<h4>用户点击 <code>+</code></h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">change.js
+</code></pre></div>
+<h4>用户点击 <code>-</code></h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">change.js
+</code></pre></div>
+<h4>用户删除一个商品</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">change.js
+quantity = 0
+</code></pre></div>
+<h4>一次修改多个商品</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">update.js
+</code></pre></div>
+<h4>修改 Cart Note</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">update.js
+</code></pre></div>
+<h4>修改 Cart Attributes</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">update.js
+</code></pre></div>
+<h4>应用折扣</h4>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">update.js
+</code></pre></div>
+<p>这些用途都在 Shopify 当前 Ajax Cart API 文档中有对应说明。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>十、<code>clear.js</code></h2>
+<p>这个最简单：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function clearCart() {
+  const response = await fetch(
+    window.Shopify.routes.root + &#39;cart/clear.js&#39;,
+    {
+      method: &#39;POST&#39;
+    }
+  );
+
+  return response.json();
+}
+</code></pre></div>
+<p>执行：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">await clearCart();
+</code></pre></div>
+<p>结果：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+├── Item A
+├── Item B
+└── Item C
+
+        ↓ clear
+
+Cart
+└── Empty
+</code></pre></div>
+<p>官方文档说明，<code>clear.js</code> 会把所有 line item 数量设为 0，但不会删除 cart note 或 cart attributes。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<hr>
+<h2>十一、现在把整个购物车串起来</h2>
+<p>这才是今天最重要的部分。</p>
+<p>假设我们做一个：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product Page
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>完整流程：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">1. 用户选择 Color
+        ↓
+2. 用户选择 Size
+        ↓
+3. JS 找到 Variant
+        ↓
+4. 得到 Variant ID
+        ↓
+5. POST /cart/add.js
+        ↓
+6. Shopify 更新 Cart
+        ↓
+7. 返回 Cart / Sections
+        ↓
+8. 更新 Cart Drawer
+        ↓
+9. 更新 Cart Count
+</code></pre></div>
+<hr>
+<h2>十二、真正现代 Theme 的做法：Bundled Section Rendering</h2>
+<p>这里就是 Shopify Theme 开发非常关键的一招。</p>
+<p>以前你可能会这样：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">POST /cart/add.js
+
+        ↓
+
+GET /cart.js
+
+        ↓
+
+自己用 JS 拼 HTML
+
+        ↓
+
+innerHTML
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">drawer.innerHTML = `
+  &lt;div&gt;
+    ${cart.items[0].product_title}
+  &lt;/div&gt;
+`;
+</code></pre></div>
+<p>可以做。</p>
+<p>但是复杂 Theme 会越来越麻烦。</p>
+<hr>
+<h2>十三、让 Shopify 帮你重新渲染 Liquid</h2>
+<p>Shopify 当前 Cart API 支持 <strong>Bundled Section Rendering</strong>。</p>
+<p>也就是说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart API
++
+sections
+</code></pre></div>
+<p>可以一次操作 Cart，同时让 Shopify 重新渲染指定 Sections。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/use-section-rendering-api?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Use the Section Rendering API for dynamic updates" aria-label="Use the Section Rendering API for dynamic updates">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const response = await fetch(
+  window.Shopify.routes.root + &#39;cart/add.js&#39;,
+  {
+    method: &#39;POST&#39;,
+    headers: {
+      &#39;Content-Type&#39;: &#39;application/json&#39;
+    },
+    body: JSON.stringify({
+      items: [
+        {
+          id: variantId,
+          quantity: 1
+        }
+      ],
+      sections: [
+        &#39;cart-drawer&#39;,
+        &#39;cart-icon-bubble&#39;
+      ]
+    })
+  }
+);
+
+const data = await response.json();
+</code></pre></div>
+<p>返回结果大致可以理解为：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  item_count: 1,
+
+  total_price: 2999,
+
+  sections: {
+    &quot;cart-drawer&quot;: &quot;&lt;div&gt;...&lt;/div&gt;&quot;,
+    &quot;cart-icon-bubble&quot;: &quot;&lt;div&gt;...&lt;/div&gt;&quot;
+  }
+}
+</code></pre></div>
+<p>这意味着：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">JavaScript
+    ↓
+Cart API
+    ↓
+Shopify Cart
+    ↓
+Liquid
+    ↓
+重新渲染 Section
+    ↓
+HTML
+    ↓
+JavaScript
+    ↓
+替换 DOM
+</code></pre></div>
+<p>官方文档目前允许 Cart API 请求最多 5 个 sections，并将渲染后的 HTML 放在返回结果的 <code>sections</code> 中。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a><a href="https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Section Rendering API" aria-label="Section Rendering API">Shopify</a></span></p>
+<hr>
+<h2>十四、这其实就是 Shopify 版的 React Rendering</h2>
+<p>你作为前端开发，可以这样理解。</p>
+<p>React：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">API
+ ↓
+JSON
+ ↓
+setState()
+ ↓
+React Render
+ ↓
+DOM
+</code></pre></div>
+<p>Shopify Theme：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart API
+ ↓
+Cart
+ ↓
+Liquid Render
+ ↓
+HTML
+ ↓
+DOM
+</code></pre></div>
+<p>所以 Shopify Theme 不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid vs JavaScript
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Liquid
+负责服务器端 HTML
+
+JavaScript
+负责浏览器端交互
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Section Rendering
+</code></pre></div>
+<p>把两者重新连接起来。</p>
+<hr>
+<h2>十五、一个真实的 Cart Drawer 架构</h2>
+<p>我们现在可以把之前的 Cart Drawer 升级成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">sections/
+├── cart-drawer.liquid
+└── cart-icon-bubble.liquid
+
+snippets/
+└── cart-item.liquid
+
+assets/
+├── cart.js
+└── cart.css
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Shopify
+                       │
+                       │
+                   Cart API
+                       │
+                       ↓
+                ┌──────────────┐
+                │   Cart Data  │
+                └──────────────┘
+                       │
+                       ↓
+               Section Rendering
+                       │
+             ┌─────────┴─────────┐
+             ↓                   ↓
+       cart-drawer         cart-icon-bubble
+             │                   │
+             ↓                   ↓
+          HTML                  HTML
+             │                   │
+             └─────────┬─────────┘
+                       ↓
+                      DOM
+</code></pre></div>
+<p>这就是一个非常典型的 Shopify Theme Cart 架构。</p>
+<hr>
+<h2>十六、一个完整的 <code>addToCart</code></h2>
+<p>我们可以先写一个简化版：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function addToCart(variantId, quantity = 1) {
+  const response = await fetch(
+    window.Shopify.routes.root + &#39;cart/add.js&#39;,
+    {
+      method: &#39;POST&#39;,
+      headers: {
+        &#39;Content-Type&#39;: &#39;application/json&#39;
+      },
+      body: JSON.stringify({
+        items: [
+          {
+            id: variantId,
+            quantity
+          }
+        ],
+        sections: [
+          &#39;cart-drawer&#39;,
+          &#39;cart-icon-bubble&#39;
+        ]
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(&#39;Add to cart failed&#39;);
+  }
+
+  return response.json();
+}
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">try {
+  const data = await addToCart(variantId, 1);
+
+  console.log(data);
+
+  updateCartDrawer(data.sections);
+} catch (error) {
+  console.error(error);
+}
+</code></pre></div>
+<hr>
+<h2>十七、更新 Drawer</h2>
+<p>假设 HTML：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>html</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-html">&lt;div id=&quot;CartDrawer&quot;&gt;
+  ...
+&lt;/div&gt;
+</code></pre></div>
+<p>我们收到 Shopify 返回的 HTML：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">function updateCartDrawer(sections) {
+  const drawer = document.querySelector(&#39;#CartDrawer&#39;);
+
+  if (!drawer) return;
+
+  drawer.innerHTML = sections[&#39;cart-drawer&#39;];
+}
+</code></pre></div>
+<p>实际项目中会根据 Theme 的 section wrapper 结构做更严谨的替换，这里先理解架构。</p>
+<hr>
+<h2>十八、完整购物车交互</h2>
+<p>现在我们可以画出一个完整系统：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    Product Page
+                         │
+                    Variant Select
+                         │
+                         ↓
+                    Variant ID
+                         │
+                         ↓
+                   Add to Cart
+                         │
+                         ↓
+                   /cart/add.js
+                         │
+                         ↓
+                       Cart
+                         │
+              ┌──────────┴──────────┐
+              ↓                     ↓
+        cart-drawer          cart-icon-bubble
+              │                     │
+              └──────────┬──────────┘
+                         ↓
+                        DOM
+</code></pre></div>
+<p>用户打开 Cart Drawer：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">GET /cart.js
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">+
+ ↓
+change.js
+ ↓
+重新渲染
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">-
+ ↓
+change.js
+ ↓
+重新渲染
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Remove
+ ↓
+change.js
+quantity = 0
+ ↓
+重新渲染
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Clear Cart
+ ↓
+clear.js
+ ↓
+重新渲染
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Checkout
+ ↓
+Shopify Checkout
+</code></pre></div>
+<hr>
+<h2>十九、Loading 和 Error</h2>
+<p>真实项目不能只有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">fetch(...)
+</code></pre></div>
+<p>还需要：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">点击 +
+   ↓
+Button disabled
+   ↓
+Loading
+   ↓
+API
+   ↓
+成功 → 更新 UI
+   ↓
+失败 → Error
+   ↓
+恢复 Button
+</code></pre></div>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">async function changeQuantity(id, quantity) {
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      window.Shopify.routes.root + &#39;cart/change.js&#39;,
+      {
+        method: &#39;POST&#39;,
+        headers: {
+          &#39;Content-Type&#39;: &#39;application/json&#39;
+        },
+        body: JSON.stringify({
+          id,
+          quantity,
+          sections: [
+            &#39;cart-drawer&#39;,
+            &#39;cart-icon-bubble&#39;
+          ]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(&#39;Cart update failed&#39;);
+    }
+
+    const data = await response.json();
+
+    updateCartDrawer(data.sections);
+  } catch (error) {
+    showCartError(error);
+  } finally {
+    setLoading(false);
+  }
+}
+</code></pre></div>
+<p>这已经开始接近真正的生产级 Theme JS 了。</p>
+<hr>
+<h2>二十、还有一个非常重要的细节</h2>
+<p>你可能注意到了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">window.Shopify.routes.root
+</code></pre></div>
+<p>而不是永远写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">&#39;/cart/add.js&#39;
+</code></pre></div>
+<p>官方当前文档的 Ajax API 示例使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">window.Shopify.routes.root + &#39;cart/add.js&#39;
+</code></pre></div>
+<p>这是为了支持 Shopify 的 locale-aware URL。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>所以以后写 Theme JS，我建议你养成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">window.Shopify.routes.root + &#39;cart/...&#39;
+</code></pre></div>
+<p>这个习惯。</p>
+<hr>
+<h2>二十一、今天你真正应该记住的东西</h2>
+<p>不要死记大量代码。</p>
+<p>只记住这一张图：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                    CART API
+
+                      cart.js
+                         │
+                         ↓
+                      查看 Cart
+
+                      add.js
+                         │
+                         ↓
+                    添加 Variant
+
+                     change.js
+                         │
+                         ↓
+                  修改某个 Cart Line
+
+                     update.js
+                         │
+                         ↓
+                  批量更新 Cart
+
+                     clear.js
+                         │
+                         ↓
+                    清空 Cart
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart API
+   +
+Section Rendering
+   ↓
+Shopify 重新执行 Liquid
+   ↓
+返回 HTML
+   ↓
+JS 替换 DOM
+</code></pre></div>
+<hr>
+<h2>二十二、和 React 对照一下</h2>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>React</th>
+<th>Shopify Theme</th>
+</tr>
+</thead><tbody><tr>
+<td>API</td>
+<td>Ajax Cart API</td>
+</tr>
+<tr>
+<td>State</td>
+<td>Shopify Cart</td>
+</tr>
+<tr>
+<td><code>setState</code></td>
+<td>Cart API Mutation</td>
+</tr>
+<tr>
+<td>React Render</td>
+<td>Liquid Render</td>
+</tr>
+<tr>
+<td>Component</td>
+<td>Section / Snippet</td>
+</tr>
+<tr>
+<td>DOM</td>
+<td>HTML DOM</td>
+</tr>
+<tr>
+<td>Client interaction</td>
+<td>Theme JS</td>
+</tr>
+<tr>
+<td>Server data</td>
+<td>Shopify</td>
+</tr>
+<tr>
+<td>SSR</td>
+<td>Liquid</td>
+</tr>
+<tr>
+<td>Hydration</td>
+<td>没有 React 那种 Hydration</td>
+</tr>
+</tbody></table></div>
+<p>所以你可以把 Shopify Theme 理解成：</p>
+<blockquote>
+<p><strong>一个“Shopify Server Rendering + 原生 JavaScript + Shopify API”的电商前端体系。</strong></p>
+</blockquote>
+<p>而不是把它理解成：</p>
+<blockquote>
+<p>“写几个 Liquid 模板”。</p>
+</blockquote>
+<p>这两个理解方式，对以后做大型 Theme 的能力差距非常大。</p>
+<hr>
+<h2>🧪 第 10 课练习</h2>
+<p>现在轮到你动手。</p>
+<p>假设 Cart 里面有：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt / Black / M
+quantity: 2
+
+Shoes / White / 42
+quantity: 1
+</code></pre></div>
+<p>请你回答下面 5 个问题：</p>
+<h4>1</h4>
+<p>用户点击 T-Shirt 的 <code>+</code>：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">quantity 2 → 3
+</code></pre></div>
+<p>你应该使用：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">A. add.js
+B. change.js
+C. update.js
+D. clear.js
+</code></pre></div>
+<h4>2</h4>
+<p>用户点击 Shoes 的删除按钮，你会怎么调用 API？</p>
+<h4>3</h4>
+<p>现在用户一次性把：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt → 3
+Shoes → 2
+</code></pre></div>
+<p>一起提交，你更适合使用哪个 API？</p>
+<h4>4</h4>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Clear Cart
+</code></pre></div>
+<p>使用哪个 API？</p>
+<h4>5</h4>
+<p>如果你希望修改 Cart 后，同时让 Shopify 帮你重新生成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart Drawer
+Cart Icon Count
+</code></pre></div>
+<p>应该考虑什么机制？</p>
+<p>你先回答这 <strong>5 题</strong>，我来帮你批改，然后我们进入 <strong>第 11 课：Section Rendering API 实战——把 Cart Drawer 做成真正可用的组件</strong>。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Cart API reference</a></li></ul></details>
+</div></section>
+<h2 class="dialogue-followup-title">Section Rendering 与活动商品价格</h2>
+<section class="dialogue-turn" aria-label="后续问答"><div class="dialogue-question"><div class="dialogue-byline"><strong>我的追问</strong><time datetime="2026-09-19T21:03:00+08:00">09-19 21:03</time></div><p>我有2个问题：1.section rendering是在shopify服务端重新组装html并返给浏览器，它会导致浏览器整个页面的刷新吧。2.加购的时候只把变体id和数量作为参数的话，假设我正在开发某个活动页，想自定义某个产品的售价，这在加购的时候怎么实现呢</p>
+</div><div class="dialogue-answer"><div class="dialogue-byline"><strong>ChatGPT 讲解</strong><time datetime="2026-09-19T21:03:00+08:00">09-19 21:03</time></div>
+<p>这两个问题都问到了<strong>非常关键的地方</strong>。尤其第 2 个问题，实际上已经开始进入「Shopify 促销系统 / Functions / App」的范畴了。</p>
+<hr>
+<h3>1. Section Rendering 会不会导致整个页面刷新？</h3>
+<p><strong>不会。恰恰相反，它就是为了避免整个页面刷新。</strong></p>
+<p>你可以把它理解成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">传统页面刷新：
+
+浏览器
+  ↓
+请求整个页面
+  ↓
+Shopify Server
+  ↓
+Liquid 渲染整个页面
+  ↓
+返回完整 HTML
+  ↓
+浏览器重新加载整个页面
+</code></pre></div>
+<p>而 Section Rendering 是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器
+  ↓
+Ajax 请求
+  ↓
+Shopify Server
+  ↓
+只渲染指定 Section
+  ↓
+返回 Section HTML
+  ↓
+JavaScript 找到对应 DOM
+  ↓
+替换这一小块 DOM
+</code></pre></div>
+<p>官方文档明确说明，Section Rendering 可以通过 AJAX 请求指定 Sections，然后<strong>动态替换指定元素，而不会重新加载整个页面</strong>。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Section Rendering API" aria-label="Section Rendering API">Shopify</a><a href="https://shopify.dev/docs/storefronts/themes/best-practices/performance/use-section-rendering-api?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Use the Section Rendering API for dynamic updates" aria-label="Use the Section Rendering API for dynamic updates">Shopify</a></span></p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">const response = await fetch(
+  &#39;/?sections=cart-drawer,cart-icon-bubble&#39;
+);
+
+const sections = await response.json();
+</code></pre></div>
+<p>返回：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  &quot;cart-drawer&quot;: &quot;&lt;div&gt;...&lt;/div&gt;&quot;,
+  &quot;cart-icon-bubble&quot;: &quot;&lt;div&gt;...&lt;/div&gt;&quot;
+}
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">document.querySelector(&#39;#CartDrawer&#39;).innerHTML =
+  sections[&#39;cart-drawer&#39;];
+</code></pre></div>
+<p>整个页面：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Header       ← 不动
+Product      ← 不动
+Banner       ← 不动
+Cart Drawer  ← 更新
+Footer       ← 不动
+</code></pre></div>
+<p>所以你可以把它理解成：</p>
+<blockquote>
+<p><strong>Shopify Server 重新执行 Liquid，但是浏览器只替换你请求的那几个 Section，并不会刷新整个页面。</strong></p>
+</blockquote>
+<p>这其实是 Shopify Theme 很有意思的地方。</p>
+<hr>
+<h2>2. 活动页想让某个产品卖 $19.99，怎么办？</h2>
+<p>这个问题非常好，因为这里必须区分：</p>
+<blockquote>
+<p><strong>“前端显示一个价格”</strong></p>
+</blockquote>
+<p>和</p>
+<blockquote>
+<p><strong>“真正让客户以这个价格结账”</strong></p>
+</blockquote>
+<p>这是完全不同的两件事。</p>
+<hr>
+<h3>先看最重要的结论</h3>
+<p>假设 Shopify 后台：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Product
+└── T-Shirt
+    └── Variant
+        原价：$29.99
+</code></pre></div>
+<p>你的活动页想：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动价：$19.99
+</code></pre></div>
+<p>你不能简单地这样：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">fetch(&#39;/cart/add.js&#39;, {
+  body: JSON.stringify({
+    items: [
+      {
+        id: variantId,
+        quantity: 1,
+        price: 1999
+      }
+    ]
+  })
+});
+</code></pre></div>
+<p>因为 Shopify Ajax Cart API 的 <code>add.js</code> 核心参数是 Variant ID 和 quantity；它并没有给 Theme 前端一个“任意指定售价”的 <code>price</code> 参数。官方文档列出的添加参数包括 variant、quantity，以及 line item properties 等。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>而且这是<strong>必须限制的</strong>。</p>
+<p>否则任何用户打开 DevTools：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">price: 0.01
+</code></pre></div>
+<p>然后：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$29.99
+   ↓
+$0.01
+</code></pre></div>
+<p>那整个电商系统就失控了。</p>
+<p>所以：</p>
+<blockquote>
+<p><strong>不能相信浏览器传过来的“我要以多少钱购买”。</strong></p>
+</blockquote>
+<hr>
+<h2>那活动价应该怎么实现？</h2>
+<p>这就要看你的业务需求。</p>
+<p>实际上有几种完全不同的方案。</p>
+<hr>
+<h2>方案 A：Discount</h2>
+<p>这是最常见的活动方案。</p>
+<p>例如正常：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">T-Shirt
+$29.99
+</code></pre></div>
+<p>活动：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Summer Sale
+↓
+20% OFF
+↓
+$23.99
+</code></pre></div>
+<p>这种情况下你不是改变 Variant 原始价格：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant Price
+$29.99
+</code></pre></div>
+<p>而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Cart
+↓
+Discount
+↓
+-$6.00
+↓
+Final Price
+$23.99
+</code></pre></div>
+<p>这是一种非常标准的 Shopify 促销模型。</p>
+<hr>
+<h2>方案 B：Selling Plan</h2>
+<p>如果你的业务是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">一次购买：$29.99
+
+订阅购买：$19.99
+</code></pre></div>
+<p>那么可能会使用 Shopify 的 Selling Plan。</p>
+<p>例如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
+  ↓
+Selling Plan
+  ├── One-time $29.99
+  └── Subscribe $19.99
+</code></pre></div>
+<p>加购时：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  id: variantId,
+  quantity: 1,
+  selling_plan: sellingPlanId
+}
+</code></pre></div>
+<p>这个就不是简单修改价格，而是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant
++
+Selling Plan
+↓
+Shopify 根据 Selling Plan 计算价格
+</code></pre></div>
+<hr>
+<h2>方案 C：活动专用 Variant</h2>
+<p>这个方案在一些业务里也非常实用。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">普通商品
+Variant A
+$29.99
+</code></pre></div>
+<p>活动商品：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动 Variant B
+$19.99
+</code></pre></div>
+<p>活动页加购：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Variant B
+</code></pre></div>
+<p>于是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Activity Page
+      ↓
+Activity Variant
+      ↓
+Cart
+      ↓
+$19.99
+</code></pre></div>
+<p>这种情况下，<strong>真正进入 Cart 的就是一个价格为 $19.99 的 Variant</strong>。</p>
+<p>这在业务规则比较简单的时候很好理解。</p>
+<hr>
+<h2>方案 D：Shopify Functions</h2>
+<p>这就是你这个问题真正值得重点学习的地方。</p>
+<p>如果你的需求是：</p>
+<blockquote>
+<p>“这个活动页上的某个商品，满足某种活动条件后，在 Cart 中变成特殊价格。”</p>
+</blockquote>
+<p>那么你可能会进入：</p>
+<p><strong>Shopify Functions / Cart Transform / Discount Functions</strong></p>
+<p>这个层面。</p>
+<p>当前 Shopify 的 Cart Transform API 可以通过 Function 修改购物车商品的<strong>价格和展示方式</strong>；官方文档明确把“promotion / special offer / price changes”列为相关使用场景。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/functions/2026-01/cart-transform?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart Transform Function API" aria-label="Cart Transform Function API">Shopify</a><a href="https://shopify.dev/docs/api/functions/latest/cart-transform?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart Transform Function API" aria-label="Cart Transform Function API">Shopify</a></span></p>
+<p>例如你的业务规则：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">如果：
+customer 来自活动页
++
+product = T-Shirt
++
+campaign = SUMMER2026
+
+那么：
+T-Shirt
+$29.99
+↓
+$19.99
+</code></pre></div>
+<p>这里真正重要的是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器
+   ↓
+告诉 Shopify：
+“这是 SUMMER2026 活动”
+   ↓
+Shopify 后端规则
+   ↓
+判断是否符合活动
+   ↓
+修改最终价格
+</code></pre></div>
+<p>而不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器：
+“我要 $19.99”
+</code></pre></div>
+<p>后者是不安全的。</p>
+<hr>
+<h2>那活动页怎么告诉 Shopify“这是哪个活动”？</h2>
+<p>这就是你下一个应该掌握的知识点。</p>
+<p>比如：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">活动页
+/summer-sale
+</code></pre></div>
+<p>用户点击：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Add to Cart
+</code></pre></div>
+<p>你可以给 Line Item 增加一个 <strong>Line Item Property</strong>：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">{
+  items: [
+    {
+      id: variantId,
+      quantity: 1,
+
+      properties: {
+        &quot;_campaign&quot;: &quot;summer_sale&quot;
+      }
+    }
+  ]
+}
+</code></pre></div>
+<p>Shopify Ajax Cart API 支持在加购时传 <code>properties</code>。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>这里：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">_campaign
+</code></pre></div>
+<p>前面的 <code>_</code> 还有特殊意义——它可以作为 private line item property，在结账时对顾客隐藏，但在 Shopify Admin 的订单详情中仍然可见。<span class="dialogue-cites"><a href="https://shopify.dev/docs/api/ajax/reference/cart?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" class="dialogue-cite" title="Cart API reference" aria-label="Cart API reference">Shopify</a></span></p>
+<p>于是整个链路就可以变成：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                  活动页
+                    │
+                    │
+             variantId = 123
+             campaign = summer_sale
+                    │
+                    ↓
+              /cart/add.js
+                    │
+                    ↓
+                  Cart
+                    │
+             _campaign:
+             summer_sale
+                    │
+                    ↓
+            Shopify Functions
+                    │
+             判断活动规则
+                    │
+                    ↓
+             调整最终价格
+                    │
+                    ↓
+                 Checkout
+</code></pre></div>
+<p>这才是一个比较完整的“活动页 → 特殊价格”的架构。</p>
+<hr>
+<h2>但是这里有一个很重要的安全问题</h2>
+<p>假设你这么写：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">properties: {
+  &quot;_campaign&quot;: &quot;summer_sale&quot;
+}
+</code></pre></div>
+<p>然后服务器看到：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">_campaign = summer_sale
+</code></pre></div>
+<p>就直接给：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">$29.99 → $19.99
+</code></pre></div>
+<p>那用户可以直接在浏览器 Console：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>js</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-js">properties: {
+  &quot;_campaign&quot;: &quot;summer_sale&quot;
+}
+</code></pre></div>
+<p>自己构造请求。</p>
+<p>所以：</p>
+<blockquote>
+<p><strong>不能把“前端传来的 campaign”本身当成授权凭证。</strong></p>
+</blockquote>
+<p>真正生产系统应该让 Shopify 后端逻辑再判断：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">这个活动是否真实存在？
+活动是否正在进行？
+这个 Variant 是否参加活动？
+用户/市场是否符合条件？
+数量是否符合？
+活动价格是多少？
+</code></pre></div>
+<p>然后再决定价格。</p>
+<p>这也是为什么真正复杂的促销逻辑会逐渐从：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme JS
+</code></pre></div>
+<p>走向：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Functions / App
+</code></pre></div>
+<hr>
+<h2>你可以把这几个东西这样理解</h2>
+<p>这是非常重要的一张表：</p>
+<div class="dialogue-table-wrap" tabindex="0" role="region" aria-label="课程表格"><table><thead><tr>
+<th>需求</th>
+<th>常见方案</th>
+</tr>
+</thead><tbody><tr>
+<td>页面显示活动价</td>
+<td>Liquid / JS</td>
+</tr>
+<tr>
+<td>普通折扣</td>
+<td>Shopify Discount</td>
+</tr>
+<tr>
+<td>满减</td>
+<td>Discount / Functions</td>
+</tr>
+<tr>
+<td>买二送一</td>
+<td>Functions / Bundle 等</td>
+</tr>
+<tr>
+<td>订阅价格</td>
+<td>Selling Plan</td>
+</tr>
+<tr>
+<td>活动专用 SKU/价格</td>
+<td>专用 Variant</td>
+</tr>
+<tr>
+<td>复杂动态价格</td>
+<td>Shopify Functions</td>
+</tr>
+<tr>
+<td>根据活动规则修改 Cart 价格</td>
+<td>Functions</td>
+</tr>
+<tr>
+<td>外部系统决定价格</td>
+<td>App + Shopify 能力</td>
+</tr>
+</tbody></table></div>
+<hr>
+<h2>最关键的一句话</h2>
+<p>你问的这个问题，本质上是在问：</p>
+<blockquote>
+<p><strong>“Shopify 的价格到底由谁决定？”</strong></p>
+</blockquote>
+<p>答案不是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">浏览器 JS
+</code></pre></div>
+<p>而应该是：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">                Shopify
+                   │
+        ┌──────────┴──────────┐
+        ↓                     ↓
+     Variant               Promotion
+     原始价格                活动规则
+        │                     │
+        └──────────┬──────────┘
+                   ↓
+                  Cart
+                   ↓
+               Final Price
+                   ↓
+                Checkout
+</code></pre></div>
+<p><strong>浏览器可以展示价格、发起加购请求、携带活动上下文，但不能被当成可信的“最终价格来源”。</strong></p>
+<hr>
+<h3>这也解释了为什么 Shopify 架构要分层</h3>
+<p>我们前面一直在说：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+App
+Shopify Platform
+</code></pre></div>
+<p>现在你可以看到实际意义了：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Theme
+↓
+负责：
+页面
+按钮
+Variant 选择
+活动页 UI
+Add to Cart
+Cart Drawer
+</code></pre></div>
+<p>而：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">Shopify Platform / Functions / Discount
+↓
+负责：
+真正的价格
+折扣
+库存
+Checkout
+订单
+</code></pre></div>
+<p>所以一个“活动页卖特殊价格”的需求，<strong>不是单纯给 <code>/cart/add.js</code> 多传一个 <code>price</code> 参数就解决了。</strong></p>
+<p>这正是 Shopify Theme 开发和普通 React 电商前端非常大的区别。</p>
+<hr>
+<h4>你这两个问题其实刚好引出了下一课</h4>
+<p>下一课我们可以专门做一个非常实战的项目：</p>
+<p><strong>「活动页 → 特殊活动价 → Add to Cart → Cart Drawer → Checkout」</strong></p>
+<p>我会带你分别实现：</p>
+<div class="dil-code dialogue-code"><div class="dialogue-code-bar"><span>文本</span><button class="dil-copy" type="button">复制</button></div><pre><code class="language-text">① 活动页 Liquid
+② 活动商品展示
+③ Variant 选择
+④ 活动上下文传递
+⑤ Add to Cart
+⑥ Cart Drawer
+⑦ Section Rendering
+⑧ Discount / Functions 到底应该放在哪里
+⑨ 如何防止用户篡改活动价格
+</code></pre></div>
+<p>这样你会真正理解 <strong>Theme、Cart API、Discount、Functions、App 各自的边界</strong>。</p>
+<details class="dialogue-references"><summary>原对话参考资料</summary><ul><li><a href="https://shopify.dev/docs/api/ajax/section-rendering?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Section Rendering API</a></li></ul></details>
+</div></section>
+<p class="dialogue-export"><a href="content/transcript/lesson-10.txt" target="_blank" rel="noopener">查看本页对话原文</a></p>

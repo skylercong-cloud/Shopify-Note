@@ -1,0 +1,963 @@
+# 第 13 课：Shopify Collection 页面
+
+## 我的提问 · 2026-09-19 Sat 22:11
+
+开始吧
+
+## ChatGPT · 2026-09-19 Sat 22:11
+
+好，我们正式开始。
+
+# 第 13 课：Shopify Collection 页面
+
+这一课我们先解决一个核心问题：
+
+> **Shopify 的 Collection 页面到底是什么？它和 Product、Product Card、Theme Template、URL 是怎么连接起来的？**
+
+你学完之后，应该能自己从零写出一个基础的 Collection 商品列表。
+
+---
+
+# 1. 先建立整体模型
+
+假设你的商城有：
+
+```text
+/collections/shoes
+```
+
+用户打开这个 URL：
+
+```text
+浏览器
+   ↓
+/collections/shoes
+   ↓
+Shopify
+   ↓
+找到 shoes Collection
+   ↓
+Collection Template
+   ↓
+Liquid
+   ↓
+HTML
+   ↓
+浏览器
+```
+
+所以：
+
+> **Collection 页面本质上就是“把一个 Collection 对象渲染成一个商品列表页面”。**
+
+---
+
+# 2. Collection 到底是什么？
+
+假设 Shopify 后台有：
+
+```text
+Products
+
+Nike Air Max
+Adidas Ultraboost
+Nike Pegasus
+New Balance 530
+```
+
+然后你创建一个 Collection：
+
+```text
+Shoes
+```
+
+里面包含：
+
+```text
+Shoes
+├── Nike Air Max
+├── Adidas Ultraboost
+├── Nike Pegasus
+└── New Balance 530
+```
+
+所以：
+
+```text
+Collection
+    ↓
+Products
+```
+
+但是要注意：
+
+> **Collection 不是 Product 的父级。**
+
+一个 Product 可以属于多个 Collection。
+
+例如：
+
+```text
+Nike Air Max
+    │
+    ├── Shoes
+    ├── Nike
+    └── Running
+```
+
+这就是 Shopify 数据模型非常重要的一点。
+
+---
+
+# 3. Collection 页面对应哪个对象？
+
+在 Liquid 中：
+
+```liquid
+{{ collection.title }}
+```
+
+这里的：
+
+```text
+collection
+```
+
+就是当前页面对应的 Collection 对象。
+
+比如：
+
+```text
+/collections/shoes
+```
+
+Shopify 找到：
+
+```text
+Collection:
+title = Shoes
+handle = shoes
+```
+
+然后 Liquid 就可以访问：
+
+```liquid
+collection.title
+collection.handle
+collection.products
+collection.description
+```
+
+---
+
+# 4. 最重要的：collection.products
+
+Collection 页面最核心的东西：
+
+```liquid
+collection.products
+```
+
+它代表：
+
+> **当前 Collection 中的 Product 列表。**
+
+例如：
+
+```liquid
+{% for product in collection.products %}
+  <h2>{{ product.title }}</h2>
+{% endfor %}
+```
+
+假设 Collection 里面有：
+
+```text
+Nike Air Max
+Adidas Ultraboost
+Nike Pegasus
+```
+
+最终 HTML 大概就是：
+
+```html
+<h2>Nike Air Max</h2>
+<h2>Adidas Ultraboost</h2>
+<h2>Nike Pegasus</h2>
+```
+
+---
+
+# 5. 这和 React 很像
+
+你作为前端开发应该很好理解。
+
+React：
+
+```jsx
+function CollectionPage({ collection }) {
+  return (
+    <div>
+      <h1>{collection.title}</h1>
+
+      {collection.products.map(product => (
+        <ProductCard
+          key={product.id}
+          product={product}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+Shopify Liquid：
+
+```liquid
+<h1>{{ collection.title }}</h1>
+
+{% for product in collection.products %}
+  {% render 'product-card', product: product %}
+{% endfor %}
+```
+
+可以直接建立这个对应关系：
+
+```text
+React                     Shopify
+
+props.collection    →     collection
+array.map()         →     for
+ProductCard         →     snippet
+product.title       →     product.title
+component           →     snippet
+```
+
+---
+
+# 6. Product Card
+
+实际项目中，我们不会直接把商品 HTML 全写在 Collection 页面。
+
+通常会拆成：
+
+```text
+sections/
+    main-collection-product-grid.liquid
+
+snippets/
+    product-card.liquid
+```
+
+Collection：
+
+```liquid
+{% for product in collection.products %}
+  {% render 'product-card', product: product %}
+{% endfor %}
+```
+
+Product Card：
+
+```liquid
+<div class="product-card">
+
+  {% if product.featured_image %}
+    <img
+      src="{{ product.featured_image | image_url: width: 500 }}"
+      alt="{{ product.title | escape }}"
+    >
+  {% endif %}
+
+  <h3>
+    {{ product.title }}
+  </h3>
+
+  <p>
+    {{ product.price | money }}
+  </p>
+
+</div>
+```
+
+这就和 React：
+
+```text
+CollectionPage
+    ↓
+ProductCard
+```
+
+非常像。
+
+---
+
+# 7. 一个完整的 Collection Section
+
+我们先写一个最基础版本。
+
+```liquid
+<section class="collection">
+
+  <header class="collection-header">
+
+    <h1>
+      {{ collection.title }}
+    </h1>
+
+    {% if collection.description != blank %}
+      <div class="collection-description">
+        {{ collection.description }}
+      </div>
+    {% endif %}
+
+  </header>
+
+
+  <div class="product-grid">
+
+    {% for product in collection.products %}
+
+      {% render 'product-card', product: product %}
+
+    {% else %}
+
+      <p>No products found.</p>
+
+    {% endfor %}
+
+  </div>
+
+</section>
+```
+
+这里出现了一个非常值得注意的语法：
+
+```liquid
+{% for product in collection.products %}
+```
+
+后面可以接：
+
+```liquid
+{% else %}
+```
+
+也就是说：
+
+```text
+有商品
+ ↓
+for
+
+没有商品
+ ↓
+else
+```
+
+---
+
+# 8. Collection 页面有哪些重要属性？
+
+现在先记住这些：
+
+```text
+collection
+│
+├── id
+├── title
+├── handle
+├── description
+├── products
+├── image
+└── url
+```
+
+其中最重要的是：
+
+```text
+collection.title
+collection.description
+collection.products
+collection.url
+```
+
+---
+
+# 9. Collection URL
+
+例如：
+
+```text
+/collections/shoes
+```
+
+这个：
+
+```text
+shoes
+```
+
+就是 Collection 的 handle。
+
+所以：
+
+```liquid
+{{ collection.handle }}
+```
+
+得到：
+
+```text
+shoes
+```
+
+而：
+
+```liquid
+{{ collection.url }}
+```
+
+可以得到：
+
+```text
+/collections/shoes
+```
+
+---
+
+# 10. Collection 和 Template 的关系
+
+这是 Shopify Theme 结构里面非常重要的一层。
+
+例如：
+
+```text
+templates/
+    collection.json
+```
+
+这个 Template 负责：
+
+> **Collection 页面整体由哪些 Section 组成。**
+
+例如：
+
+```json
+{
+  "sections": {
+    "main": {
+      "type": "main-collection-product-grid"
+    }
+  },
+  "order": [
+    "main"
+  ]
+}
+```
+
+然后：
+
+```text
+/collections/shoes
+        ↓
+collection.json
+        ↓
+main-collection-product-grid
+        ↓
+collection
+        ↓
+collection.products
+        ↓
+Product Card
+```
+
+你应该把这条链记住。
+
+---
+
+# 11. Template 和 Section 再理解一次
+
+用 React 类比：
+
+```text
+collection.json
+        ↓
+页面结构 / 页面配置
+        ↓
+Section
+        ↓
+Component
+        ↓
+Snippet
+```
+
+更准确地说：
+
+```text
+collection.json
+    ↓
+Section composition
+    ↓
+main-collection-product-grid.liquid
+    ↓
+product-card.liquid
+```
+
+所以：
+
+> **Template 决定页面由哪些 Section 组成。**
+
+> **Section 负责页面模块。**
+
+> **Snippet 负责复用的小组件。**
+
+---
+
+# 12. 为什么 Shopify 要这么设计？
+
+因为商家可以在 Theme Editor 中调整：
+
+```text
+Collection Page
+
+┌────────────────────────────┐
+│ Collection Banner          │
+├────────────────────────────┤
+│ Collection Description     │
+├────────────────────────────┤
+│ Filter                     │
+├────────────────────────────┤
+│ Product Grid               │
+└────────────────────────────┘
+```
+
+而开发者可以把它们拆成：
+
+```text
+sections/
+├── collection-banner.liquid
+├── collection-description.liquid
+├── collection-filters.liquid
+└── main-collection-product-grid.liquid
+```
+
+这就是 Shopify Theme 的**模块化思想**。
+
+---
+
+# 13. Product Grid
+
+现在我们真正做一个商品网格：
+
+```liquid
+<div class="product-grid">
+
+  {% for product in collection.products %}
+
+    <article class="product-card">
+
+      <a href="{{ product.url }}">
+
+        {% if product.featured_image %}
+          <img
+            src="{{ product.featured_image | image_url: width: 500 }}"
+            alt="{{ product.title | escape }}"
+          >
+        {% endif %}
+
+        <h2>
+          {{ product.title }}
+        </h2>
+
+        <span>
+          {{ product.price | money }}
+        </span>
+
+      </a>
+
+    </article>
+
+  {% endfor %}
+
+</div>
+```
+
+浏览器最终看到的就是：
+
+```text
+┌────────────┐ ┌────────────┐ ┌────────────┐
+│   IMAGE    │ │   IMAGE    │ │   IMAGE    │
+│            │ │            │ │            │
+│ Nike Air   │ │ Adidas     │ │ Nike       │
+│ $99        │ │ $120       │ │ $89        │
+└────────────┘ └────────────┘ └────────────┘
+```
+
+---
+
+# 14. 但是这里有一个问题
+
+假设 Collection 有：
+
+```text
+500 个商品
+```
+
+你不能：
+
+```liquid
+{% for product in collection.products %}
+```
+
+然后一次性全部渲染。
+
+否则：
+
+```text
+500 Products
+    ↓
+500 Product Cards
+    ↓
+大量 HTML
+    ↓
+页面性能下降
+```
+
+所以 Shopify 有：
+
+# Pagination
+
+例如：
+
+```text
+Collection
+   ↓
+Products
+   ↓
+Pagination
+   ↓
+Page 1
+```
+
+---
+
+# 15. Shopify Pagination
+
+典型写法：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  <div class="product-grid">
+
+    {% for product in collection.products %}
+
+      {% render 'product-card', product: product %}
+
+    {% endfor %}
+
+  </div>
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+```
+
+意思是：
+
+```text
+collection.products
+        ↓
+每页 24 个
+        ↓
+Page 1
+Page 2
+Page 3
+...
+```
+
+例如：
+
+```text
+?page=2
+```
+
+Shopify 会处理对应页面的数据。
+
+---
+
+# 16. 这时候你应该看到一个非常重要的关系
+
+```text
+URL
+ ↓
+Collection
+ ↓
+Pagination
+ ↓
+Products
+ ↓
+Product Card
+```
+
+比如：
+
+```text
+/collections/shoes?page=2
+```
+
+可以理解成：
+
+```text
+Collection = shoes
+Page       = 2
+Products   = 第 2 页商品
+```
+
+这就是 Shopify Theme 非常典型的：
+
+> **URL 驱动页面状态**
+
+---
+
+# 17. 再加入排序
+
+Collection 页面经常有：
+
+```text
+Sort by:
+
+Featured
+Price: Low to High
+Price: High to Low
+Best Selling
+Newest
+```
+
+URL 可能变成：
+
+```text
+/collections/shoes?sort_by=price-ascending
+```
+
+所以整个页面实际上受到：
+
+```text
+Collection
++
+page
++
+sort_by
++
+filters
+```
+
+影响。
+
+最终我们会得到：
+
+```text
+/collections/shoes
+        │
+        ├── ?page=2
+        │
+        ├── ?sort_by=price-ascending
+        │
+        └── ?filter...
+```
+
+后面我们讲 **Filtering** 时会把这部分彻底串起来。
+
+---
+
+# 18. 现在建立 Collection 页面完整架构
+
+你现在可以先记这一张：
+
+```text
+                 URL
+                  │
+                  ↓
+        /collections/shoes
+                  │
+                  ↓
+          collection.json
+                  │
+                  ↓
+       Main Collection Section
+                  │
+          ┌───────┴────────┐
+          ↓                ↓
+    Collection Info    Product Grid
+          │                │
+          ↓                ↓
+ collection.title    collection.products
+                           │
+                           ↓
+                       Pagination
+                           │
+                           ↓
+                     Product Card
+                           │
+                  ┌────────┼────────┐
+                  ↓        ↓        ↓
+                Image    Title     Price
+```
+
+这就是今天最重要的一张图。
+
+---
+
+# 19. 和 React 再做一次映射
+
+你可以把整个 Collection 页面想成：
+
+```jsx
+function CollectionPage({ collection, searchParams }) {
+  const products = collection.products;
+
+  return (
+    <CollectionLayout>
+
+      <CollectionHeader
+        title={collection.title}
+        description={collection.description}
+      />
+
+      <ProductGrid>
+        {products.map(product => (
+          <ProductCard
+            key={product.id}
+            product={product}
+          />
+        ))}
+      </ProductGrid>
+
+    </CollectionLayout>
+  );
+}
+```
+
+而 Shopify：
+
+```liquid
+<h1>{{ collection.title }}</h1>
+
+{% paginate collection.products by 24 %}
+
+  <div class="product-grid">
+
+    {% for product in collection.products %}
+
+      {% render 'product-card', product: product %}
+
+    {% endfor %}
+
+  </div>
+
+  {{ paginate | default_pagination }}
+
+{% endpaginate %}
+```
+
+你会发现：
+
+**Shopify Liquid 并不难。**
+
+真正需要掌握的是：
+
+> **Shopify 给你的数据是什么，以及这些数据之间是什么关系。**
+
+这也是我们接下来为什么要同时学习 Shopify Data Model。
+
+---
+
+# 20. 今天你需要掌握的知识
+
+先不要急着学 Filter。
+
+今天把这几个东西吃透：
+
+```text
+① Collection 是什么
+
+② collection 对象是什么
+
+③ collection.products 是什么
+
+④ Product Card 为什么应该拆成 snippet
+
+⑤ Template / Section / Snippet 的关系
+
+⑥ Pagination 是什么
+
+⑦ Collection URL / handle
+
+⑧ page / sort_by 为什么会出现在 URL
+```
+
+---
+
+# 21. 给你一个小练习
+
+你可以自己写一个：
+
+```text
+/collections/shoes
+```
+
+要求：
+
+### 页面顶部
+
+```text
+Shoes
+All shoes for everyday use.
+```
+
+### 商品列表
+
+每个商品显示：
+
+```text
+商品图片
+商品标题
+商品价格
+View Product
+```
+
+### 商品数量
+
+每页：
+
+```text
+12 个
+```
+
+### 分页
+
+底部显示：
+
+```text
+Previous  1  2  3  Next
+```
+
+---
+
+## 推荐文件结构
+
+```text
+templates/
+└── collection.json
+
+sections/
+└── main-collection-product-grid.liquid
+
+snippets/
+└── product-card.liquid
+```
+
+你可以先自己尝试写。
+
+**下一步我可以直接带你做这个练习的完整实现，然后我们再进入第 14 课：Product Media。**

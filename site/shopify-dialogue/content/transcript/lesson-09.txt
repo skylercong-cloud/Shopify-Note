@@ -1,0 +1,1323 @@
+# 第 9 课：Cart Drawer 实战
+
+## 我的提问 · 2026-09-19 Sat 20:48
+
+继续
+
+## ChatGPT · 2026-09-19 Sat 20:48
+
+好，继续。
+
+# 第 9 课：Cart Drawer 实战
+
+这一课非常关键。前面我们已经完成了：
+
+```text
+Product
+  ↓
+Variant Selector
+  ↓
+Variant ID
+  ↓
+Add to Cart
+  ↓
+Cart
+```
+
+现在我们要把 **Cart** 真正做成用户看得到、操作得了的购物车弹窗：
+
+```text
+Add to Cart
+    ↓
+Cart 更新
+    ↓
+Cart Drawer 打开
+    ↓
+商品列表
+    ↓
+数量 +/-
+    ↓
+删除商品
+    ↓
+Subtotal
+    ↓
+Checkout
+```
+
+---
+
+# 一、先明确：Cart Drawer 到底是什么？
+
+假设用户点击：
+
+```text
+[ Add to Cart ]
+```
+
+右侧弹出：
+
+```text
+┌────────────────────────────┐
+│ Your Cart              ×   │
+├────────────────────────────┤
+│                            │
+│ 🖼  Classic T-Shirt        │
+│     Black / M              │
+│                            │
+│     $29.99                 │
+│     [-] 1 [+]       🗑     │
+│                            │
+│────────────────────────────│
+│                            │
+│ 🖼  Jeans                  │
+│     Blue / 32              │
+│                            │
+│     $59.99                 │
+│     [-] 2 [+]       🗑     │
+│                            │
+├────────────────────────────┤
+│ Subtotal          $149.97  │
+│                            │
+│ [ View Cart ]              │
+│ [ Checkout ]               │
+└────────────────────────────┘
+```
+
+这个东西通常是：
+
+> **Theme 自己实现的 UI。**
+
+Shopify 提供：
+
+```text
+Cart 数据
+Cart API
+Liquid
+Section Rendering
+```
+
+Theme 开发者负责：
+
+```text
+Drawer HTML
+CSS
+打开/关闭
+商品展示
+交互
+```
+
+---
+
+# 二、先从数据开始
+
+Shopify Liquid 中有：
+
+```liquid
+{{ cart }}
+```
+
+Cart 里面最重要的是：
+
+```liquid
+cart.items
+```
+
+例如：
+
+```liquid
+{% for item in cart.items %}
+
+  {{ item.product.title }}
+
+{% endfor %}
+```
+
+假设 Cart：
+
+```text
+T-Shirt × 1
+Jeans × 2
+```
+
+那么：
+
+```text
+cart.items
+```
+
+就是：
+
+```text
+[
+  T-Shirt Line Item,
+  Jeans Line Item
+]
+```
+
+---
+
+# 三、Cart Item 和 Product 不一样
+
+这里特别容易搞混。
+
+你之前学的是：
+
+```text
+Product
+Variant
+```
+
+现在又出现：
+
+```text
+Line Item
+```
+
+三者关系：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+Cart Line Item
+```
+
+例如：
+
+```text
+Product:
+Classic T-Shirt
+
+Variant:
+Black / M
+
+Cart Line Item:
+Black / M × 2
+```
+
+所以在 Cart 里：
+
+```liquid
+item.product
+```
+
+得到 Product。
+
+而：
+
+```liquid
+item.variant
+```
+
+得到当前购买的 Variant。
+
+---
+
+# 四、最基础的 Cart Drawer Liquid
+
+我们先写一个最简单版本。
+
+```liquid
+<div class="cart-drawer">
+
+  <div class="cart-drawer__header">
+    <h2>Your Cart</h2>
+
+    <button type="button">
+      ×
+    </button>
+  </div>
+
+  <div class="cart-drawer__items">
+
+    {% for item in cart.items %}
+
+      <div class="cart-item">
+
+        <div>
+          {{ item.product.title }}
+        </div>
+
+        <div>
+          {{ item.variant.title }}
+        </div>
+
+        <div>
+          {{ item.final_line_price | money }}
+        </div>
+
+      </div>
+
+    {% endfor %}
+
+  </div>
+
+</div>
+```
+
+现在我们已经可以把：
+
+```text
+Shopify Cart
+```
+
+渲染成：
+
+```text
+Cart Drawer
+```
+
+---
+
+# 五、为什么这里使用 `item.final_line_price`？
+
+因为 Cart Item 是：
+
+```text
+商品 × 数量
+```
+
+假设：
+
+```text
+T-Shirt
+单价 $30
+数量 2
+```
+
+那么：
+
+```text
+item.price
+```
+
+和：
+
+```text
+item.final_line_price
+```
+
+表达的意义并不一样。
+
+你在购物车 UI 中通常关心：
+
+> **这一行商品最终多少钱。**
+
+所以常见做法是使用 Line Item 对应的最终行价格。
+
+例如：
+
+```text
+T-Shirt × 2
+
+$60
+```
+
+而不是：
+
+```text
+$30
+```
+
+---
+
+# 六、购物车数量
+
+我们可以显示：
+
+```liquid
+{{ item.quantity }}
+```
+
+例如：
+
+```text
+T-Shirt
+Black / M
+
+[-] 2 [+]
+```
+
+Liquid：
+
+```liquid
+<button type="button">
+  -
+</button>
+
+<span>
+  {{ item.quantity }}
+</span>
+
+<button type="button">
+  +
+</button>
+```
+
+但是现在有一个问题：
+
+> 点击 `+` 以后，Shopify Cart 不会自动改变。
+
+因为 Liquid 只是：
+
+```text
+渲染
+```
+
+不是：
+
+```text
+实时交互
+```
+
+所以需要 JavaScript。
+
+---
+
+# 七、数量 + / - 的真正流程
+
+例如：
+
+```text
+当前：
+
+T-Shirt × 1
+```
+
+用户点击：
+
+```text
++
+```
+
+我们希望：
+
+```text
+T-Shirt × 2
+```
+
+流程：
+
+```text
+点击 +
+ ↓
+JavaScript
+ ↓
+告诉 Shopify：
+这个 Cart Item 改成 quantity = 2
+ ↓
+Shopify Cart 更新
+ ↓
+重新渲染 Cart Drawer
+ ↓
+UI 更新
+```
+
+这时候我们就需要：
+
+# `/cart/change.js`
+
+---
+
+# 八、`/cart/change.js`
+
+它的用途就是：
+
+> 修改 Cart 中某个商品的数量。
+
+概念：
+
+```javascript
+fetch('/cart/change.js', {
+  method: 'POST',
+  ...
+});
+```
+
+请求数据：
+
+```javascript
+{
+  line: 1,
+  quantity: 2
+}
+```
+
+意思：
+
+```text
+Cart 的第 1 个 Line
+数量修改为 2
+```
+
+不过真实开发时你需要非常注意：
+
+> **不要简单把 `line` 当成一个永久稳定的商品 ID。**
+
+Cart 的顺序、内容会变化，所以实现时应该根据 Shopify 当前 Cart 数据和主题架构来正确维护 line/item 标识。
+
+---
+
+# 九、例如点击 +
+
+```javascript
+async function changeQuantity(line, quantity) {
+
+  const response = await fetch('/cart/change.js', {
+    method: 'POST',
+
+    headers: {
+      'Content-Type': 'application/json'
+    },
+
+    body: JSON.stringify({
+      line,
+      quantity
+    })
+  });
+
+  const cart = await response.json();
+
+  console.log(cart);
+}
+```
+
+调用：
+
+```javascript
+changeQuantity(1, 2);
+```
+
+意思：
+
+```text
+第 1 个 Line
+数量变成 2
+```
+
+---
+
+# 十、删除商品其实也是 Change API
+
+这是 Shopify Cart 很漂亮的一点。
+
+删除：
+
+```text
+T-Shirt × 1
+```
+
+本质上就是：
+
+```text
+quantity = 0
+```
+
+所以：
+
+```javascript
+changeQuantity(1, 0);
+```
+
+就可以达到：
+
+```text
+Remove
+```
+
+效果。
+
+也就是说：
+
+```text
++      → quantity + 1
+-      → quantity - 1
+Remove → quantity = 0
+```
+
+统一都是：
+
+```text
+/cart/change.js
+```
+
+---
+
+# 十一、这时候 Cart Drawer 就有完整交互了
+
+```text
+Cart Drawer
+│
+├── Item 1
+│   ├── -
+│   ├── quantity
+│   ├── +
+│   └── Remove
+│
+├── Item 2
+│   ├── -
+│   ├── quantity
+│   ├── +
+│   └── Remove
+│
+└── Subtotal
+```
+
+点击：
+
+```text
++
+```
+
+↓
+
+```text
+/cart/change.js
+```
+
+点击：
+
+```text
+-
+```
+
+↓
+
+```text
+/cart/change.js
+```
+
+点击：
+
+```text
+Remove
+```
+
+↓
+
+```text
+/cart/change.js
+```
+
+---
+
+# 十二、但是这里又出现了一个问题
+
+假设：
+
+```text
+Cart Drawer
+
+T-Shirt × 1
+Subtotal $29.99
+```
+
+用户点击 `+`。
+
+如果我们只是：
+
+```javascript
+fetch('/cart/change.js')
+```
+
+Shopify 后台已经变成：
+
+```text
+T-Shirt × 2
+Subtotal $59.98
+```
+
+但是屏幕上可能还是：
+
+```text
+T-Shirt × 1
+Subtotal $29.99
+```
+
+所以：
+
+> **修改 Cart 只是第一步，UI 还需要重新渲染。**
+
+这就是：
+
+# Section Rendering API
+
+再次登场。
+
+---
+
+# 十三、Shopify Theme 的一个经典模式
+
+你以后看成熟 Shopify Theme 代码，经常会看到这种思想：
+
+```text
+User Action
+    ↓
+Cart API
+    ↓
+Shopify Cart
+    ↓
+Section Rendering
+    ↓
+HTML
+    ↓
+Replace DOM
+```
+
+例如：
+
+```text
+点击 +
+
+↓
+
+POST /cart/change.js
+
+↓
+
+Shopify Cart
+
+↓
+
+重新渲染：
+
+cart-drawer
+
+cart-icon-bubble
+
+cart-footer
+
+↓
+
+更新页面
+```
+
+---
+
+# 十四、为什么不用自己拼 HTML？
+
+假设 API 返回：
+
+```json
+{
+  "item_count": 2,
+  "total_price": 8998
+}
+```
+
+你当然可以：
+
+```javascript
+subtotalElement.textContent = '$89.98';
+```
+
+但是复杂一点：
+
+```text
+商品图片
+商品标题
+Variant
+折扣
+Properties
+价格
+数量
+删除按钮
+优惠信息
+空购物车状态
+推荐商品
+```
+
+你自己用 JS 拼 HTML 会越来越麻烦。
+
+Shopify Theme 更自然的方式是：
+
+```text
+Liquid
+负责 HTML
+```
+
+JavaScript：
+
+```text
+负责什么时候重新请求
+```
+
+所以：
+
+```text
+JS
+ ↓
+“Shopify，请把 cart-drawer 重新渲染给我”
+ ↓
+Shopify + Liquid
+ ↓
+HTML
+ ↓
+替换 Drawer
+```
+
+这就是 Shopify Theme 和 React 很有意思的一个区别。
+
+---
+
+# 十五、和 React 对比一下
+
+React：
+
+```text
+API
+ ↓
+JSON
+ ↓
+setState
+ ↓
+React
+ ↓
+Virtual DOM
+ ↓
+DOM
+```
+
+Shopify Theme：
+
+```text
+API
+ ↓
+Cart
+ ↓
+Liquid
+ ↓
+HTML
+ ↓
+DOM
+```
+
+所以你作为 React 开发者，可以这样理解：
+
+> **Shopify Section Rendering 有一点像“让服务器重新帮你 render 某个组件”。**
+
+例如：
+
+```text
+React：
+
+<CartDrawer cart={cart} />
+```
+
+Shopify：
+
+```text
+{% section 'cart-drawer' %}
+```
+
+然后服务器根据最新 Cart 重新生成这个 Section。
+
+---
+
+# 十六、Cart Drawer 的典型文件结构
+
+如果我们自己开发一个 Theme，大概可以这样组织：
+
+```text
+theme/
+│
+├── sections/
+│   └── cart-drawer.liquid
+│
+├── snippets/
+│   └── cart-drawer-item.liquid
+│
+└── assets/
+    ├── cart-drawer.css
+    └── cart-drawer.js
+```
+
+职责：
+
+### `cart-drawer.liquid`
+
+整个 Drawer：
+
+```text
+Header
+Items
+Footer
+Subtotal
+Checkout
+```
+
+### `cart-drawer-item.liquid`
+
+单个商品：
+
+```text
+Image
+Title
+Variant
+Price
+Quantity
+Remove
+```
+
+### `cart-drawer.js`
+
+处理：
+
+```text
+Open
+Close
++
+-
+Remove
+API
+Refresh
+```
+
+### `cart-drawer.css`
+
+负责：
+
+```text
+Drawer
+Animation
+Layout
+Responsive
+```
+
+这和 React 项目其实很像：
+
+```text
+CartDrawer/
+├── CartDrawer
+├── CartItem
+├── cart-drawer.js
+└── CSS
+```
+
+只是 Shopify Theme 使用：
+
+```text
+Liquid + JS
+```
+
+---
+
+# 十七、空购物车怎么办？
+
+这是必须处理的状态。
+
+如果：
+
+```liquid
+{% if cart.item_count == 0 %}
+```
+
+显示：
+
+```text
+Your cart is empty.
+
+[ Continue Shopping ]
+```
+
+否则：
+
+```liquid
+{% for item in cart.items %}
+```
+
+显示商品。
+
+所以：
+
+```text
+Cart Drawer
+│
+├── 有商品
+│   ├── Items
+│   ├── Subtotal
+│   └── Checkout
+│
+└── 空购物车
+    └── Empty State
+```
+
+这就是前端非常典型的：
+
+```text
+Loading
+Success
+Empty
+Error
+```
+
+状态思维。
+
+---
+
+# 十八、Checkout 按钮
+
+Cart Drawer 最后一般有：
+
+```liquid
+<button
+  type="submit"
+  name="checkout"
+>
+  Checkout
+</button>
+```
+
+或者通过 Cart Form / checkout action 进入 Checkout。
+
+关键是：
+
+> **你不是自己实现支付。**
+
+你只是：
+
+```text
+Cart
+ ↓
+Checkout
+```
+
+把用户交给 Shopify Checkout。
+
+---
+
+# 十九、整个 Cart Drawer 的生命周期
+
+现在把这一课全部串起来：
+
+```text
+用户点击 Add to Cart
+        ↓
+/cart/add.js
+        ↓
+Shopify Cart
+        ↓
+Cart Drawer 打开
+        ↓
+┌───────────────────────┐
+│       Cart Drawer     │
+│                       │
+│ Product × 1           │
+│                       │
+│ [-] 1 [+]             │
+│                       │
+│ Subtotal              │
+│                       │
+│ [Checkout]            │
+└───────────────────────┘
+        ↓
+用户点击 +
+        ↓
+/cart/change.js
+        ↓
+Cart 更新
+        ↓
+Section Rendering
+        ↓
+重新渲染 Cart Drawer
+        ↓
+用户看到 × 2
+```
+
+---
+
+# 二十、现在我们可以完整理解一个 Shopify Cart Drawer
+
+从技术层面：
+
+```text
+                 Cart Drawer
+                     │
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+      Liquid         JS          CSS
+        │            │
+        │            ↓
+        │        Cart API
+        │            │
+        │      ┌─────┴─────┐
+        │      ↓           ↓
+        │    add.js     change.js
+        │                  │
+        └────────┬─────────┘
+                 ↓
+             Shopify Cart
+                 ↓
+         Section Rendering
+                 ↓
+                HTML
+                 ↓
+                DOM
+```
+
+这就是你以后真正写 Theme 时需要掌握的架构。
+
+---
+
+# 二十一、一个非常重要的工程问题：Loading
+
+真实项目里，用户点击：
+
+```text
++
+```
+
+到 Shopify 返回结果之间存在网络延迟。
+
+所以不要让用户：
+
+```text
++ + + + + +
+```
+
+疯狂点击。
+
+通常需要：
+
+```text
+点击 +
+ ↓
+Button disabled
+ ↓
+Loading
+ ↓
+API
+ ↓
+更新 UI
+ ↓
+恢复
+```
+
+例如：
+
+```javascript
+button.disabled = true;
+
+try {
+  await changeQuantity(line, quantity);
+} finally {
+  button.disabled = false;
+}
+```
+
+这就是普通前端工程经验，在 Shopify Theme 里同样适用。
+
+---
+
+# 二十二、Error 也要处理
+
+比如：
+
+```text
+库存发生变化
+网络失败
+Variant 不可购买
+Cart 更新失败
+```
+
+不能默认：
+
+```javascript
+await fetch(...)
+```
+
+就一定成功。
+
+至少应该：
+
+```javascript
+if (!response.ok) {
+  // 显示错误
+}
+```
+
+例如：
+
+```text
+Unable to update cart.
+Please try again.
+```
+
+这也是 Shopify Theme 和普通前端工程一样需要考虑的地方。
+
+---
+
+# 二十三、现在回头看 Shopify 给了我们什么？
+
+你应该已经可以回答这个问题了。
+
+### Shopify 提供：
+
+```text
+Cart 数据模型
+Cart API
+Liquid Cart Object
+Section Rendering
+Checkout
+Order
+```
+
+### Theme 开发者负责：
+
+```text
+Cart Drawer UI
+Cart Item UI
+按钮交互
+动画
+Loading
+Error
+Responsive
+用户体验
+```
+
+所以：
+
+> **Shopify 不等于“所有 UI 都帮你做好”。**
+
+而是：
+
+> **Shopify 提供 Commerce Engine，Theme 负责 Storefront Experience。**
+
+这是 Shopify 开发最重要的思维之一。
+
+---
+
+# 二十四、这一阶段的完整知识图谱
+
+到现在为止，你已经学完：
+
+```text
+                    Shopify Storefront
+                           │
+                           ↓
+                       Product
+                           │
+                           ↓
+                       Variant
+                           │
+                           ↓
+                 Variant Selector
+                           │
+                           ↓
+                      Variant ID
+                           │
+                           ↓
+                     Add to Cart
+                           │
+                           ↓
+                     Shopify Cart
+                           │
+                ┌──────────┴──────────┐
+                ↓                     ↓
+          Cart Drawer              Cart Page
+                │
+        ┌───────┼────────┐
+        ↓       ↓        ↓
+      + / -   Remove   Subtotal
+        │       │        │
+        └───────┼────────┘
+                ↓
+             Checkout
+                ↓
+             Payment
+                ↓
+              Order
+```
+
+这已经是一个完整的 Shopify 基础购买链路了。
+
+---
+
+# 二十五、本课重点记 6 个东西
+
+如果今天内容比较多，你只记下面这些：
+
+### ① `cart.items`
+
+获取 Cart 中的商品 Line Items。
+
+### ② `item.product`
+
+当前 Line Item 对应的 Product。
+
+### ③ `item.variant`
+
+当前购买的 Variant。
+
+### ④ `/cart/change.js`
+
+修改 Cart Line 的数量。
+
+```text
+quantity > 0
+→ 修改数量
+
+quantity = 0
+→ 删除
+```
+
+### ⑤ Section Rendering
+
+```text
+Cart 更新
+ ↓
+重新渲染 Liquid Section
+ ↓
+更新 DOM
+```
+
+### ⑥ Checkout
+
+```text
+Cart
+ ↓
+Shopify Checkout
+```
+
+**不要自己重新开发支付系统。**
+
+---
+
+# 下一课：第 10 课——Cart API 全家桶
+
+下一课我们把 Cart API 系统性学完，而不是只学 `add.js` 和 `change.js`：
+
+```text
+/cart.js
+/cart/add.js
+/cart/change.js
+/cart/update.js
+/cart/clear.js
+```
+
+然后我们会做一个真正完整的：
+
+```text
+Mini Cart
++
+Cart Drawer
++
+Quantity +/- 
++
+Remove
++
+Subtotal
++
+Cart Count
++
+Empty State
++
+Loading
++
+Error
++
+Checkout
+```
+
+到第 10 课结束，你基本就可以自己从零实现一个**完整的 Shopify Theme 购物车系统**了。

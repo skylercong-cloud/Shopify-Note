@@ -1,0 +1,1082 @@
+# 第 3 课：Shopify 核心数据模型
+
+## 我的提问 · 2026-09-15 Tue 21:34
+
+进入第3课
+
+## ChatGPT · 2026-09-15 Tue 21:34
+
+好，我们正式进入 **第 3 课：Shopify 核心数据模型**。
+
+这一课非常重要。作为前端工程师，你可以把它理解成：
+
+> **上一课是在认识 Shopify 的“系统架构”，这一课开始认识 Shopify 的“数据结构”。**
+
+以后你开发商品详情页、购物车、搜索、会员中心、订单页，甚至 Shopify App，都会不断和这些对象打交道。
+
+---
+
+# 第 3 课：Shopify 核心数据模型
+
+## 一、先建立一张“数据库脑图”
+
+先不要急着记 API。
+
+把 Shopify 想象成一个电商数据库：
+
+```text
+Shop
+ │
+ ├── Products
+ │    │
+ │    ├── Product
+ │    │    ├── Variant
+ │    │    ├── Variant
+ │    │    └── Variant
+ │    │
+ │    └── Collection
+ │
+ ├── Customers
+ │
+ ├── Orders
+ │
+ ├── Pages
+ │
+ ├── Blogs
+ │
+ ├── Metafields
+ │
+ └── Metaobjects
+```
+
+同时，用户购物过程中还有另外一条非常重要的数据链：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+```
+
+**这两条线你一定要分清。**
+
+第一条主要是：
+
+> “商家有什么东西？”
+
+第二条主要是：
+
+> “用户买东西的过程是什么？”
+
+---
+
+# 二、Shop
+
+首先是整个 Shopify 商店：
+
+```text
+Shop
+```
+
+你可以简单理解成：
+
+> **一个 Shopify 店铺本身。**
+
+例如：
+
+```text
+my-shop.myshopify.com
+```
+
+这个 Shop 里面包含：
+
+```text
+Shop
+├── Products
+├── Collections
+├── Customers
+├── Orders
+├── Pages
+├── Blogs
+├── Themes
+├── Discounts
+├── Settings
+└── ...
+```
+
+所以以后你看到 Shopify API 中的：
+
+```graphql
+shop
+```
+
+不要把它理解成某个商品。
+
+它代表的是：
+
+> **当前 Shopify 商店本身。**
+
+---
+
+# 三、Product —— 商品
+
+这是 Shopify 最核心的数据模型之一。
+
+例如你的跨境电商卖一件：
+
+> Nike Air Max
+
+在 Shopify 中：
+
+```text
+Product
+├── title
+├── description
+├── images
+├── options
+├── variants
+├── vendor
+├── productType
+└── ...
+```
+
+例如：
+
+```json
+{
+  "title": "Nike Air Max",
+  "vendor": "Nike",
+  "productType": "Shoes"
+}
+```
+
+这里有一个非常重要的认知：
+
+> **Product ≠ 用户最终购买的具体商品规格**
+
+这也是 Shopify 新手最容易搞混的地方。
+
+---
+
+# 四、Product vs Variant —— Shopify 最重要的概念之一
+
+假设你卖一件 T 恤。
+
+商品：
+
+> Classic T-Shirt
+
+有：
+
+```text
+颜色：
+Black
+White
+
+尺码：
+S
+M
+L
+```
+
+那么实际上会产生：
+
+```text
+Product
+└── Classic T-Shirt
+
+    ├── Variant
+    │   ├── Black / S
+    │   ├── Black / M
+    │   ├── Black / L
+    │   ├── White / S
+    │   ├── White / M
+    │   └── White / L
+```
+
+也就是说：
+
+### Product
+
+描述的是：
+
+> “这是什么商品？”
+
+### Variant
+
+描述的是：
+
+> “这个商品具体是哪一种规格？”
+
+---
+
+## 用前端工程师熟悉的方式理解
+
+如果你以前开发过商品系统，可以把它近似理解成：
+
+```typescript
+interface Product {
+  id: string
+  title: string
+  description: string
+  images: Image[]
+  variants: Variant[]
+}
+```
+
+然后：
+
+```typescript
+interface Variant {
+  id: string
+  title: string
+  price: number
+  sku: string
+  inventoryQuantity: number
+}
+```
+
+例如：
+
+```javascript
+const product = {
+  title: "Classic T-Shirt",
+
+  variants: [
+    {
+      title: "Black / S",
+      price: 29.99
+    },
+    {
+      title: "Black / M",
+      price: 29.99
+    },
+    {
+      title: "White / S",
+      price: 29.99
+    }
+  ]
+}
+```
+
+这就是 Shopify 的一个核心思想：
+
+> **Product 是商品概念，Variant 是可以被购买的具体规格。**
+
+---
+
+# 五、为什么 Variant 非常重要？
+
+因为用户真正购买的通常不是：
+
+```text
+Classic T-Shirt
+```
+
+而是：
+
+```text
+Classic T-Shirt
+Black
+M
+```
+
+所以购物车里面通常最终记录的是：
+
+```text
+Variant ID
+```
+
+而不是简单的：
+
+```text
+Product ID
+```
+
+这会直接影响你以后开发：
+
+- 商品详情页
+- SKU
+- 库存
+- 加购物车
+- 快速购买
+- 商品选择器
+- 价格
+- 订单
+
+---
+
+# 六、Collection —— 商品集合
+
+接下来：
+
+```text
+Collection
+```
+
+你可以把它理解成：
+
+> **商品分类/商品集合。**
+
+例如：
+
+```text
+Collection
+├── Men's Shoes
+├── Women's Shoes
+├── New Arrivals
+├── Best Sellers
+└── Sale
+```
+
+一个 Product 可以属于多个 Collection。
+
+例如：
+
+```text
+Nike Air Max
+   │
+   ├── Men's Shoes
+   ├── Running Shoes
+   ├── New Arrivals
+   └── Best Sellers
+```
+
+所以不要简单理解成：
+
+```text
+Product → Collection
+```
+
+而应该理解成：
+
+```text
+Product ←→ Collection
+```
+
+---
+
+# 七、Customer —— 客户
+
+这个比较容易理解：
+
+```text
+Customer
+├── id
+├── firstName
+├── lastName
+├── email
+├── phone
+├── addresses
+└── ...
+```
+
+例如：
+
+```text
+Customer
+    ↓
+Skyler
+    ↓
+Email
+    ↓
+Address
+```
+
+它代表的是：
+
+> **购买/注册等相关的客户身份数据。**
+
+---
+
+# 八、Order —— 订单
+
+Order 是：
+
+> **已经形成的订单记录。**
+
+例如：
+
+```text
+Order #1001
+
+Customer
+  ↓
+Skyler
+
+Products
+  ↓
+Classic T-Shirt
+  ↓
+Black / M × 2
+
+Payment
+  ↓
+Paid
+
+Fulfillment
+  ↓
+Fulfilled
+```
+
+你可以简单理解：
+
+```text
+Customer
+    ↓
+Order
+    ↓
+Line Items
+    ↓
+Products / Variants
+```
+
+---
+
+# 九、Cart —— 购物车
+
+这里开始出现一个非常关键的区别。
+
+很多前端工程师第一次接触 Shopify 会把：
+
+```text
+Cart
+Order
+```
+
+混在一起。
+
+实际上它们完全不是一个东西。
+
+### Cart
+
+代表：
+
+> 用户“准备买什么”。
+
+### Order
+
+代表：
+
+> 用户“已经下单了什么”。
+
+例如：
+
+```text
+用户浏览商品
+
+      ↓
+
+选择 Black / M
+
+      ↓
+
+Add to Cart
+
+      ↓
+
+Cart
+├── T-Shirt Black / M × 2
+└── Shoes Size 10 × 1
+
+      ↓
+
+Checkout
+
+      ↓
+
+Payment
+
+      ↓
+
+Order
+```
+
+所以：
+
+```text
+Cart ≠ Order
+```
+
+这是必须记住的。
+
+---
+
+# 十、Checkout —— 结账
+
+Checkout 位于：
+
+```text
+Cart
+ ↓
+Checkout
+ ↓
+Order
+```
+
+用户：
+
+```text
+Add to Cart
+     ↓
+Cart
+     ↓
+Checkout
+     ↓
+填写地址
+     ↓
+选择配送
+     ↓
+支付
+     ↓
+Order
+```
+
+所以从业务流程看：
+
+```text
+Product
+   ↓
+Variant
+   ↓
+Cart
+   ↓
+Checkout
+   ↓
+Order
+```
+
+这是你以后做 Shopify 前端时非常重要的一条链。
+
+---
+
+# 十一、Page —— 页面
+
+Shopify 还有：
+
+```text
+Page
+```
+
+比如：
+
+```text
+About Us
+Contact Us
+Privacy Policy
+Terms of Service
+```
+
+这些不是商品。
+
+它们属于：
+
+```text
+Page
+```
+
+例如：
+
+```text
+/pages/about-us
+```
+
+---
+
+# 十二、Blog —— 博客
+
+Shopify 本身也支持内容系统。
+
+例如：
+
+```text
+Blog
+├── Article
+├── Article
+├── Article
+└── ...
+```
+
+比如：
+
+```text
+Blog
+  ↓
+Fashion Tips
+
+Articles
+  ↓
+How to choose running shoes
+How to wash sneakers
+Best shoes for summer
+```
+
+所以 Shopify 并不只是：
+
+> 商品 + 购物车
+
+它其实已经具备了一套基础的 Commerce + Content 能力。
+
+---
+
+# 十三、Metafield —— 自定义字段
+
+这是 Shopify 开发中**极其重要**的东西。
+
+假设 Shopify 默认 Product 没有：
+
+```text
+Material
+```
+
+但是你的业务需要：
+
+```text
+Material: 100% Cotton
+```
+
+你可以通过：
+
+```text
+Metafield
+```
+
+给 Product 增加自定义数据。
+
+于是：
+
+```text
+Product
+├── title
+├── description
+├── price
+├── variants
+└── metafields
+      ├── material
+      ├── washing_instruction
+      └── size_guide
+```
+
+例如：
+
+```text
+Product
+  ↓
+Metafield
+
+namespace: custom
+key: material
+value: 100% Cotton
+```
+
+然后 Theme 里面可以读取它。
+
+概念上类似：
+
+```liquid
+{{ product.metafields.custom.material }}
+```
+
+最终：
+
+```html
+100% Cotton
+```
+
+---
+
+# 十四、Metafield 和数据库字段的关系
+
+作为前端工程师，你可以暂时把它理解成：
+
+普通字段：
+
+```typescript
+product.title
+product.description
+```
+
+自定义字段：
+
+```typescript
+product.metafields.custom.material
+```
+
+也就是：
+
+```text
+Shopify 默认 Schema
+        +
+你的业务自定义 Schema
+```
+
+这也是 Shopify 非常强大的地方。
+
+你不需要为了增加一个：
+
+```text
+material
+```
+
+就自己搭数据库。
+
+---
+
+# 十五、Metaobject —— 比 Metafield 更进一步
+
+那么问题来了：
+
+如果你不是想增加一个字段，而是想创建一个完整的数据结构呢？
+
+比如：
+
+> Size Guide
+
+你可能需要：
+
+```text
+Size Guide
+├── Name
+├── Description
+├── Image
+├── Size S
+├── Size M
+├── Size L
+└── Size XL
+```
+
+或者：
+
+> Brand
+
+```text
+Brand
+├── Name
+├── Logo
+├── Description
+├── Website
+└── Social Links
+```
+
+这时候：
+
+```text
+Metaobject
+```
+
+就非常有用了。
+
+简单理解：
+
+### Metafield
+
+```text
+一个额外字段
+```
+
+例如：
+
+```text
+material = cotton
+```
+
+### Metaobject
+
+```text
+一整套自定义数据结构
+```
+
+例如：
+
+```text
+Brand
+├── name
+├── logo
+├── description
+└── website
+```
+
+可以简单记成：
+
+```text
+Metafield  = 自定义字段
+
+Metaobject = 自定义对象
+```
+
+---
+
+# 十六、把整个 Shopify 数据模型串起来
+
+现在我们把刚才学的全部东西放在一起。
+
+```text
+                         Shopify Shop
+                              │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+       Product             Customer            Content
+          │                   │                   │
+      ┌───┴───┐               │              ┌────┴────┐
+      │       │               │             Page      Blog
+   Variant Variant            │
+      │                       │
+      └──────────┐            │
+                 ↓            │
+                Cart          │
+                 ↓            │
+              Checkout        │
+                 ↓            │
+               Order ←────────┘
+```
+
+同时：
+
+```text
+Product
+   │
+   ├── Metafields
+   │
+   └── Metaobjects
+```
+
+---
+
+# 十七、作为前端工程师，你应该这样理解
+
+以后看到需求：
+
+### 需求 1
+
+> 商品详情页增加 Material 字段
+
+第一反应：
+
+```text
+Product
+ ↓
+Metafield
+ ↓
+Theme
+```
+
+---
+
+### 需求 2
+
+> 商品有红、蓝两个颜色，每个颜色库存不同
+
+第一反应：
+
+```text
+Product
+ ↓
+Variants
+```
+
+而不是创建两个 Product。
+
+---
+
+### 需求 3
+
+> 用户点击 Add to Cart
+
+第一反应：
+
+```text
+Variant
+ ↓
+Cart
+```
+
+---
+
+### 需求 4
+
+> 用户支付成功以后生成订单
+
+第一反应：
+
+```text
+Checkout
+ ↓
+Order
+```
+
+---
+
+### 需求 5
+
+> 做一个“品牌”数据管理系统
+
+可能是：
+
+```text
+Metaobject
+```
+
+---
+
+# 十八、这一课最重要的 8 个概念
+
+如果今天只能记住 8 个：
+
+| 概念 | 你应该怎么理解 |
+|---|---|
+| **Shop** | 整个 Shopify 商店 |
+| **Product** | 商品概念 |
+| **Variant** | 商品具体可购买规格 |
+| **Collection** | 商品集合/分类 |
+| **Customer** | 客户 |
+| **Cart** | 用户当前准备购买的商品 |
+| **Order** | 已经形成的订单 |
+| **Metafield** | 自定义字段 |
+
+再加两个进阶概念：
+
+```text
+Metaobject = 自定义结构化对象
+
+Checkout = 从购物车到订单之间的结账过程
+```
+
+---
+
+# 十九、给你一个非常重要的“工程师心智模型”
+
+以后你看到 Shopify 数据，可以先问自己：
+
+> **这是“商品本身的数据”，还是“用户购买过程的数据”？**
+
+如果是商品：
+
+```text
+Product
+  ↓
+Variant
+  ↓
+Collection
+  ↓
+Metafield
+  ↓
+Metaobject
+```
+
+如果是购买过程：
+
+```text
+Customer
+  ↓
+Cart
+  ↓
+Checkout
+  ↓
+Order
+```
+
+这个思维方式会让你后面学 Shopify API 容易很多。
+
+---
+
+# 🧠 Teach Me 小测验
+
+现在先**不要看上面的答案**，用你自己的话回答下面 5 个问题。
+
+### 1.
+
+如果一个商品：
+
+> T-Shirt
+
+有：
+
+```text
+Red / S
+Red / M
+Blue / S
+Blue / M
+```
+
+那么：
+
+**Product 和 Variant 应该分别是什么？**
+
+---
+
+### 2.
+
+为什么下面这个理解是错误的？
+
+> “用户加购了一个 Product，所以 Cart 里面保存 Product。”
+
+你认为更准确的关系是什么？
+
+---
+
+### 3.
+
+下面这个需求应该优先考虑什么？
+
+> PM：商品详情页增加一个“面料 Material”字段，而且后台运营可以编辑。
+
+你会选择：
+
+```text
+A. 修改 Product 数据库结构
+B. Metafield
+C. Collection
+D. Customer
+```
+
+---
+
+### 4.
+
+解释一下：
+
+```text
+Cart → Checkout → Order
+```
+
+分别代表什么阶段？
+
+---
+
+### 5. ⭐ 综合题
+
+假设你现在接到一个真实项目：
+
+> “做一个 Shopify 商品详情页。商品有颜色、尺码选择；不同规格有不同库存和价格；商品下面还要显示 Material 和 Size Guide。”
+
+你会如何拆解 Shopify 数据模型？
+
+可以按照这种格式回答：
+
+```text
+商品本身：
+？
+
+规格：
+？
+
+库存/价格：
+？
+
+Material：
+？
+
+Size Guide：
+？
+```
+
+**你直接回答这 5 题就行。**
+
+我会按照 Teach Me 的方式逐题批改：如果你某个概念已经真正理解了，就不再重复；如果有概念只是“看懂了但还没形成工程思维”，我会换一种方式重新讲。
+
+然后我们进入 **第 4 课：Theme、Liquid、JavaScript 到底是怎么运行的**。这一课会开始真正进入 Shopify 前端开发。
