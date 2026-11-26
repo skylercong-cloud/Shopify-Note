@@ -1,0 +1,1103 @@
+# 第 2 课：辅助技术与屏幕阅读器
+
+<row align="center">
+  <caption>阶段一：无障碍基础与底层原理</caption>
+  <spacer/>
+  <caption>2 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="7.69%" radius="full"/>
+</box>
+
+上一课我们了解了 ADA、WCAG、ARIA 和 A11y 的关系。
+
+这一课，我们暂时不深入具体的开发规范，而是站在残障用户的角度，了解他们究竟是如何使用网站的。
+
+只有理解用户的操作方式，才能理解为什么需要语义化标签、为什么需要管理焦点、为什么需要 `aria-label`、为什么 AJAX 更新页面后需要通知辅助技术。
+
+**本课学习目标：**
+
+- 了解常见的辅助技术（Assistive Technology）。
+- 理解屏幕阅读器的工作原理。
+- 掌握浏览模式、焦点模式和虚拟光标。
+- 理解屏幕阅读器的导航方式与普通键盘导航的区别。
+- 学会在 Windows 上使用 NVDA 测试网站。
+
+## 1. 什么是辅助技术？
+
+Assistive Technology，简称 AT，指帮助残障人士获取信息、操作设备和使用软件的硬件或软件。
+
+屏幕阅读器只是辅助技术中的一种。
+
+<box gap={4}>
+  <row align="start">
+    <AsyncImage query="blind person using computer headphones screen reader keyboard accessibility" aspectRatio="4:3" maxWidth="124px"/>
+    <box flex={1} gap={1}>
+      **屏幕阅读器（Screen Reader）**
+
+      将网页的文字、元素角色、状态等信息转换成语音或盲文输出。
+
+      <caption>常见软件：NVDA、JAWS、VoiceOver、TalkBack。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="Windows magnifier software low vision enlarged computer screen" aspectRatio="4:3" maxWidth="124px"/>
+    <box flex={1} gap={1}>
+      **屏幕放大器（Screen Magnifier）**
+
+      放大屏幕部分区域或整个页面，帮助低视力用户阅读内容。
+
+      <caption>开发重点：响应式布局、文字缩放、内容不被裁切。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="refreshable braille display tactile pins connected laptop assistive technology" aspectRatio="4:3" maxWidth="124px"/>
+    <box flex={1} gap={1}>
+      **可刷新盲文显示器（Braille Display）**
+
+      通过可升降的触点，将数字信息转换成用户能够触摸阅读的盲文。
+
+      <caption>开发重点：正确的文本信息和无障碍语义。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="Apple macOS voice control show numbers overlay interface accessibility" aspectRatio="4:3" maxWidth="124px"/>
+    <box flex={1} gap={1}>
+      **语音控制（Voice Control）**
+
+      用户通过语音命令操作页面，例如说出“Click Add to cart”。
+
+      <caption>开发重点：控件可访问名称与可见文字的一致性。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="adaptive accessibility switch button computer assistive technology disability" aspectRatio="4:3" maxWidth="124px"/>
+    <box flex={1} gap={1}>
+      **开关控制设备（Switch Device）**
+
+      用户通过一个或多个物理开关，依次选择并激活界面上的控件。
+
+      <caption>开发重点：合理的焦点顺序、避免依赖复杂手势。</caption>
+    </box>
+  </row>
+</box>
+
+这也说明了一个问题：**无障碍开发并不等于针对屏幕阅读器进行开发。**
+
+即使网站能够被屏幕阅读器正确识别，也可能存在颜色对比度、缩放、键盘操作等其他无障碍问题。
+
+## 2. 屏幕阅读器到底在读什么？
+
+很多前端开发者最初会认为，屏幕阅读器就是一个将网页文字转换成语音的软件。
+
+实际上，它需要获取的信息远比文字丰富。
+
+例如：
+
+```html
+<button type="button" disabled>
+  Add to cart
+</button>
+```
+
+屏幕阅读器可能会播报：
+
+> Add to cart, button, unavailable.
+
+即：添加到购物车，按钮，不可用。
+
+它不仅获取了文字，还获取了元素的类型和当前状态。
+
+<box border radius="lg" padding={4} gap={2}>
+  <box align="center" background="surface-tertiary" radius="md" padding={3}>
+    <caption>网页 HTML</caption>
+    <text weight="medium">button + disabled + Add to cart</text>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} gap={2}>
+    **浏览器 Accessibility Tree**
+    <divider/>
+    <row><caption>Role（角色）</caption><spacer/>`button`</row>
+    <row><caption>Name（名称）</caption><spacer/>`Add to cart`</row>
+    <row><caption>Disabled（禁用状态）</caption><spacer/>`true`</row>
+    <row><caption>Focusable（可聚焦）</caption><spacer/>`false`</row>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" align="center" padding={3}>
+    **操作系统 Accessibility API**
+    <caption>UI Automation、IAccessible2、AX API 等</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **屏幕阅读器**
+    <caption>NVDA / JAWS / VoiceOver</caption>
+  </box>
+  <grid columns={2}>
+    <grid-item>
+      <box align="center" gap={1}>
+        <icon name="arrow-down" color="secondary"/>
+        <icon name="volume-2" size="3xl"/>
+        **语音输出**
+      </box>
+    </grid-item>
+    <grid-item>
+      <box align="center" gap={1}>
+        <icon name="arrow-down" color="secondary"/>
+        <icon name="braille" size="3xl"/>
+        **盲文输出**
+      </box>
+    </grid-item>
+  </grid>
+</box>
+
+对于前端开发来说，我们需要特别关注元素的五类信息：
+
+| 信息 | 含义 | 示例 |
+|---|---|---|
+| Role | 元素是什么 | button、link、checkbox |
+| Name | 元素叫什么 | Add to cart |
+| Description | 补充说明 | Minimum order quantity is 2 |
+| State / Property | 元素的状态或属性 | disabled、expanded、required |
+| Value | 元素当前的值 | 输入框内容、滑块数值 |
+
+这些信息决定了辅助技术如何理解一个页面。
+
+### 2.1 相同的视觉效果，不同的无障碍表现
+
+例如，我们使用三种方式实现一个外观完全一样的按钮。
+
+```html
+<!-- 方案 A -->
+<div onclick="addToCart()">Add to cart</div>
+
+<!-- 方案 B -->
+<div role="button" onclick="addToCart()">
+  Add to cart
+</div>
+
+<!-- 方案 C -->
+<button type="button" onclick="addToCart()">
+  Add to cart
+</button>
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{tag:"方案 A：div",role:"generic 或普通文本",focus:false,keyboard:false},{tag:"方案 B：div + role",role:"button",focus:false,keyboard:false},{tag:"方案 C：原生 button",role:"button",focus:true,keyboard:true}] as item}
+    <box gap={2}>
+      <row align="center">
+        **{item.tag}**
+        <spacer/>
+        <box background="#202020" theme="dark" radius="md" padding={{x:4,y:2}}>
+          <text color="#FFFFFF" weight="medium" size="sm">Add to cart</text>
+        </box>
+      </row>
+      <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+        <row><caption>Role</caption><spacer/><text size="sm">{item.role}</text></row>
+        <row><caption>Tab 键访问</caption><spacer/><icon name={item.focus?"check-circle":"x-circle"} color={item.focus?"success":"danger"}/></row>
+        <row><caption>原生键盘激活</caption><spacer/><icon name={item.keyboard?"check-circle":"x-circle"} color={item.keyboard?"success":"danger"}/></row>
+      </box>
+    </box>
+  {/each}
+</box>
+
+方案 B 虽然通过 `role="button"` 补充了按钮语义，但是它仍然不是一个真正具备原生交互能力的按钮。
+
+如果坚持使用 `div`，通常还需要自己实现：
+
+```html
+<div role="button" tabindex="0">
+  Add to cart
+</div>
+```
+
+以及 Enter、Space 键处理、禁用行为、焦点样式等逻辑。
+
+而原生 `button` 已经提供了大量基础能力。
+
+**这就是为什么无障碍开发始终强调 Native HTML First（原生 HTML 优先）。**
+
+## 3. 主流屏幕阅读器有哪些？
+
+| 屏幕阅读器 | 支持平台 | 收费情况 |
+|---|---|---|
+| [NVDA](https://www.nvaccess.org/) | Windows | 免费、开源 |
+| [JAWS](https://www.freedomscientific.com/products/software/jaws/) | Windows | 商业软件 |
+| VoiceOver | macOS、iOS | 系统内置 |
+| TalkBack | Android | 免费 |
+| Narrator（讲述人） | Windows | 系统内置 |
+| ChromeVox | ChromeOS | 系统内置 |
+
+需要注意，屏幕阅读器与浏览器之间存在兼容性差异。
+
+同样的 HTML 代码，在不同的操作系统、浏览器、屏幕阅读器组合下，可能产生不同的播报效果。
+
+在实际项目中，我建议至少覆盖以下测试组合：
+
+| 操作系统 | 浏览器 | 屏幕阅读器 |
+|---|---|---|
+| Windows | Chrome | NVDA |
+| Windows | Firefox | NVDA |
+| Windows | Chrome / Edge | JAWS |
+| macOS | Safari | VoiceOver |
+| iOS | Safari | VoiceOver |
+| Android | Chrome | TalkBack |
+
+你目前使用 Windows 电脑，同时有 iPhone，因此可以优先使用 **NVDA + Chrome** 进行桌面端测试，再使用 iPhone 自带的 VoiceOver 进行移动端测试。
+
+不需要一开始就购买 JAWS。
+
+---
+
+## 4. 屏幕阅读器的两种核心模式
+
+这是本节课最重要的知识点。
+
+以 NVDA 为例，它在浏览网页时主要有两种模式：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="book-open" size="3xl" color="#5185C5"/>
+      **Browse Mode**
+
+      浏览模式
+
+      主要用于阅读网页内容、理解页面结构、寻找目标元素。
+
+      <divider/>
+      <caption>键盘按键主要由屏幕阅读器解释，用于阅读和导航。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="keyboard" size="3xl" color="#39866B"/>
+      **Focus Mode**
+
+      焦点模式
+
+      主要用于输入文字、选择选项、操作交互组件。
+
+      <divider/>
+      <caption>多数普通按键交给当前应用或网页控件处理。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+### 4.1 Browse Mode（浏览模式）
+
+假设现在有一个商品详情页：
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="menu" size="lg"/>
+    **STYLE STORE**
+    <spacer/>
+    <icon name="search"/>
+    <icon name="shopping-bag"/>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="plain beige cotton oversized short sleeve t-shirt isolated neutral studio ecommerce product photography" aspectRatio="3:4" maxWidth="43%"/>
+    <box flex={1} gap={2}>
+      <title size="lg">Cotton T-shirt</title>
+      <title size="md">$29.99</title>
+      <caption>Color: Beige</caption>
+      <row>
+        {#each ["#D6C3A7","#343434","#899CAB"] as c}
+          <box background={c} size="22px" radius="full" border={{size:1,color:"#999999"}}/>
+        {/each}
+      </row>
+      <caption>Size</caption>
+      <row gap={1}>
+        {#each ["S","M","L"] as s}
+          <box border radius="sm" padding={1} flex={1} align="center"><text size="sm">{s}</text></box>
+        {/each}
+      </row>
+      <box background="#252525" radius="sm" theme="dark" padding={2} align="center"><text color="#FFFFFF">Add to cart</text></box>
+    </box>
+  </row>
+  <divider/>
+  **Product description**
+
+  <text size="sm">Made from 100% soft cotton. Designed for everyday comfort.</text>
+  **Shipping & Returns**
+  <text size="sm">Free shipping on orders over $50.</text>
+</box>
+
+普通用户打开页面后，可以通过视觉快速了解页面结构。
+
+但如果屏幕阅读器用户只能使用 Tab 键逐个访问元素，那么他可能需要经过大量导航链接和按钮，才能找到想要阅读的商品信息。
+
+因此，屏幕阅读器提供了基于语义的快速导航能力。
+
+在 NVDA 的浏览模式下：
+
+| 按键 | 功能 |
+|---|---|
+| `H` | 跳转到下一个标题 |
+| `1` | 跳转到下一个一级标题 |
+| `2` | 跳转到下一个二级标题 |
+| `B` | 跳转到下一个按钮 |
+| `K` | 跳转到下一个链接 |
+| `G` | 跳转到下一个图形 |
+| `E` | 跳转到下一个文本输入框 |
+| `F` | 跳转到下一个表单控件 |
+| `R` | 跳转到下一个单选按钮 |
+| `X` | 跳转到下一个复选框 |
+| `D` | 跳转到下一个地标区域 |
+| `T` | 跳转到下一个表格 |
+| `L` | 跳转到下一个列表 |
+
+配合 `Shift` 可以向相反方向导航。<Cite ref="turn350539view0"/>
+
+例如，用户想直接找到加购按钮，只需要使用 `B` 键导航到对应按钮即可。
+
+### 4.2 模拟体验浏览模式
+
+假设上面的商品页面使用了正确的 HTML 语义。
+
+你可以点击下面的按键，模拟 NVDA 的分类导航过程。
+
+{@body const nodes=[{type:"landmark",name:"Banner",speech:"Banner landmark"},{type:"link",name:"Home",speech:"Home, link"},{type:"button",name:"Search",speech:"Search, button"},{type:"button",name:"Shopping cart",speech:"Shopping cart, button"},{type:"landmark",name:"Main",speech:"Main landmark"},{type:"heading",name:"Cotton T-shirt",speech:"Cotton T-shirt, heading level 1"},{type:"graphic",name:"Beige cotton T-shirt, front view",speech:"Beige cotton T-shirt, front view, graphic"},{type:"text",name:"$29.99",speech:"29 dollars and 99 cents"},{type:"radio",name:"Beige",speech:"Beige, radio button, checked"},{type:"radio",name:"Black",speech:"Black, radio button, not checked"},{type:"button",name:"Add to cart",speech:"Add to cart, button"},{type:"heading",name:"Product description",speech:"Product description, heading level 2"},{type:"text",name:"Made from 100% soft cotton.",speech:"Made from 100% soft cotton."},{type:"heading",name:"Shipping & Returns",speech:"Shipping and returns, heading level 2"},{type:"link",name:"View shipping policy",speech:"View shipping policy, link"}]}
+{@body const [cursor,setCursor]=DIL.useState(-1)}
+{@body const [notice,setNotice]=DIL.useState("")}
+{@body const jump=(type)=>{const next=nodes.findIndex((n,i)=>i>cursor&&(type==="all"||n.type===type));if(next>=0){setCursor(next);setNotice("")}else{setNotice("没有更多匹配元素，请重置后继续。")}}}
+<card gap={3}>
+  <row align="center">
+    **屏幕阅读器导航模拟器**
+    <spacer/>
+    <badge>Browse Mode</badge>
+  </row>
+  <box background="surface-tertiary" radius="md" padding={2} gap=1>
+    {#each nodes as n,i}
+      <box background={cursor===i?"#39866B20":"surface-tertiary"} border={{size:1,color:cursor===i?"#39866B":"transparent"}} radius="sm" padding={1}>
+        <row align="center">
+          <box width="70px">
+            <text size="xs" color="secondary">{n.type}</text>
+          </box>
+          <box flex={1}><text size="sm" weight={cursor===i?"medium":"normal"}>{n.name}</text></box>
+          {#if cursor===i}<icon name="chevron-left" color="success"/>{/if}
+        </row>
+      </box>
+    {/each}
+  </box>
+  <box background="surface" border radius="md" padding={3} gap={1}>
+    <row><icon name="volume-2"/><caption>模拟语音播报文本</caption></row>
+    **{cursor<0?"等待导航操作":nodes[cursor].speech}**
+    {#if notice}<caption>{notice}</caption>{/if}
+  </box>
+  <grid columns={4} gap={2}>
+    {#each [{k:"H",t:"heading",l:"标题"},{k:"B",t:"button",l:"按钮"},{k:"K",t:"link",l:"链接"},{k:"G",t:"graphic",l:"图片"},{k:"D",t:"landmark",l:"地标"},{k:"R",t:"radio",l:"单选"},{k:"↓",t:"all",l:"下一项"}] as key}
+      <grid-item>
+        <button block variant="outline" color="secondary" onClick={()=>jump(key.t)}>{key.k} · {key.l}</button>
+      </grid-item>
+    {/each}
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setCursor(-1);setNotice("")}}>重置</button></grid-item>
+  </grid>
+  <caption>这是导航原理演示，并非真实的 NVDA 软件或实际语音输出。</caption>
+</card>
+
+现在你应该能够理解为什么 HTML 语义化如此重要了。
+
+如果我们把所有标题都写成：
+
+```html
+<div class="heading">Cotton T-shirt</div>
+
+<div class="heading">Product description</div>
+
+<div class="heading">Shipping & Returns</div>
+```
+
+即使通过 CSS 将它们设计成了标题样式，屏幕阅读器仍然无法将它们当作标题进行快速导航。
+
+正确的方式是：
+
+```html
+<h1>Cotton T-shirt</h1>
+
+<h2>Product description</h2>
+
+<h2>Shipping & Returns</h2>
+```
+
+**HTML 语义不仅影响屏幕阅读器播报的内容，还直接决定了用户能够使用哪些导航方式。**
+
+### 4.3 Focus Mode（焦点模式）
+
+假设用户现在找到了一个搜索输入框：
+
+```html
+<label for="search">Search products</label>
+
+<input
+  type="search"
+  id="search"
+  name="q"
+>
+```
+
+用户准备输入 `hat`。
+
+但是在浏览模式下，`H` 代表跳转到标题，`T` 代表跳转到表格。
+
+如果屏幕阅读器一直拦截这些按键，用户就无法正常输入文字。
+
+这时就需要切换到焦点模式。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <box align="center" gap={2}>
+        **浏览模式**
+        <box border radius="sm" size="42px" align="center" justify="center"><title size="xl">H</title></box>
+        <icon name="arrow-down" color="secondary"/>
+        <box background="surface-tertiary" radius="md" padding={2} align="center" width="100%">
+          NVDA 处理按键
+        </box>
+        <icon name="arrow-down" color="secondary"/>
+        <box border radius="md" padding={2} width="100%" align="center">
+          跳转到下一个标题
+        </box>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box align="center" gap={2}>
+        **焦点模式**
+        <box border radius="sm" size="42px" align="center" justify="center"><title size="xl">H</title></box>
+        <icon name="arrow-down" color="secondary"/>
+        <box background="surface-tertiary" radius="md" padding={2} align="center" width="100%">
+          网页控件处理按键
+        </box>
+        <icon name="arrow-down" color="secondary"/>
+        <box border radius="md" padding={2} width="100%" align="center">
+          输入框输入 h
+        </box>
+      </box>
+    </grid-item>
+  </grid>
+</box>
+
+NVDA 在进入某些输入框、下拉选择框等控件时，会根据元素类型、用户操作和设置自动切换模式。
+
+用户也可以通过 `NVDA + Space` 手动切换浏览模式与焦点模式。<Cite ref="turn902691search1"/>
+
+这种模式切换在以下组件中特别重要：
+
+- Combobox 搜索建议框
+- Listbox 列表选择器
+- Slider 滑块
+- 富文本编辑器
+- 自定义日期选择器
+- Grid 交互式数据表格
+
+当你使用正确的原生 HTML 或 ARIA Role 时，辅助技术才能更准确地判断当前组件的类型，并为用户提供合适的操作方式。
+
+---
+
+## 5. Virtual Cursor（虚拟光标）与 DOM Focus
+
+这一部分涉及一个非常容易被前端开发人员忽略的概念。
+
+我们平时所说的焦点，通常指 DOM Focus。
+
+例如：
+
+```javascript
+document.activeElement
+```
+
+或者：
+
+```javascript
+element.focus();
+```
+
+但是屏幕阅读器在浏览网页时，还可以维护自己的阅读位置，也就是 Virtual Cursor（虚拟光标）。
+
+### 5.1 两者有什么区别？
+
+假设网页中有以下内容：
+
+```html
+<h1>Product details</h1>
+
+<p>Made from 100% cotton.</p>
+
+<p>Machine washable.</p>
+
+<button>Add to cart</button>
+
+<a href="/collections/all">Continue shopping</a>
+```
+
+如果使用普通的 Tab 键导航，通常只会停留在按钮和链接上。
+
+但屏幕阅读器的虚拟光标可以访问标题、段落等非交互内容。
+
+{@body const items=[{tag:"h1",name:"Product details",focus:false},{tag:"p",name:"Made from 100% cotton.",focus:false},{tag:"p",name:"Machine washable.",focus:false},{tag:"button",name:"Add to cart",focus:true},{tag:"a",name:"Continue shopping",focus:true}]}
+{@body const [domPos,setDomPos]=DIL.useState(-1)}
+{@body const [virtualPos,setVirtualPos]=DIL.useState(-1)}
+<card gap={3}>
+  <row wrap="wrap">
+    <row align="center" gap={1}><box size="10px" background="#5185C5" radius="sm"/><caption>DOM Focus</caption></row>
+    <row align="center" gap={1}><box size="10px" background="#39866B" radius="sm"/><caption>Virtual Cursor</caption></row>
+  </row>
+  {#each items as item,i}
+    <row align="center" gap={2}>
+      <box width="52px" align="end">
+        {#if domPos===i}<text color="#5185C5" size="xs" weight="medium">Focus →</text>{/if}
+      </box>
+      <box flex={1} border={{size:domPos===i?2:1,color:domPos===i?"#5185C5":virtualPos===i?"#39866B":"#88888840"}} background={virtualPos===i?"#39866B17":"surface"} radius="md" padding={2}>
+        <caption>{item.tag}</caption>
+        <text weight={item.tag==="h1"?"medium":"normal"}>{item.name}</text>
+      </box>
+      <box width="52px">
+        {#if virtualPos===i}<text color="#39866B" size="xs" weight="medium">← Cursor</text>{/if}
+      </box>
+    </row>
+  {/each}
+  <grid columns={2}>
+    <grid-item><button block color="secondary" variant="outline" onClick={()=>setDomPos(v=>v===3?4:3)}>Tab · 移动焦点</button></grid-item>
+    <grid-item><button block color="secondary" variant="outline" onClick={()=>setVirtualPos(v=>(v+1)%5)}>↓ · 移动虚拟光标</button></grid-item>
+  </grid>
+  <button variant="ghost" color="secondary" block onClick={()=>{setDomPos(-1);setVirtualPos(-1)}}>重置</button>
+  <divider/>
+  <caption>简化演示两种位置的区别。实际屏幕阅读器可能会根据导航操作同步阅读位置和 DOM 焦点。</caption>
+</card>
+
+两者的核心区别如下：
+
+| 特性 | DOM Focus | Virtual Cursor |
+|---|---|---|
+| 管理者 | 浏览器 | 屏幕阅读器 |
+| 主要用途 | 交互操作 | 阅读和导航 |
+| 能访问普通段落 | 默认不能聚焦 | 可以阅读 |
+| 能访问标题 | 默认不能聚焦 | 可以阅读 |
+| 能访问按钮 | 可以 | 可以 |
+| 能通过 JS 直接获取 | 可以 | 通常不可以 |
+| 移动时触发 focus 事件 | 焦点变化时会触发 | 不一定 |
+| 与 `document.activeElement` 一致 | 是 | 不一定 |
+
+### 5.2 对前端开发有什么影响？
+
+假设你希望屏幕阅读器用户能够阅读商品描述，于是这样写：
+
+```html
+<h1 tabindex="0">Product details</h1>
+
+<p tabindex="0">Made from 100% cotton.</p>
+
+<p tabindex="0">Machine washable.</p>
+```
+
+实际上，这是没有必要的。
+
+普通文本不需要成为键盘焦点元素，也能够被屏幕阅读器阅读。
+
+反而添加大量 `tabindex="0"` 会使正常键盘导航变得冗长。
+
+所以请记住：
+
+**可被屏幕阅读器阅读（Readable），不等于可聚焦（Focusable），也不等于可交互（Interactive）。**
+
+| HTML 元素 | 可读取 | 默认可聚焦 | 原生可交互 |
+|---|---|---|---|
+| `h1` | 是 | 否 | 否 |
+| `p` | 是 | 否 | 否 |
+| `img`（有有效 alt） | 是 | 否 | 否 |
+| `button` | 是 | 是 | 是 |
+| `a`（有 href） | 是 | 是 | 是 |
+| `input` | 是 | 是 | 是 |
+| `button disabled` | 通常是 | 否 | 否 |
+
+以上假设元素没有被隐藏，也没有其他改变其行为的属性。
+
+---
+
+## 6. 屏幕阅读器是如何感知动态内容的？
+
+我们刚才介绍的主要是静态内容的阅读和导航。
+
+但是现在的网站有大量动态内容，尤其是 Shopify Theme 开发中的：
+
+- AJAX 加购
+- Section Rendering
+- Collection 异步筛选
+- Predictive Search
+- Variant 切换与价格更新
+
+假设用户点击 Add to cart 按钮后，我们通过 JavaScript 更新页面中的购物车数量。
+
+```html
+<button id="add-to-cart">
+  Add to cart
+</button>
+
+<span id="cart-count">0</span>
+```
+
+```javascript
+document
+  .querySelector('#add-to-cart')
+  .addEventListener('click', () => {
+    document.querySelector('#cart-count').textContent = '1';
+  });
+```
+
+对于视觉用户而言，能够看到购物车数量已经从 0 变成了 1。
+
+但是对于屏幕阅读器用户而言，如果当前焦点仍在加购按钮上，这个数量变化不一定会被自动播报。
+
+用户可能根本不知道自己是否加购成功。
+
+### 6.1 Live Region（实时区域）
+
+ARIA 为我们提供了 Live Region 机制。
+
+例如：
+
+```html
+<button id="add-to-cart">
+  Add to cart
+</button>
+
+<span id="cart-count">0</span>
+
+<div
+  id="cart-status"
+  role="status"
+  class="visually-hidden"
+></div>
+```
+
+在加购成功之后：
+
+```javascript
+document.querySelector('#cart-count').textContent = '1';
+
+document.querySelector('#cart-status').textContent =
+  'Cotton T-shirt added to your cart. Your cart has 1 item.';
+```
+
+`role="status"` 隐含了 `aria-live="polite"`，可以让辅助技术在合适的时机通知用户内容发生了变化。
+
+通常应提前将这个空的状态区域放在 DOM 中，等操作成功后再更新它的文本。
+
+### 6.2 两种方式的区别
+
+{@body const [countA,setCountA]=DIL.useState(0)}
+{@body const [countB,setCountB]=DIL.useState(0)}
+<card gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **普通更新**
+        <box align="center" padding={2}>
+          <row align="center">
+            <icon name="shopping-cart" size="3xl"/>
+            <title size="2xl" tabularNums={true}>{countA}</title>
+          </row>
+        </box>
+        <button block color="secondary" onClick={()=>setCountA(v=>v+1)}>Add to cart</button>
+        <box background="surface-tertiary" radius="md" padding={2} minHeight="110px" gap={2}>
+          <row><icon name="volume-x"/><caption>模拟播报</caption></row>
+          <text size="sm">{countA===0?"等待加购":"没有主动播报购物车数量变化"}</text>
+        </box>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **Live Region 更新**
+        <box align="center" padding={2}>
+          <row align="center">
+            <icon name="shopping-cart" size="3xl"/>
+            <title size="2xl" tabularNums={true}>{countB}</title>
+          </row>
+        </box>
+        <button block color="secondary" onClick={()=>setCountB(v=>v+1)}>Add to cart</button>
+        <box background="surface-tertiary" radius="md" padding={2} minHeight="110px" gap={2}>
+          <row><icon name="volume-2"/><caption>模拟播报</caption></row>
+          <text size="sm">{countB===0?"等待加购":`Cotton T-shirt added to your cart. Your cart has ${countB} ${countB===1?"item":"items"}.`}</text>
+        </box>
+      </box>
+    </grid-item>
+  </grid>
+  <button block variant="ghost" color="secondary" onClick={()=>{setCountA(0);setCountB(0)}}>重置演示</button>
+</card>
+
+你应该已经发现，无障碍开发不仅仅是为元素增加语义，还需要考虑用户是否能够感知网站状态的变化。
+
+Live Region 是现代 Web 无障碍开发中非常重要的机制，我们将在第 14 课详细学习。
+
+---
+
+## 7. 为什么不建议随意使用 role="application"？
+
+理解了浏览模式和焦点模式之后，就能理解这个问题了。
+
+有些开发人员在开发复杂的 SPA 应用时，可能会使用：
+
+```html
+<body role="application">
+  <!-- 整个网站 -->
+</body>
+```
+
+他们认为网站是一个 Web Application，因此应该使用这个 Role。
+
+实际上，这通常是错误的做法。
+
+`role="application"` 可能会使屏幕阅读器放弃常规的文档浏览模式，将更多键盘操作交给应用本身处理。
+
+这意味着用户可能失去原本熟悉的标题导航、链接导航、段落阅读等操作方式。
+
+| 普通网页 | role="application" 区域 |
+|---|---|
+| 屏幕阅读器提供文档导航 | 更多交互由应用自己负责 |
+| 支持常规语义导航 | 部分常规导航可能受影响 |
+| 使用标准 HTML 即可获得许多能力 | 开发者需要承担更多键盘交互责任 |
+
+对于 Shopify 网站、普通 SPA、管理后台等，通常不应该仅仅因为它们属于 Web Application，就添加 `role="application"`。
+
+这个 Role 应当仅在确实需要特殊交互模型的区域谨慎使用。
+
+---
+
+## 8. 实战：安装并使用 NVDA
+
+接下来我们实际体验屏幕阅读器。
+
+### 8.1 下载 NVDA
+
+<row align="center">
+  <AsyncImage query="NV Access NVDA NonVisual Desktop Access official software logo" aspectRatio="1:1" maxWidth="76px" fit="contain"/>
+  <box flex={1} gap={1}>
+    **NVDA — NonVisual Desktop Access**
+    <caption>Windows · 免费 · 开源</caption>
+    [官方下载页面](https://www.nvaccess.org/download/)
+  </box>
+</row>
+
+下载并安装后即可使用。NVDA 官方也提供了完整的用户操作指南。<Cite ref="turn902691search2"/>
+
+### 8.2 开启 Speech Viewer
+
+对于前端开发人员来说，NVDA 有一个特别实用的功能：Speech Viewer（语音查看器）。
+
+它可以将屏幕阅读器播报的内容以文字形式显示在窗口中。
+
+打开方式：
+
+```text
+Windows 系统托盘
+    └── NVDA
+         └── Tools（工具）
+              └── Speech Viewer（语音查看器）
+```
+
+<AsyncImage query="NVDA screen reader Speech Viewer floating window Tools menu screenshot web accessibility testing" aspectRatio="16:9" fit="contain"/>
+
+开启后，你可以一边操作网页，一边查看 NVDA 输出的文本，不需要完全依赖听觉来判断播报内容。<Cite ref="turn350539view1"/>
+
+### 8.3 常用的 NVDA 操作快捷键
+
+NVDA 快捷键中的 `NVDA` 一般指 Insert 键，也可以配置 Caps Lock 键作为修饰键。
+
+| 快捷键 | 功能 |
+|---|---|
+| `Ctrl` | 停止当前语音播报 |
+| `NVDA + N` | 打开 NVDA 菜单 |
+| `NVDA + Q` | 退出 NVDA |
+| `NVDA + Space` | 切换浏览模式与焦点模式 |
+| `NVDA + F7` | 打开元素列表 |
+| `NVDA + Tab` | 播报当前焦点 |
+| `NVDA + T` | 播报当前窗口标题 |
+| `NVDA + ↓` | 从当前位置连续阅读（桌面键盘布局） |
+| `↑ / ↓` | 在浏览模式中逐行阅读 |
+| `Tab / Shift + Tab` | 前后移动键盘焦点 |
+| `Ctrl + Home` | 在浏览模式中跳到文档开头 |
+| `Ctrl + End` | 在浏览模式中跳到文档末尾 |
+
+初期不需要记住所有快捷键，能够熟练使用 Tab、H、B、K、方向键和模式切换即可。
+
+### 8.4 Elements List（元素列表）
+
+这是另一个非常适合开发人员使用的功能。
+
+在网页上按下：
+
+`NVDA + F7`
+
+可以查看当前页面中的链接、标题、表单控件、按钮及地标等分类列表。<Cite ref="turn350539view2"/>
+
+<AsyncImage query="NVDA elements list dialog headings links form fields buttons landmarks screenshot" aspectRatio="4:3" fit="contain" maxWidth="440px"/>
+
+例如在商品详情页，我们可以通过标题列表检查页面结构：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="danger" weight="medium">结构混乱的页面</text>
+      <divider/>
+      <text size="sm">H3 · Welcome</text>
+      <text size="sm">H5 · Cotton T-shirt</text>
+      <text size="sm">H1 · Reviews</text>
+      <text size="sm">H4 · Shipping</text>
+      <text size="sm">H2 · Footer</text>
+      <divider/>
+      <caption>标题等级可能只是根据字号随意选择。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="success" weight="medium">结构合理的页面</text>
+      <divider/>
+      <text size="sm" weight="medium">H1 · Cotton T-shirt</text>
+      <box padding={{left:3}} gap={2}>
+        <text size="sm">H2 · Product details</text>
+        <text size="sm">H2 · Shipping & Returns</text>
+        <text size="sm">H2 · Customer reviews</text>
+        <text size="sm">H2 · Related products</text>
+      </box>
+      <divider/>
+      <caption>标题等级反映实际内容层级。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+这也是为什么在 ADA 开发和 SEO 优化中，我们都比较强调合理的 HTML 标题层级。
+
+---
+
+## 9. Chrome DevTools 与屏幕阅读器的配合
+
+对于前端开发来说，我们通常不需要完全依靠屏幕阅读器来查找问题。
+
+Chrome DevTools 中也提供了 Accessibility 调试面板。
+
+操作步骤：
+
+1. 打开 Chrome DevTools（F12）。
+2. 进入 Elements 面板。
+3. 选中需要检查的 DOM 元素。
+4. 在右侧找到 Accessibility 面板。
+5. 查看 Computed Properties、ARIA Attributes 等信息。
+
+<AsyncImage query="Chrome DevTools Elements Accessibility pane Computed Properties Name Role accessibility tree screenshot" aspectRatio="16:9" fit="contain"/>
+
+例如选择以下 HTML 元素：
+
+```html
+<button
+  aria-label="Remove Cotton T-shirt"
+  type="button"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+你可以查看类似以下的无障碍计算结果：
+
+<box border radius="lg" padding={3} gap={2}>
+  <row align="center">
+    <icon name="panel-right" color="secondary"/>
+    **Accessibility**
+  </row>
+  <divider/>
+  <row>
+    <icon name="chevron-down" size="sm"/>
+    **ARIA Attributes**
+  </row>
+  <box padding={{left:5}} gap={1}>
+    <row><text size="sm" color="secondary">aria-label:</text><text size="sm" color="success">"Remove Cotton T-shirt"</text></row>
+  </box>
+  <divider/>
+  <row>
+    <icon name="chevron-down" size="sm"/>
+    **Computed Properties**
+  </row>
+  <box padding={{left:5}} gap={2}>
+    {#each [["Name:","Remove Cotton T-shirt"],["Role:","button"],["Focusable:","true"],["Disabled:","false"]] as prop}
+      <row>
+        <text size="sm" color="secondary">{prop[0]}</text>
+        <spacer/>
+        <text size="sm">{prop[1]}</text>
+      </row>
+    {/each}
+  </box>
+  <caption>简化的 DevTools 面板示意</caption>
+</box>
+
+Chrome DevTools 和屏幕阅读器分别承担不同的作用。
+
+| 工具 | 主要用途 |
+|---|---|
+| Chrome DevTools | 检查浏览器生成的无障碍语义是否正确 |
+| NVDA | 测试用户实际获取的信息和操作体验 |
+| Lighthouse / axe | 自动发现部分违反无障碍规则的问题 |
+| 纯键盘测试 | 检查不使用鼠标时的操作能力 |
+
+即使 DevTools 中的 Role、Name、State 都是正确的，也不能保证用户能够顺利操作整个组件。
+
+因此需要组合使用这些工具。
+
+---
+
+## 10. Shopify 实战：屏幕阅读器如何使用商品详情页？
+
+现在我们将刚才的知识串联起来。
+
+假设一个视障用户想要购买一件黑色、M 码的 T 恤。
+
+一个具备良好无障碍能力的商品详情页，可能提供如下操作体验。
+
+<box border radius="lg" padding={3}>
+  <list connector="solid" marker="number" gap={3}>
+    <list-item>
+      **寻找商品标题**
+
+      <caption>使用 H 或 1 键导航</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Cotton T-shirt, heading level 1.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **阅读商品信息**
+
+      <caption>使用方向键阅读价格和商品描述</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">29 dollars and 99 cents.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **选择商品颜色**
+
+      <caption>找到颜色单选组，使用方向键切换选项</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Color, Black, radio button, checked, 2 of 3.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **选择商品尺码**
+
+      <caption>进入尺寸单选组</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Size, M, radio button, checked.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **添加到购物车**
+
+      <caption>通过 Tab 或按钮导航找到加购按钮并激活</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Add to cart, button.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **确认加购结果**
+
+      <caption>通过 Live Region 等机制获取操作反馈</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Cotton T-shirt, Black, M, added to your cart.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **操作 Cart Drawer**
+
+      <caption>焦点进入购物车弹窗，获取弹窗名称和商品信息</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Your cart, dialog.</text></row>
+      </box>
+    </list-item>
+    <list-item>
+      **进入结算**
+
+      <caption>找到结算入口并激活</caption>
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <row align="center"><icon name="volume-2" color="secondary"/><text size="sm">Checkout, button.</text></row>
+      </box>
+    </list-item>
+  </list>
+  <caption>以上为理想交互流程示意，实际播报措辞及顺序取决于组件实现和辅助技术。</caption>
+</box>
+
+你可以看到，这个完整的购买流程涉及大量无障碍知识。
+
+| 操作阶段 | 所涉及的开发知识 |
+|---|---|
+| 寻找标题 | HTML 语义化 |
+| 阅读商品信息 | Accessibility Tree |
+| 选择颜色和尺寸 | Radio Group、Accessible Name |
+| 点击加购 | 原生键盘交互 |
+| 获取加购结果 | Live Region |
+| 打开购物车 | Focus Management |
+| 操作购物车 | Dialog、Focus Trap |
+| 关闭购物车 | Focus Restoration |
+
+后续课程将逐一拆解这些知识点。
+
+---
+
+## 11. 本课实践任务
+
+建议你安装 NVDA，打开任意一个 Shopify 商品详情页，完成下面的测试。
+
+{@body const tests=["开启 NVDA 和 Speech Viewer","使用 H 键检查页面标题结构","使用 B 键查找所有主要操作按钮","使用 NVDA + F7 查看元素列表","使用 Tab 键操作商品颜色和尺寸","检查颜色选项是否播报具体颜色及选中状态","检查售罄商品是否有明确的状态信息","添加商品到购物车，检查是否获得成功反馈","检查购物车弹窗打开后焦点是否正确转移","不使用鼠标，尝试完成整个购买流程"]}
+{@body const [done,setDone]=DIL.useState(Array(10).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **NVDA 实践清单**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / 10</caption>
+  </row>
+  <box height={6} background="surface-tertiary" radius="full" clip={true}>
+    <box height={6} background="#39866B" radius="full" width={`${done.filter(Boolean).length*10}%`}/>
+  </box>
+  {#each tests as task,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{task}</checkbox>
+  {/each}
+  <divider/>
+  <button variant="ghost" color="secondary" onClick={()=>setDone(Array(10).fill(false))}>重置清单</button>
+</card>
+
+## 12. 本课总结
+
+本节课最需要掌握的是以下六个概念。
+
+| 核心概念 | 理解重点 |
+|---|---|
+| Assistive Technology | 屏幕阅读器只是辅助技术的一种 |
+| Screen Reader | 不仅阅读文字，还获取语义、状态、属性 |
+| Browse Mode | 阅读内容与基于语义的快速导航 |
+| Focus Mode | 操作控件与输入信息 |
+| Virtual Cursor | 屏幕阅读器维护的阅读位置 |
+| Live Region | 通知辅助技术动态内容变化 |
+
+尤其要记住以下几个开发原则：
+
+- 优先使用原生 HTML 元素。
+- 不要为了让屏幕阅读器读取文本而随意添加 `tabindex`。
+- 不要将键盘可访问性与屏幕阅读器可访问性混为一谈。
+- 不仅要保证用户能够操作，还要保证用户能够感知操作结果。
+- 自动化检测不能替代真实辅助技术测试。
+
+---
+
+**下一课：第 3 课——Accessibility Tree 无障碍树深入解析**
+
+这将是一节偏浏览器底层原理的课程，主要讲解：
+
+- DOM Tree、CSSOM、Render Tree、Accessibility Tree 的关系。
+- 浏览器如何将 HTML 元素映射为无障碍节点。
+- 为什么部分 DOM 节点不会出现在无障碍树中。
+- `display: none`、`visibility: hidden`、`opacity: 0`、`aria-hidden`、`inert` 的区别。
+- Role、Name、Description、State 是如何计算出来的。
+- JavaScript 修改 DOM 后，无障碍树如何发生变化。
+- 如何使用 Chrome DevTools 调试完整的 Accessibility Tree。
+
+理解了无障碍树，后面学习 HTML 语义化和 ARIA 时，就不再只是记忆属性和规则，而是能够从浏览器的底层机制理解它们为什么有效。

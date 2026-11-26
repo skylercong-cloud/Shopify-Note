@@ -1,0 +1,1491 @@
+# 第 25 课：人工测试、屏幕阅读器测试与问题修复
+
+<row align="center">
+  <caption>阶段六：无障碍检测、修复与工程化</caption>
+  <spacer/>
+  <caption>25 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="96.15%"/>
+</box>
+
+上一课，我们学习了 Lighthouse、axe-core、WAVE 以及 Chrome DevTools 无障碍调试。
+
+这一课，我们将真正站在使用辅助技术的用户角度访问网站，学习如何进行人工无障碍测试。
+
+对于 Shopify Theme 开发工程师而言，这项能力非常重要。因为即使网站的 Lighthouse Accessibility 达到 100 分，axe-core 没有发现任何违规，用户仍然可能无法选择商品、修改购物车或者完成购买。
+
+本课将按照测试环境搭建、键盘测试、屏幕阅读器操作、视觉辅助测试、Shopify 完整购买流程测试以及问题修复的顺序展开。
+
+## 1. 人工无障碍测试到底需要测试什么？
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{i:"keyboard",t:"Keyboard Only",d:"仅使用键盘访问整个网站"},{i:"volume-2",t:"Screen Reader",d:"使用屏幕阅读器理解内容及完成操作"},{i:"zoom-in",t:"Zoom & Reflow",d:"放大页面后仍可正常阅读和操作"},{i:"contrast",t:"Forced Colors",d:"高对比度模式下仍能区分控件与状态"},{i:"type",t:"Text Spacing",d:"调整文字间距后不会发生内容丢失"},{i:"smartphone",t:"Touch Accessibility",d:"使用触屏辅助技术完成移动端操作"},{i:"shopping-cart",t:"Complete Process",d:"从商品浏览到结账完成的全过程"}] as p,i}
+    <row align="center" gap={3}>
+      <box size="40px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name={p.i} size="xl"/></box>
+      <box flex={1} gap={1}>
+        **{p.t}**
+        <caption>{p.d}</caption>
+      </box>
+    </row>
+    {#if i<6}<divider/>{/if}
+  {/each}
+</box>
+
+人工测试与自动化检测最大的区别是：它不仅检查元素是否具有正确的属性，还要检查用户是否能够理解信息、找到操作入口，并最终完成任务。
+
+例如 Cart Drawer：
+
+| 检查项目 | 自动检测 | 人工测试 |
+|---|---|---|
+| 是否具有 dialog 角色 | 可以 | 可以 |
+| Dialog 是否具有名称 | 可以 | 可以 |
+| 打开后焦点是否合理 | 有限 | 可以 |
+| 是否能够通过 Esc 关闭 | 通常不能完整验证 | 可以 |
+| 删除商品后焦点是否合理 | 通常不能 | 可以 |
+| 关闭后是否恢复焦点 | 通常不能 | 可以 |
+| 是否能够独立完成购买 | 不能完整判断 | 可以 |
+
+**人工测试的核心不是检查 ARIA，而是验证用户能否使用网站。**
+
+## 2. 搭建无障碍测试环境
+
+不同操作系统、浏览器和屏幕阅读器之间存在一定的兼容性差异。
+
+例如，同一个 `aria-live` 区域在 Chrome + NVDA 中可以正常播报，在 Safari + VoiceOver 中却可能存在不同的表现。
+
+### 2.1 推荐测试工具
+
+<row align="center" gap={3}>
+  <AsyncImage query="NV Access NVDA screen reader application logo" aspectRatio="1:1" maxWidth="60px" fit="contain"/>
+  <box flex={1} gap={1}>
+    **NVDA**
+    <caption>Windows · 免费开源</caption>
+    适合前端工程师进行日常屏幕阅读器测试。
+    [官方下载](https://www.nvaccess.org/download/)
+  </box>
+</row>
+<divider/>
+<row align="center" gap={3}>
+  <AsyncImage query="Apple VoiceOver accessibility icon" aspectRatio="1:1" maxWidth="60px" fit="contain"/>
+  <box flex={1} gap={1}>
+    **VoiceOver**
+    <caption>macOS / iOS · 系统内置</caption>
+    用于 Safari 和苹果设备的无障碍测试。
+  </box>
+</row>
+<divider/>
+<row align="center" gap={3}>
+  <AsyncImage query="JAWS Freedom Scientific screen reader logo" aspectRatio="1:1" maxWidth="60px" fit="contain"/>
+  <box flex={1} gap={1}>
+    **JAWS**
+    <caption>Windows · 商业软件</caption>
+    适合进一步扩展桌面辅助技术兼容性测试。
+    [官方网站](https://www.freedomscientific.com/products/software/jaws/)
+  </box>
+</row>
+<divider/>
+<row align="center" gap={3}>
+  <AsyncImage query="Google Android TalkBack accessibility app icon" aspectRatio="1:1" maxWidth="60px" fit="contain"/>
+  <box flex={1} gap={1}>
+    **TalkBack**
+    <caption>Android · 系统辅助功能</caption>
+    用于 Android 触屏设备的无障碍测试。
+  </box>
+</row>
+
+### 2.2 推荐测试组合
+
+| 操作系统 | 浏览器 | 辅助技术 | 建议 |
+|---|---|---|---|
+| Windows | Chrome | NVDA | 日常必测 |
+| Windows | Firefox | NVDA | 兼容性测试 |
+| Windows | Edge | JAWS | 扩展测试 |
+| macOS | Safari | VoiceOver | 苹果桌面端 |
+| iOS | Safari | VoiceOver | 移动端重点 |
+| Android | Chrome | TalkBack | 移动端重点 |
+
+对于个人开发或者公司内部日常 Theme 开发，如果资源有限，可以先从 **Windows + Chrome + NVDA，以及 iPhone + Safari + VoiceOver** 两种组合开始。
+
+Chrome DevTools 的移动设备模拟器可以测试响应式布局，但不能代替真实 iPhone 上的 VoiceOver。
+
+---
+
+## 3. Keyboard Only：仅使用键盘测试
+
+在开启屏幕阅读器之前，建议先关闭屏幕阅读器，单独进行键盘测试。
+
+因为并非所有需要键盘操作的用户都使用屏幕阅读器。
+
+### 3.1 常用测试按键
+
+| 按键 | 测试用途 |
+|---|---|
+| Tab | 下一个常规可聚焦元素 |
+| Shift + Tab | 上一个常规可聚焦元素 |
+| Enter | 激活链接或按钮、提交表单 |
+| Space | 激活按钮、切换 Checkbox |
+| Esc | 退出适用的弹窗、菜单 |
+| Arrow Keys | Radio、Select、Tabs 等内部导航 |
+| Home / End | 部分复合组件的首尾导航 |
+| PageUp / PageDown | 页面滚动、部分数值控件 |
+
+注意，不同组件具有不同的键盘交互模型，并不是所有组件都应该支持上述全部按键。
+
+### 3.2 测试焦点顺序
+
+假设存在下面的商品详情页。
+
+{@body const keyboardItems25=["Skip to content","Home","Clothing","Search","Shopping cart","Color: Black","Size: M","Decrease quantity","Quantity","Increase quantity","Add to cart"]}
+{@body const [keyboardIndex25,setKeyboardIndex25]=DIL.useState(0)}
+<card gap={3}>
+  **键盘焦点顺序实验室**
+  <box border={{size:keyboardIndex25===0?2:1,color:keyboardIndex25===0?"#3978BC":"transparent"}} padding={2} radius="sm">
+    <text size="sm" underline={true}>Skip to content</text>
+  </box>
+  <row align="center" gap={2}>
+    {#each [{n:1,t:"Home"},{n:2,t:"Clothing"},{n:3,i:"search"},{n:4,i:"shopping-bag"}] as item}
+      <box flex={1} border={{size:keyboardIndex25===item.n?2:1,color:keyboardIndex25===item.n?"#3978BC":"transparent"}} radius="sm" padding={2} align="center">
+        {#if item.i}<icon name={item.i}/>{:else}<text size="sm">{item.t}</text>{/if}
+      </box>
+    {/each}
+  </row>
+  <divider/>
+  <title size="lg">Cotton T-shirt</title>
+  **$29.99**
+  <caption>Color</caption>
+  <row gap={2}>
+    <box border={{size:keyboardIndex25===5?2:1,color:keyboardIndex25===5?"#3978BC":"#888888"}} radius="full" padding={1}><box background="#333333" size="28px" radius="full"/></box>
+    <box border radius="full" padding={1}><box background="#E9E4D8" size="28px" radius="full"/></box>
+  </row>
+  <caption>Size</caption>
+  <row gap={2}>
+    {#each ["S","M","L"] as s}
+      <box border={{size:s==="M"&&keyboardIndex25===6?2:1,color:s==="M"&&keyboardIndex25===6?"#3978BC":"#88888860"}} padding={2} width="42px" radius="sm" align="center">{s}</box>
+    {/each}
+  </row>
+  <caption>Quantity</caption>
+  <row gap={1}>
+    {#each [{n:7,t:"−"},{n:8,t:"1"},{n:9,t:"+"}] as p}
+      <box border={{size:keyboardIndex25===p.n?2:1,color:keyboardIndex25===p.n?"#3978BC":"#88888860"}} width="55px" radius="sm" padding={2} align="center">{p.t}</box>
+    {/each}
+  </row>
+  <box border={{size:2,color:keyboardIndex25===10?"#3978BC":"transparent"}} radius="md" padding={1}>
+    <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF">Add to cart</text></box>
+  </box>
+  <divider/>
+  <row><caption>当前模拟焦点</caption><spacer/><caption>{keyboardIndex25+1} / {keyboardItems25.length}</caption></row>
+  **{keyboardItems25[keyboardIndex25]}**
+  <grid columns={2} gap={2}>
+    <grid-item><button block color="secondary" variant="outline" disabled={keyboardIndex25===0} onClick={()=>setKeyboardIndex25(n=>n-1)}>Shift + Tab</button></grid-item>
+    <grid-item><button block color="secondary" variant="outline" disabled={keyboardIndex25===10} onClick={()=>setKeyboardIndex25(n=>n+1)}>Tab</button></grid-item>
+  </grid>
+  <caption>蓝色边框表示当前模拟焦点。Color 和 Size 分别采用 Radio Group 模型，组内其他选项通过方向键访问。</caption>
+</card>
+
+在真实网站中，需要观察焦点顺序是否符合内容和业务逻辑，而不是只判断所有按钮能不能获得焦点。
+
+### 3.3 键盘测试中的典型错误
+
+| 问题 | 可能原因 |
+|---|---|
+| 按 Tab 完全找不到某个按钮 | 使用 div + click |
+| 焦点存在但视觉上看不到 | `outline: none` |
+| 焦点进入关闭的 Drawer | 仅使用 transform 隐藏 |
+| 焦点顺序与内容逻辑不一致 | CSS order 或正数 tabindex |
+| Enter 正常但 Space 无效 | 自定义 button 行为不完整 |
+| 打开 Modal 后仍能进入背景 | 缺少模态隔离 |
+| 删除商品后焦点回到 body | 原焦点节点被销毁 |
+| 焦点被 Sticky Header 完全遮挡 | 缺少滚动空间 |
+
+其中 WCAG 2.4.11 Focus Not Obscured（Minimum）要求获得键盘焦点的组件不能被作者创建的内容完全遮挡。<Cite ref="turn266530search8"/>
+
+### 3.4 Console 焦点调试工具
+
+以后测试复杂 Shopify 组件时，可以直接在 Console 中执行：
+
+```javascript
+window.stopFocusDebug?.();
+
+const controller = new AbortController();
+
+document.addEventListener('focusin', event => {
+  console.log('Focus in:', event.target);
+}, {
+  signal: controller.signal,
+  capture: true
+});
+
+document.addEventListener('focusout', event => {
+  console.log('Focus out:', {
+    from: event.target,
+    to: event.relatedTarget
+  });
+}, {
+  signal: controller.signal,
+  capture: true
+});
+
+window.stopFocusDebug = () => controller.abort();
+```
+
+结束检测时：
+
+```javascript
+stopFocusDebug();
+```
+
+这个工具尤其适合排查 Section Rendering、Cart Drawer、Quick Add Modal 中的焦点异常。
+
+但它只能监控 DOM Focus，无法直接监控屏幕阅读器的虚拟光标。
+
+---
+
+## 4. NVDA：安装、配置与实际使用
+
+NVDA 是 Windows 前端开发人员非常实用的屏幕阅读器测试工具。
+
+### 4.1 安装与启动
+
+从 [NV Access 官网](https://www.nvaccess.org/download/) 下载并安装。
+
+NVDA 的很多快捷键需要使用 NVDA Modifier Key，通常是 Insert，也可以配置为 Caps Lock。
+
+例如：
+
+```text
+NVDA + F7
+```
+
+在使用 Insert 作为 Modifier 时，就表示 Insert + F7。
+
+### 4.2 Speech Viewer：非常重要的调试功能
+
+开启 NVDA 后：
+
+```text
+NVDA + N
+    → Tools
+        → Speech Viewer
+```
+
+Speech Viewer 可以用文字显示 NVDA 的语音输出，方便开发人员复制、分析和记录播报结果。<Cite ref="turn266530search0"/>
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="volume-2"/>
+    **NVDA Speech Viewer**
+    <spacer/><icon name="x" size="sm"/>
+  </row>
+  <box background="surface-tertiary" radius="sm" padding={3} gap={2}>
+    <text size="sm" preserveWhitespace={true}>Cotton T-shirt, heading level 1{"\n\n"}Color, grouping{"\n\n"}Black, radio button, checked, 2 of 3{"\n\n"}Size, grouping{"\n\n"}Medium, radio button, checked{"\n\n"}Add to cart, button{"\n\n"}Cotton T-shirt added to your cart.</text>
+  </box>
+  <caption>教学模拟输出。实际播报顺序和措辞取决于浏览器、NVDA 版本、语言和详细程度配置。</caption>
+</box>
+
+有了 Speech Viewer，就可以准确记录诸如以下问题：
+
+- 搜索按钮只播报 button，没有名称。
+- Variant Picker 缺少组选项名称。
+- 商品切换后没有播报新价格。
+- 一次加购操作重复播报多次。
+- 打开 Modal 后仍然播报背景内容。
+
+不建议仅凭开发者听到的零散语音判断问题。
+
+---
+
+## 5. Browse Mode 与 Focus Mode 深入理解
+
+第 2 课介绍过这两个概念，现在从实际操作层面理解它们。
+
+### 5.1 Browse Mode（浏览模式）
+
+在 Browse Mode 中，NVDA 使用自身的文档表示浏览网页内容。
+
+用户不需要每次都按 Tab，可以通过快捷键快速查找标题、表单、链接、按钮等元素。
+
+例如按 H，跳到下一个标题。
+
+这个过程中，屏幕阅读器的阅读位置不一定等于 `document.activeElement`。
+
+### 5.2 Focus Mode（焦点模式）
+
+当用户需要在输入框中输入内容，或者操作需要接收按键的组件时，NVDA 会在适用情况下自动进入 Focus Mode。
+
+此时普通按键通常会被传递给网页控件，而不是作为 NVDA 的单字母导航命令。<Cite ref="turn266530search0"/>
+
+<grid columns={2} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Browse Mode**
+      <box border radius="sm" padding={2} align="center">按 H</box>
+      <box align="center"><icon name="arrow-down" size="sm"/></box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="sm">NVDA 导航命令</text></box>
+      <box align="center"><icon name="arrow-down" size="sm"/></box>
+      <box border radius="sm" padding={2} align="center"><text size="sm">下一个 Heading</text></box>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Focus Mode**
+      <box border radius="sm" padding={2} align="center">按 H</box>
+      <box align="center"><icon name="arrow-down" size="sm"/></box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="sm">网页输入控件</text></box>
+      <box align="center"><icon name="arrow-down" size="sm"/></box>
+      <box border radius="sm" padding={2} align="center"><text size="sm">输入字符 h</text></box>
+    </box>
+  </grid-item>
+</grid>
+
+### 5.3 NVDA 常用快捷键速查表
+
+| 快捷键 | 功能 |
+|---|---|
+| NVDA + Space | 切换 Browse / Focus Mode |
+| NVDA + F7 | 打开 Elements List |
+| NVDA + Tab | 报告当前焦点 |
+| H / Shift + H | 下一个 / 上一个标题 |
+| 1～6 | 跳转至对应级别标题 |
+| K | 下一个链接 |
+| B | 下一个按钮 |
+| F | 下一个表单字段 |
+| E | 下一个编辑框 |
+| X | 下一个 Checkbox |
+| R | 下一个 Radio Button |
+| C | 下一个 Combobox |
+| G | 下一个图形 |
+| D | 下一个 Landmark |
+| T | 下一个表格 |
+| NVDA + Q | 退出 NVDA |
+
+单字母导航通常在 Browse Mode 下使用，Shift + 对应字母可以反向查找。完整命令以 [NVDA 官方快捷键手册](https://download.nvaccess.org/documentation/en/keyCommands.html) 为准。<Cite ref="turn280440search6"/>
+
+### 5.4 为什么这个知识对前端开发特别重要？
+
+假设我们错误地实现了一个自定义 Combobox：
+
+```html
+<div
+  tabindex="0"
+  class="custom-select"
+>
+  Select size
+</div>
+```
+
+即使开发者监听了所有 keydown 事件，屏幕阅读器仍然可能无法正确识别它属于什么控件，也可能无法在预期时机将按键传递给组件。
+
+因此，正确的 Role 不只是影响播报文字，还会影响辅助技术如何与组件进行交互。
+
+---
+
+## 6. 使用 NVDA Elements List 审查网站
+
+按下 NVDA + F7，可以打开 Elements List。
+
+这是检查 Shopify 网站语义质量非常有效的方法。
+
+{@body const elementCategories25=[{t:"Headings",items:["H1 · Cotton T-shirt","H2 · Product details","H2 · Shipping & Returns","H2 · Customer reviews"]},{t:"Links",items:["STYLE STORE, home","Clothing","Accessories","128 reviews","Shipping policy"]},{t:"Buttons",items:["Search","Shopping cart, 2 items","Decrease quantity","Increase quantity","Add to cart"]},{t:"Form fields",items:["Search products","Black, radio button","White, radio button","Size M, radio button","Quantity, spinbutton"]},{t:"Landmarks",items:["Banner","Navigation: Main navigation","Main","Content information"]}]}
+{@body const [elementCategory25,setElementCategory25]=DIL.useState("Headings")}
+<card gap={3}>
+  <row align="center"><icon name="list-tree"/> **NVDA Elements List**</row>
+  <radio-group direction="row" value={elementCategory25} onChange={setElementCategory25}>
+    {#each elementCategories25 as c}
+      <radio value={c.t}>{c.t}</radio>
+    {/each}
+  </radio-group>
+  <box border radius="sm" padding={3} gap={3}>
+    {#each elementCategories25.find(c=>c.t===elementCategory25).items as t}
+      <text size="sm">{t}</text>
+    {/each}
+  </box>
+  <caption>模拟商品详情页的元素列表，可切换不同语义分类。</caption>
+</card>
+
+Elements List 能够帮助你发现普通视觉浏览时很难察觉的问题。
+
+例如，切换到 Buttons 分类后看到：
+
+```text
+Button
+Button
+Quick add
+Quick add
+Quick add
+Button
+```
+
+这些按钮即使视觉上都具有明确的图标和商品上下文，但当它们被独立列出时，名称可能完全无法理解。
+
+修复之后应该更接近：
+
+```text
+Search
+Open shopping cart
+Quick add: Cotton T-shirt
+Quick add: Linen shirt
+Quick add: Classic jacket
+Close product viewer
+```
+
+同理，通过 Headings 分类可以检查页面内容结构，通过 Landmarks 分类可以检查主要区域的语义划分。
+
+---
+
+## 7. VoiceOver：苹果设备无障碍测试
+
+VoiceOver 与 NVDA 的导航机制存在一定差异，因此不能认为 NVDA 测试通过，VoiceOver 就一定没有问题。
+
+### 7.1 macOS VoiceOver 常用快捷键
+
+macOS 可以通过 Command + F5 开启或关闭 VoiceOver，部分设备或键盘配置可能需要使用 Fn。
+
+VO 表示 VoiceOver Modifier，通常是 Control + Option，也可以配置为 Caps Lock。
+
+| 快捷键 | 功能 |
+|---|---|
+| Command + F5 | 开启或关闭 VoiceOver |
+| VO + Right Arrow | 下一个项目 |
+| VO + Left Arrow | 上一个项目 |
+| VO + Space | 激活当前项目 |
+| VO + U | 打开 Rotor |
+| VO + Shift + Down Arrow | 与当前区域交互 |
+| VO + Shift + Up Arrow | 停止与当前区域交互 |
+
+Rotor 类似于 NVDA 的 Elements List，可以帮助用户按照标题、链接、表单控件等分类浏览网页。<Cite ref="turn280440search2"/>
+
+### 7.2 iPhone 如何开启 VoiceOver？
+
+直接在 iPhone 上操作：
+
+**设置 → 辅助功能 → VoiceOver → 开启**
+
+建议同时在「辅助功能快捷键」中配置 VoiceOver。这样就可以通过连续按三次侧边按钮，快速开启或关闭该功能。
+
+开启后，普通触屏操作方式会发生变化。
+
+### 7.3 iPhone VoiceOver 手势
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center" gap={3}>
+    <svg viewBox="0 0 90 78" width="90px">
+      <rect x="15" y="3" width="60" height="72" rx="8" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      <rect x="23" y="17" width="44" height="18" rx="3" stroke="#3978BC" strokeWidth="2" fill="none"/>
+      <circle cx="45" cy="26" r="8" fill="#3978BC" fillOpacity=".25" stroke="#3978BC"/>
+    </svg>
+    <box flex={1} gap={1}>
+      **单指轻点**
+      选择并朗读手指触碰的元素，而不是立即激活。
+    </box>
+  </row>
+  <divider/>
+  <row align="center" gap={3}>
+    <svg viewBox="0 0 90 78" width="90px">
+      <rect x="15" y="3" width="60" height="72" rx="8" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      <circle cx="45" cy="39" r="12" stroke="#3978BC" fill="#3978BC" fillOpacity=".15"/>
+      <circle cx="45" cy="39" r="21" stroke="#3978BC" strokeOpacity=".4" fill="none"/>
+      <text x="45" y="44" textAnchor="middle" fontSize="12" fill="currentColor">×2</text>
+    </svg>
+    <box flex={1} gap={1}>
+      **单指轻点两次**
+      激活当前已选中的控件，例如 Add to cart。
+    </box>
+  </row>
+  <divider/>
+  <row align="center" gap={3}>
+    <svg viewBox="0 0 90 78" width="90px">
+      <rect x="15" y="3" width="60" height="72" rx="8" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      <path d="M25 39 H65 M58 32 L65 39 L58 46" stroke="#3978BC" strokeWidth="2.5" fill="none"/>
+      <circle cx="27" cy="39" r="7" fill="#3978BC" fillOpacity=".2"/>
+    </svg>
+    <box flex={1} gap={1}>
+      **单指向左或向右轻扫**
+      移动到上一个或下一个可访问项目。
+    </box>
+  </row>
+  <divider/>
+  <row align="center" gap={3}>
+    <svg viewBox="0 0 90 78" width="90px">
+      <rect x="15" y="3" width="60" height="72" rx="8" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      {#each [31,45,59] as x}
+        <path d={`M${x} 57 V22 M${x-4} 27 L${x} 22 L${x+4} 27`} stroke="#3978BC" strokeWidth="2" fill="none"/>
+        <circle cx={x} cy="57" r="5" fill="#3978BC" fillOpacity=".25"/>
+      {/each}
+    </svg>
+    <box flex={1} gap={1}>
+      **三指轻扫**
+      滚动页面，例如向上轻扫以继续浏览下方内容。
+    </box>
+  </row>
+  <divider/>
+  <row align="center" gap={3}>
+    <svg viewBox="0 0 90 78" width="90px">
+      <rect x="15" y="3" width="60" height="72" rx="8" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      <circle cx="45" cy="39" r="21" stroke="#3978BC" fill="none" strokeDasharray="4 3"/>
+      <path d="M26 31 Q34 11 54 20 L50 14 M64 47 Q56 67 36 58 L40 64" stroke="#3978BC" strokeWidth="2" fill="none"/>
+      <circle cx="26" cy="31" r="7" fill="#3978BC" fillOpacity=".25"/>
+      <circle cx="64" cy="47" r="7" fill="#3978BC" fillOpacity=".25"/>
+    </svg>
+    <box flex={1} gap={1}>
+      **双指旋转**
+      切换 Rotor 导航类别，再通过单指上下轻扫按类别导航。
+    </box>
+  </row>
+</box>
+
+上述手势是 iPhone VoiceOver 的基础操作。可在系统的 VoiceOver 手势练习功能中先熟悉操作。<Cite refs={["turn266530search2","turn266530search11","turn266530search6"]}/>
+
+### 7.4 Shopify 移动端重点测试内容
+
+| 组件 | 测试重点 |
+|---|---|
+| Mobile Menu | 能否找到菜单、进入子菜单并返回 |
+| Filter Drawer | 是否只能访问当前模态区域 |
+| Color Swatch | 能否听到颜色名称与选中状态 |
+| Price Slider | 能否调整数值或使用输入框替代 |
+| Product Gallery | 能否切换商品图片 |
+| Quick Add | 能否选择变体并完成加购 |
+| Cart Drawer | 能否修改数量、删除商品 |
+| Sticky Checkout | 是否遮挡其他可访问内容 |
+
+特别注意：VoiceOver 的左右轻扫并不等同于网页的 Tab 导航。
+
+即使一个控件设置了 `tabindex="-1"`，只要它仍然存在于无障碍树中，VoiceOver 用户就可能通过阅读导航访问它。
+
+这也是为什么不能仅通过 tabindex 来实现模态背景隔离。
+
+---
+
+## 8. Accessible Name 的实际播报测试
+
+假设你正在测试 Collection 页面中的 Quick Add 按钮。
+
+下面三种实现都具有名称，但实际质量并不相同。
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{label:"Quick add",speech:"Quick add, button",desc:"具有基础名称，但缺少商品上下文。"},{label:"Quick add",speech:"Cotton T-shirt, button",desc:"缺少 Quick add 操作含义，也可能违反 Label in Name。"},{label:"Quick add",speech:"Quick add: Cotton T-shirt, button",desc:"同时表达操作用途和对应商品。"}] as p,i}
+    <box gap={2}>
+      <box border radius="sm" padding={2} align="center">{p.label}</box>
+      <row align="start">
+        <icon name="volume-2" size="sm"/>
+        <box flex={1} gap={1}>
+          <text size="sm" weight="medium">{p.speech}</text>
+          <caption>{p.desc}</caption>
+        </box>
+      </row>
+    </box>
+    {#if i<2}<divider/>{/if}
+  {/each}
+</box>
+
+检测时，不仅要确认有 Accessible Name，还应确认名称能够让用户理解操作。
+
+### 8.1 屏幕阅读器播报的六个检查维度
+
+| 维度 | 示例 |
+|---|---|
+| Name | Color: Black |
+| Role | Radio button |
+| State | Checked |
+| Value | Quantity: 2 |
+| Description | Minimum purchase quantity is 1 |
+| Context | Color, grouping |
+
+并不是所有元素都需要具备以上六项信息。具体需要哪些信息，取决于元素角色及业务用途。
+
+### 8.2 不要追求所有屏幕阅读器逐字播报一致
+
+例如同一个 Radio：
+
+```html
+<label>
+  <input type="radio" name="color" checked>
+  Black
+</label>
+```
+
+不同辅助技术可能播报：
+
+```text
+Black, radio button, checked.
+```
+
+或者：
+
+```text
+Black, selected, radio button.
+```
+
+这不一定是兼容性问题。
+
+我们真正需要验证的是：用户是否能够理解 Black 是一个单选控件，以及它当前是否被选中。
+
+**无障碍测试应验证语义与操作结果，而不是强制匹配某一句固定的语音文本。**
+
+---
+
+## 9. Live Region 不播报的排查方法
+
+这是 Shopify 动态组件中非常常见的问题。
+
+假设加购成功后，视觉上已经显示 Added to cart，但是 NVDA 没有播报。
+
+应该如何排查？
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"检查业务状态",d:"服务器是否真正返回加购成功？"},{t:"检查 DOM 更新",d:"Live Region 的 textContent 是否发生变化？"},{t:"检查节点生命周期",d:"是否在 Section Rendering 中重新创建了通知节点？"},{t:"检查无障碍树",d:"节点是否位于 hidden、inert 或模态背景中？"},{t:"检查 ARIA 属性",d:"aria-live、role、aria-busy 是否正确？"},{t:"检查通知时机",d:"是否更新过快、文字完全相同或被其他播报覆盖？"},{t:"真实辅助技术验证",d:"分别使用 NVDA 和 VoiceOver 复测。"}] as p,i}
+    <box border radius="md" padding={2} gap={1}>**{i+1}. {p.t}**<caption>{p.d}</caption></box>
+    {#if i<6}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+### 9.1 错误案例：动态创建已有内容的 Live Region
+
+```javascript
+const status = document.createElement('div');
+
+status.setAttribute('role', 'status');
+
+status.textContent = 'Item added to cart.';
+
+document.body.append(status);
+```
+
+某些浏览器与屏幕阅读器组合可能不会主动播报这条信息，因为 Live Region 出现时已经包含了内容。
+
+更稳妥的方案是提前在页面中建立空的通知节点。
+
+```html
+<p
+  id="CartStatus"
+  role="status"
+  class="visually-hidden"
+></p>
+```
+
+加购成功之后再更新：
+
+```javascript
+document.querySelector('#CartStatus').textContent =
+  'Cotton T-shirt added to your cart.';
+```
+
+### 9.2 使用 MutationObserver 调试 Live Region
+
+```javascript
+const region = document.querySelector('#CartStatus');
+
+const observer = new MutationObserver(() => {
+  console.log('Live Region updated:', {
+    message: region.textContent,
+    role: region.getAttribute('role'),
+    live: region.getAttribute('aria-live'),
+    busy: region.getAttribute('aria-busy'),
+    connected: region.isConnected
+  });
+});
+
+observer.observe(region, {
+  childList: true,
+  subtree: true,
+  characterData: true,
+  attributes: true,
+  attributeFilter: [
+    'aria-live',
+    'aria-busy',
+    'aria-hidden',
+    'role'
+  ]
+});
+```
+
+结束测试时：
+
+```javascript
+observer.disconnect();
+```
+
+这个工具能够确认 DOM 是否发生了预期变化，但不能确认屏幕阅读器是否实际完成播报。如果整个节点被替换，还需要检查新的节点并重新建立观察。
+
+### 9.3 Cart Drawer 中一个特殊的通知问题
+
+```html
+<main inert>
+  <p role="status" id="PageStatus"></p>
+</main>
+
+<dialog open>
+  <p role="status" id="DrawerStatus"></p>
+</dialog>
+```
+
+假设此时 Drawer 已真正进入模态状态，通知应该优先由当前活动 Drawer 内部的 `DrawerStatus` 承担。
+
+否则背景页面中的通知节点可能已经无法被辅助技术正常访问。
+
+这里的 `open` 只是用于示意当前显示状态，真实的原生模态弹窗应通过 `showModal()` 打开。
+
+### 9.4 Live Region 重复播报怎么办？
+
+例如切换商品尺寸后同时出现：
+
+```text
+Price: $39.99
+In stock
+Price: $39.99, in stock
+```
+
+这通常是因为价格区域、库存区域和统一 Announcer 分别进行了通知。
+
+可以将通知职责集中：
+
+```javascript
+function announceVariantChange(variant) {
+  status.textContent = [
+    variant.formattedPrice,
+    variant.available ? 'Available to purchase.' : 'Sold out.'
+  ].join(' ');
+}
+```
+
+这里的 `formattedPrice` 是业务层提供的格式化价格，并非 Shopify Variant 原生字段。
+
+其他价格和库存区域继续正常显示，只是不再重复承担 Live Region 职责。
+
+---
+
+## 10. 200% Zoom 与 400% Reflow 测试
+
+前面第 8 课学习过响应式布局和文字缩放。现在我们来实际验证它们。
+
+这里需要区分两项 WCAG AA 准则。
+
+| 准则 | 核心要求 |
+|---|---|
+| 1.4.4 Resize Text | 文字放大至 200% 时，不丢失内容和功能 |
+| 1.4.10 Reflow | 普通纵向滚动内容在等效 320 CSS px 宽度下，不需要双向滚动 |
+
+400% 浏览器缩放是测试 Reflow 的一种常见方法：将初始内容视口宽度设为 1280 CSS px，再放大至 400%，可以得到等效的 320 CSS px 宽度。<Cite refs={["turn280440search0","turn266530search3"]}/>
+
+### 10.1 浏览器缩放到底改变了什么？
+
+{@body const [zoom25,setZoom25]=DIL.useState("100")}
+{@body const viewport25=1280/(Number(zoom25)/100)}
+<card gap={3}>
+  **Zoom & Reflow 实验室**
+  <segmented-control value={zoom25} onChange={setZoom25} options={[{label:"100%",value:"100"},{label:"200%",value:"200"},{label:"300%",value:"300"},{label:"400%",value:"400"}]}/>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>初始视口宽度</caption>
+      <title size="lg">1280 px</title>
+    </box>
+    <box flex={1} gap={1}>
+      <caption>等效 CSS 视口宽度</caption>
+      <title size="xl" tabularNums={true}>{Math.round(viewport25)} px</title>
+    </box>
+  </row>
+  <box border radius="md" padding={2} gap={2}>
+    <row align="center">
+      {#if viewport25<990}<icon name="menu" size="sm"/>{/if}
+      **STORE**
+      <spacer/>
+      {#if viewport25>=990}<text size="xs">Home　Clothing　Sale</text>{/if}
+      <icon name="search" size="sm"/>
+      <icon name="shopping-bag" size="sm"/>
+    </row>
+    <divider/>
+    <box direction={viewport25>=750?"row":"col"} gap={3}>
+      <box flex={1} background="#E5DED3" radius="sm" align="center" padding={3}>
+        <svg viewBox="0 0 100 110" height="125px">
+          <path d="M34 8 L8 25 L22 46 L34 38 V103 H66 V38 L78 46 L92 25 L66 8 L50 16 Z" fill="#666666"/>
+        </svg>
+      </box>
+      <box flex={1} gap={2}>
+        <title size="lg">Premium Cotton T-shirt</title>
+        **$29.99**
+        <caption>Choose your size</caption>
+        <row gap={2}>
+          {#each ["S","M","L"] as s}
+            <box flex={1} border radius="sm" padding={2} align="center">{s}</box>
+          {/each}
+        </row>
+        <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF">Add to cart</text></box>
+      </box>
+    </box>
+  </box>
+  <caption>这是响应式布局示意。随着有效视口宽度减小，桌面导航切换为移动导航，商品图片和信息由双列变为单列。</caption>
+</card>
+
+这也解释了一个容易被忽略的问题：即使用户正在使用桌面电脑，也可能因为浏览器放大而进入 Shopify Theme 的移动端布局。
+
+因此，移动端组件不能只支持触屏，还必须支持键盘操作。
+
+### 10.2 实际测试步骤
+
+在 Chrome 中将浏览器内容视口调整至约 1280 CSS px 宽度，然后分别测试 100%、200%、400% 缩放。
+
+每个缩放级别都检查 Header、商品选项、价格、购物车、表单和弹窗，确认没有重要文字被截断，也没有操作入口消失。
+
+可以通过 Console 查看当前布局视口宽度：
+
+```javascript
+document.documentElement.clientWidth;
+```
+
+还可以直接使用 DevTools 设置 320 CSS px 宽度，辅助排查 Reflow 问题。但这不能完全代替实际浏览器缩放测试。
+
+地图、数据表格等确实需要二维布局的内容存在适用例外，普通商品列表、购物车文字和表单通常不应依赖这种例外。
+
+### 10.3 快速定位横向溢出元素
+
+```javascript
+const viewportWidth =
+  document.documentElement.clientWidth;
+
+const overflowElements = [
+  ...document.querySelectorAll('body *')
+].filter(element => {
+  const rect = element.getBoundingClientRect();
+
+  return rect.width > 0 &&
+    (
+      rect.right > viewportWidth + 1 ||
+      rect.left < -1
+    );
+});
+
+console.log(overflowElements);
+```
+
+该脚本只能找出候选元素。轮播轨道、视觉隐藏文字和可独立滚动的区域也可能出现在结果中，需要人工判断，不能全部视为错误。
+
+常见修复方式：
+
+```css
+.product-info {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.product-image {
+  max-width: 100%;
+  height: auto;
+}
+
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.product-actions button {
+  max-width: 100%;
+  white-space: normal;
+}
+```
+
+不建议为了消除横向滚动条，直接给整个页面添加：
+
+```css
+body {
+  overflow-x: hidden;
+}
+```
+
+这可能只是把原本溢出的内容裁切掉，并没有真正解决无障碍问题。
+
+---
+
+## 11. Text Spacing 文字间距测试
+
+WCAG 1.4.12 Text Spacing（AA）是很多前端开发人员容易遗漏的一项准则。
+
+网站不需要默认采用这些文字间距，但当用户通过样式覆盖进行调整时，不应该造成内容或功能丢失。<Cite ref="turn266530search26"/>
+
+需要测试的参数为：
+
+| 属性 | 测试值 |
+|---|---|
+| line-height | 至少 1.5 倍字号 |
+| 段落之后的间距 | 至少 2 倍字号 |
+| letter-spacing | 至少 0.12 倍字号 |
+| word-spacing | 至少 0.16 倍字号 |
+
+对于不使用某些文字间距属性的语言和书写系统，存在对应例外。
+
+### 11.1 文字间距交互实验
+
+{@body const [spacing25,setSpacing25]=DIL.useState(false)}
+{@body const [fixedHeight25,setFixedHeight25]=DIL.useState(true)}
+<card gap={3}>
+  <checkbox checked={spacing25} onChange={setSpacing25}>应用 WCAG 文字间距测试值</checkbox>
+  <checkbox checked={fixedHeight25} onChange={setFixedHeight25}>使用固定高度容器</checkbox>
+  <box border radius="md" padding={3}>
+    <AppBlock app_block_id="spacing-test-25" title="文字间距布局测试" bind={{spacing25,fixedHeight25}}>
+      <div style="font:15px system-ui;color:inherit"><div id="sample" style="box-sizing:border-box;border:1px solid #8888;border-radius:7px;padding:12px;height:112px;overflow:hidden"><div style="font-weight:650;margin-bottom:8px">Shipping & Returns</div><p id="para" style="margin:0;line-height:1.25">Free shipping on orders over $50. Returns are accepted within 30 days of delivery. Please keep your original packaging.</p><div style="font-weight:600;margin-top:8px;text-decoration:underline">Read our shipping policy</div></div></div>
+      <script>
+      globalThis.__effect?.(()=>{
+        const spacing=globalThis.__bindings?.spacing25??false;
+        const fixed=globalThis.__bindings?.fixedHeight25??true;
+        const sample=document.getElementById('sample');
+        const para=document.getElementById('para');
+        sample.style.height=fixed?'112px':'auto';
+        sample.style.letterSpacing=spacing?'.12em':'normal';
+        sample.style.wordSpacing=spacing?'.16em':'normal';
+        sample.style.lineHeight=spacing?'1.5':'1.25';
+        para.style.lineHeight=spacing?'1.5':'1.25';
+        para.style.marginBottom=spacing?'2em':'0';
+      });
+      </script>
+    </AppBlock>
+  </box>
+  <caption>打开文字间距设置后，观察固定高度容器是否导致文字和链接被裁切，再取消固定高度进行对比。</caption>
+</card>
+
+### 11.2 Console 测试脚本
+
+可以在测试环境的 Console 中执行：
+
+```javascript
+document.getElementById('text-spacing-test')?.remove();
+
+const style = document.createElement('style');
+
+style.id = 'text-spacing-test';
+
+style.textContent = `
+  * {
+    line-height: 1.5 !important;
+    letter-spacing: 0.12em !important;
+    word-spacing: 0.16em !important;
+  }
+
+  p {
+    margin-block-end: 2em !important;
+  }
+`;
+
+document.head.appendChild(style);
+```
+
+恢复原状：
+
+```javascript
+document.getElementById('text-spacing-test')?.remove();
+```
+
+这是一个针对普通文档 DOM 的快速测试脚本，无法覆盖所有 iframe、Shadow DOM 或高优先级样式。
+
+### 11.3 Shopify 中容易出现问题的位置
+
+| 组件 | 常见原因 |
+|---|---|
+| Announcement Bar | 固定高度 |
+| Add to cart 按钮 | 固定高度、禁止换行 |
+| Product Card | 商品名称强制裁切 |
+| Inventory Badge | 固定宽高 |
+| Cart Drawer | Footer 高度写死 |
+| 表单错误提示 | 容器高度不足 |
+| Accordion | max-height 限制 |
+
+例如：
+
+```css
+/* 不够灵活 */
+.add-to-cart {
+  height: 44px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+```
+
+推荐改为：
+
+```css
+.add-to-cart {
+  min-height: 44px;
+  height: auto;
+  padding: 12px 16px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+```
+
+使用 min-height 而不是固定 height，是很多组件保持文字可访问性的简单办法。
+
+---
+
+## 12. Forced Colors 高对比度模式
+
+部分低视力用户会通过操作系统的高对比度主题改变网站配色。
+
+这种情况下，浏览器可能使用用户选择的系统颜色替换网站原本的颜色。
+
+特别值得注意的是，`box-shadow` 在 Forced Colors 模式下会被强制设置为 none。<Cite ref="turn266530search1"/>
+
+### 12.1 为什么按钮边框可能消失？
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={3}>
+      **普通模式**
+      <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF">Add to cart</text></box>
+      <box border={{size:2,color:"#3978BC"}} radius="sm" padding={2} align="center">Size M</box>
+      <caption>颜色、背景和阴影正常显示。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box background="#000000" theme="dark" radius="md" padding={3} gap={3}>
+      <text color="#FFFFFF" weight="medium">高对比度模式</text>
+      <box border={{size:1,color:"#FFFFFF"}} radius="sm" padding={3} align="center"><text color="#FFFFFF">Add to cart</text></box>
+      <box border={{size:2,color:"#FFFF00"}} radius="sm" padding={2} align="center"><text color="#FFFF00">✓ Size M</text></box>
+      <caption>通过系统颜色、边框和选中标记保留状态。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+以上只是效果示意，实际颜色取决于用户选择的系统主题。
+
+### 12.2 如何进行测试？
+
+在 Chrome DevTools 中打开 Rendering 面板，找到 CSS Media Feature 模拟设置，将 `forced-colors` 设置为 `active`。
+
+也可以在 Windows 中通过：
+
+设置 → 辅助功能 → 对比度主题
+
+开启真实的系统高对比度模式。
+
+后者更适合最终验证。
+
+### 12.3 CSS 修复方案
+
+```css
+@media (forced-colors: active) {
+  .button {
+    border: 1px solid ButtonText;
+  }
+
+  .button:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 3px;
+  }
+
+  .variant-input:checked + label {
+    border: 2px solid Highlight;
+  }
+
+  .icon {
+    fill: currentColor;
+  }
+}
+```
+
+常用系统颜色：
+
+| 系统颜色 | 用途 |
+|---|---|
+| Canvas | 页面背景 |
+| CanvasText | 普通文字 |
+| ButtonFace | 按钮背景 |
+| ButtonText | 按钮文字 |
+| Highlight | 高亮状态 |
+| HighlightText | 高亮区域文字 |
+| GrayText | 禁用状态等 |
+
+### 12.4 Shopify Color Swatch 的特殊处理
+
+商品颜色具有真实业务含义。如果系统颜色覆盖导致所有 Swatch 都变成黑色，用户可能无法通过颜色区分商品。
+
+可以针对单纯的颜色展示区域使用：
+
+```css
+@media (forced-colors: active) {
+  .swatch-color {
+    forced-color-adjust: none;
+  }
+}
+```
+
+但仅应对确实需要保留真实颜色的区域谨慎使用，并保留颜色名称、选中边框和焦点提示。
+
+不要对整个网站设置 `forced-color-adjust: none`，否则可能破坏用户选择高对比度模式的目的。
+
+---
+
+## 13. Reduced Motion 减少运动测试
+
+除了视觉布局，还需要验证动画偏好。
+
+在 Chrome DevTools 的 Rendering 面板中，可以模拟：
+
+```css
+prefers-reduced-motion: reduce
+```
+
+推荐重点检查 Shopify 首页轮播、促销公告滚动、商品图片切换、Cart Drawer 滑动动画以及 Quick Add Modal。
+
+### 一个容易被忽略的 JavaScript Bug
+
+假设 Drawer 的焦点管理依赖 CSS 动画结束事件：
+
+```javascript
+drawer.addEventListener('transitionend', () => {
+  trapFocus(drawer);
+}, { once: true });
+```
+
+但在减少运动模式下：
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    transition: none;
+  }
+}
+```
+
+此时 transitionend 可能根本不会触发，导致 Focus Trap 没有建立。
+
+这是一个视觉优化影响业务生命周期的典型例子。
+
+更合理的架构是：
+
+```text
+打开 Drawer
+    ↓
+立即建立模态隔离和焦点管理
+    ↓
+根据用户偏好播放可选动画
+```
+
+而不是将核心无障碍能力依赖在装饰性动画上。
+
+原生 `dialog.showModal()` 可以承担很大一部分模态基础能力。
+
+减少运动偏好本身并不是 WCAG AA 中针对所有动画的一律禁止要求，但它是很值得纳入测试的工程实践。
+
+---
+
+## 14. Shopify 完整购买流程人工测试
+
+现在把前面所有知识组合起来。
+
+假设任务是：
+
+**不使用鼠标，通过屏幕阅读器购买一件 Black / M 的 Cotton T-shirt，数量为 2。**
+
+{@body const testGroups25=[{t:"01 · Header 与导航",s:["可以通过 Skip Link 跳过导航","可以通过标题或 Landmark 找到主要内容","能够打开和关闭 Mega Menu","能够使用 Predictive Search"]},{t:"02 · Collection",s:["能够理解筛选组和各选项名称","能够勾选 Black 并感知结果变化","能够修改 Sort by","能够找到并打开目标商品"]},{t:"03 · Product Detail Page",s:["能够获取商品标题和价格","能够理解颜色与尺寸选项","能够选择 Black / M","能够将数量调整为 2","能够理解商品是否可购买","能够激活 Add to cart"]},{t:"04 · Cart Drawer",s:["能够感知购物车打开","不能意外进入模态背景","能够确认商品、变体和数量","能够修改数量及删除商品","能够关闭 Drawer 并恢复焦点","能够找到 Checkout 入口"]},{t:"05 · Checkout",s:["能够填写联系信息和配送地址","能够发现并修复表单错误","能够选择有效配送方式","能够理解总价、税费和运费","能够完成测试支付并确认结果"]}]}
+{@body const [tested25,setTested25]=DIL.useState({})}
+{@body const testTotal25=testGroups25.reduce((n,g)=>n+g.s.length,0)}
+{@body const passCount25=Object.values(tested25).filter(v=>v==="pass").length}
+{@body const failCount25=Object.values(tested25).filter(v=>v==="fail").length}
+<card gap={3}>
+  **完整购买流程人工测试表**
+  <grid columns={3}>
+    <grid-item><box gap={1}><caption>通过</caption><title size="2xl" color="success">{passCount25}</title></box></grid-item>
+    <grid-item><box gap={1}><caption>失败</caption><title size="2xl" color="danger">{failCount25}</title></box></grid-item>
+    <grid-item><box gap={1}><caption>待测试</caption><title size="2xl">{testTotal25-passCount25-failCount25}</title></box></grid-item>
+  </grid>
+  <row height={6} background="surface-tertiary" radius="full" gap={0} clip>
+    <box background="#39866B" width={`${passCount25/testTotal25*100}%`}/>
+    <box background="#B95757" width={`${failCount25/testTotal25*100}%`}/>
+  </row>
+  {#each testGroups25 as g,i}
+    <box gap={3}>
+      **{g.t}**
+      {#each g.s as s,j}
+        <row align="center" gap={2}>
+          <box flex={1}><text size="sm">{s}</text></box>
+          <button uniform size="sm" color={tested25[`${i}-${j}`]==="pass"?"success":"secondary"} variant={tested25[`${i}-${j}`]==="pass"?"solid":"outline"} onClick={()=>setTested25(old=>({...old,[`${i}-${j}`]:old[`${i}-${j}`]==="pass"?"pending":"pass"}))}><icon name="check" size="sm"/></button>
+          <button uniform size="sm" color={tested25[`${i}-${j}`]==="fail"?"danger":"secondary"} variant={tested25[`${i}-${j}`]==="fail"?"solid":"outline"} onClick={()=>setTested25(old=>({...old,[`${i}-${j}`]:old[`${i}-${j}`]==="fail"?"pending":"fail"}))}><icon name="x" size="sm"/></button>
+        </row>
+      {/each}
+    </box>
+    {#if i<4}<divider/>{/if}
+  {/each}
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(testGroups25.map((g,i)=>g.t+"\n"+g.s.map((s,j)=>`[${tested25[`${i}-${j}`]==="pass"?"PASS":tested25[`${i}-${j}`]==="fail"?"FAIL":"PENDING"}] ${s}`).join("\n")).join("\n\n"))}><icon name="copy" size="sm"/> 复制人工测试结果</button>
+  <button block variant="ghost" color="secondary" onClick={()=>setTested25({})}>重置测试表</button>
+  <caption>可在实际店铺测试时逐项记录。支付及订单确认应在测试环境中进行，避免真实扣款。</caption>
+</card>
+
+完成一次测试之后，还应该更换业务场景。
+
+例如售罄商品、库存不足、商品筛选无结果、无效配送地址、空购物车以及网络请求失败等。
+
+正常流程通过，并不代表异常流程也没有无障碍问题。
+
+---
+
+## 15. 人工发现问题后的完整修复案例
+
+假设我们在测试 Shopify Cart Drawer 时发现以下问题：
+
+用户通过键盘聚焦 Linen shirt 的 Remove 按钮，按下 Enter 删除该商品，随后 NVDA 不再播报当前购物车操作位置。
+
+### 15.1 问题复现
+
+<box border radius="lg" padding={3} gap={2}>
+  <caption>删除之前</caption>
+  {#each ["Cotton T-shirt","Linen shirt","Classic jacket"] as n,i}
+    <row border radius="sm" padding={2} align="center">
+      <text size="sm">{n}</text>
+      <spacer/>
+      <box border={{size:i===1?2:1,color:i===1?"#3978BC":"#88888850"}} radius="sm" padding={2}><icon name="trash-2" size="sm"/></box>
+    </row>
+  {/each}
+  <box align="center"><icon name="arrow-down"/><caption>删除 Linen shirt，重新渲染购物车</caption></box>
+  {#each ["Cotton T-shirt","Classic jacket"] as n}
+    <row border radius="sm" padding={2} align="center"><text size="sm">{n}</text><spacer/><icon name="trash-2" size="sm"/></row>
+  {/each}
+  <row align="center"><icon name="alert-circle" color="danger"/><text size="sm">原焦点节点已经不存在，焦点可能丢失。</text></row>
+</box>
+
+### 15.2 定位根因
+
+使用之前的 Console 焦点调试工具，检查：
+
+```javascript
+document.activeElement;
+```
+
+发现焦点不再位于合理的购物车操作控件上。
+
+进一步检查代码：
+
+```javascript
+const response = await changeCartLine(key, 0);
+
+cartItems.innerHTML = responseHTML;
+```
+
+根本原因并不是缺少 ARIA 属性，而是原焦点所在 DOM 节点被删除，渲染逻辑没有处理焦点恢复。
+
+### 15.3 修复方案
+
+在 DOM 更新前记录焦点所在购物车行及操作类型，更新完成后优先寻找下一条合理的购物车操作控件。
+
+```javascript
+const snapshot = captureCartFocus(cartDrawer);
+
+renderCartItems(response);
+
+if (cartDrawer.open) {
+  restoreCartFocus(cartDrawer, snapshot);
+}
+
+cartStatus.textContent =
+  'Linen shirt removed from your cart.';
+```
+
+这里复用了第 23 课的购物车焦点保存与恢复方法。
+
+需要确保：
+
+- 用户仍处于打开的购物车中。
+- 请求期间没有主动移动到其他操作区域。
+- 新焦点目标仍然存在且可以访问。
+- 删除最后一项时存在 Empty Cart 的备用焦点。
+
+### 15.4 修复后的回归测试
+
+| 测试环境 | 验证内容 |
+|---|---|
+| Keyboard Only | 删除后焦点移动至合理位置 |
+| NVDA + Chrome | 感知删除结果及当前操作位置 |
+| VoiceOver + Safari | 可以继续浏览剩余购物车 |
+| axe-core | 没有引入新的自动检测错误 |
+| Empty Cart | 删除最后一项后仍有操作入口 |
+| 慢网络 | 不抢夺用户已经转移的焦点 |
+
+这套流程才算真正完成了一次无障碍问题修复。
+
+---
+
+## 16. 如何记录人工测试问题？
+
+人工测试报告应该比自动检测报告包含更多操作上下文。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <caption>A11Y-025</caption>
+    <spacer/><badge color="danger">P1 · 高优先级</badge>
+  </row>
+  **删除购物车商品后键盘焦点丢失**
+  <divider/>
+  | 字段 | 内容 |
+  |---|---|
+  | 页面 | Product / Collection |
+  | 组件 | Cart Drawer |
+  | 页面状态 | 购物车包含三条商品 |
+  | 测试环境 | Windows、Chrome、NVDA |
+  | 检测方式 | 人工键盘及屏幕阅读器 |
+  | 涉及准则 | 2.4.3 Focus Order，需结合行为确认 |
+  <divider/>
+  **复现步骤**
+
+  打开购物车，聚焦第二条商品的 Remove 按钮，按 Enter，等待购物车更新。
+
+  **实际结果**
+
+  原按钮被销毁，焦点丢失，用户难以继续操作。
+
+  **预期结果**
+
+  焦点移动到下一条商品的合理操作控件，并能够感知删除结果。
+
+  **修复方案**
+
+  在 DOM 更新前保存焦点上下文，在渲染完成后恢复至合理位置。
+
+  **验收条件**
+
+  删除中间项、最后一项及唯一商品时，均可继续使用键盘和屏幕阅读器操作。
+  <divider/>
+  <caption>教学用问题记录。正式报告还应记录具体浏览器版本、辅助技术版本、主题版本、测试日期及复现证据。</caption>
+</box>
+
+建议将人工测试发现的问题纳入公司现有的 Issue 或 Bug 管理流程，而不是单独存放在一份无人维护的审计文档里。
+
+---
+
+## 17. 自动检测与人工检测的责任划分
+
+至此，我们可以建立一套完整的无障碍测试职责体系。
+
+| 检测内容 | 推荐手段 |
+|---|---|
+| ARIA 属性是否合法 | axe-core |
+| 按钮是否具有名称 | axe-core |
+| 名称是否准确表达业务 | 人工检查 |
+| 浏览器计算后的语义 | Chrome DevTools |
+| DOM 焦点顺序 | Keyboard + Playwright |
+| 屏幕阅读器阅读顺序 | NVDA / VoiceOver |
+| Live Region DOM 更新 | Playwright / MutationObserver |
+| Live Region 真实播报 | 屏幕阅读器 |
+| 文字对比度 | axe / WAVE + 人工判断 |
+| Zoom / Reflow | 浏览器缩放测试 |
+| Text Spacing | CSS 覆盖测试 |
+| Forced Colors | 系统及浏览器模拟 |
+| 完整购物流程 | E2E + 人工辅助技术测试 |
+
+值得强调的是，即使我们作为开发者熟练使用屏幕阅读器，也不能完全代替真实残障用户的使用体验。条件允许时，还应该邀请具有辅助技术使用经验的用户参与可用性测试。
+
+---
+
+## 18. 本课知识测试
+
+{@body const quiz25=[{q:"仅使用 Tab 是否可以验证所有屏幕阅读器阅读行为？",o:["可以","不可以"],a:1,e:"屏幕阅读器的虚拟光标、标题导航与 DOM Focus 不完全相同。"},{q:"NVDA 的哪个快捷键可以打开 Elements List？",o:["NVDA + F7","NVDA + Space","NVDA + Q"],a:0,e:"Elements List 适合检查标题、链接、按钮及地标。"},{q:"不同屏幕阅读器对 Radio 的播报措辞不同，是否必然存在问题？",o:["是","否"],a:1,e:"重点是角色、名称和状态是否能够正确传达。"},{q:"MutationObserver 能否证明屏幕阅读器已经完成播报？",o:["能","不能"],a:1,e:"它只能观察 DOM 变化，实际语音输出需要辅助技术验证。"},{q:"1280 CSS px 视口在 400% 缩放下，等效宽度是多少？",o:["640 CSS px","320 CSS px","128 CSS px"],a:1,e:"这是 WCAG Reflow 的常用测试条件。"},{q:"WCAG Text Spacing 是否要求网站默认采用规定的文字间距？",o:["要求","不要求，但需要支持用户调整后不丢失内容与功能"],a:1,e:"准则关注用户覆盖样式后的可访问性。"},{q:"Forced Colors 模式下，box-shadow 是否可能消失？",o:["是","否"],a:0,e:"应避免仅依靠阴影表达焦点或控件边界。"},{q:"Chrome 移动端模拟器能否完全代替 iPhone VoiceOver 测试？",o:["可以","不可以"],a:1,e:"真实设备的辅助技术、触屏手势和浏览器行为需要独立验证。"}]}
+{@body const [ans25,setAns25]=DIL.useState(Array(quiz25.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/><caption>答对 {ans25.filter((a,i)=>a===quiz25[i].a).length} / {quiz25.length}</caption>
+  </row>
+  {#each quiz25 as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(ans25[i])} onChange={v=>setAns25(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if ans25[i]>=0}
+        <text size="sm" color={ans25[i]===q.a?"success":"danger"}>{ans25[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<quiz25.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAns25(Array(quiz25.length).fill(-1))}>重新测试</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 学习重点 |
+|---|---|
+| [NVDA User Guide](https://download.nvaccess.org/documentation/en/userGuide.html) | NVDA 完整使用说明 |
+| [NVDA Commands Quick Reference](https://download.nvaccess.org/documentation/en/keyCommands.html) | 快捷键手册 |
+| [Apple VoiceOver User Guide](https://support.apple.com/guide/voiceover/welcome/mac) | macOS 屏幕阅读器 |
+| [iPhone VoiceOver 手势](https://support.apple.com/guide/iphone/iph3e2e2281/ios) | 移动端操作 |
+| [W3C Evaluating Web Accessibility](https://www.w3.org/WAI/test-evaluate/) | 无障碍评估 |
+| [WCAG 1.4.4 Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html) | 200% 文字缩放 |
+| [WCAG 1.4.10 Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html) | 重排测试 |
+| [WCAG 1.4.12 Text Spacing](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html) | 文字间距 |
+| [MDN Forced Colors](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/forced-colors) | 高对比度模式 |
+
+本课采用 WCAG 2.2 AA 作为技术测试目标，并以 NVDA 和 VoiceOver 为主要辅助技术测试工具。交互实验、语音输出和问题报告均为教学示例，并非真实辅助技术运行结果，代码也尚未在你的实际店铺中测试。
+
+---
+
+## 本课总结
+
+<grid columns={2} gap={2}>
+  {#each [{i:"keyboard",t:"Keyboard",d:"用户能否操作"},{i:"volume-2",t:"Screen Reader",d:"用户能否理解"},{i:"focus",t:"Focus",d:"操作位置是否连续"},{i:"zoom-in",t:"Reflow",d:"放大后是否可用"},{i:"contrast",t:"Forced Colors",d:"控件及状态是否可见"},{i:"shopping-cart",t:"Complete Process",d:"用户能否完成业务"}] as p}
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <icon name={p.i} size="xl"/>
+        **{p.t}**
+        <caption>{p.d}</caption>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+本课最重要的认知是：
+
+**自动化工具检查的是网站是否存在可识别的技术问题，而人工无障碍测试验证的是用户能否真正使用网站。**
+
+对于 Shopify Theme 开发，建议养成一个习惯：每开发完成一个复杂交互组件，先不使用鼠标操作一遍，再使用屏幕阅读器操作一遍。
+
+这往往比上线之后集中整改更有效。
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体课程位置</caption>
+      <title size="2xl">96.2%</title>
+    </box>
+    <box gap={1}>
+      <caption>已学习 24 课</caption>
+      <caption>已跳过 1 课</caption>
+      <caption>剩余 1 课</caption>
+    </box>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4,s:0},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5,s:0},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5,s:0},{t:"阶段四：复杂 UI 组件实战",n:5,d:4,s:1},{t:"阶段五：Shopify 电商实战",n:4,d:4,s:0},{t:"阶段六：检测与工程化",n:3,d:2,s:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm">{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}{s.s?" · 跳过1课":""}</caption>{/if}
+      </row>
+      <row background="surface-tertiary" height={5} radius="full" gap={0} clip>
+        <box background="#39866B" height={5} width={`${s.d/s.n*100}%`}/>
+        {#if s.s}<box background="#A0A0A0" height={5} width={`${s.s/s.n*100}%`}/>{/if}
+      </row>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 26 课——自动化测试、CI/CD、团队规范与合规审计**
+
+这是整套 ADA 无障碍课程的最后一课，主要学习：
+
+- ESLint、Shopify Theme Check 静态代码检测。
+- Playwright + axe-core 完整自动化测试架构。
+- Accessibility Snapshot 与 ARIA Snapshot。
+- 键盘、焦点、ARIA 状态的自动化断言。
+- Shopify Theme 动态业务场景测试。
+- GitHub Actions CI/CD 完整配置。
+- Baseline、历史遗留问题与新增问题拦截。
+- 自动生成无障碍检测报告。
+- 无障碍组件库与 Design System。
+- Code Review 无障碍规范。
+- 第三方 Shopify App 无障碍管理。
+- 企业级 WCAG 2.2 AA 整改与持续合规管理。
+- 整套课程知识体系总结。
+
+最后一课将从个人开发能力提升到团队工程化能力，建立一套能够真正应用于公司 Shopify 项目的无障碍开发、检测、整改和持续维护体系。

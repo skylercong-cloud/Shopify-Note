@@ -1,0 +1,1933 @@
+# 第 11 课：Focus Management 焦点管理
+
+<row align="center">
+  <caption>阶段三：JavaScript 与 ARIA 深入</caption>
+  <spacer/>
+  <caption>11 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="42.31%" radius="full"/>
+</box>
+
+上一课，我们学习了 tabindex、浏览器键盘导航机制、Roving Tabindex 和 aria-activedescendant。
+
+上一课解决的是**焦点如何移动**，这一课解决的是**当业务状态发生变化时，焦点应该移动到哪里**。
+
+Focus Management 是复杂前端组件无障碍开发中最重要的知识之一。即使一个组件具有正确的 HTML 语义、ARIA 属性和键盘操作，如果没有正确管理焦点，用户仍然可能无法完成整个业务流程。
+
+尤其是在 Shopify Theme 中，以下场景都需要主动管理焦点：
+
+| 业务场景 | 焦点管理需求 |
+|---|---|
+| 打开 Cart Drawer | 将焦点移入购物车 |
+| 关闭 Cart Drawer | 恢复原来的焦点 |
+| 删除购物车商品 | 将焦点转移到合理位置 |
+| AJAX 更新商品数量 | 保留当前操作位置 |
+| Collection 筛选 | 避免重新渲染导致焦点丢失 |
+| Quick Add Modal | 管理弹窗内部焦点 |
+| Size Guide Modal | 处理嵌套弹窗焦点 |
+| 表单提交失败 | 聚焦错误字段或错误摘要 |
+| SPA 路由切换 | 通知用户并建立新的阅读起点 |
+
+本课我们会结合原生 HTML、JavaScript、Shopify Section Rendering 和 Dawn 源码进行学习。
+
+---
+
+## 1. Focus Management 的五个核心概念
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{i:"log-in",t:"Initial Focus",n:"初始焦点",d:"组件打开后，焦点应该落在哪个元素上？"},{i:"repeat",t:"Focus Trap",n:"焦点限制",d:"模态弹窗打开时，如何防止焦点进入背景页面？"},{i:"undo-2",t:"Focus Restoration",n:"焦点恢复",d:"组件关闭后，焦点应该返回哪里？"},{i:"focus",t:"Focus Preservation",n:"焦点保留",d:"DOM 重新渲染时，如何维持用户的操作位置？"},{i:"layers",t:"Focus Stack",n:"焦点栈",d:"多个弹窗嵌套时，如何管理每一层的焦点？"}] as item}
+    <row align="center" gap={3}>
+      <box size="44px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name={item.i} size="xl"/></box>
+      <box flex={1} gap={1}>
+        **{item.t} · {item.n}**
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+  {/each}
+</box>
+
+可以将焦点理解为键盘用户在页面中的当前位置。
+
+视觉用户可以通过观察整个页面，了解界面发生了什么变化。但是键盘用户和屏幕阅读器用户通常更加依赖当前焦点来确定下一步操作。
+
+因此，焦点管理的核心不是让焦点不断移动，而是：
+
+**在界面变化时，尽可能维持用户的操作上下文；只有在确实需要时，才主动移动焦点。**
+
+## 2. 一个完整的焦点生命周期
+
+以 Shopify Cart Drawer 为例。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 345" width="100%">
+    <rect x="12" y="5" width="316" height="80" rx="7" fill="#888888" fillOpacity=".05" stroke="currentColor" strokeOpacity=".25"/>
+    <text x="25" y="24" fontSize="11" fill="currentColor">① 商品详情页</text>
+    <rect x="90" y="36" width="160" height="32" rx="5" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeWidth="2"/>
+    <text x="170" y="56" fontSize="12" textAnchor="middle" fill="currentColor">Add to cart</text>
+    <path d="M170 85 V112 M165 107 L170 112 L175 107" stroke="#5185C5" strokeWidth="1.5" fill="none"/>
+    <text x="182" y="101" fontSize="10" fill="#5185C5">保存触发元素</text>
+    <rect x="12" y="114" width="316" height="136" rx="7" stroke="currentColor" strokeOpacity=".25" fill="#888888" fillOpacity=".05"/>
+    <rect x="22" y="124" width="133" height="114" rx="4" fill="#888888" fillOpacity=".15"/>
+    <text x="88" y="172" fontSize="11" textAnchor="middle" fill="currentColor" opacity=".6">背景页面</text>
+    <text x="88" y="189" fontSize="10" textAnchor="middle" fill="currentColor" opacity=".6">inert</text>
+    <rect x="164" y="124" width="153" height="114" rx="4" fill="#39866B" fillOpacity=".08" stroke="#39866B"/>
+    <text x="174" y="141" fontSize="11" fontWeight="600" fill="currentColor">② Your cart</text>
+    <rect x="286" y="129" width="23" height="20" rx="3" fill="#5185C5" fillOpacity=".1" stroke="#5185C5" strokeWidth="2"/>
+    <path d="M293 135 L302 144 M302 135 L293 144" stroke="currentColor" strokeWidth="1.4"/>
+    <text x="176" y="165" fontSize="10" fill="currentColor">Cotton T-shirt × 1</text>
+    <rect x="176" y="190" width="128" height="25" rx="4" fill="#39866B"/>
+    <text x="240" y="206" fontSize="11" textAnchor="middle" fill="white">Checkout</text>
+    <text x="240" y="230" fontSize="10" textAnchor="middle" fill="#39866B">Focus Trap</text>
+    <path d="M170 250 V277 M165 272 L170 277 L175 272" stroke="#5185C5" strokeWidth="1.5" fill="none"/>
+    <text x="182" y="266" fontSize="10" fill="#5185C5">关闭并恢复焦点</text>
+    <rect x="12" y="279" width="316" height="61" rx="7" fill="#888888" fillOpacity=".05" stroke="currentColor" strokeOpacity=".25"/>
+    <text x="25" y="296" fontSize="11" fill="currentColor">③ 返回商品详情页</text>
+    <rect x="90" y="303" width="160" height="28" rx="4" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeWidth="2"/>
+    <text x="170" y="321" fontSize="12" textAnchor="middle" fill="currentColor">Add to cart</text>
+  </svg>
+  <caption>蓝色边框表示当前焦点位置。完整生命周期包括保存、进入、限制和恢复焦点。</caption>
+</box>
+
+整个过程可以抽象为：
+
+```text
+保存当前焦点
+    ↓
+打开组件
+    ↓
+设置初始焦点
+    ↓
+管理组件内部焦点
+    ↓
+关闭组件
+    ↓
+恢复合理的焦点位置
+```
+
+任何一个环节处理不当，都可能造成无障碍问题。
+
+---
+
+## 3. Initial Focus：初始焦点应该放在哪里？
+
+很多开发者打开弹窗时，直接执行：
+
+```javascript
+modal.querySelector('button').focus();
+```
+
+这种方式不一定有问题，但也不是所有场景的最佳方案。
+
+初始焦点应该根据弹窗的内容、业务目的和用户下一步操作来决定。
+
+### 3.1 四种典型场景
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <caption>场景一：搜索弹窗</caption>
+      <row align="center">
+        **Search**
+        <spacer/>
+        <icon name="x" size="sm"/>
+      </row>
+      <row border={{size:2,color:"#5185C5"}} radius="sm" padding={2}>
+        <icon name="search" size="sm"/>
+        <text size="xs">Search products</text>
+      </row>
+      <caption>聚焦输入框，让用户直接开始搜索。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <caption>场景二：商品尺寸说明</caption>
+      <box border={{size:2,color:"#5185C5"}} radius="sm" padding={2}>
+        **Size guide**
+      </box>
+      | Size | Chest |
+      |---|---:|
+      | S | 96 |
+      | M | 100 |
+      | L | 104 |
+      <caption>聚焦标题，让用户从内容开头阅读。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <caption>场景三：删除确认</caption>
+      **Remove saved address?**
+      <text size="xs">This action cannot be undone.</text>
+      <row>
+        <box flex={1} border={{size:2,color:"#5185C5"}} radius="sm" padding={2} align="center"><text size="sm">Cancel</text></box>
+        <box flex={1} background="#B53939" theme="dark" radius="sm" padding={2} align="center"><text color="#FFFFFF" size="sm">Delete</text></box>
+      </row>
+      <caption>优先聚焦风险较低的操作。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <caption>场景四：购物车弹窗</caption>
+      <row align="center">
+        **Your cart**
+        <spacer/>
+        <box border={{size:2,color:"#5185C5"}} radius="sm" padding={1}><icon name="x"/></box>
+      </row>
+      <text size="sm">Cotton T-shirt × 1</text>
+      <caption>$29.99</caption>
+      <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text size="sm" color="#FFFFFF">Checkout</text></box>
+      <caption>可以聚焦关闭按钮或购物车标题。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+WAI-ARIA APG 建议根据内容结构、滚动位置、操作风险等因素选择初始焦点，而不是机械地聚焦第一个按钮。<Cite ref="turn218330view3"/>
+
+### 3.2 为什么有时需要聚焦标题？
+
+假设商品尺寸说明弹窗非常长：
+
+```html
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="size-guide-title"
+>
+  <h2 id="size-guide-title" tabindex="-1">
+    Size guide
+  </h2>
+
+  <p>All measurements are in centimeters.</p>
+
+  <table>
+    <!-- 大量尺寸数据 -->
+  </table>
+
+  <button type="button">Close</button>
+</div>
+```
+
+如果直接聚焦位于底部的 Close 按钮，浏览器可能自动滚动到弹窗底部，导致用户错过前面的尺寸数据。
+
+可以改成：
+
+```javascript
+document
+  .querySelector('#size-guide-title')
+  .focus();
+```
+
+这里使用 `tabindex="-1"`，是为了允许标题成为程序化焦点，同时不增加正常的 Tab 停靠点。
+
+对于具有复杂结构的弹窗，也不建议通过 `aria-describedby` 将整个表格、列表和大量段落合并成一段长描述。应该让用户能够按照原有语义结构逐步阅读。
+
+### 3.3 autofocus 属性
+
+原生 HTML 也支持自动设置焦点：
+
+```html
+<dialog id="search-dialog">
+  <h2>Search products</h2>
+
+  <label for="search-input">Search</label>
+
+  <input
+    id="search-input"
+    type="search"
+    autofocus
+  >
+</dialog>
+```
+
+```javascript
+document
+  .querySelector('#search-dialog')
+  .showModal();
+```
+
+打开原生 dialog 时，`autofocus` 可以帮助浏览器选择初始焦点。<Cite ref="turn344298search14"/>
+
+但不要在普通页面加载时随意使用 autofocus，尤其是电商首页的 Newsletter 输入框，否则可能抢占用户的阅读位置，并在移动设备上意外唤起软键盘。
+
+---
+
+## 4. Focus Trap：焦点限制机制
+
+Focus Trap 的用途是在模态弹窗打开时，将键盘焦点限制在当前弹窗的操作区域中。
+
+注意，这里的重点是**模态弹窗（Modal）**。
+
+普通 Dropdown、Tooltip、非模态侧边栏，不应该一律使用 Focus Trap。
+
+### 4.1 交互实验：购物车焦点循环
+
+{@body const [cartOpen,setCartOpen]=DIL.useState(false)}
+{@body const [trapEnabled,setTrapEnabled]=DIL.useState(true)}
+{@body const [focusIndex,setFocusIndex]=DIL.useState(1)}
+{@body const pageItems=["Search","Add to cart","View products"]}
+{@body const drawerItems=["Close cart","Decrease quantity","Increase quantity","Checkout"]}
+{@body const navigationOrder=cartOpen?(trapEnabled?[3,4,5,6]:[0,1,2,3,4,5,6]):[0,1,2]}
+<card gap={3}>
+  **Focus Trap 实验室**
+  <checkbox checked={trapEnabled} onChange={setTrapEnabled}>启用模态焦点限制（模拟）</checkbox>
+  <box border radius="md" padding={2} gap={2}>
+    <row align="start">
+      <box flex={1} gap={2}>
+        <caption>商品详情页</caption>
+        {#each pageItems as item,i}
+          <box border={{size:focusIndex===i?2:1,color:focusIndex===i?"#5185C5":"#99999950"}} background={cartOpen&&trapEnabled?"surface-tertiary":"surface"} radius="sm" padding={2}>
+            <text color={cartOpen&&trapEnabled?"secondary":"default"} size="sm">{item}</text>
+          </box>
+        {/each}
+        {#if cartOpen&&trapEnabled}<caption>背景区域不可交互</caption>{/if}
+      </box>
+      {#if cartOpen}
+        <box flex={1} border radius="md" padding={2} gap={2}>
+          **Your cart**
+          {#each drawerItems as item,i}
+            <box border={{size:focusIndex===i+3?2:1,color:focusIndex===i+3?"#5185C5":"#99999950"}} radius="sm" padding={2}>
+              <text size="sm">{item}</text>
+            </box>
+          {/each}
+        </box>
+      {/if}
+    </row>
+  </box>
+  <button block onClick={()=>{setCartOpen(!cartOpen);setFocusIndex(cartOpen?1:3)}}>{cartOpen?"Close cart / Esc":"Add to cart · 打开购物车"}</button>
+  <grid columns={2}>
+    <grid-item><button block color="secondary" variant="outline" onClick={()=>{const i=navigationOrder.indexOf(focusIndex);setFocusIndex(navigationOrder[i<=0?navigationOrder.length-1:i-1])}}>Shift + Tab</button></grid-item>
+    <grid-item><button block color="secondary" variant="outline" onClick={()=>setFocusIndex(navigationOrder[(navigationOrder.indexOf(focusIndex)+1)%navigationOrder.length])}>Tab</button></grid-item>
+  </grid>
+  <row align="center">
+    <caption>当前模拟焦点</caption>
+    <spacer/>
+    <text weight="medium" size="sm">{[...pageItems,...drawerItems][focusIndex]}</text>
+  </row>
+  {#if cartOpen&&focusIndex<3}<text size="sm" color="danger">焦点已经进入弹窗背后的页面，模态隔离失败。</text>{/if}
+  <caption>打开购物车后连续点击 Tab，再关闭焦点限制进行对比。这里模拟页面内部的焦点导航，而非实际浏览器焦点。</caption>
+</card>
+
+一个可靠的模态弹窗需要同时考虑四件事。
+
+| 机制 | 作用 |
+|---|---|
+| Initial Focus | 打开时将焦点移入弹窗 |
+| Tab Containment | 防止 Tab 进入背景页面 |
+| Background Inertness | 禁止背景页面的用户交互 |
+| Exit & Restore | 提供退出方式并恢复焦点 |
+
+仅仅实现首尾 Tab 循环是不够的，因为鼠标用户、触屏用户和屏幕阅读器用户还可能通过其他方式访问背景页面。
+
+### 4.2 Focus Trap 与 Keyboard Trap 的区别
+
+| Focus Trap | Keyboard Trap |
+|---|---|
+| 有意限制模态组件内的焦点 | 用户意外被困在某个区域 |
+| 提供键盘可访问的退出机制 | 无法通过键盘正常退出 |
+| 关闭后恢复操作位置 | 用户可能丢失焦点或无法继续 |
+| 合理的模态交互设计 | 可能违反 WCAG 2.1.2 |
+
+例如，一个弹窗允许 Tab 在内部循环，同时提供可通过键盘激活的 Close 按钮和 Esc 退出行为，这是合理的模态模式。
+
+---
+
+## 5. 使用原生 dialog 实现焦点管理
+
+过去开发 Modal 时，我们往往需要手动实现大量 JavaScript 逻辑。
+
+现代 HTML 的 `<dialog>` 元素已经提供了很多原生能力。
+
+### 5.1 show() 与 showModal() 的区别
+
+| 能力 | `show()` | `showModal()` |
+|---|---|---|
+| 显示对话框 | 是 | 是 |
+| 模态模式 | 否 | 是 |
+| 进入浏览器 Top Layer | 否 | 是 |
+| 背景页面自动 inert | 否 | 是 |
+| 原生模态焦点处理 | 否 | 是 |
+| 默认支持 Esc 关闭 | 通常否 | 是 |
+
+另外，直接添加 `open` 属性也不等于调用 `showModal()`。
+
+```html
+<dialog open>
+  Product details
+</dialog>
+```
+
+这个 dialog 并没有因此成为真正的模态弹窗。
+
+通过 `showModal()` 打开时，浏览器会自动隔离同一文档中的其他内容。<Cite refs={["turn344298search4","turn344298search5"]}/>
+
+### 5.2 完整代码示例
+
+```html
+<button id="open-size-guide" type="button">
+  Size guide
+</button>
+
+<dialog
+  id="size-guide"
+  aria-labelledby="size-guide-title"
+>
+  <h2
+    id="size-guide-title"
+    tabindex="-1"
+    autofocus
+  >
+    Size guide
+  </h2>
+
+  <p>All measurements are in centimeters.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Size</th>
+        <th scope="col">Chest</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr>
+        <th scope="row">S</th>
+        <td>96</td>
+      </tr>
+
+      <tr>
+        <th scope="row">M</th>
+        <td>100</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form method="dialog">
+    <button type="submit">Close</button>
+  </form>
+</dialog>
+```
+
+JavaScript：
+
+```javascript
+const trigger = document.querySelector(
+  '#open-size-guide'
+);
+
+const dialog = document.querySelector(
+  '#size-guide'
+);
+
+trigger.addEventListener('click', () => {
+  dialog.showModal();
+});
+```
+
+CSS：
+
+```css
+dialog {
+  box-sizing: border-box;
+
+  width: min(90%, 600px);
+  max-height: 85dvh;
+
+  overflow: auto;
+  padding: 24px;
+
+  border: 0;
+  border-radius: 12px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+```
+
+只需要非常少的 JavaScript，就可以获得原生模态行为、初始焦点、背景隔离和关闭能力。
+
+浏览器通常还会在关闭时尝试恢复此前的焦点。对于触发元素已经被删除等特殊场景，应用仍需要提供合理的恢复策略。
+
+### 5.3 dialog、aria-modal 和 inert 的关系
+
+这三个概念很容易混淆。
+
+| 实现 | 作用 |
+|---|---|
+| `<dialog>` | 提供原生对话框元素 |
+| `showModal()` | 启用原生模态行为 |
+| `aria-modal="true"` | 告诉辅助技术该区域是模态的 |
+| `inert` | 让指定区域不可交互、不可聚焦 |
+
+下面这段代码：
+
+```html
+<div role="dialog" aria-modal="true">
+  ...
+</div>
+```
+
+只是声明了无障碍语义。
+
+它不会自动阻止背景页面滚动、鼠标点击或 Tab 导航，也不会自动实现 Esc 关闭。
+
+原生 dialog 则提供了对应的浏览器行为。
+
+所以，如果项目允许使用原生 dialog，新开发的 Modal、Cart Drawer、Size Guide 等组件都可以优先考虑它，而不是从零实现所有模态机制。
+
+---
+
+## 6. 如何手动实现 Focus Trap？
+
+虽然原生 dialog 已经非常实用，但很多现有 Shopify Theme 仍然使用自定义 Drawer 和 Modal，因此我们也必须理解手动实现的原理。
+
+### 6.1 基础原理：首尾循环
+
+假设弹窗中有四个可通过 Tab 访问的元素：
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 250" width="100%">
+    <rect x="38" y="5" width="264" height="238" rx="8" fill="#888888" fillOpacity=".04" stroke="currentColor" strokeOpacity=".25"/>
+    <text x="54" y="27" fontSize="14" fontWeight="600" fill="currentColor">Your cart</text>
+    {#each ["Close cart","Quantity input","Remove product","Checkout"] as item,i}
+      <rect x="85" y={39+i*49} width="170" height="32" rx="4" fill={i===0||i===3?"#5185C5":"#888888"} fillOpacity=".09" stroke={i===0||i===3?"#5185C5":"currentColor"} strokeOpacity={i===0||i===3?.8:.25}/>
+      <text x="170" y={59+i*49} fontSize="11" textAnchor="middle" fill="currentColor">{item}</text>
+      {#if i<3}<path d={`M170 ${71+i*49} V${86+i*49} M166 ${82+i*49} L170 ${86+i*49} L174 ${82+i*49}`} stroke="#5185C5" strokeWidth="1.5" fill="none"/>{/if}
+    {/each}
+    <path d="M255 202 H281 V55 H258 M264 50 L258 55 L264 60" fill="none" stroke="#5185C5" strokeWidth="1.5" strokeDasharray="4 3"/>
+    <path d="M85 55 H59 V202 H82 M76 197 L82 202 L76 207" fill="none" stroke="#39866B" strokeWidth="1.5" strokeDasharray="4 3"/>
+    <text x="290" y="125" fontSize="10" fill="#5185C5" transform="rotate(-90 290 125)">Tab</text>
+    <text x="51" y="145" fontSize="10" fill="#39866B" transform="rotate(-90 51 145)">Shift + Tab</text>
+    <text x="170" y="231" fontSize="10" textAnchor="middle" fill="currentColor" opacity=".7">焦点始终在当前弹窗内部</text>
+  </svg>
+</box>
+
+只需要在两个边界拦截 Tab：
+
+| 当前焦点 | 用户按键 | 处理方式 |
+|---|---|---|
+| 第一个元素 | Tab | 保留浏览器默认行为 |
+| 中间元素 | Tab / Shift + Tab | 保留浏览器默认行为 |
+| 最后一个元素 | Tab | 聚焦第一个元素 |
+| 第一个元素 | Shift + Tab | 聚焦最后一个元素 |
+
+没有必要拦截所有 Tab 事件，然后自行计算每一个焦点位置。
+
+### 6.2 基础 JavaScript 实现
+
+上一课已经讲过，通过 CSS Selector 查询元素，并不能完全准确地计算浏览器实际的 Tabbable 元素。
+
+这里使用 `tabbable` 库来辅助查询。
+
+```bash
+npm install tabbable
+```
+
+```javascript
+import { tabbable } from 'tabbable';
+
+function createFocusTrap(container) {
+  function handleKeydown(event) {
+    if (event.key !== 'Tab') return;
+
+    const elements = tabbable(container);
+
+    const first = elements[0];
+    const last = elements[elements.length - 1];
+
+    if (!first) {
+      event.preventDefault();
+      container.focus();
+      return;
+    }
+
+    const active = document.activeElement;
+
+    // 焦点不在顺序导航列表中，
+    // 例如聚焦了 tabindex="-1" 的标题。
+    if (!elements.includes(active)) {
+      // 普通向前导航交给浏览器；
+      // 向后导航需要防止逃离弹窗。
+      if (event.shiftKey || !container.contains(active)) {
+        event.preventDefault();
+
+        (event.shiftKey ? last : first).focus();
+      }
+
+      return;
+    }
+
+    if (active === last && !event.shiftKey) {
+      event.preventDefault();
+      first.focus();
+    } else if (active === first && event.shiftKey) {
+      event.preventDefault();
+      last.focus();
+    }
+  }
+
+  document.addEventListener(
+    'keydown',
+    handleKeydown
+  );
+
+  return function destroy() {
+    document.removeEventListener(
+      'keydown',
+      handleKeydown
+    );
+  };
+}
+```
+
+使用：
+
+```javascript
+const destroyTrap = createFocusTrap(drawer);
+
+// 关闭 Drawer 时
+destroyTrap();
+```
+
+如果弹窗没有任何可通过 Tab 访问的元素，示例会尝试将焦点放到容器上。自定义弹窗容器需要事先具备 `tabindex="-1"` 等焦点能力，并且实际弹窗仍然应该提供可操作的关闭入口。
+
+这段代码是为了讲解首尾循环原理，**不是一个完整的生产级 Modal 管理器**。它假设初始焦点和背景 inert 已经由其他逻辑处理，且内容采用普通 DOM 导航顺序。
+
+真正通用的 Focus Trap 还需要处理动态内容、嵌套弹窗、Shadow DOM、程序化焦点逃逸等情况。
+
+### 6.3 为什么每次按 Tab 都重新查询？
+
+假设购物车打开时有三个商品。
+
+用户删除一个商品后，可聚焦元素列表就发生了变化。
+
+如果在初始化时只查询一次：
+
+```javascript
+const elements = tabbable(container);
+```
+
+之后始终使用这个数组，那么其中可能包含已经被删除的 DOM 节点。
+
+例如：
+
+```javascript
+console.log(last.isConnected);
+
+// false
+```
+
+对一个已经脱离文档的元素执行：
+
+```javascript
+last.focus();
+```
+
+不会帮助用户恢复焦点。
+
+因此动态组件可以在需要时重新计算可聚焦元素，或者在 DOM 更新后重新初始化焦点限制逻辑。
+
+---
+
+## 7. Focus Restoration：焦点恢复
+
+这是非常容易被忽略的一部分。
+
+假设用户通过 Tab 导航到商品详情页中的 Size Guide 按钮，然后打开弹窗。
+
+关闭弹窗后，焦点不应该无缘无故地返回页面顶部。
+
+### 7.1 保存触发元素
+
+```javascript
+let previousFocus = null;
+
+function openModal() {
+  previousFocus = document.activeElement;
+
+  modal.hidden = false;
+
+  closeButton.focus();
+}
+```
+
+关闭时：
+
+```javascript
+function closeModal() {
+  modal.hidden = true;
+
+  previousFocus?.focus();
+
+  previousFocus = null;
+}
+```
+
+对于简单场景，这就足以表达基本原理。
+
+不过，更可靠的方式通常是由触发事件明确传入触发元素。
+
+```javascript
+trigger.addEventListener('click', event => {
+  openModal(event.currentTarget);
+});
+```
+
+```javascript
+function openModal(trigger) {
+  previousFocus = trigger;
+
+  modal.hidden = false;
+  closeButton.focus();
+}
+```
+
+因为不同浏览器对鼠标点击按钮后是否设置 DOM 焦点的行为可能存在差异，`document.activeElement` 不一定就是实际触发弹窗的控件。
+
+### 7.2 如果原来的元素已经不存在怎么办？
+
+这是 Shopify 中非常典型的问题。
+
+假设用户通过 Quick Add 按钮打开商品弹窗，然后完成加购操作。此时商品卡片因为 Section Rendering 被重新渲染。
+
+原来的 Quick Add 按钮虽然仍然保存在 JavaScript 变量中，但它已经不在页面中了。
+
+```javascript
+console.log(previousFocus);
+
+// HTMLButtonElement
+
+console.log(previousFocus.isConnected);
+
+// false
+```
+
+注意，变量仍然引用原来的 DOM 对象，并不代表该对象仍然存在于页面中。
+
+### 7.3 四级焦点恢复策略
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{n:"01",t:"原始触发元素",d:"仍然存在、可见且可聚焦时，优先恢复。"},{n:"02",t:"重新渲染后的对应元素",d:"通过稳定 ID 或业务标识找到新的 DOM 节点。"},{n:"03",t:"与当前任务相关的其他控件",d:"例如商品链接、购物车入口或下一条商品。"},{n:"04",t:"合理的内容起点",d:"例如区域标题或具有 tabindex=-1 的 main。"}] as item,i}
+    <row align="center" gap={3}>
+      <title size="lg" color="secondary">{item.n}</title>
+      <box flex={1} border radius="md" padding={3} gap={1}>
+        **{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+    {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+原始触发元素通常是首选，但不是唯一正确的恢复位置。如果用户已经完成任务，并且自然的下一步是操作另一个控件，那么聚焦新的操作目标也可能更合理。
+
+### 7.4 封装安全聚焦函数
+
+```javascript
+function tryFocus(element, options = {}) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (!element.isConnected) return false;
+
+  if (element.matches(':disabled')) return false;
+
+  if (element.closest('[inert]')) return false;
+
+  if (element.closest('[aria-hidden="true"]')) {
+    return false;
+  }
+
+  if (!element.getClientRects().length) {
+    return false;
+  }
+
+  const visibility = getComputedStyle(element).visibility;
+
+  if (
+    visibility === 'hidden' ||
+    visibility === 'collapse'
+  ) {
+    return false;
+  }
+
+  element.focus(options);
+
+  return document.activeElement === element;
+}
+```
+
+然后编写恢复逻辑：
+
+```javascript
+function restoreFocus(previousElement, fallbackId) {
+  const candidates = [
+    previousElement,
+
+    previousElement?.id
+      ? document.getElementById(previousElement.id)
+      : null,
+
+    document.getElementById(fallbackId),
+
+    document.querySelector('main[tabindex="-1"]')
+  ];
+
+  return candidates.some(element => tryFocus(element));
+}
+```
+
+这里通过检查 `document.activeElement` 判断聚焦操作是否真正成功。
+
+但这个函数仍然属于普通 DOM 环境下的辅助工具，并不能完整识别所有视觉隐藏情况或 Shadow DOM 焦点行为。使用原生模态 dialog 时，也需要考虑它可以脱离祖先 inert 状态的特殊规则。
+
+---
+
+## 8. Focus Stack：嵌套弹窗的焦点管理
+
+真实电商网站中可能同时存在多个弹窗。
+
+例如用户在 Quick Add Modal 中点击 Size Guide，又打开了一个尺寸说明弹窗。
+
+<box border radius="lg" padding={3} gap={3}>
+  <svg viewBox="0 0 340 238" width="100%">
+    <rect x="4" y="4" width="332" height="229" rx="7" fill="#888888" fillOpacity=".10" stroke="currentColor" strokeOpacity=".2"/>
+    <text x="15" y="23" fontSize="10" fill="currentColor" opacity=".5">Layer 0 · Product page</text>
+    <rect x="17" y="37" width="123" height="120" rx="5" fill="#B5A38D" fillOpacity=".3"/>
+    <rect x="34" y="168" width="94" height="28" rx="4" stroke="#888888" fill="none"/>
+    <text x="81" y="185" fontSize="10" textAnchor="middle" fill="currentColor" opacity=".5">Quick add</text>
+    <rect x="53" y="27" width="269" height="191" rx="7" fill="#888888" fillOpacity=".13" stroke="#888888"/>
+    <text x="65" y="47" fontSize="11" fontWeight="600" fill="currentColor" opacity=".6">Layer 1 · Quick Add</text>
+    <text x="67" y="78" fontSize="11" fill="currentColor" opacity=".5">Cotton T-shirt</text>
+    <rect x="66" y="87" width="80" height="25" rx="4" stroke="#888888" fill="none"/>
+    <text x="106" y="103" fontSize="10" textAnchor="middle" fill="currentColor" opacity=".6">Size guide</text>
+    <rect x="116" y="61" width="205" height="136" rx="7" fill="#EAE5DB" stroke="#39866B" strokeWidth="1.5"/>
+    <text x="128" y="80" fontSize="10" fill="#39866B" fontWeight="600">Layer 2 · Size Guide</text>
+    <rect x="287" y="71" width="24" height="24" rx="4" fill="none" stroke="#5185C5" strokeWidth="2"/>
+    <path d="M293 77 L305 89 M305 77 L293 89" stroke="#333333" strokeWidth="1.6"/>
+    <text x="130" y="108" fontSize="12" fontWeight="600" fill="#333333">Size</text>
+    <text x="222" y="108" fontSize="12" fontWeight="600" fill="#333333">Chest</text>
+    {#each ["S","M","L"] as size,i}
+      <path d={`M128 ${114+i*20} H308`} stroke="#333333" strokeOpacity=".15"/>
+      <text x="130" y={128+i*20} fontSize="10" fill="#333333">{size}</text>
+      <text x="222" y={128+i*20} fontSize="10" fill="#333333">{96+i*4} cm</text>
+    {/each}
+  </svg>
+  <caption>只有最上层 Size Guide 弹窗应该处于当前模态操作状态。</caption>
+</box>
+
+正确的关闭顺序应该是：
+
+```text
+商品页 Quick Add 按钮
+    ↓ 打开
+Quick Add Modal
+    ↓ 打开 Size Guide
+Size Guide Modal
+    ↓ 关闭
+恢复 Quick Add 中的 Size Guide 按钮
+    ↓ 关闭
+恢复商品页中的 Quick Add 按钮
+```
+
+如果使用一个全局变量：
+
+```javascript
+let previousFocus;
+```
+
+每次打开弹窗都会覆盖它。
+
+当第二层弹窗关闭后，第一层弹窗原来的触发元素信息就可能已经丢失。
+
+因此，自定义嵌套弹窗可以使用栈结构。
+
+{@body const [layers,setLayers]=DIL.useState([])}
+{@body const [lastFocus,setLastFocus]=DIL.useState("Quick Add button")}
+<card gap={3}>
+  **Focus Stack 实验室**
+  <box border radius="md" padding={3} gap={2}>
+    <caption>Layer 0 · Product page</caption>
+    <box border={{size:layers.length===0?2:1,color:layers.length===0?"#5185C5":"#88888850"}} radius="sm" padding={2}>Quick Add button</box>
+    {#if layers.length>=1}
+      <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+        **Layer 1 · Quick Add Modal**
+        <box border={{size:layers.length===1?2:1,color:layers.length===1?"#5185C5":"#88888850"}} radius="sm" padding={2}>Size Guide button</box>
+        {#if layers.length===2}
+          <box border={{size:2,color:"#5185C5"}} radius="md" padding={3} gap={1}>
+            **Layer 2 · Size Guide Modal**
+            <text size="sm">Close size guide</text>
+          </box>
+        {/if}
+      </box>
+    {/if}
+  </box>
+  <grid columns={2}>
+    <grid-item><button block disabled={layers.length===2} onClick={()=>{setLayers(old=>[...old,old.length===0?"Quick Add button":"Size Guide button"]);setLastFocus(layers.length===0?"Size Guide button":"Close size guide")}}>打开下一层</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={!layers.length} onClick={()=>{setLastFocus(layers[layers.length-1]);setLayers(old=>old.slice(0,-1))}}>关闭当前层</button></grid-item>
+  </grid>
+  <divider/>
+  <caption>Focus Stack · 后进先出（LIFO）</caption>
+  {#each [...layers].reverse() as item,i}
+    <row border radius="sm" padding={2}>
+      <text size="sm">{item}</text>
+      <spacer/>
+      {#if i===0}<caption>栈顶</caption>{/if}
+    </row>
+  {/each}
+  {#if !layers.length}<caption>空栈</caption>{/if}
+  <row>
+    <caption>当前模拟焦点</caption>
+    <spacer/>
+    **{lastFocus}**
+  </row>
+</card>
+
+原生 `dialog.showModal()` 已经具有浏览器层面的模态叠加能力，但应用仍然需要确保业务上的关闭顺序正确，并在原触发元素不存在时提供焦点恢复方案。
+
+对于自定义弹窗，可以采用 Focus Stack，同时在打开子弹窗时暂停父弹窗的 Focus Trap，关闭子弹窗时再恢复父弹窗的 Focus Trap。
+
+不能让两个 Focus Trap 同时争夺 `document.activeElement`。
+
+---
+
+## 9. Focus Loss：DOM 更新为什么会导致焦点丢失？
+
+这部分与你日常的 Shopify Theme 开发关系非常大。
+
+假设购物车中有一个增加商品数量的按钮：
+
+```html
+<div id="cart-items">
+  <button id="quantity-plus">+</button>
+</div>
+```
+
+用户通过 Tab 键聚焦该按钮，然后按下 Enter 增加商品数量。
+
+```javascript
+const button = document.querySelector('#quantity-plus');
+
+button.focus();
+
+console.log(document.activeElement === button);
+
+// true
+```
+
+此时，通过 Shopify Cart API 获取新的购物车 HTML，再执行：
+
+```javascript
+document.querySelector('#cart-items').innerHTML = `
+  <button id="quantity-plus">+</button>
+`;
+```
+
+虽然新的 HTML 和原来的 HTML 看起来完全一样，甚至 ID 也完全相同，但对于浏览器来说，这已经是一个全新的 DOM 元素。
+
+```javascript
+const newButton = document.querySelector(
+  '#quantity-plus'
+);
+
+console.log(button === newButton);
+// false
+
+console.log(button.isConnected);
+// false
+
+console.log(document.activeElement);
+// 可能已经回到 body
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} gap={2}>
+    <caption>更新之前</caption>
+    <row align="center">
+      <box flex={1} background="surface-tertiary" radius="sm" padding={2}>
+        **DOM Node A**
+        <text size="xs">id="quantity-plus"</text>
+      </box>
+      <box border={{size:2,color:"#5185C5"}} size="40px" radius="sm" align="center" justify="center"><icon name="plus"/></box>
+    </row>
+    <text color="success" size="sm">document.activeElement → Node A</text>
+  </box>
+  <box align="center">
+    <icon name="arrow-down" color="secondary"/>
+    <caption>innerHTML / replaceWith()</caption>
+  </box>
+  <grid columns={2}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <text color="danger" weight="medium">旧节点 A</text>
+        <caption>id="quantity-plus"</caption>
+        <text size="sm">isConnected: false</text>
+        <caption>已脱离 DOM</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <text color="success" weight="medium">新节点 B</text>
+        <caption>id="quantity-plus"</caption>
+        <text size="sm">isConnected: true</text>
+        <caption>没有自动继承焦点</caption>
+      </box>
+    </grid-item>
+  </grid>
+  <box background="surface-tertiary" radius="md" padding={2}>
+    <text size="sm">document.activeElement → body（典型情况）</text>
+  </box>
+</box>
+
+**焦点是与具体 DOM 节点关联的，而不是与元素 ID、HTML 字符串或者视觉位置关联的。**
+
+因此，即使用户看起来仍然停留在同一个页面，重新渲染也可能破坏其键盘操作上下文。
+
+---
+
+## 10. Shopify Section Rendering 中的焦点保留
+
+在之前的 Shopify 课程中，我们学习过 Section Rendering API。
+
+它允许 Shopify 服务端重新生成 Section 的 HTML，然后由浏览器局部更新页面，而不必刷新整个文档。Cart API 也支持 Bundled Section Rendering，在购物车修改请求中同时返回需要更新的 Section HTML。<Cite refs={["turn344298search7","turn344298search19"]}/>
+
+但是，不刷新整个页面，并不意味着不会丢失焦点。
+
+### 10.1 错误的更新方式
+
+```javascript
+async function updateCart() {
+  const response = await fetchCartSections();
+
+  cartItems.innerHTML = response.html;
+}
+```
+
+这里完全没有处理焦点状态。
+
+### 10.2 改进方案：Focus Snapshot
+
+在更新 DOM 之前，记录当前焦点对应的业务信息。
+
+```javascript
+function captureFocus(container) {
+  const active = document.activeElement;
+
+  if (!container.contains(active)) {
+    return null;
+  }
+
+  return {
+    id: active.id,
+
+    focusKey: active.dataset.focusKey,
+
+    element: active
+  };
+}
+```
+
+在 Liquid 中，可以为需要恢复焦点的元素提供业务标识。
+
+```liquid
+<button
+  type="button"
+  data-focus-key="quantity-plus-{{ item.key | escape }}"
+  aria-label="Increase quantity"
+>
+  +
+</button>
+```
+
+然后重新定位对应元素：
+
+```javascript
+function restoreSnapshot(container, snapshot) {
+  if (!snapshot) return false;
+
+  const equivalent = snapshot.focusKey
+    ? [...container.querySelectorAll('[data-focus-key]')]
+        .find(el => {
+          return el.dataset.focusKey === snapshot.focusKey;
+        })
+    : null;
+
+  const candidates = [
+    snapshot.element,
+
+    equivalent,
+
+    snapshot.id
+      ? container.querySelector(
+          '#' + CSS.escape(snapshot.id)
+        )
+      : null
+  ];
+
+  return candidates.some(el => tryFocus(el));
+}
+```
+
+这里复用了前面实现的 `tryFocus()`。
+
+最终更新逻辑：
+
+```javascript
+async function updateCart() {
+  const response = await fetchCartSections();
+
+  // 在真正替换 DOM 前记录当前焦点
+  const snapshot = captureFocus(cartItems);
+
+  cartItems.innerHTML = response.html;
+
+  if (snapshot) {
+    const restored = restoreSnapshot(
+      cartItems,
+      snapshot
+    );
+
+    if (!restored) {
+      tryFocus(
+        document.querySelector('#cart-title')
+      );
+    }
+  }
+}
+```
+
+这套方案可以用于购物车、Collection 筛选、商品变体更新以及其他 AJAX Section 更新场景。
+
+不过，需要根据实际业务设计可靠的焦点标识，不能假设所有 ID 都会保持稳定。
+
+---
+
+## 11. 异步请求期间，不要抢夺用户焦点
+
+这是焦点恢复机制中非常容易出现的进阶问题。
+
+假设用户执行了以下操作：
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"0ms",d:"用户点击 Increase quantity",f:"Increase quantity"},{t:"100ms",d:"AJAX 请求进行中",f:"Increase quantity"},{t:"300ms",d:"用户主动按 Tab 移动到 Checkout",f:"Checkout"},{t:"800ms",d:"服务器返回新的购物车 HTML",f:"Checkout"}] as item,i}
+    <row align="start" gap={3}>
+      <box width="55px"><caption>{item.t}</caption></box>
+      <box flex={1} border radius="md" padding={3} gap={1}>
+        **{item.d}**
+        <caption>当前焦点：{item.f}</caption>
+      </box>
+    </row>
+    {#if i<3}<box padding={{left:"68px"}}><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+  <divider/>
+  <row align="start">
+    <icon name="x-circle" color="danger"/>
+    <box flex={1}>
+      **错误处理**
+
+      <text size="sm">请求结束后强制恢复 Increase quantity，导致用户已经移动到 Checkout 的焦点被抢走。</text>
+    </box>
+  </row>
+  <row align="start">
+    <icon name="check-circle" color="success"/>
+    <box flex={1}>
+      **正确处理**
+
+      <text size="sm">以 DOM 更新前用户的实际焦点为依据，保留其最新操作位置。</text>
+    </box>
+  </row>
+</box>
+
+所以有两个不同的时间点需要区分：
+
+| 时间点 | 记录内容 |
+|---|---|
+| 请求开始时 | 哪个业务操作触发了请求 |
+| DOM 更新前 | 用户当前实际处于哪个焦点位置 |
+
+这两个元素不一定相同。
+
+比较合理的代码结构是：
+
+```javascript
+async function updateQuantity(trigger) {
+  // 记录业务操作
+  const action = trigger.dataset.action;
+
+  const result = await requestCartUpdate(action);
+
+  // 记录真正更新前的焦点
+  const snapshot = captureFocus(cartItems);
+
+  renderCartItems(result);
+
+  // 只有更新区域原本持有焦点时才恢复
+  if (snapshot) {
+    restoreSnapshot(cartItems, snapshot);
+  }
+}
+```
+
+同时，还需要处理请求竞争、重复提交以及弹窗已经关闭等情况。
+
+例如用户增加商品数量后，立即关闭购物车。如果请求稍后才完成，就不应该再次把焦点移入已经关闭的 Drawer。
+
+**Focus Management 必须与异步业务状态保持同步，而不能孤立实现。**
+
+---
+
+## 12. Shopify 实战：删除购物车商品后的焦点管理
+
+这是购物车无障碍设计中最值得深入讨论的场景。
+
+假设购物车有三个商品：
+
+{@body const initialProducts=[{id:1,name:"Cotton T-shirt",price:"$29.99",color:"#363636"},{id:2,name:"Linen shirt",price:"$49.99",color:"#B6A18A"},{id:3,name:"Classic sweatshirt",price:"$59.99",color:"#71869A"}]}
+{@body const [products,setProducts]=DIL.useState(initialProducts)}
+{@body const [cartFocus,setCartFocus]=DIL.useState(2)}
+{@body const [removeMessage,setRemoveMessage]=DIL.useState("")}
+<card gap={3}>
+  **商品删除与焦点恢复实验室**
+  <row align="center">
+    <title size="lg">Your cart</title>
+    <spacer/>
+    <caption>{products.length} items</caption>
+  </row>
+  {#each products as p,i}
+    <box border={{size:cartFocus===p.id?2:1,color:cartFocus===p.id?"#5185C5":"#88888850"}} radius="md" padding={2}>
+      <row align="center">
+        <svg viewBox="0 0 65 75" width="60px">
+          <rect width="65" height="75" rx="4" fill="#DDD7CF"/>
+          <path d="M22 9 L6 21 L14 34 L22 28 V66 H43 V28 L51 34 L59 21 L43 9 L37 15 H28 Z" fill={p.color}/>
+        </svg>
+        <box flex={1} gap={1}>
+          <text weight="medium" size="sm">{p.name}</text>
+          <caption>{p.price}</caption>
+          {#if cartFocus===p.id}<text color="#5185C5" size="xs">当前模拟焦点</text>{/if}
+        </box>
+        <button color="secondary" variant="outline" uniform onClick={()=>{const remaining=products.filter(x=>x.id!==p.id);setProducts(remaining);setCartFocus(remaining[i]?.id??remaining[i-1]?.id??0);setRemoveMessage(`${p.name} removed from your cart.`)}}><icon name="trash-2"/></button>
+      </row>
+    </box>
+  {/each}
+  {#if products.length===0}
+    <box align="center" padding={4} gap={3}>
+      <icon name="shopping-bag" size="3xl" color="secondary"/>
+      **Your cart is empty**
+      <box border={{size:2,color:"#5185C5"}} radius="md" padding={2}>Continue shopping</box>
+      <caption>当前模拟焦点</caption>
+    </box>
+  {:else}
+    <box background="#333333" theme="dark" radius="md" padding={3} align="center"><text color="#FFFFFF">Checkout</text></box>
+  {/if}
+  <divider/>
+  <row align="start">
+    <icon name="focus" color="#5185C5"/>
+    <box flex={1} gap={1}>
+      <caption>当前模拟焦点</caption>
+      **{products.find(p=>p.id===cartFocus)?.name??"Continue shopping"}**
+    </box>
+  </row>
+  {#if removeMessage}
+    <row align="start">
+      <icon name="volume-2"/>
+      <box flex={1} gap={1}>
+        <caption>Live Region 模拟消息</caption>
+        <text size="sm">{removeMessage}</text>
+      </box>
+    </row>
+  {/if}
+  <button block color="secondary" variant="outline" onClick={()=>{setProducts(initialProducts);setCartFocus(2);setRemoveMessage("")}}>重置购物车</button>
+  <caption>尝试删除中间商品、最后一个商品以及全部商品，观察焦点恢复策略。</caption>
+</card>
+
+### 12.1 推荐的焦点策略
+
+| 删除场景 | 推荐焦点位置 |
+|---|---|
+| 删除第一个商品 | 下一个商品的相关控件 |
+| 删除中间商品 | 原位置之后的商品 |
+| 删除最后一个商品 | 前一个商品 |
+| 删除唯一剩余商品 | 空购物车标题或 Continue shopping |
+| 删除失败 | 保留原操作控件并反馈错误 |
+
+具体聚焦商品名称、数量输入框还是删除按钮，可以根据业务流程决定。例如连续删除商品的场景，可以让焦点停留在下一条商品的删除按钮上；如果希望用户重新确认商品，则可以聚焦商品名称。
+
+### 12.2 为什么不能仅通过 line index 恢复焦点？
+
+假设删除前：
+
+| Line | 商品 |
+|---|---|
+| 1 | Cotton T-shirt |
+| 2 | Linen shirt |
+| 3 | Sweatshirt |
+
+删除第 2 个商品后：
+
+| Line | 商品 |
+|---|---|
+| 1 | Cotton T-shirt |
+| 2 | Sweatshirt |
+
+原来的 Line 2 已经不是原来的商品。
+
+此外，Shopify 中同一个 Variant ID 也可能对应多个不同的购物车行，例如具有不同 Line Item Properties 的商品。
+
+因此：
+
+| 标识 | 局限 |
+|---|---|
+| Line Index | 删除或排序后可能变化 |
+| Product ID | 无法区分不同变体 |
+| Variant ID | 可能对应多个购物车行 |
+| Line Item Key | 更适合识别当前购物车行，但也可能随折扣、属性等变化 |
+
+Shopify 官方 Cart API 明确指出，Line Item Key 并不是永久不变的标识。<Cite ref="turn431816view0"/>
+
+实际开发中，应优先尝试恢复同一业务对象，在无法匹配时再根据位置及业务流程选择合理的备用焦点。
+
+### 12.3 删除操作后的核心实现
+
+假设每个购物车行具有以下结构：
+
+```liquid
+<div
+  data-cart-item
+  data-line-key="{{ item.key | escape }}"
+>
+  <a
+    href="{{ item.url }}"
+    data-product-link
+  >
+    {{ item.product.title | escape }}
+  </a>
+
+  <!-- Quantity controls -->
+
+  <button type="button" data-remove-button>
+    Remove
+  </button>
+</div>
+```
+
+删除前记录当前商品的位置。
+
+```javascript
+const rows = [
+  ...cartItems.querySelectorAll('[data-cart-item]')
+];
+
+const currentRow = trigger.closest('[data-cart-item]');
+
+const removedIndex = rows.indexOf(currentRow);
+```
+
+删除并重新渲染后：
+
+```javascript
+function focusAfterRemoval(removedIndex) {
+  const rows = [
+    ...cartItems.querySelectorAll('[data-cart-item]')
+  ];
+
+  const targetRow =
+    rows[removedIndex] ||
+    rows[removedIndex - 1];
+
+  if (targetRow) {
+    if (tryFocus(
+      targetRow.querySelector('[data-product-link]')
+    )) {
+      return;
+    }
+  }
+
+  if (tryFocus(
+    document.querySelector('#continue-shopping')
+  )) {
+    return;
+  }
+
+  tryFocus(
+    document.querySelector('#cart-title')
+  );
+}
+```
+
+这里假设剩余商品的相对顺序没有发生其他变化。
+
+与此同时，可以通过 Live Region 通知用户：
+
+```javascript
+cartStatus.textContent =
+  `${removedProductName} removed from your cart.`;
+```
+
+焦点管理负责告诉用户接下来可以在哪里继续操作，Live Region 则负责告诉用户刚刚发生了什么。
+
+这两者不能完全互相替代。
+
+---
+
+## 13. Shopify Dawn：trapFocus() 源码深入解析
+
+现在我们正式分析 Dawn 的焦点管理实现。
+
+主要涉及三个文件：
+
+| 文件 | 职责 |
+|---|---|
+| `assets/global.js` | 通用焦点限制与恢复工具 |
+| `assets/cart-drawer.js` | Drawer 打开、关闭及触发元素记录 |
+| `assets/cart.js` | 数量更新、商品删除、Section 更新后的焦点处理 |
+
+以下分析基于 Dawn 公开仓库的 main 分支。不同版本的 Theme 可能存在差异。
+
+### 13.1 trapFocus 的整体架构
+
+Dawn 在 `global.js` 中维护了一组全局事件处理器：
+
+```javascript
+const trapFocusHandlers = {};
+```
+
+`trapFocus()` 的主要处理流程如下。<Cite ref="turn218330view0"/>
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"trapFocus(container, elementToFocus)",d:"传入限制区域和初始焦点"},{t:"getFocusableElements(container)",d:"获取区域内的候选元素"},{t:"确定 first 和 last",d:"记录焦点循环边界"},{t:"removeTrapFocus()",d:"移除之前的事件监听"},{t:"注册 focusin / focusout",d:"管理 keydown 监听时机"},{t:"处理首尾 Tab 循环",d:"仅拦截需要循环的 Tab 操作"},{t:"设置初始焦点",d:"调用 elementToFocus.focus()"}] as item,i}
+    <box border radius="md" padding={2} gap={1}>
+      <text weight="medium" size="sm">{item.t}</text>
+      <caption>{item.d}</caption>
+    </box>
+    {#if i<6}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+### 13.2 为什么使用 focusin 和 focusout？
+
+Dawn 并没有一直监听所有按键来处理焦点循环，而是在焦点到达容器或边界元素时启用相应的键盘监听。
+
+我们可以将它的思想简化为以下伪代码：
+
+```javascript
+// 原理示例，非 Dawn 原始代码
+
+function onFocusIn(event) {
+  if (isBoundaryElement(event.target)) {
+    enableTabHandler();
+  }
+}
+
+function onFocusOut() {
+  disableTabHandler();
+}
+```
+
+这样，位于弹窗中间的元素可以继续使用浏览器默认导航行为。
+
+只有焦点到达特定边界时，才需要介入。
+
+### 13.3 removeTrapFocus 的职责
+
+Dawn 的 `removeTrapFocus()` 主要执行两个操作：
+
+一是清理 `focusin`、`focusout`、`keydown` 事件监听器。
+
+二是在调用者提供目标元素时，将焦点移动到该元素。
+
+它的使用方式：
+
+```javascript
+removeTrapFocus();
+```
+
+只解除原来的焦点限制。
+
+```javascript
+removeTrapFocus(triggerElement);
+```
+
+解除焦点限制，并恢复焦点。
+
+因此，Dawn 将焦点限制的销毁与焦点恢复组合在了同一个工具函数中。<Cite ref="turn326541view0"/>
+
+### 13.4 Cart Drawer 如何使用这些函数？
+
+Dawn 的 Cart Drawer 使用自定义元素：
+
+```javascript
+class CartDrawer extends HTMLElement {
+  // ...
+}
+```
+
+其打开和关闭过程可以概括为：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **open()**
+      {#each ["记录触发元素","添加打开状态","播放过渡动画","调用 trapFocus","限制背景滚动"] as t,i}
+        <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{t}</text></box>
+        {#if i<4}<box align="center"><icon name="arrow-down" size="xs" color="secondary"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **close()**
+      {#each ["移除打开状态","调用 removeTrapFocus","恢复触发元素焦点","解除背景滚动限制"] as t,i}
+        <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{t}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="xs" color="secondary"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+</grid>
+
+在当前源码中，`open(triggeredBy)` 可以记录触发 Drawer 的元素；关闭时再通过 `removeTrapFocus()` 恢复该元素的焦点。<Cite ref="turn218330view2"/>
+
+### 13.5 Dawn 的 AJAX 更新如何恢复焦点？
+
+在 `cart.js` 中，Dawn 更新购物车数量后会重新渲染相关 Section。
+
+完成 DOM 更新后，它会根据不同情况选择焦点目标。
+
+| 更新结果 | Dawn 的处理思路 |
+|---|---|
+| 原购物车行及对应控件仍可定位 | 聚焦更新后的对应控件 |
+| 购物车变为空 | 对空购物车区域重新建立焦点限制 |
+| 原控件无法找到但仍有商品 | 尝试聚焦商品名称 |
+| 服务端返回数量错误 | 恢复数量相关控件并更新错误消息 |
+
+这正是前面所讲的 Focus Preservation 和 Fallback Focus 的实际应用。<Cite ref="turn326541view1"/>
+
+### 13.6 Dawn 的实现有哪些值得改进的地方？
+
+阅读源码时，我们不能只学习它做了什么，还应该理解它的适用范围和局限。
+
+| 源码设计 | 潜在局限 |
+|---|---|
+| 一组全局 trapFocusHandlers | 不直接提供完整的多层焦点栈 |
+| 初始化时获取 first、last | DOM 改变后可能需要重新计算 |
+| 使用 CSS Selector 查询候选元素 | 不等同于浏览器真实 Tabbable 列表 |
+| 依赖 transitionend 初始化部分焦点行为 | 禁用或取消过渡时需要考虑兜底 |
+| 直接恢复旧元素 | 元素被删除时需要备用焦点 |
+| 限制 body 滚动 | 不等同于完整背景 inert 隔离 |
+
+这些属于在扩展或重构 Dawn 组件时需要重点检查的地方，并不意味着所有 Dawn 页面都会实际出现这些问题。
+
+源码阅读地址：
+
+[global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) · [cart-drawer.js](https://github.com/Shopify/dawn/blob/main/assets/cart-drawer.js) · [cart.js](https://github.com/Shopify/dawn/blob/main/assets/cart.js)
+
+---
+
+## 14. 封装可复用的 Focus Manager
+
+如果公司有多个 Shopify 网站，或者需要维护一套自己的 Theme 组件库，就没有必要在每个组件中重复编写焦点恢复逻辑。
+
+可以将通用能力抽象为独立模块。
+
+### 14.1 模块架构
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={3} gap={1}>
+    {#each ["Cart Drawer","Quick Add","Size Guide","Search Modal","Collection","Product Form"] as item}
+      <grid-item>
+        <box border radius="sm" padding={2} align="center"><text size="xs">{item}</text></box>
+      </grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border={{size:1,color:"#5185C5"}} background="#5185C510" radius="md" padding={3} align="center">
+    <title size="lg">Focus Manager</title>
+    <caption>统一管理焦点相关的通用能力</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{t:"capture()",d:"保存当前焦点"},{t:"restore()",d:"恢复焦点"},{t:"focus()",d:"安全聚焦"},{t:"trap()",d:"限制焦点"},{t:"release()",d:"解除限制"},{t:"stack",d:"管理嵌套组件"}] as item}
+      <grid-item>
+        <box border radius="sm" padding={2} gap={1}>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    **Browser Focus API**
+    <caption>activeElement · focus() · tabindex · dialog</caption>
+  </box>
+</box>
+
+### 14.2 基于原生 dialog 的管理器示例
+
+对于新项目，可以让浏览器负责模态隔离与原生焦点处理，应用层只管理触发元素及备用焦点。
+
+```javascript
+class DialogFocusManager {
+  constructor() {
+    this.stack = [];
+  }
+
+  open(dialog, {
+    trigger = document.activeElement,
+    initialFocus,
+    fallbackFocus
+  } = {}) {
+    if (dialog.open) return;
+
+    const entry = {
+      dialog,
+      trigger,
+      triggerId: trigger?.id,
+      fallbackFocus
+    };
+
+    dialog.showModal();
+
+    this.stack.push(entry);
+
+    dialog.addEventListener(
+      'close',
+      () => this.onClose(entry),
+      { once: true }
+    );
+
+    if (initialFocus) {
+      tryFocus(
+        dialog.querySelector(initialFocus)
+      );
+    }
+  }
+
+  close() {
+    const current = this.stack.at(-1);
+
+    if (current?.dialog.open) {
+      current.dialog.close();
+    }
+  }
+
+  onClose(entry) {
+    const index = this.stack.indexOf(entry);
+
+    if (index === -1) return;
+
+    const wasTop =
+      index === this.stack.length - 1;
+
+    this.stack.splice(index, 1);
+
+    // 不抢占仍处于上层的弹窗焦点
+    if (!wasTop) return;
+
+    const parent = this.stack.at(-1)?.dialog;
+
+    const candidates = [
+      entry.trigger,
+
+      entry.triggerId
+        ? document.getElementById(entry.triggerId)
+        : null,
+
+      typeof entry.fallbackFocus === 'function'
+        ? entry.fallbackFocus()
+        : entry.fallbackFocus,
+
+      parent?.querySelector('[data-initial-focus]'),
+
+      parent
+        ? parent.querySelector('button')
+        : document.querySelector(
+            'main[tabindex="-1"]'
+          )
+    ];
+
+    candidates
+      .filter(el => !parent || parent.contains(el))
+      .some(el => {
+        if (document.activeElement === el) {
+          return true;
+        }
+
+        return tryFocus(el);
+      });
+  }
+}
+```
+
+该示例复用了之前的 `tryFocus()`，主要用于正常后进先出关闭顺序、普通 DOM 结构下的原生 dialog。
+
+对于生产级组件库，还需要处理快速关闭并重新打开、组件销毁、外部脚本控制以及原生焦点恢复与应用焦点恢复之间的竞争。
+
+### 14.3 使用方式
+
+```javascript
+const focusManager = new DialogFocusManager();
+
+const dialog = document.querySelector('#size-guide');
+
+const trigger = document.querySelector('#open-size-guide');
+
+trigger.addEventListener('click', event => {
+  focusManager.open(dialog, {
+    trigger: event.currentTarget,
+
+    initialFocus: '#size-guide-title',
+
+    fallbackFocus: () => {
+      return document.querySelector(
+        '#product-title'
+      );
+    }
+  });
+});
+```
+
+这样业务组件不再需要重复处理所有焦点生命周期。
+
+如果是基于 div 的自定义 Modal，建议优先使用经过充分测试的 [focus-trap](https://github.com/focus-trap/focus-trap) 等工具，而不是直接将教学示例当成完整的生产级实现。
+
+---
+
+## 15. 哪些情况下应该主动移动焦点？
+
+并不是所有 UI 变化都需要调用 `focus()`。
+
+这张表非常适合在日常开发中参考。
+
+| 业务场景 | 是否主动移动焦点 | 建议 |
+|---|---|---|
+| 打开模态弹窗 | 是 | 移入弹窗 |
+| 关闭模态弹窗 | 是 | 恢复触发元素或后续操作目标 |
+| 展开普通 Accordion | 通常否 | 保留触发按钮焦点 |
+| 点击 Tab 切换内容 | 通常保留在 Tab 上 | 不强制进入面板 |
+| Collection 筛选完成 | 通常否 | 保留筛选控件并播报结果 |
+| 商品价格变化 | 否 | 必要时提供动态消息 |
+| AJAX 加购并打开 Drawer | 是 | 移入 Drawer |
+| AJAX 加购但不打开 Drawer | 通常否 | 保留加购按钮并播报结果 |
+| 表单提交失败 | 通常是 | 错误摘要或错误字段 |
+| 删除当前聚焦的商品行 | 是 | 选择合理的相邻目标 |
+| 后台库存自动刷新 | 否 | 不干扰当前操作 |
+| SPA 页面路由切换 | 视情况 | 建立新页面阅读起点 |
+
+例如：
+
+```javascript
+// 不推荐：仅仅因为价格变化就移动焦点
+priceElement.focus();
+```
+
+可以根据实际需求改为：
+
+```javascript
+priceStatus.textContent =
+  'Price updated to $39.99.';
+```
+
+第 14 课会详细研究这种动态状态消息的实现机制。
+
+---
+
+## 16. 如何调试 Focus Management？
+
+### 16.1 实时记录焦点变化
+
+在 Chrome DevTools Console 中执行：
+
+```javascript
+document.addEventListener('focusin', event => {
+  console.log({
+    time: performance.now(),
+
+    current: event.target,
+
+    previous: event.relatedTarget,
+
+    id: event.target.id,
+
+    tabindex: event.target.tabIndex
+  });
+});
+```
+
+然后测试购物车打开、关闭、数量变化及商品删除。
+
+### 16.2 检查 DOM 更新前后的焦点
+
+```javascript
+const before = document.activeElement;
+
+// 在这里执行 DOM 更新
+
+const after = document.activeElement;
+
+console.table({
+  beforeId: before?.id,
+
+  afterId: after?.id,
+
+  sameNode: before === after,
+
+  beforeConnected: before?.isConnected
+});
+```
+
+通过这段代码，可以快速判断：
+
+- 焦点是否仍然处于原节点上。
+- 原节点是否已经被删除。
+- 更新后是否成功恢复到了新的对应节点。
+
+### 16.3 监听意外的焦点丢失
+
+```javascript
+document.addEventListener('focusout', event => {
+  const previous = event.target;
+
+  queueMicrotask(() => {
+    const active = document.activeElement;
+
+    if (
+      !previous.isConnected &&
+      active === document.body
+    ) {
+      console.warn(
+        'Possible focus loss after DOM update',
+        previous
+      );
+    }
+  });
+});
+```
+
+需要注意，删除焦点元素时，不同浏览器对相关焦点事件的触发行为可能存在差异，因此这只是辅助调试工具，不能捕获所有焦点丢失情况。
+
+---
+
+## 17. 本课知识测试
+
+{@body const quiz=[{q:"打开一个包含大量尺寸表格的 Modal，初始焦点是否必须放在第一个按钮上？",opts:["必须","不必须，可以聚焦标题"],a:1,why:"初始焦点应该根据内容结构和用户任务决定，长内容可以从标题开始阅读。"},{q:"设置 aria-modal=\"true\" 后，是否自动禁止背景页面的鼠标和键盘操作？",opts:["是","否"],a:1,why:"ARIA 声明模态语义，不会自动实现实际的交互隔离。"},{q:"原生 dialog 使用哪个 API 可以获得模态背景隔离？",opts:["show()","showModal()","设置 open 属性"],a:1,why:"showModal() 提供原生模态行为及背景 inert 机制。"},{q:"innerHTML 更新后，新按钮拥有与旧按钮完全相同的 ID，是否自动继承旧焦点？",opts:["会","不会"],a:1,why:"焦点与具体 DOM 节点关联，而不是与 ID 关联。"},{q:"AJAX 请求期间用户已经主动聚焦 Checkout，请求完成后应该怎么处理？",opts:["强制恢复请求发起时的按钮","尽量保留用户最新的焦点位置"],a:1,why:"避免异步请求完成后抢夺用户已经移动的焦点。"},{q:"两个嵌套 Modal 应该同时启用两个相互独立的 Focus Trap 吗？",opts:["应该","不应该"],a:1,why:"应该由最上层模态组件管理焦点，父层限制暂时暂停。"},{q:"删除购物车唯一剩余的商品后，哪个焦点目标比较合理？",opts:["已经删除的商品按钮","空购物车标题或 Continue shopping","无条件聚焦 body"],a:1,why:"原操作目标消失后，应该选择符合下一步业务流程的备用焦点。"},{q:"Collection AJAX 筛选完成后，是否必须将焦点移动到商品列表？",opts:["必须","不必须，通常保留筛选控件焦点"],a:1,why:"普通结果更新可以通过 Live Region 通知用户，无需强制改变焦点。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box background="#39866B" height={5} radius="full" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.opts as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 日常开发检查清单
+
+{@body const checks=["模态弹窗打开时焦点进入内部","初始焦点符合实际业务目的","长内容弹窗不会因初始焦点而跳过重要信息","Tab 与 Shift + Tab 不会意外进入模态背景","背景页面具有真正的交互隔离","用户可以通过键盘关闭弹窗","关闭后焦点恢复到合理位置","原触发元素被删除时具有备用焦点","嵌套弹窗按正确顺序恢复焦点","不会同时运行相互冲突的 Focus Trap","AJAX 更新前记录用户实际焦点","DOM 更新后重新定位对应元素","异步请求完成后不会抢夺用户焦点","购物车商品删除后具有合理的焦点目标","空购物车状态具有可访问的操作入口","组件关闭后正确清理全局事件监听器","禁用动画后焦点管理仍然正常","焦点移动与 Live Region 播报没有不必要的重复"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Focus Management Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${done.filter(Boolean).length/checks.length*100}%`}/>
+  </box>
+  {#each checks as item,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done[i]}>{item}</checkbox>
+  {/each}
+  <divider/>
+  <button block color="secondary" variant="outline" onClick={()=>GenUI.copy(checks.map((x,i)=>(done[i]?"[x] ":"[ ] ")+x).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 主要用途 |
+|---|---|
+| [WAI-ARIA Modal Dialog Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) | 模态焦点管理规范 |
+| [WAI-ARIA Keyboard Interface](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/) | 键盘与焦点设计 |
+| [MDN HTML dialog](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog) | 原生对话框 |
+| [MDN inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert) | 背景交互隔离 |
+| [MDN HTMLElement.focus()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/focus) | 程序化焦点 |
+| [focus-trap](https://github.com/focus-trap/focus-trap) | 通用焦点限制库 |
+| [tabbable](https://github.com/focus-trap/tabbable) | 可聚焦元素查询 |
+| [Shopify Section Rendering API](https://shopify.dev/docs/api/ajax/section-rendering) | 局部页面更新 |
+| [Shopify Cart API](https://shopify.dev/docs/api/ajax/reference/cart) | 购物车更新 |
+| [Dawn global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) | 焦点管理源码 |
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">Focus Management</title>
+    <caption>焦点生命周期管理体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"log-in",t:"Initial Focus",d:"打开组件时选择初始焦点"},{i:"repeat",t:"Focus Trap",d:"限制模态区域内的焦点"},{i:"undo-2",t:"Restoration",d:"关闭组件后恢复焦点"},{i:"focus",t:"Preservation",d:"DOM 更新后保留操作位置"},{i:"layers",t:"Focus Stack",d:"嵌套弹窗与焦点栈"},{i:"shield-check",t:"Fallback Focus",d:"原目标消失后的备用焦点"},{i:"refresh-cw",t:"Async Update",d:"AJAX 与 Section Rendering"},{i:"shopping-cart",t:"Shopify 实战",d:"Dawn、Cart Drawer、商品删除"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本节课最重要的开发思想是：
+
+**焦点管理本质上是用户操作上下文的管理，而不是简单地调用 element.focus()。**
+
+一个优秀的前端组件应该清楚地知道用户从哪里进入、当前在哪里操作、界面更新后应该停留在哪里，以及组件关闭后应该返回哪里。
+
+尤其在 Shopify Theme 中，每次使用 `innerHTML`、`replaceWith()`、Section Rendering 更新具有交互功能的区域时，都应该考虑焦点是否会受到影响。
+
+---
+
+**下一课：第 12 课——WAI-ARIA 属性与 Role 详解**
+
+接下来我们将系统地学习 ARIA，而不再只是零散地介绍几个属性：
+
+- WAI-ARIA 的整体架构与工作原理。
+- Role、State、Property 三大组成部分。
+- Implicit Role 与 Explicit Role。
+- Abstract Role、Widget Role、Document Structure Role、Landmark Role。
+- ARIA Role 的继承关系。
+- Required Owned Elements 与 Required Context Role。
+- `aria-hidden`、`aria-disabled`、`aria-expanded`。
+- `aria-checked`、`aria-selected`、`aria-pressed` 的本质区别。
+- `aria-controls`、`aria-owns`、`aria-haspopup` 的区别。
+- `aria-current`、`aria-busy`、`aria-orientation`。
+- `role="presentation"` 与 `role="none"`。
+- ARIA 的五条使用原则。
+- 如何阅读 W3C ARIA 规范，判断某个 Role 支持哪些属性。
+- Shopify Theme 常见 ARIA 错误及修复。
+
+学完下一课，你将能够系统地理解 ARIA 的设计规则，而不需要再依赖记忆某个组件应该添加哪些属性。

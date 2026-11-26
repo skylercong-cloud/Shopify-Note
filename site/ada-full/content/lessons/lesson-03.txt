@@ -1,0 +1,1375 @@
+# 第 3 课：Accessibility Tree 无障碍树深入解析
+
+<row align="center">
+  <caption>阶段一：无障碍基础与底层原理</caption>
+  <spacer/>
+  <caption>3 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="11.54%" radius="full"/>
+</box>
+
+上一课我们学习了屏幕阅读器、浏览模式、焦点模式以及虚拟光标。
+
+我们知道，屏幕阅读器通常并不是直接读取 HTML 源代码，而是通过浏览器和操作系统提供的无障碍接口获取网页信息。
+
+那么，浏览器究竟是如何将 HTML 转换成辅助技术能够理解的信息的？
+
+这就是本节课的核心内容：**Accessibility Tree（无障碍树，简称 AX Tree）。**
+
+这一课偏向浏览器底层原理。理解之后，你再学习 ARIA、HTML 语义化和焦点管理，就不需要单纯依靠记忆规范了。
+
+## 1. 浏览器中的四种树
+
+作为前端开发工程师，你应该已经比较熟悉 DOM Tree、CSSOM 和 Render Tree。但在无障碍开发中，我们还需要关注第四种树。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 344" width="100%">
+    <rect x="16" y="5" width="142" height="37" rx="6" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeOpacity=".6"/>
+    <text x="87" y="28" fill="currentColor" fontSize="13" textAnchor="middle" fontWeight="600">HTML</text>
+    <rect x="182" y="5" width="142" height="37" rx="6" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeOpacity=".6"/>
+    <text x="253" y="28" fill="currentColor" fontSize="13" textAnchor="middle" fontWeight="600">CSS</text>
+    {#each [87,253] as x}
+      <path d={`M${x} 42 V63 M${x-4} 58 L${x} 63 L${x+4} 58`} fill="none" stroke="currentColor" strokeOpacity=".5"/>
+    {/each}
+    <rect x="16" y="65" width="142" height="48" rx="6" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeOpacity=".6"/>
+    <text x="87" y="85" fill="currentColor" fontSize="13" textAnchor="middle" fontWeight="600">DOM Tree</text>
+    <text x="87" y="101" fill="currentColor" fontSize="10" textAnchor="middle">文档结构</text>
+    <rect x="182" y="65" width="142" height="48" rx="6" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeOpacity=".6"/>
+    <text x="253" y="85" fill="currentColor" fontSize="13" textAnchor="middle" fontWeight="600">CSSOM</text>
+    <text x="253" y="101" fill="currentColor" fontSize="10" textAnchor="middle">样式规则</text>
+    <path d="M87 113 V130 H170 M253 113 V130 H170 M170 130 V146 M166 141 L170 146 L174 141" fill="none" stroke="currentColor" strokeOpacity=".5"/>
+    <rect x="80" y="148" width="180" height="38" rx="6" stroke="currentColor" strokeOpacity=".3" fill="#888888" fillOpacity=".07"/>
+    <text x="170" y="163" fill="currentColor" fontSize="12" textAnchor="middle" fontWeight="600">浏览器内部处理</text>
+    <text x="170" y="178" fill="currentColor" fontSize="10" textAnchor="middle">样式、布局、语义及状态等</text>
+    <path d="M170 186 V203 H83 V221 M170 203 H257 V221" fill="none" stroke="currentColor" strokeOpacity=".5"/>
+    <path d="M79 216 L83 221 L87 216 M253 216 L257 221 L261 216" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <rect x="6" y="223" width="154" height="49" rx="6" fill="#5185C5" fillOpacity=".13" stroke="#5185C5"/>
+    <text x="83" y="242" fill="currentColor" fontSize="12" textAnchor="middle" fontWeight="600">Render Tree</text>
+    <text x="83" y="258" fill="currentColor" fontSize="10" textAnchor="middle">渲染所需的结构</text>
+    <rect x="174" y="223" width="160" height="49" rx="6" fill="#39866B" fillOpacity=".14" stroke="#39866B"/>
+    <text x="254" y="242" fill="currentColor" fontSize="12" textAnchor="middle" fontWeight="600">Accessibility Tree</text>
+    <text x="254" y="258" fill="currentColor" fontSize="10" textAnchor="middle">无障碍语义结构</text>
+    <path d="M83 272 V291 M254 272 V291" stroke="currentColor" strokeOpacity=".5"/>
+    <rect x="6" y="293" width="154" height="40" rx="6" fill="#888888" fillOpacity=".08"/>
+    <text x="83" y="309" fill="currentColor" fontSize="11" textAnchor="middle">布局、绘制、合成</text>
+    <text x="83" y="324" fill="currentColor" fontSize="10" textAnchor="middle">视觉页面</text>
+    <rect x="174" y="293" width="160" height="40" rx="6" fill="#888888" fillOpacity=".08"/>
+    <text x="254" y="309" fill="currentColor" fontSize="11" textAnchor="middle">Accessibility API</text>
+    <text x="254" y="324" fill="currentColor" fontSize="10" textAnchor="middle">屏幕阅读器等辅助技术</text>
+  </svg>
+  <caption textAlign="center">浏览器内部处理流程的简化模型，并非特定浏览器引擎的精确执行顺序。</caption>
+</box>
+
+| 树结构 | 主要描述的信息 | 主要用途 |
+|---|---|---|
+| DOM Tree | HTML 节点与文档结构 | 文档操作 |
+| CSSOM | CSS 样式规则 | 样式计算 |
+| Render Tree | 渲染所需的结构 | 页面布局和绘制 |
+| Accessibility Tree | 元素语义、名称、状态、关系等 | 辅助技术访问 |
+
+这里有一个非常重要的知识点：
+
+**DOM Tree、Render Tree 和 Accessibility Tree 中的节点并不是一一对应的。**
+
+一个元素可以存在于 DOM Tree 中，却不存在于 Accessibility Tree 中；也可以在视觉上完全透明，却依然能够被屏幕阅读器读取。
+
+下面我们通过具体案例理解。
+
+## 2. DOM Tree 是如何映射到 Accessibility Tree 的？
+
+假设我们有一个简化的商品详情页：
+
+```html
+<main>
+  <div class="product">
+    <h1>Cotton T-shirt</h1>
+
+    <img src="shirt.jpg" alt="Black cotton T-shirt">
+
+    <p>Price: $29.99</p>
+
+    <div class="actions">
+      <button type="button">
+        <svg aria-hidden="true">
+          <!-- Cart icon -->
+        </svg>
+        Add to cart
+      </button>
+    </div>
+  </div>
+</main>
+```
+
+浏览器生成的 DOM Tree 和 Accessibility Tree 可以简化为下面的结构。
+
+<box border radius="lg" padding={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box gap={2}>
+        **DOM Tree**
+        <divider/>
+        <svg viewBox="0 0 164 283" width="100%">
+          <g stroke="currentColor" strokeOpacity=".25" fill="none">
+            <path d="M10 19 V42 H20 M20 42 V145 M20 70 H32 M20 95 H32 M20 120 H32 M20 145 H32 M32 145 V170 H44 M44 170 V220 M44 195 H56 M44 220 H56"/>
+          </g>
+          {#each [{x:4,y:18,t:"main"},{x:16,y:44,t:"div.product"},{x:32,y:72,t:"h1"},{x:32,y:97,t:"img"},{x:32,y:122,t:"p"},{x:32,y:147,t:"div.actions"},{x:44,y:172,t:"button"},{x:56,y:197,t:"svg"},{x:56,y:222,t:"#text"}] as n}
+            <text x={n.x} y={n.y} fontSize="12" fill={n.t.startsWith("div")||n.t==="svg"?"#999999":"currentColor"} fontWeight="500">{n.t}</text>
+          {/each}
+          <text x="4" y="256" fontSize="10" fill="currentColor" opacity=".6">保留 HTML 文档结构</text>
+        </svg>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box gap={2}>
+        **Accessibility Tree**
+        <divider/>
+        <svg viewBox="0 0 164 283" width="100%">
+          <g stroke="#39866B" strokeOpacity=".5" fill="none">
+            <path d="M9 18 V210 M9 46 H20 M9 96 H20 M9 146 H20 M9 196 H20"/>
+          </g>
+          {#each [{y:17,role:"main",name:""},{y:46,role:"heading · level 1",name:"Cotton T-shirt"},{y:96,role:"image",name:"Black cotton T-shirt"},{y:146,role:"paragraph",name:"Price: $29.99"},{y:196,role:"button",name:"Add to cart"}] as n,i}
+            <text x={i===0?3:20} y={n.y} fontSize="11" fill="#39866B" fontWeight="600">{n.role}</text>
+            <text x="20" y={n.y+16} fontSize="10" fill="currentColor">{n.name}</text>
+          {/each}
+          <text x="4" y="256" fontSize="10" fill="currentColor" opacity=".6">保留有意义的无障碍信息</text>
+        </svg>
+      </box>
+    </grid-item>
+  </grid>
+  <divider/>
+  <caption>示意图省略了部分文本节点和浏览器内部节点。实际结构因浏览器及平台而异。</caption>
+</box>
+
+观察右边的无障碍树，你会发现：
+
+- 用于布局的 `div.product` 和 `div.actions` 可能被省略。
+- `h1` 被映射为 heading，并具有 level 1 属性。
+- `img` 被映射为 image，并通过 alt 获得名称。
+- `button` 被映射为 button，并通过内部文字获得名称。
+- 设置了 `aria-hidden="true"` 的装饰性 SVG 不会作为独立内容暴露给辅助技术。
+
+也就是说，浏览器会对 DOM 结构进行语义映射和简化。
+
+### 2.1 浏览器是根据什么规则进行映射的？
+
+W3C 有几份专门定义这类映射规则的规范。
+
+| 规范 | 作用 |
+|---|---|
+| HTML-AAM | 定义 HTML 元素如何映射到无障碍 API |
+| Core-AAM | 定义 ARIA 角色、状态和属性的映射 |
+| SVG-AAM | 定义 SVG 元素的无障碍映射 |
+| AccName | 定义可访问名称和描述的计算规则 |
+
+例如 HTML-AAM 定义了原生 HTML 元素在不同平台上的无障碍语义映射。<Cite refs={["turn281887search20","turn281887search3"]}/>
+
+我们不需要背诵这些规范，但要理解浏览器的映射行为是有标准依据的，并非简单地把标签名称直接复制到无障碍树中。
+
+## 3. Accessibility Node 包含哪些信息？
+
+可以将无障碍树中的一个节点理解为一个 Accessibility Object（无障碍对象）。
+
+例如：
+
+```html
+<label for="quantity">Quantity</label>
+
+<input
+  id="quantity"
+  type="number"
+  min="1"
+  max="10"
+  value="2"
+  aria-describedby="quantity-help"
+  required
+>
+
+<p id="quantity-help">
+  Maximum 10 items per order.
+</p>
+```
+
+页面的视觉表现：
+
+<box border radius="lg" padding={4} gap={2}>
+  **Quantity** <text color="danger" inline>*</text>
+  <box border radius="md" padding={2} width="145px">
+    <row align="center">
+      2
+      <spacer/>
+      <box gap=0>
+        <icon name="chevron-up" size="xs"/>
+        <icon name="chevron-down" size="xs"/>
+      </box>
+    </row>
+  </box>
+  <caption>Maximum 10 items per order.</caption>
+</box>
+
+对应的无障碍节点可以抽象为：
+
+```javascript
+// 用于理解的伪代码，并非真实浏览器 JS API
+{
+  role: "spinbutton",
+  name: "Quantity",
+  description: "Maximum 10 items per order.",
+  value: 2,
+  valueMin: 1,
+  valueMax: 10,
+  required: true,
+  disabled: false,
+  focusable: true,
+  focused: false
+}
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  **Accessibility Node**
+  <divider/>
+  {#each [{n:"Role",v:"spinbutton",d:"元素是什么"},{n:"Name",v:"Quantity",d:"元素叫什么"},{n:"Description",v:"Maximum 10 items per order.",d:"元素的补充说明"},{n:"Value",v:"2",d:"元素当前的值"},{n:"State",v:"required: true",d:"元素当前的状态"},{n:"Property",v:"min: 1, max: 10",d:"元素的属性与约束"},{n:"Relationship",v:"aria-describedby",d:"与其他元素之间的关系"}] as item}
+    <box gap=1>
+      <row align="center">
+        **{item.n}**
+        <spacer/>
+        <text size="sm" color="secondary">{item.d}</text>
+      </row>
+      <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{item.v}</text></box>
+    </box>
+  {/each}
+</box>
+
+屏幕阅读器可能会播报：
+
+> Quantity, spin button, required, 2. Maximum 10 items per order.
+
+具体的播报顺序、措辞取决于屏幕阅读器和用户设置。
+
+### 3.1 Role：角色是如何产生的？
+
+Role 有两个常见来源：隐式角色（Implicit Role）和显式角色（Explicit Role）。
+
+**隐式角色**来自 HTML 元素本身。
+
+| HTML 元素 | Implicit Role |
+|---|---|
+| `button` | button |
+| `a href="..."` | link |
+| `h1` ～ `h6` | heading |
+| `input type="checkbox"` | checkbox |
+| `input type="radio"` | radio |
+| `input type="number"` | spinbutton |
+| `input type="range"` | slider |
+| `textarea` | textbox |
+| `nav` | navigation |
+| `main` | main |
+| `ul` | list |
+| `li` | listitem |
+| `dialog` | dialog |
+
+**显式角色**则是通过 `role` 属性指定的。
+
+```html
+<div role="button">Add to cart</div>
+
+<div role="dialog">Shopping cart</div>
+
+<div role="alert">Something went wrong</div>
+```
+
+在规范允许的情况下，显式 Role 可以改变元素原有的无障碍角色。
+
+但 Role 改变的是无障碍语义，不会自动改变 DOM 类型和原生交互行为。
+
+例如：
+
+```html
+<div role="button" id="cart">Add to cart</div>
+```
+
+```javascript
+const cart = document.querySelector('#cart');
+
+console.log(cart.tagName); // DIV
+
+console.log(cart instanceof HTMLButtonElement);
+// false
+```
+
+它在 Accessibility Tree 中可能是 button，但在 DOM Tree 中仍然是一个 div。
+
+这两个体系是相互关联的，但并不等价。
+
+### 3.2 Name：可访问名称是如何产生的？
+
+Accessible Name 是辅助技术用于识别元素的名称。
+
+例如：
+
+```html
+<button>Add to cart</button>
+```
+
+Name 是 `Add to cart`。
+
+```html
+<button aria-label="Open shopping cart">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+Name 是 `Open shopping cart`。
+
+```html
+<label for="email">Email address</label>
+<input id="email" type="email">
+```
+
+输入框的 Name 是 `Email address`。
+
+常见的名称来源包括：
+
+| 来源 | 典型用途 |
+|---|---|
+| `aria-labelledby` | 引用其他元素的文字 |
+| `aria-label` | 直接指定名称 |
+| `label` | 为表单控件提供名称 |
+| `alt` | 为图片提供替代文本 |
+| 元素内部文字 | 按钮、链接、标题等 |
+| `title` | 部分情况下作为后备名称 |
+
+这些来源存在一定的计算优先级，并且不同角色支持的名称来源并不完全相同。
+
+例如：
+
+```html
+<button aria-label="Buy now">
+  Add to cart
+</button>
+```
+
+视觉用户看到的是 `Add to cart`，而计算出的 Accessible Name 是 `Buy now`。
+
+这不仅造成信息不一致，还可能影响语音控制用户通过可见文字定位按钮。
+
+所以不能为了添加 ARIA 而随意覆盖原本正确的名称。
+
+第 13 课会专门学习完整的 Accessible Name 计算规则。
+
+### 3.3 State：元素状态是如何产生的？
+
+原生 HTML 属性与 ARIA 属性都可能影响无障碍状态。
+
+```html
+<input type="checkbox" checked>
+
+<button disabled>Sold out</button>
+
+<button aria-expanded="false">Menu</button>
+
+<button aria-pressed="true">Favorite</button>
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{html:"checked",ax:"checked: true"},{html:"disabled",ax:"disabled: true"},{html:'aria-expanded="false"',ax:"expanded: false"},{html:'aria-pressed="true"',ax:"pressed: true"}] as p}
+    <row align="center">
+      <box flex={1} background="surface-tertiary" radius="sm" padding={2}><text size="xs">{p.html}</text></box>
+      <icon name="arrow-right" size="sm" color="secondary"/>
+      <box flex={1} padding={2}><text size="sm" color="success">{p.ax}</text></box>
+    </row>
+  {/each}
+</box>
+
+需要注意的是，原生 HTML 属性一般还会影响浏览器的实际行为，而 ARIA 状态主要影响辅助技术获取的信息。
+
+例如，`disabled` 会禁用原生按钮，但 `aria-disabled="true"` 不会自动阻止按钮点击。
+
+---
+
+## 4. 哪些 DOM 节点不会出现在无障碍树中？
+
+这是实际工作中非常重要的一部分。
+
+常见情况包括没有独立语义的布局容器被省略、不需要向用户传递信息的装饰性图片被忽略、隐藏元素被排除，以及某些子元素的语义被合并。
+
+### 4.1 没有独立语义的布局元素
+
+```html
+<div class="container">
+  <div class="wrapper">
+    <div class="inner">
+      <h1>Products</h1>
+    </div>
+  </div>
+</div>
+```
+
+在 DOM Tree 中有多个层级，但在简化的 Accessibility Tree 中，可能只保留有意义的标题节点。
+
+```text
+heading "Products" level=1
+```
+
+并不是所有 div 都必然被移除。有些 div 会因为角色、焦点能力、关系或其他条件成为有意义的无障碍对象。
+
+### 4.2 装饰性图片
+
+```html
+<img src="decoration.png" alt="">
+```
+
+空的 `alt` 表示该图片不需要提供独立的替代文本。对于普通非交互的装饰性图片，浏览器通常会忽略其图片语义。
+
+而：
+
+```html
+<img src="product.jpg" alt="Black cotton T-shirt">
+```
+
+会提供有意义的图片信息。
+
+注意，`alt=""` 和完全不写 `alt` 并不是一回事。缺少 alt 时，辅助技术可能使用文件名等后备信息，导致用户听到无意义的内容。
+
+### 4.3 role="presentation" 与 role="none"
+
+这两个 Role 是同义的，主要用于移除元素原有的语义。
+
+```html
+<h2 role="presentation">
+  Product description
+</h2>
+```
+
+原本的无障碍语义：
+
+```text
+heading "Product description" level=2
+```
+
+移除标题语义之后，可能变为：
+
+```text
+StaticText "Product description"
+```
+
+文字仍然能够被读取，但是用户不能再将它作为二级标题快速导航。
+
+`role="presentation"` 与 `aria-hidden="true"` 的区别在于：前者主要移除角色语义，后者主要将内容排除出无障碍树。
+
+此外，浏览器在元素可聚焦或具有某些全局 ARIA 属性时，可能忽略 presentation 角色。<Cite refs={["turn281887search0","turn281887search3"]}/>
+
+所以不要随意对具有实际意义的标题、表格、列表或交互控件添加这个 Role。
+
+---
+
+## 5. CSS 隐藏与 Accessibility Tree 的关系
+
+这是本节课最重要的实战知识点之一。
+
+在 Shopify Theme 开发过程中，我们经常需要隐藏元素，例如购物车弹窗、移动端导航菜单、商品轮播、下拉菜单、搜索建议框等。
+
+但是，不同的隐藏方式对无障碍树的影响完全不同。
+
+### 5.1 不同隐藏方式的对比
+
+假设我们有一个普通按钮：
+
+```html
+<button>Add to cart</button>
+```
+
+下面分别对它应用不同的隐藏方式。
+
+| 隐藏方式 | DOM 中存在 | 占据布局空间 | 视觉可见 | AX Tree 中可访问 | Tab 可聚焦 |
+|---|---|---|---|---|---|
+| `display: none` | 是 | 否 | 否 | 否 | 否 |
+| `visibility: hidden` | 是 | 是 | 否 | 否 | 否 |
+| `opacity: 0` | 是 | 是 | 否 | 是 | 是 |
+| `hidden` | 是 | 否 | 否 | 否 | 否 |
+| `aria-hidden="true"` | 是 | 是 | 是 | 应排除 | 是 |
+| `inert` | 是 | 是 | 是 | 否 | 否 |
+| `transform` 移出屏幕 | 是 | 是 | 否 | 是 | 是 |
+| `pointer-events: none` | 是 | 是 | 是 | 是 | 是 |
+| `visually-hidden` | 是 | 通常否 | 否 | 是 | 是 |
+| `disabled` | 是 | 是 | 是 | 是 | 否 |
+| `element.remove()` | 否 | 否 | 否 | 否 | 否 |
+
+以上以普通按钮和常规样式为例，不考虑特殊样式覆盖及浏览器兼容性差异。
+
+其中尤其需要注意 `opacity: 0`、`aria-hidden` 和 `inert`。<Cite refs={["turn233622search2","turn233622search11","turn233622search32","turn233622search33"]}/>
+
+### 5.2 交互演示：不同隐藏方式
+
+{@body const modes=[{id:"normal",label:"正常显示",code:"无额外属性",dom:true,layout:true,visible:true,ax:true,focus:true,click:true},{id:"display",label:"display: none",code:"style=\"display: none\"",dom:true,layout:false,visible:false,ax:false,focus:false,click:false},{id:"visibility",label:"visibility: hidden",code:"style=\"visibility: hidden\"",dom:true,layout:true,visible:false,ax:false,focus:false,click:false},{id:"opacity",label:"opacity: 0",code:"style=\"opacity: 0\"",dom:true,layout:true,visible:false,ax:true,focus:true,click:true},{id:"aria",label:"aria-hidden",code:"aria-hidden=\"true\"",dom:true,layout:true,visible:true,ax:false,focus:true,click:true},{id:"inert",label:"inert",code:"inert",dom:true,layout:true,visible:true,ax:false,focus:false,click:false},{id:"transform",label:"移出屏幕",code:"style=\"transform: translateX(-200vw)\"",dom:true,layout:true,visible:false,ax:true,focus:true,click:false},{id:"pointer",label:"pointer-events: none",code:"style=\"pointer-events: none\"",dom:true,layout:true,visible:true,ax:true,focus:true,click:false},{id:"disabled",label:"disabled",code:"disabled",dom:true,layout:true,visible:true,ax:true,focus:false,click:false},{id:"remove",label:"从 DOM 删除",code:"element.remove()",dom:false,layout:false,visible:false,ax:false,focus:false,click:false}]}
+{@body const [mode,setMode]=DIL.useState("normal")}
+{@body const m=modes.find(x=>x.id===mode)}
+<card gap={3}>
+  **元素隐藏方式模拟器**
+
+  <radio-group direction="col" value={mode} onChange={setMode}>
+    {#each modes as item}
+      <radio value={item.id}>{item.label}</radio>
+    {/each}
+  </radio-group>
+  <box background="surface-tertiary" padding={2} radius="md">
+    <text size="sm" preserveWhitespace={true}>{m.dom?`<button ${mode==="normal"?"":m.code}>Add to cart</button>`:m.code}</text>
+  </box>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        <caption>视觉页面</caption>
+        <box height="104px" align="center" justify="center" gap={2}>
+          <box background="surface-tertiary" height="10px" width="95%" radius="sm"/>
+          {#if m.layout}
+            <box width="100%" height="35px" justify="center" align="center" border={{size:1,color:m.visible?"transparent":"#99999950"}} radius="sm">
+              {#if m.visible}
+                <box width="100%" align="center" padding={2} background={mode==="disabled"?"#999999":"#333333"} radius="sm">
+                  <text color="#FFFFFF" size="sm">Add to cart</text>
+                </box>
+              {:else}
+                <caption>占位区域</caption>
+              {/if}
+            </box>
+          {/if}
+          <box background="surface-tertiary" height="10px" width="95%" radius="sm"/>
+        </box>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        <caption>Accessibility Tree</caption>
+        <box height="104px" justify="center" gap={2}>
+          <text size="sm">RootWebArea</text>
+          {#if m.ax}
+            <box padding={{left:2}} gap=1>
+              <text size="sm" color="success">↳ button</text>
+              <text size="xs">"Add to cart"</text>
+              {#if mode==="disabled"}<caption>disabled: true</caption>{/if}
+            </box>
+          {:else}
+            <caption>按钮节点被排除或不存在</caption>
+          {/if}
+        </box>
+      </box>
+    </grid-item>
+  </grid>
+  {#each [{label:"DOM 中存在",v:m.dom},{label:"占据布局空间",v:m.layout},{label:"视觉可见",v:m.visible},{label:"向辅助技术暴露",v:m.ax},{label:"Tab 键可访问",v:m.focus},{label:"可通过鼠标直接点击",v:m.click}] as prop}
+    <row align="center">
+      <text size="sm">{prop.label}</text>
+      <spacer/>
+      <icon name={prop.v?"check-circle":"x-circle"} color={prop.v?"success":"secondary"}/>
+      <text size="sm" color={prop.v?"success":"secondary"}>{prop.v?"是":"否"}</text>
+    </row>
+  {/each}
+  <divider/>
+  {#if mode==="opacity"||mode==="transform"}
+    <text color="warning" size="sm">注意：用户可能通过键盘访问一个视觉上不可见的按钮。</text>
+  {:else if mode==="aria"}
+    <text color="danger" size="sm">这是错误用法示例：按钮仍然可以获得焦点，却被要求从无障碍树中排除。部分浏览器可能忽略该隐藏指令。</text>
+  {:else if mode==="inert"}
+    <text size="sm">元素保持视觉显示，但整个区域不再接受常规交互，也不会暴露给辅助技术。</text>
+  {:else if mode==="pointer"}
+    <text size="sm">鼠标无法直接点击按钮，但键盘用户仍然可能通过 Enter 或 Space 激活它。</text>
+  {:else}
+    <caption>切换隐藏方式，观察不同浏览器子系统之间的区别。</caption>
+  {/if}
+  <caption>这是规则模拟，并非实时浏览器 AX Tree 检测工具。</caption>
+</card>
+
+下面我们重点分析几种容易出问题的方式。
+
+### 5.3 opacity: 0
+
+```css
+.drawer {
+  opacity: 0;
+}
+```
+
+很多开发人员使用 opacity 实现弹窗显示与隐藏的动画。
+
+但是 `opacity: 0` 只会使元素透明，不会移除其无障碍语义，也不会阻止其获得焦点。
+
+假设购物车弹窗中有以下内容：
+
+```html
+<div class="drawer" style="opacity: 0">
+  <button>Close</button>
+  <button>Remove product</button>
+  <button>Checkout</button>
+</div>
+```
+
+即使弹窗没有显示，用户仍然可能通过 Tab 键访问其中的按钮。
+
+这是一种典型的无障碍问题：Invisible Focus（不可见焦点）。
+
+### 5.4 aria-hidden="true"
+
+```html
+<div aria-hidden="true">
+  Some content
+</div>
+```
+
+这个属性主要影响无障碍树，不会改变视觉表现，也不会阻止元素交互。
+
+比较适合以下场景：
+
+```html
+<button>
+  <svg aria-hidden="true">
+    <!-- 装饰性的购物车图标 -->
+  </svg>
+  Add to cart
+</button>
+```
+
+因为 SVG 只是装饰性的，按钮文字已经能够完整表达它的用途。
+
+但是下面的写法是错误的：
+
+```html
+<div aria-hidden="true">
+  <button>Checkout</button>
+</div>
+```
+
+按钮仍然可能进入键盘焦点顺序，但辅助技术可能无法正确获取它的信息。
+
+另外还有一个非常容易踩坑的地方：
+
+```html
+<div aria-hidden="true">
+  <div aria-hidden="false">
+    Product description
+  </div>
+</div>
+```
+
+子元素上的 `aria-hidden="false"` 无法抵消祖先元素上的 `aria-hidden="true"`。
+
+父级区域被排除后，不能单纯通过给子元素设置 false 来重新暴露其语义。<Cite ref="turn233622search2"/>
+
+### 5.5 inert
+
+`inert` 是一个原生 HTML 全局属性，非常适合处理暂时不允许交互的区域。
+
+```html
+<div inert>
+  <a href="/products/shirt">View product</a>
+  <button>Add to cart</button>
+  <input type="text">
+</div>
+```
+
+设置 inert 后，这个区域及其通常受影响的后代元素：
+
+- 不再进入正常的键盘焦点顺序。
+- 不再响应普通用户点击和编辑操作。
+- 不再暴露给辅助技术。
+- 不会因为 inert 而自动隐藏或改变视觉样式。
+
+JavaScript 也可以直接操作它：
+
+```javascript
+const element = document.querySelector('#main');
+
+element.inert = true;
+
+// 恢复交互
+element.inert = false;
+```
+
+它与 `aria-hidden` 最大的区别在于，inert 同时影响交互能力和无障碍树。<Cite ref="turn233622search11"/>
+
+### 5.6 visually-hidden
+
+如果你阅读过 Dawn 主题源码，应该对 `visually-hidden` 这个类名有印象。
+
+这个类的作用恰好与 `aria-hidden` 有所不同。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **aria-hidden**
+      <divider/>
+      <row><icon name="eye" color="success"/><text size="sm">视觉用户可见</text></row>
+      <row><icon name="volume-x" color="secondary"/><text size="sm">辅助技术不可见</text></row>
+      <caption>适用于装饰性图标等内容。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **visually-hidden**
+      <divider/>
+      <row><icon name="eye-off" color="secondary"/><text size="sm">视觉用户不可见</text></row>
+      <row><icon name="volume-2" color="success"/><text size="sm">辅助技术可访问</text></row>
+      <caption>适用于辅助说明、状态播报等内容。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+一个常见的 CSS 实现如下：
+
+```css
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+```
+
+注意，`visually-hidden` 并不是浏览器原生提供的类，而是开发人员定义的一种 CSS 工具类。
+
+例如购物车按钮：
+
+```html
+<button type="button">
+  <svg aria-hidden="true">
+    <!-- Cart icon -->
+  </svg>
+
+  <span class="visually-hidden">
+    Open shopping cart
+  </span>
+</button>
+```
+
+最终视觉用户只会看到购物车图标，但按钮仍然具有 `Open shopping cart` 这个可访问名称。
+
+如果把 `visually-hidden` 替换成 `display: none`，普通情况下这段文字就不会参与按钮的名称计算。
+
+不过，这里存在一个需要了解的例外。
+
+### 5.7 隐藏元素也可以参与名称计算吗？
+
+可以，在特定条件下。
+
+```html
+<button aria-labelledby="cart-label">
+  <svg aria-hidden="true"></svg>
+</button>
+
+<span id="cart-label" hidden>
+  Open shopping cart
+</span>
+```
+
+虽然 `cart-label` 本身不会作为普通内容暴露给辅助技术，但由于它被 `aria-labelledby` 直接引用，其文字仍然可以参与按钮的 Accessible Name 计算。
+
+`aria-describedby` 也存在类似机制。<Cite ref="turn233622search25"/>
+
+所以要区分两个概念：
+
+**不作为独立节点暴露在无障碍树中，不代表其文本在所有情况下都无法被用于无障碍名称或描述计算。**
+
+---
+
+## 6. Accessibility Tree 是动态变化的
+
+Accessibility Tree 并不是浏览器加载页面时构建一次之后就不再改变。
+
+当 JavaScript 修改 DOM、CSS 或 ARIA 状态时，浏览器会相应更新无障碍信息，并在适当情况下通过平台接口通知辅助技术。
+
+### 6.1 修改元素状态
+
+例如一个收藏按钮：
+
+```html
+<button id="favorite" aria-pressed="false">
+  Favorite
+</button>
+```
+
+```javascript
+const button = document.querySelector('#favorite');
+
+button.addEventListener('click', () => {
+  const pressed =
+    button.getAttribute('aria-pressed') === 'true';
+
+  button.setAttribute('aria-pressed', String(!pressed));
+});
+```
+
+{@body const [favorite,setFavorite]=DIL.useState(false)}
+<card gap={3}>
+  <caption>页面交互</caption>
+  <box align="center" padding={3}>
+    <button variant={favorite?"solid":"outline"} color="secondary" size="lg" onClick={()=>setFavorite(!favorite)}>
+      <icon name="heart" color={favorite?"#E16B75":"secondary"} size="xl"/> Favorite
+    </button>
+  </box>
+  <caption>HTML 属性</caption>
+  <box background="surface-tertiary" radius="md" padding={3}>
+    <text size="sm">{`<button aria-pressed="${favorite}">`}</text>
+    <text size="sm">　Favorite</text>
+    <text size="sm">{"</button>"}</text>
+  </box>
+  <icon name="arrow-down" color="secondary"/>
+  **Accessibility Node**
+  <box border radius="md" padding={3} gap={2}>
+    <row><caption>Role</caption><spacer/>button</row>
+    <row><caption>Name</caption><spacer/>Favorite</row>
+    <row><caption>Pressed</caption><spacer/><text color={favorite?"success":"secondary"}>{String(favorite)}</text></row>
+  </box>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap=1>
+      <caption>模拟屏幕阅读器播报</caption>
+      **Favorite, toggle button, {favorite?"pressed":"not pressed"}.**
+    </box>
+  </row>
+</card>
+
+点击上方按钮，可以观察 HTML 属性和无障碍节点状态之间的关系。
+
+### 6.2 添加或删除 DOM 节点
+
+```javascript
+const button = document.createElement('button');
+
+button.textContent = 'Checkout';
+
+document.body.appendChild(button);
+```
+
+当按钮插入 DOM 后，浏览器也会将对应的无障碍信息加入相关结构中。
+
+当执行：
+
+```javascript
+button.remove();
+```
+
+对应的无障碍对象也会被移除。
+
+### 6.3 Accessibility Tree 更新不等于屏幕阅读器自动播报
+
+这两个概念一定要区分。
+
+假设有：
+
+```html
+<span id="price">$29.99</span>
+```
+
+切换商品变体之后：
+
+```javascript
+document.querySelector('#price').textContent = '$39.99';
+```
+
+无障碍树中的文字信息会相应发生变化，但屏幕阅读器不一定会立即主动播报新的价格。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box align="center" background="surface-tertiary" radius="md" padding={2}>JavaScript 更新价格</box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box align="center" border radius="md" padding={2}>
+    **Accessibility Tree 更新**
+
+    <row><text color="secondary" lineThrough={true}>$29.99</text><icon name="arrow-right"/><text color="success">$39.99</text></row>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2} align="center">
+        <icon name="volume-x" size="xl" color="secondary"/>
+        普通文本
+        <caption textAlign="center">不一定主动播报</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2} align="center">
+        <icon name="volume-2" size="xl" color="success"/>
+        Live Region
+        <caption textAlign="center">可请求主动通知用户</caption>
+      </box>
+    </grid-item>
+  </grid>
+</box>
+
+所以我们可能需要通过 `aria-live` 或 `role="status"` 等机制，让用户感知重要的动态变化。
+
+这对于 Shopify 商品变体切换、购物车更新和 Collection AJAX 筛选尤其重要。
+
+---
+
+## 7. 能否通过 JavaScript 直接获取 Accessibility Tree？
+
+相信作为前端开发人员，你可能会想到这样的问题。
+
+我们可以通过以下方式获取 DOM Tree：
+
+```javascript
+document.documentElement
+```
+
+也可以获取元素计算后的 CSS：
+
+```javascript
+window.getComputedStyle(element)
+```
+
+那么有没有类似这样的 API？
+
+```javascript
+// 假设的 API，实际不存在
+document.accessibilityTree
+```
+
+目前，普通网页 JavaScript 没有一个通用、跨浏览器的标准 API，可以直接获取完整的浏览器 Accessibility Tree。
+
+但是可以通过浏览器调试协议来获取相关信息。
+
+### 7.1 Chrome DevTools Protocol
+
+Chrome DevTools Protocol（CDP）提供了 Accessibility Domain。
+
+部分常用方法包括：
+
+| CDP 方法 | 作用 |
+|---|---|
+| `Accessibility.enable` | 启用 Accessibility Domain |
+| `Accessibility.getFullAXTree` | 获取指定文档的无障碍树 |
+| `Accessibility.getPartialAXTree` | 获取指定节点相关的无障碍树 |
+| `Accessibility.queryAXTree` | 按名称、角色等条件查询 |
+| `Accessibility.getChildAXNodes` | 获取无障碍节点的子节点 |
+
+例如使用 Puppeteer：
+
+```javascript
+import puppeteer from 'puppeteer';
+
+const browser = await puppeteer.launch({
+  headless: true
+});
+
+const page = await browser.newPage();
+
+await page.goto('https://example.com');
+
+const client = await page.createCDPSession();
+
+await client.send('Accessibility.enable');
+
+const { nodes } = await client.send(
+  'Accessibility.getFullAXTree'
+);
+
+console.log(nodes);
+
+await browser.close();
+```
+
+返回的数据大致类似：
+
+```javascript
+{
+  nodeId: "15",
+  ignored: false,
+  role: {
+    type: "role",
+    value: "button"
+  },
+  name: {
+    type: "computedString",
+    value: "Add to cart"
+  },
+  properties: [
+    {
+      name: "focusable",
+      value: {
+        type: "booleanOrUndefined",
+        value: true
+      }
+    }
+  ],
+  childIds: []
+}
+```
+
+这也是开发无障碍检测工具、浏览器插件、自动化测试工具时可以考虑的技术方向。
+
+相关文档：[Chrome DevTools Protocol — Accessibility Domain](https://chromedevtools.github.io/devtools-protocol/tot/Accessibility/)。
+
+需要注意，CDP 返回的是 Chromium 的无障碍信息，不代表所有浏览器和屏幕阅读器最终暴露或播报的内容完全相同。
+
+## 8. 使用 Chrome DevTools 调试无障碍树
+
+日常开发中不需要每次都通过 CDP 获取数据，Chrome DevTools 已经提供了相关功能。
+
+打开 DevTools，进入 Elements 面板，选择某个 DOM 元素，再查看 Accessibility 面板。你也可以在 Elements 中切换到完整页面的 Accessibility Tree 视图，具体入口会随 Chrome 版本有所变化。<Cite ref="turn233622search0"/>
+
+<AsyncImage query="Chrome DevTools Elements full page accessibility tree computed properties role name accessibility pane screenshot" aspectRatio="16:9" fit="contain"/>
+
+主要关注以下几个部分：
+
+<box border radius="lg" padding={3} gap={2}>
+  <row align="center">
+    <text weight="medium">Styles</text>
+    <text color="secondary" size="sm">Computed</text>
+    <box border={{bottom:{size:2,color:"#5185C5"}}} padding={{bottom:1}}>
+      <text color="#5185C5" weight="medium" size="sm">Accessibility</text>
+    </box>
+  </row>
+  <divider/>
+  <row><icon name="chevron-down" size="sm"/> **Accessibility Tree**</row>
+  <box padding={{left:3}} gap={1}>
+    <text size="sm">RootWebArea</text>
+    <text size="sm">　main</text>
+    <text size="sm">　　heading "Cotton T-shirt"</text>
+    <box background="surface-tertiary" radius="sm" padding={2}>
+      <text size="sm" color="success">　　button "Add to cart"</text>
+    </box>
+  </box>
+  <divider/>
+  <row><icon name="chevron-down" size="sm"/> **ARIA Attributes**</row>
+  <text size="sm" color="secondary">No ARIA attributes</text>
+  <divider/>
+  <row><icon name="chevron-down" size="sm"/> **Computed Properties**</row>
+  {#each [["Name","Add to cart"],["Role","button"],["Focusable","true"],["Disabled","false"]] as prop}
+    <row>
+      <caption>{prop[0]}:</caption>
+      <spacer/>
+      <text size="sm">{prop[1]}</text>
+    </row>
+  {/each}
+  <caption>DevTools 调试面板简化示意</caption>
+</box>
+
+其中 Computed Properties 尤其重要。
+
+它展示的是浏览器实际计算得到的无障碍属性，而不是简单显示你写在 HTML 上的属性。
+
+例如：
+
+```html
+<button>Add to cart</button>
+```
+
+即使没有任何 ARIA 属性，浏览器仍然能够计算出正确的 Name 和 Role。
+
+对于被忽略的节点，DevTools 还可以帮助你了解节点被忽略的原因，例如元素被隐藏、缺少独立语义等。
+
+---
+
+## 9. Shopify 实战：购物车 Drawer 隐藏问题
+
+现在通过一个完整的实际开发场景，将前面的知识串联起来。
+
+假设我们要开发一个 Cart Drawer。
+
+### 9.1 常见的错误实现
+
+```html
+<main id="main-content">
+  <button>View product</button>
+  <button>Add to cart</button>
+</main>
+
+<aside id="cart-drawer">
+  <button>Close</button>
+  <button>Remove product</button>
+  <button>Checkout</button>
+</aside>
+```
+
+```css
+#cart-drawer {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 400px;
+
+  transform: translateX(100%);
+  transition: transform 0.3s;
+}
+
+#cart-drawer.is-open {
+  transform: translateX(0);
+}
+```
+
+这是非常常见的 Drawer 动画实现。
+
+视觉上完全没有问题，但无障碍方面存在两个问题。
+
+<box border radius="lg" padding={3} gap={3}>
+  **问题一：Drawer 关闭时**
+  <svg viewBox="0 0 340 174" width="100%">
+    <rect x="4" y="4" width="246" height="164" rx="5" stroke="currentColor" strokeOpacity=".35" fill="none"/>
+    <rect x="12" y="12" width="230" height="24" rx="3" fill="#888888" fillOpacity=".12"/>
+    <text x="20" y="28" fill="currentColor" fontSize="11">STORE</text>
+    <rect x="18" y="47" width="80" height="70" rx="3" fill="#888888" fillOpacity=".17"/>
+    <text x="109" y="59" fontSize="10" fill="currentColor">Cotton T-shirt</text>
+    <rect x="109" y="70" width="108" height="23" rx="3" fill="none" stroke="currentColor" strokeOpacity=".4"/>
+    <text x="163" y="85" fontSize="9" textAnchor="middle" fill="currentColor">View product</text>
+    <rect x="109" y="102" width="108" height="23" rx="3" fill="#444444"/>
+    <text x="163" y="117" fontSize="9" textAnchor="middle" fill="white">Add to cart</text>
+    <rect x="258" y="4" width="78" height="164" rx="4" fill="#888888" fillOpacity=".06" stroke="#C56A62" strokeDasharray="4 3"/>
+    <text x="297" y="19" textAnchor="middle" fontSize="9" fill="currentColor">Drawer</text>
+    {#each ["Close","Remove","Checkout"] as t,i}
+      <rect x="264" y={30+i*28} width="66" height="20" rx="3" fill="none" stroke="#C56A62" strokeWidth={i===0?2:1}/>
+      <text x="297" y={43+i*28} fontSize="9" textAnchor="middle" fill="currentColor">{t}</text>
+    {/each}
+    <path d="M218 113 H239 V40 H260" fill="none" stroke="#C56A62" strokeDasharray="4 3" strokeWidth="1.8"/>
+    <path d="M255 36 L260 40 L255 44" fill="none" stroke="#C56A62" strokeWidth="1.8"/>
+    <text x="117" y="153" fill="currentColor" fontSize="10" textAnchor="middle">可视区域</text>
+    <text x="297" y="153" fill="#C56A62" fontSize="10" textAnchor="middle">屏幕外</text>
+  </svg>
+  <text size="sm">Tab 键可能进入已经移出屏幕的 Drawer，并访问里面不可见的按钮。</text>
+  <divider/>
+  **问题二：Drawer 打开时**
+  <svg viewBox="0 0 340 174" width="100%">
+    <rect x="4" y="4" width="332" height="164" rx="5" stroke="currentColor" strokeOpacity=".35" fill="none"/>
+    <rect x="5" y="5" width="187" height="162" rx="4" fill="#888888" fillOpacity=".22"/>
+    <text x="15" y="26" fill="currentColor" fontSize="11" opacity=".7">STORE</text>
+    <rect x="20" y="44" width="80" height="70" rx="3" fill="#888888" fillOpacity=".17"/>
+    <rect x="110" y="78" width="67" height="22" rx="3" fill="none" stroke="#C56A62" strokeWidth="2"/>
+    <text x="143" y="92" fontSize="8" textAnchor="middle" fill="currentColor">Add to cart</text>
+    <rect x="193" y="5" width="142" height="162" rx="4" fill="#888888" fillOpacity=".05" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="205" y="24" fontSize="11" fontWeight="600" fill="currentColor">Your cart</text>
+    <path d="M318 15 L327 24 M327 15 L318 24" stroke="currentColor"/>
+    <rect x="205" y="39" width="41" height="49" rx="3" fill="#888888" fillOpacity=".18"/>
+    <text x="253" y="49" fontSize="9" fill="currentColor">T-shirt</text>
+    <text x="253" y="64" fontSize="9" fill="currentColor">$29.99</text>
+    <rect x="205" y="134" width="118" height="22" rx="3" fill="#39866B"/>
+    <text x="264" y="148" fontSize="10" fill="white" textAnchor="middle">Checkout</text>
+    <path d="M202 110 H183 V89 H178" fill="none" stroke="#C56A62" strokeDasharray="4 3" strokeWidth="1.8"/>
+    <text x="98" y="152" fontSize="10" textAnchor="middle" fill="#C56A62">背景仍然可以聚焦</text>
+  </svg>
+  <text size="sm">如果 Drawer 是模态弹窗，背景内容不应继续接受键盘交互，但仅仅增加遮罩层并不能实现这一点。</text>
+</box>
+
+### 9.2 使用 inert 改善交互隔离
+
+可以在 Drawer 关闭时使其处于 inert 状态。
+
+```html
+<main id="main-content">
+  <!-- 页面内容 -->
+</main>
+
+<aside id="cart-drawer" inert>
+  <!-- 购物车内容 -->
+</aside>
+```
+
+打开 Drawer 时：
+
+```javascript
+function openCart() {
+  drawer.inert = false;
+  drawer.classList.add('is-open');
+
+  mainContent.inert = true;
+
+  closeButton.focus();
+}
+```
+
+关闭 Drawer 时：
+
+```javascript
+function closeCart() {
+  mainContent.inert = false;
+
+  triggerButton.focus();
+
+  drawer.inert = true;
+  drawer.classList.remove('is-open');
+}
+```
+
+这里只展示 inert 和焦点恢复的基本原理。真实项目还需要处理 Header、Footer 等其他背景区域、Esc 关闭、弹窗角色及名称等问题。
+
+如果使用原生 `<dialog>` 配合 `showModal()`，浏览器还能够提供原生的模态交互隔离能力，这会是我们第 15 课的重要内容。
+
+### 9.3 模拟 Drawer 的无障碍树变化
+
+{@body const [drawerOpen,setDrawerOpen]=DIL.useState(false)}
+{@body const [correct,setCorrect]=DIL.useState(true)}
+<card gap={3}>
+  <segmented-control options={[{label:"仅使用 CSS",value:"css"},{label:"CSS + inert",value:"inert"}]} value={correct?"inert":"css"} onChange={v=>setCorrect(v==="inert")}/>
+  <box border radius="md" clip={true} gap={0}>
+    <row padding={2} align="center">
+      **STYLE STORE**
+      <spacer/>
+      <button size="sm" variant="outline" color="secondary" onClick={()=>setDrawerOpen(!drawerOpen)}><icon name="shopping-bag"/> Cart</button>
+    </row>
+    <divider/>
+    <row gap={0} align="stretch">
+      <box flex={1} padding={3} background={drawerOpen?"surface-tertiary":"surface"} gap={2}>
+        <svg viewBox="0 0 100 85" width="100%">
+          <rect width="100" height="85" rx="5" fill="#D9D0C2"/>
+          <path d="M35 14 L15 25 L25 45 L35 39 V73 H65 V39 L75 45 L85 25 L65 14 L58 20 H42 Z" fill="#887B6B" stroke="#6E6458" strokeWidth="1"/>
+        </svg>
+        **Cotton T-shirt**
+        <caption>$29.99</caption>
+        <box border radius="sm" padding={1} align="center"><text size="xs">Add to cart</text></box>
+      </box>
+      {#if drawerOpen}
+        <box flex={1} border={{left:{size:1,color:"#99999950"}}} padding={3} gap={2}>
+          <row align="center">
+            **Your cart**
+            <spacer/>
+            <button size="sm" color="secondary" variant="ghost" onClick={()=>setDrawerOpen(false)}><icon name="x"/></button>
+          </row>
+          <divider/>
+          <text size="sm">Cotton T-shirt × 1</text>
+          <caption>$29.99</caption>
+          <box border radius="sm" padding={1} align="center"><text size="xs">Remove</text></box>
+          <spacer/>
+          <box background="#39866B" radius="sm" padding={2} align="center"><text size="sm" color="#FFFFFF">Checkout</text></box>
+        </box>
+      {/if}
+    </row>
+  </box>
+  <button block variant="outline" color="secondary" onClick={()=>setDrawerOpen(!drawerOpen)}>{drawerOpen?"关闭 Drawer":"打开 Drawer"}</button>
+  <divider/>
+  **Accessibility Tree**
+  <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+    <text size="sm">RootWebArea</text>
+    <box padding={{left:3}} gap={1}>
+      {#if !correct||!drawerOpen}
+        <text size="sm">main</text>
+        <box padding={{left:4}} gap={1}>
+          <text size="sm">heading "Cotton T-shirt"</text>
+          <text size="sm">button "Add to cart"</text>
+        </box>
+      {:else}
+        <caption>main — inert，已排除</caption>
+      {/if}
+      {#if !correct||drawerOpen}
+        <text size="sm">dialog "Your cart"</text>
+        <box padding={{left:4}} gap={1}>
+          {#each ["Close","Remove product","Checkout"] as b}
+            <text size="sm" color={!drawerOpen?"warning":"default"}>{`button "${b}"`}</text>
+          {/each}
+        </box>
+      {:else}
+        <caption>Cart Drawer — inert，已排除</caption>
+      {/if}
+    </box>
+  </box>
+  {#if correct}
+    <text size="sm" color="success">{drawerOpen?"Drawer 已打开，模拟背景区域从无障碍树中排除。":"Drawer 已关闭，模拟其中的控件从无障碍树中排除。"}</text>
+  {:else}
+    <text size="sm" color="warning">{drawerOpen?"问题：背景页面的控件仍然可以被访问。":"问题：已隐藏的 Drawer 控件仍然存在于无障碍树中。"}</text>
+  {/if}
+  <caption>这是模态区域语义隔离的简化演示，并非完整的 Drawer 无障碍组件实现。</caption>
+</card>
+
+这就是为什么我们不能只考虑弹窗的 CSS 显示状态，还需要同时考虑：
+
+| 维度 | 开发时需要考虑的问题 |
+|---|---|
+| DOM | 元素是否存在 |
+| CSS | 元素是否可见 |
+| Accessibility Tree | 元素是否应该被辅助技术访问 |
+| Focus | 元素是否应该获得焦点 |
+| Interaction | 元素是否应该接受用户操作 |
+| State | 辅助技术获取的状态是否与实际状态一致 |
+
+---
+
+## 10. 本课知识测试
+
+{@body const questions=[{q:"一个按钮设置 opacity: 0 后，是否仍然可能通过 Tab 键访问？",opts:["可以","不可以"],answer:0,why:"opacity 仅影响视觉透明度，不会自动移除焦点能力或无障碍语义。"},{q:"给 div 设置 role=\"button\" 后，是否会自动支持 Enter 和 Space 激活？",opts:["会","不会"],answer:1,why:"role 只提供相应语义，不会自动添加原生按钮行为。"},{q:"父元素设置 aria-hidden=\"true\"，子元素设置 aria-hidden=\"false\"，能否恢复子元素的无障碍暴露？",opts:["可以","不可以"],answer:1,why:"子元素上的 false 无法抵消祖先元素的 aria-hidden=\"true\"。"},{q:"希望背景页面保持可见，但不能被点击、聚焦和辅助技术访问，应该使用什么？",opts:["opacity: 0","aria-hidden=\"true\"","inert","pointer-events: none"],answer:2,why:"inert 同时影响交互、焦点能力和无障碍树，而不会自动改变视觉表现。"},{q:"希望一段文字视觉上不可见，但仍然可被屏幕阅读器作为普通内容读取，应该使用什么？",opts:["display: none","visibility: hidden","visually-hidden","aria-hidden=\"true\""],answer:2,why:"正确实现的 visually-hidden 类会隐藏视觉表现，同时保留无障碍信息。"},{q:"Accessibility Tree 中的文本发生变化，屏幕阅读器是否一定会立即播报？",opts:["一定会","不一定"],answer:1,why:"无障碍信息更新不等于主动播报，重要的状态变化可能需要 Live Region。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(6).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===questions[i].answer).length} / 6</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${answers.filter((a,i)=>a===questions[i].answer).length/6*100}%`}/>
+  </box>
+  {#each questions as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.opts as opt,j}
+          <radio value={String(j)}>{opt}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.answer?"check-circle":"x-circle"} color={answers[i]===q.answer?"success":"danger"}/>
+          <box flex={1}>
+            <text size="sm" color={answers[i]===q.answer?"success":"danger"}>{answers[i]===q.answer?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<5}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(6).fill(-1))}>重新测试</button>
+</card>
+
+## 11. 官方参考资料
+
+| 文档 | 主要内容 |
+|---|---|
+| [HTML Accessibility API Mappings](https://www.w3.org/TR/html-aam-1.0/) | HTML 无障碍映射规则 |
+| [Core Accessibility API Mappings](https://www.w3.org/TR/core-aam-1.2/) | ARIA 无障碍映射规则 |
+| [Accessible Name Computation](https://www.w3.org/TR/accname-1.2/) | 名称和描述计算 |
+| [MDN — aria-hidden](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-hidden) | aria-hidden 属性 |
+| [MDN — inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert) | inert 属性 |
+| [Chrome Accessibility Tree](https://developer.chrome.com/blog/full-accessibility-tree) | Chrome 无障碍树原理 |
+| [Chrome DevTools Accessibility](https://developer.chrome.com/docs/devtools/accessibility/reference/) | 无障碍调试 |
+
+---
+
+## 12. 本课总结
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 265" width="100%">
+    <rect x="99" y="5" width="142" height="36" rx="6" fill="#39866B" fillOpacity=".15" stroke="#39866B"/>
+    <text x="170" y="27" fontSize="12" fontWeight="600" fill="currentColor" textAnchor="middle">Accessibility Tree</text>
+    <path d="M170 41 V57 M56 57 H284 M56 57 V72 M170 57 V72 M284 57 V72" fill="none" stroke="currentColor" strokeOpacity=".4"/>
+    {#each [{x:3,t:"信息来源",items:["HTML 语义","ARIA 属性","CSS 可见性","DOM 状态","元素关系"]},{x:117,t:"节点信息",items:["Role","Name","Description","State","Value"]},{x:231,t:"动态变化",items:["DOM 增删","属性修改","焦点变化","状态更新","辅助技术事件"]}] as col}
+      <rect x={col.x} y="72" width="106" height="31" rx="5" fill="#888888" fillOpacity=".13" stroke="currentColor" strokeOpacity=".2"/>
+      <text x={col.x+53} y="91" fontSize="12" fontWeight="600" fill="currentColor" textAnchor="middle">{col.t}</text>
+      {#each col.items as t,i}
+        <rect x={col.x} y={112+i*30} width="106" height="25" rx="4" fill="#888888" fillOpacity=".06" stroke="currentColor" strokeOpacity=".12"/>
+        <text x={col.x+53} y={128+i*30} fontSize="10" fill="currentColor" textAnchor="middle">{t}</text>
+      {/each}
+    {/each}
+  </svg>
+</box>
+
+本节课最重要的不是记住所有属性，而是建立一种新的前端开发思维：
+
+**开发网页时，你实际上同时在构建视觉界面和无障碍语义界面。**
+
+CSS 负责控制用户看到什么，HTML 和 ARIA 等机制共同决定辅助技术能够理解什么，JavaScript 则负责使视觉状态、交互状态和无障碍状态保持一致。
+
+---
+
+**下一课：第 4 课——WCAG 四大原则与合规标准**
+
+这是第一阶段的最后一课，我们将系统学习：
+
+- POUR 四大原则及其下属指南。
+- WCAG 编号体系，例如 1.4.3、2.1.1、4.1.2 分别代表什么。
+- Level A、AA、AAA 的具体区别。
+- WCAG 2.0、2.1、2.2 的主要差异。
+- 跨境电商网站需要重点关注的成功准则。
+- 如何阅读 ADA 审计报告。
+- 如何将 WCAG 规范转化为前端开发任务。
+
+学完下一课，我们就正式进入 HTML、CSS 无障碍开发实战阶段。

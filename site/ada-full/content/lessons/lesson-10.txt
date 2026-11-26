@@ -1,0 +1,1974 @@
+# 第 10 课：键盘导航与 tabindex
+
+<row align="center">
+  <caption>阶段三：JavaScript 与 ARIA 深入</caption>
+  <spacer/>
+  <caption>10 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="38.46%" radius="full"/>
+</box>
+
+前九节课，我们已经学习了无障碍基础原理、HTML 语义化和 CSS 无障碍。
+
+从这一课开始，我们正式进入第三阶段：**JavaScript 与 ARIA 深入开发。**
+
+键盘导航是复杂交互组件无障碍开发的基础。在 Shopify Theme 开发中，以下组件都需要我们掌握键盘交互机制：
+
+| 业务组件 | 涉及的键盘交互 |
+|---|---|
+| Mega Menu | Tab、方向键、Esc |
+| Cart Drawer | Tab 循环、Esc 关闭 |
+| Predictive Search | 方向键选择、Enter 确认 |
+| Variant Picker | Tab、方向键切换选项 |
+| Product Gallery | 方向键、图片切换 |
+| Collection Filters | Tab、Space、Enter |
+| Tabs | 方向键切换标签 |
+| Modal | 焦点进入、限制与恢复 |
+
+本节课不会仅仅讲解 tabindex 属性，而是从浏览器的焦点机制出发，理解原生键盘行为、事件机制以及复杂组件中的两种核心焦点管理模式。
+
+---
+
+## 1. 为什么键盘无障碍如此重要？
+
+并不是所有用户都能够使用鼠标。
+
+视觉障碍用户、运动障碍用户、使用替代输入设备的用户，以及习惯通过键盘提高操作效率的用户，都可能依赖键盘导航。
+
+WCAG 中与键盘操作直接相关的准则包括：
+
+| WCAG 编号 | 等级 | 要求 |
+|---|---|---|
+| 2.1.1 | A | Keyboard：键盘可操作 |
+| 2.1.2 | A | No Keyboard Trap：无键盘陷阱 |
+| 2.4.1 | A | Bypass Blocks：跳过重复内容 |
+| 2.4.3 | A | Focus Order：合理的焦点顺序 |
+| 2.4.7 | AA | Focus Visible：焦点可见 |
+| 2.4.11 | AA | Focus Not Obscured：焦点不被完全遮挡 |
+| 3.2.1 | A | On Focus：获得焦点时不意外改变上下文 |
+
+这里需要建立一个重要认知：
+
+**键盘可访问并不只是让元素能够通过 Tab 键获得焦点，还要保证用户能够理解焦点位置、完成操作，并且顺利离开当前组件。**
+
+## 2. Focusable、Tabbable、Interactive 的区别
+
+这是理解 tabindex 之前必须掌握的三个概念。
+
+### 2.1 Focusable：可聚焦
+
+表示元素能够通过某种方式获得 DOM 焦点，例如通过键盘、鼠标或 JavaScript。
+
+```html
+<div id="content" tabindex="-1">
+  Product details
+</div>
+```
+
+```javascript
+document.querySelector('#content').focus();
+```
+
+这个 div 可以通过 JavaScript 获得焦点，因此它是 Focusable 的。
+
+但是，它不会进入正常的 Tab 导航顺序。
+
+### 2.2 Tabbable：可通过 Tab 导航
+
+表示元素能够进入浏览器的顺序焦点导航（Sequential Focus Navigation）。
+
+```html
+<button>Add to cart</button>
+
+<a href="/cart">View cart</a>
+
+<input type="email">
+```
+
+这些元素在正常可用、可见的情况下，通常都属于 Tabbable 元素。
+
+### 2.3 Interactive：可交互
+
+表示元素承担用户操作功能，例如点击、输入、选择或者切换状态。
+
+```html
+<div onclick="addToCart()">
+  Add to cart
+</div>
+```
+
+这个 div 可以通过鼠标触发操作，但默认不能通过键盘获得焦点，也没有原生按钮语义。
+
+所以 Interactive 并不意味着 Focusable 或 Tabbable。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 232" width="100%">
+    <rect x="8" y="6" width="224" height="216" rx="12" fill="#5185C5" fillOpacity=".07" stroke="#5185C5" strokeOpacity=".6"/>
+    <text x="20" y="29" fontSize="13" fontWeight="600" fill="currentColor">Focusable</text>
+    <text x="20" y="46" fontSize="10" fill="currentColor">可以获得焦点</text>
+    <rect x="24" y="65" width="144" height="140" rx="9" fill="#39866B" fillOpacity=".09" stroke="#39866B" strokeOpacity=".7"/>
+    <text x="35" y="85" fontSize="12" fontWeight="600" fill="currentColor">Tabbable</text>
+    <text x="35" y="101" fontSize="10" fill="currentColor">进入 Tab 顺序</text>
+    <rect x="105" y="111" width="227" height="80" rx="9" fill="#C6914A" fillOpacity=".10" stroke="#C6914A" strokeOpacity=".8"/>
+    <text x="242" y="130" fontSize="12" fontWeight="600" fill="currentColor">Interactive</text>
+    <circle cx="130" cy="151" r="4" fill="#39866B"/>
+    <text x="120" y="169" fontSize="10" fill="currentColor">button</text>
+    <circle cx="199" cy="151" r="4" fill="#5185C5"/>
+    <text x="179" y="169" fontSize="10" fill="currentColor">tabindex -1</text>
+    <circle cx="280" cy="151" r="4" fill="#C6914A"/>
+    <text x="280" y="169" textAnchor="middle" fontSize="10" fill="currentColor">div onclick</text>
+    <text x="181" y="77" fontSize="10" fill="currentColor">main</text>
+    <text x="181" y="91" fontSize="10" fill="currentColor">tabindex -1</text>
+    <text x="34" y="197" fontSize="10" fill="currentColor">div tabindex 0</text>
+  </svg>
+  <caption>概念关系示意：可交互元素与可聚焦元素并不完全重合。</caption>
+</box>
+
+| 元素 | Focusable | Tabbable | Interactive |
+|---|---|---|---|
+| 普通 `button` | 是 | 是 | 是 |
+| `button tabindex="-1"` | 是 | 否 | 是 |
+| 普通 `div` | 否 | 否 | 否 |
+| `div tabindex="0"` | 是 | 是 | 不一定 |
+| `div onclick` | 默认否 | 默认否 | 是 |
+| `div tabindex="-1"` | 是 | 否 | 不一定 |
+| 原生 `button disabled` | 否 | 否 | 否 |
+
+因此，给一个 div 设置 tabindex，只是赋予了它焦点能力，并不会自动使它变成一个完整的交互控件。
+
+---
+
+## 3. tabindex 的底层行为
+
+`tabindex` 是一个 HTML 全局属性，主要用于控制元素的焦点能力和顺序焦点导航。
+
+它有三种常见的使用方式。
+
+### 3.1 tabindex="0"
+
+将元素加入正常的 Tab 导航顺序。
+
+```html
+<div tabindex="0">
+  Product details
+</div>
+```
+
+这个 div 现在可以通过 Tab 键获得焦点，也可以通过 JavaScript 调用 `.focus()`。
+
+但是浏览器不会因此为它添加按钮语义或 Enter、Space 激活行为。
+
+### 3.2 tabindex="-1"
+
+允许元素通过程序化方式获得焦点，但不进入正常的 Tab 导航顺序。
+
+```html
+<h2 id="cart-title" tabindex="-1">
+  Your cart
+</h2>
+```
+
+```javascript
+document.querySelector('#cart-title').focus();
+```
+
+常见使用场景：
+
+- 打开 Modal 时聚焦弹窗标题。
+- 表单提交失败时聚焦错误摘要。
+- Skip Link 跳转到 main 区域。
+- SPA 路由切换后聚焦页面标题。
+- Roving Tabindex 中暂时不进入 Tab 顺序的选项。
+
+注意，`tabindex="-1"` 并不等于禁用元素，也不意味着从 Accessibility Tree 中移除元素。
+
+### 3.3 正数 tabindex
+
+```html
+<button tabindex="3">Button A</button>
+
+<button tabindex="1">Button B</button>
+
+<button tabindex="2">Button C</button>
+
+<button>Button D</button>
+```
+
+在普通文档结构中，浏览器会优先按照正数 tabindex 从小到大的顺序导航，然后再访问正常 Tab 顺序中的元素。
+
+因此上述代码的顺序是：
+
+```text
+Button B → Button C → Button A → Button D
+```
+
+如果正数 tabindex 相同，则通常根据文档顺序访问。
+
+不建议在日常业务开发中使用正数 tabindex，因为它会破坏自然的 DOM 导航顺序，使复杂页面难以维护。<Cite ref="turn259686search2"/>
+
+### 3.4 交互实验：tabindex 导航顺序
+
+{@body const [indices,setIndices]=DIL.useState([0,0,0,0])}
+{@body const [focused,setFocused]=DIL.useState(-1)}
+{@body const elements=["Search","View product","Add to cart","Checkout"]}
+{@body const order=indices.map((v,i)=>({v,i})).filter(x=>x.v>=0).sort((a,b)=>(a.v===0?Infinity:a.v)-(b.v===0?Infinity:b.v)||a.i-b.i).map(x=>x.i)}
+<card gap={3}>
+  **Tabindex 实验室**
+  <caption>调整四个按钮的 tabindex，再模拟按下 Tab 键。</caption>
+  {#each elements as name,i}
+    <row align="center">
+      <box flex={1} border={{size:focused===i?2:1,color:focused===i?"#5185C5":"#99999950"}} radius="md" padding={3}>
+        <row align="center">
+          <text size="sm" weight="medium">{name}</text>
+          <spacer/>
+          {#if focused===i}<icon name="focus" color="#5185C5" size="sm"/>{/if}
+        </row>
+      </box>
+      <box width="95px">
+        <select value={String(indices[i])} onChange={v=>{setIndices(old=>old.map((x,j)=>i===j?Number(v):x));setFocused(-1)}} options={[-1,0,1,2,3,4].map(v=>({label:`${v}`,value:String(v)}))}/>
+      </box>
+    </row>
+  {/each}
+  <divider/>
+  <caption>计算后的 Tab 顺序</caption>
+  <row wrap="wrap" align="center" gap={1}>
+    {#each order as i,j}
+      {#if j>0}<icon name="arrow-right" size="xs" color="secondary"/>{/if}
+      <box background="surface-tertiary" radius="sm" padding={2}>
+        <text size="xs" weight={focused===i?"bold":"normal"}>{elements[i]}</text>
+      </box>
+    {/each}
+    {#if order.length===0}<caption>没有元素进入 Tab 顺序</caption>{/if}
+  </row>
+  <grid columns={2}>
+    <grid-item>
+      <button block variant="outline" color="secondary" disabled={order.length===0} onClick={()=>setFocused(order[(order.indexOf(focused)-1+order.length)%order.length]??-1)}>Shift + Tab</button>
+    </grid-item>
+    <grid-item>
+      <button block disabled={order.length===0} onClick={()=>setFocused(order[(order.indexOf(focused)+1)%order.length]??-1)}>Tab <icon name="arrow-right" size="sm"/></button>
+    </grid-item>
+  </grid>
+  <row wrap="wrap">
+    <button size="sm" variant="outline" color="secondary" onClick={()=>{setIndices([3,1,2,0]);setFocused(-1)}}>模拟正数 tabindex</button>
+    <button size="sm" variant="outline" color="secondary" onClick={()=>{setIndices([0,-1,0,0]);setFocused(-1)}}>模拟跳过第二个按钮</button>
+    <button size="sm" variant="ghost" color="secondary" onClick={()=>{setIndices([0,0,0,0]);setFocused(-1)}}>重置</button>
+  </row>
+  <caption>这是普通文档顺序的简化模拟，不包含 Shadow DOM、iframe 和浏览器自身界面的导航规则。</caption>
+</card>
+
+实际开发中，记住下面这张表即可。
+
+| tabindex | 程序化聚焦 | 正常 Tab 顺序 | 推荐程度 |
+|---|---|---|---|
+| -1 | 支持 | 不参与 | 推荐用于焦点管理 |
+| 0 | 支持 | 参与 | 推荐用于必要的自定义控件 |
+| 正数 | 支持 | 优先参与 | 尽量避免 |
+
+原生 button、a、input 等元素已经具有默认焦点能力，通常不需要额外设置 `tabindex="0"`。
+
+---
+
+## 4. 浏览器默认 Tab 顺序是如何产生的？
+
+假设页面结构如下：
+
+```html
+<header>
+  <a href="/">Home</a>
+  <a href="/collections/all">Products</a>
+  <button>Search</button>
+</header>
+
+<main>
+  <h1>Cotton T-shirt</h1>
+
+  <input type="number" aria-label="Quantity">
+
+  <button>Add to cart</button>
+
+  <a href="/cart">View cart</a>
+</main>
+
+<footer>
+  <a href="/pages/contact">Contact us</a>
+</footer>
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+    <caption>Header</caption>
+    {#each ["Home","Products","Search"] as name,i}
+      <row align="center">
+        <box background="#5185C5" size="22px" radius="full" align="center" justify="center"><text color="#FFFFFF" size="xs">{i+1}</text></box>
+        <box flex={1} border radius="sm" padding={2}><text size="sm">{name}</text></box>
+      </row>
+    {/each}
+  </box>
+  <box border radius="md" padding={3} gap={2}>
+    <caption>Main</caption>
+    <title size="lg">Cotton T-shirt</title>
+    <caption>普通标题不进入 Tab 顺序</caption>
+    {#each ["Quantity","Add to cart","View cart"] as name,i}
+      <row align="center">
+        <box background="#5185C5" size="22px" radius="full" align="center" justify="center"><text color="#FFFFFF" size="xs">{i+4}</text></box>
+        <box flex={1} border radius="sm" padding={2}><text size="sm">{name}</text></box>
+      </row>
+    {/each}
+  </box>
+  <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+    <caption>Footer</caption>
+    <row align="center">
+      <box background="#5185C5" size="22px" radius="full" align="center" justify="center"><text color="#FFFFFF" size="xs">7</text></box>
+      <box flex={1} border radius="sm" padding={2}><text size="sm">Contact us</text></box>
+    </row>
+  </box>
+</box>
+
+对于没有正数 tabindex 的普通页面，Tab 顺序通常遵循 DOM 中可顺序聚焦元素的文档顺序。
+
+普通标题、段落和图片不需要进入 Tab 顺序，因为屏幕阅读器用户还可以通过浏览模式访问这些内容。
+
+### 4.1 CSS order 会改变 Tab 顺序吗？
+
+来看一个例子：
+
+```html
+<div class="actions">
+  <button class="buy">Buy now</button>
+
+  <button class="cart">Add to cart</button>
+</div>
+```
+
+```css
+.actions {
+  display: flex;
+}
+
+.buy {
+  order: 2;
+}
+
+.cart {
+  order: 1;
+}
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  <caption>DOM 顺序</caption>
+  <row align="center">
+    <box flex={1} border radius="sm" padding={3} align="center">Buy now</box>
+    <icon name="arrow-right" color="secondary"/>
+    <box flex={1} border radius="sm" padding={3} align="center">Add to cart</box>
+  </row>
+  <divider/>
+  <caption>CSS order 改变后的视觉顺序</caption>
+  <grid columns={2}>
+    <grid-item>
+      <box background="#333333" theme="dark" radius="sm" padding={3} align="center">
+        <text color="#FFFFFF" size="sm">Add to cart</text>
+      </box>
+      <row justify="center"><badge>Tab 2</badge></row>
+    </grid-item>
+    <grid-item>
+      <box border radius="sm" padding={3} align="center">
+        <text size="sm">Buy now</text>
+      </box>
+      <row justify="center"><badge>Tab 1</badge></row>
+    </grid-item>
+  </grid>
+  <caption>常规 CSS order 会改变视觉排列，但默认不会同步调整 Tab 导航顺序。</caption>
+</box>
+
+这可能导致用户看到的按钮顺序与实际键盘导航顺序不一致。
+
+类似问题还可能出现在 `flex-direction: row-reverse`、Grid 区域重新排列、绝对定位以及移动端布局重排中。
+
+更合理的方案是优先调整 DOM 结构，使其与逻辑阅读顺序一致，而不是使用正数 tabindex 强行修补视觉顺序。
+
+---
+
+## 5. DOM Focus API 深入解析
+
+### 5.1 document.activeElement
+
+这个属性用于获取当前文档中获得焦点的元素。
+
+```javascript
+console.log(document.activeElement);
+```
+
+例如：
+
+```html
+<button id="cart-button">
+  Open cart
+</button>
+```
+
+```javascript
+const button = document.querySelector('#cart-button');
+
+button.focus();
+
+console.log(document.activeElement === button);
+
+// true
+```
+
+需要注意，`document.activeElement` 返回的是 DOM 焦点，并不代表屏幕阅读器浏览模式下的虚拟光标位置。
+
+另外，在 Shadow DOM 或 iframe 中，外层文档获取到的可能是 Shadow Host 或 iframe 元素，而不是内部真正获得焦点的控件。
+
+### 5.2 element.focus()
+
+```javascript
+element.focus();
+```
+
+浏览器默认可能会将目标元素滚动到可视区域。
+
+如果希望移动焦点但不触发滚动，可以使用：
+
+```javascript
+element.focus({
+  preventScroll: true
+});
+```
+
+例如购物车 AJAX 更新后，恢复原来数量按钮的焦点，同时避免页面突然滚动。<Cite ref="turn898861search13"/>
+
+但是如果目标本身已经处于屏幕之外，就需要谨慎使用 `preventScroll: true`，否则可能造成不可见焦点。
+
+### 5.3 element.blur()
+
+```javascript
+element.blur();
+```
+
+它可以使元素失去焦点，但通常不会为用户选择一个合理的新焦点目标。
+
+不推荐这种写法：
+
+```javascript
+button.addEventListener('click', () => {
+  button.blur();
+});
+```
+
+许多开发者这样做只是为了去除点击后的焦点边框，却可能导致键盘用户丢失操作位置。
+
+正确的方式是使用上一课学习的 `:focus-visible` 控制焦点样式，而不是主动清除焦点。
+
+### 5.4 focus、blur、focusin、focusout
+
+| 事件 | 触发时机 | 是否冒泡 |
+|---|---|---|
+| `focus` | 元素获得焦点 | 否 |
+| `blur` | 元素失去焦点 | 否 |
+| `focusin` | 元素获得焦点 | 是 |
+| `focusout` | 元素失去焦点 | 是 |
+
+对于需要统一管理整个组件焦点的情况，`focusin` 和 `focusout` 非常实用。
+
+```javascript
+const drawer = document.querySelector('#cart-drawer');
+
+drawer.addEventListener('focusin', event => {
+  console.log('获得焦点的子元素', event.target);
+});
+
+drawer.addEventListener('focusout', event => {
+  console.log('失去焦点的元素', event.target);
+  console.log('下一个焦点', event.relatedTarget);
+});
+```
+
+例如判断焦点是否已经离开整个 Dropdown：
+
+```javascript
+dropdown.addEventListener('focusout', event => {
+  const nextTarget = event.relatedTarget;
+
+  if (!dropdown.contains(nextTarget)) {
+    closeDropdown();
+  }
+});
+```
+
+实际项目中还需要考虑 `relatedTarget` 为 null、Shadow DOM 和弹窗通过 Portal 渲染等情况。
+
+---
+
+## 6. 键盘事件与原生激活行为
+
+这是本节课非常重要的一部分。
+
+很多前端开发人员为了实现 ADA 无障碍，会给所有按钮额外添加 keydown 事件。但对于原生 button，这样做反而可能产生问题。
+
+### 6.1 KeyboardEvent 的常用属性
+
+```javascript
+document.addEventListener('keydown', event => {
+  console.log({
+    key: event.key,
+    code: event.code,
+    repeat: event.repeat,
+    shiftKey: event.shiftKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    metaKey: event.metaKey,
+    isComposing: event.isComposing
+  });
+});
+```
+
+| 属性 | 含义 |
+|---|---|
+| `key` | 当前按键表达的逻辑值 |
+| `code` | 键盘上的物理按键位置 |
+| `repeat` | 是否因为长按而重复触发 |
+| `shiftKey` | 是否同时按下 Shift |
+| `ctrlKey` | 是否同时按下 Ctrl |
+| `metaKey` | 是否同时按下 Command / Windows 键 |
+| `isComposing` | 是否处于输入法组合输入过程中 |
+
+对于普通无障碍组件，通常优先使用 `event.key` 判断导航按键。
+
+```javascript
+switch (event.key) {
+  case 'ArrowDown':
+    break;
+
+  case 'ArrowUp':
+    break;
+
+  case 'Enter':
+    break;
+
+  case 'Escape':
+    break;
+
+  case ' ':
+    break;
+}
+```
+
+特别注意 Space：
+
+```javascript
+event.key === ' '
+event.code === 'Space'
+```
+
+两种属性对应的值不同。<Cite ref="turn898861search12"/>
+
+### 6.2 原生 button 的 Enter 与 Space 行为
+
+假设有以下按钮：
+
+```html
+<button id="add-to-cart" type="button">
+  Add to cart
+</button>
+```
+
+```javascript
+button.addEventListener('click', () => {
+  addToCart();
+});
+```
+
+即使我们只监听 click 事件，原生按钮也已经可以通过 Enter 和 Space 激活。
+
+在常见桌面浏览器中，事件顺序通常如下：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <box align="center" border radius="sm" padding={2}>
+        **Enter ↵**
+      </box>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center">keydown</box>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box border={{size:1,color:"#39866B"}} radius="sm" padding={2} align="center"><text color="success">click</text></box>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center">keyup</box>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <box align="center" border radius="sm" padding={2}>
+        **Space**
+      </box>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center">keydown</box>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center">keyup</box>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box border={{size:1,color:"#39866B"}} radius="sm" padding={2} align="center"><text color="success">click</text></box>
+    </box>
+  </grid-item>
+</grid>
+<caption>典型事件顺序示意，实际行为可能受浏览器、控件状态和辅助技术影响。</caption>
+
+也就是说，click 并不是鼠标专属事件。
+
+原生按钮可以被鼠标、触屏、键盘以及辅助技术激活，最终触发相应的 click 行为。
+
+### 6.3 一个可能导致重复加购的错误
+
+```javascript
+button.addEventListener('click', () => {
+  addToCart();
+});
+
+button.addEventListener('keydown', event => {
+  if (
+    event.key === 'Enter' ||
+    event.key === ' '
+  ) {
+    addToCart();
+  }
+});
+```
+
+问题在于，原生 button 已经能够根据键盘操作生成 click 事件，而我们又在 keydown 中主动执行了相同的业务逻辑。
+
+{@body const [duplicateHandler,setDuplicateHandler]=DIL.useState(true)}
+{@body const [cartQuantity,setCartQuantity]=DIL.useState(0)}
+{@body const [eventLog,setEventLog]=DIL.useState([])}
+<card gap={3}>
+  **重复加购问题模拟**
+  <checkbox checked={duplicateHandler} onChange={setDuplicateHandler}>额外监听 keydown 并执行 addToCart()</checkbox>
+  <row align="center">
+    <icon name="shopping-cart" size="2xl"/>
+    <box flex={1}>
+      <caption>购物车商品数量</caption>
+      <title size="2xl">{cartQuantity}</title>
+    </box>
+  </row>
+  <grid columns={2}>
+    <grid-item>
+      <button block color="secondary" variant="outline" onClick={()=>{setCartQuantity(v=>v+1);setEventLog(["click → addToCart()"])}}>模拟鼠标点击</button>
+    </grid-item>
+    <grid-item>
+      <button block onClick={()=>{setCartQuantity(v=>v+(duplicateHandler?2:1));setEventLog(["keydown (Enter)",...(duplicateHandler?["keydown → addToCart()"]:[]),"click → addToCart()","keyup"])}}>模拟 Enter 激活</button>
+    </grid-item>
+  </grid>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <caption>Event Log</caption>
+    {#each eventLog as log}
+      <text size="sm">{log}</text>
+    {/each}
+    {#if eventLog.length===0}<caption>等待操作...</caption>{/if}
+  </box>
+  <text size="sm" color={duplicateHandler?"warning":"success"}>{duplicateHandler?"键盘激活可能执行两次加购逻辑。":"只监听原生 click，鼠标和键盘共享同一业务入口。"}</text>
+  <button block color="secondary" variant="ghost" onClick={()=>{setCartQuantity(0);setEventLog([])}}>清空购物车与事件记录</button>
+  <caption>此处为典型原生按钮事件机制的模拟，不会发送真实加购请求。</caption>
+</card>
+
+所以对于原生 button，绝大多数情况下直接监听 click 即可。
+
+这也是为什么使用原生 HTML 控件，可以大幅减少无障碍相关的 JavaScript 代码。
+
+---
+
+## 7. 自定义按钮应该如何支持键盘？
+
+假设出于某些特殊原因，我们无法使用原生 button。
+
+```html
+<div
+  id="custom-button"
+  role="button"
+  tabindex="0"
+>
+  Add to cart
+</div>
+```
+
+现在这个 div 已经具有按钮语义和焦点能力，但没有原生按钮的完整交互行为。
+
+可以实现如下逻辑：
+
+```javascript
+const button = document.querySelector('#custom-button');
+
+let spacePressed = false;
+
+button.addEventListener('click', () => {
+  if (button.getAttribute('aria-disabled') === 'true') {
+    return;
+  }
+
+  addToCart();
+});
+
+button.addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+
+    if (!event.repeat) {
+      button.click();
+    }
+  }
+
+  if (event.key === ' ') {
+    // 防止 Space 导致页面滚动
+    event.preventDefault();
+
+    spacePressed = true;
+  }
+});
+
+button.addEventListener('keyup', event => {
+  if (event.key === ' ' && spacePressed) {
+    event.preventDefault();
+
+    spacePressed = false;
+    button.click();
+  }
+});
+
+button.addEventListener('blur', () => {
+  spacePressed = false;
+});
+```
+
+这里有几个值得学习的细节：
+
+| 实现 | 目的 |
+|---|---|
+| `role="button"` | 提供按钮语义 |
+| `tabindex="0"` | 加入正常焦点顺序 |
+| Enter 的 keydown | 实现按下激活 |
+| Space 的 keyup | 模拟松开空格后激活 |
+| `preventDefault()` | 防止空格导致页面滚动 |
+| `event.repeat` | 避免长按 Enter 重复执行业务 |
+| `button.click()` | 统一业务逻辑入口 |
+| blur 事件 | 清理未完成的按键状态 |
+
+这只是一个基础自定义按钮实现。还需要考虑视觉焦点、禁用样式和实际辅助技术兼容性。
+
+对比原生按钮：
+
+```html
+<button type="button">Add to cart</button>
+```
+
+```javascript
+button.addEventListener('click', addToCart);
+```
+
+你会发现，为了模拟浏览器原生行为，我们需要额外编写大量代码。
+
+**ARIA 赋予元素语义，但不会赋予元素原生键盘行为。** <Cite ref="turn259686search14"/>
+
+---
+
+## 8. 复杂组件的两级键盘导航
+
+接下来进入本课的核心进阶知识。
+
+假设一个页面有 50 个商品颜色选项，或者一个 Predictive Search 组件有 20 条搜索建议。
+
+如果我们让每个内部选项都拥有 `tabindex="0"`，用户可能需要按几十次 Tab 才能离开组件。
+
+WAI-ARIA APG 对复合组件（Composite Widget）推荐采用两级导航模型。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 250" width="100%">
+    <rect x="55" y="5" width="230" height="33" rx="5" stroke="currentColor" strokeOpacity=".3" fill="#888888" fillOpacity=".06"/>
+    <text x="170" y="26" fontSize="12" textAnchor="middle" fill="currentColor">Search input</text>
+    <path d="M170 38 V65 M165 60 L170 65 L175 60" stroke="#5185C5" strokeWidth="1.6" fill="none"/>
+    <text x="184" y="55" fontSize="10" fill="#5185C5">Tab</text>
+    <rect x="5" y="67" width="330" height="111" rx="8" stroke="#39866B" fill="#39866B" fillOpacity=".06"/>
+    <text x="16" y="86" fontSize="11" fontWeight="600" fill="#39866B">Radio Group · Size</text>
+    {#each ["S","M","L","XL"] as t,i}
+      <rect x={16+i*79} y="101" width="62" height="35" rx="4" stroke={i===1?"#39866B":"currentColor"} strokeOpacity={i===1?1:.25} fill={i===1?"#39866B":"none"} fillOpacity={i===1?.15:0} strokeWidth={i===1?2:1}/>
+      <text x={47+i*79} y="123" fontSize="13" textAnchor="middle" fill="currentColor">{t}</text>
+      <text x={47+i*79} y="155" fontSize="10" textAnchor="middle" fill="currentColor">tabindex={i===1?0:-1}</text>
+    {/each}
+    {#each [78,157,236] as x}
+      <path d={`M${x+2} 118 H${x+15} M${x+6} 114 L${x+2} 118 L${x+6} 122 M${x+11} 114 L${x+15} 118 L${x+11} 122`} stroke="#39866B" fill="none"/>
+    {/each}
+    <path d="M170 178 V207 M165 202 L170 207 L175 202" stroke="#5185C5" strokeWidth="1.6" fill="none"/>
+    <text x="184" y="196" fontSize="10" fill="#5185C5">Tab</text>
+    <rect x="55" y="209" width="230" height="34" rx="5" fill="#888888" fillOpacity=".06" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="170" y="230" fontSize="12" textAnchor="middle" fill="currentColor">Add to cart</text>
+  </svg>
+  <caption>Tab 负责在组件之间移动，方向键负责在复合组件内部移动。</caption>
+</box>
+
+| 导航层级 | 常用按键 | 作用 |
+|---|---|---|
+| 组件之间 | Tab、Shift + Tab | 进入或离开组件 |
+| 组件内部 | Arrow Keys、Home、End | 移动内部焦点 |
+| 激活当前选项 | Enter、Space | 根据组件模式执行操作 |
+| 退出浮层 | Esc | 根据组件类型关闭浮层 |
+
+这种设计并不适用于所有元素。
+
+普通导航链接、独立按钮、Checkbox 列表等通常仍然按照正常 Tab 顺序访问。只有符合特定交互模式的复合组件，才需要额外的内部焦点管理。
+
+实现这种导航模型，主要有两种技术方案：
+
+- Roving Tabindex。
+- `aria-activedescendant`。
+
+下面分别学习。<Cite ref="turn259686search1"/>
+
+---
+
+## 9. Roving Tabindex（游走式 tabindex）
+
+Roving Tabindex 是开发自定义 Radio Group、Tabs、Toolbar 等组件时非常常见的一种焦点管理模式。
+
+### 9.1 核心原理
+
+假设有三个 Tab：
+
+```html
+<button role="tab" tabindex="0">
+  Description
+</button>
+
+<button role="tab" tabindex="-1">
+  Specifications
+</button>
+
+<button role="tab" tabindex="-1">
+  Reviews
+</button>
+```
+
+只有第一个 Tab 可以通过正常 Tab 导航进入。
+
+当用户按下右方向键时：
+
+```javascript
+currentTab.tabIndex = -1;
+
+nextTab.tabIndex = 0;
+
+nextTab.focus();
+```
+
+最终只有第二个 Tab 保持 `tabindex="0"`。
+
+这就是 Roving 的含义：`tabindex="0"` 在不同选项之间移动。
+
+### 9.2 交互实验：Roving Tabindex
+
+{@body const tabNames=["Description","Specifications","Reviews"]}
+{@body const tabContent=["Made from 100% premium cotton.","Material: Cotton. Weight: 220 g.","Rated 4.8 out of 5 by 128 customers."]}
+{@body const [activeTab,setActiveTab]=DIL.useState(0)}
+{@body const [focusedTab,setFocusedTab]=DIL.useState(0)}
+{@body const [automatic,setAutomatic]=DIL.useState(false)}
+<card gap={3}>
+  **商品详情 Tabs 实验室**
+  <segmented-control options={[{label:"手动激活",value:"manual"},{label:"自动激活",value:"auto"}]} value={automatic?"auto":"manual"} onChange={v=>{setAutomatic(v==="auto");if(v==="auto")setActiveTab(focusedTab)}}/>
+  <row gap={1}>
+    {#each tabNames as name,i}
+      <pressable flex={1} border={{size:focusedTab===i?2:1,color:focusedTab===i?"#5185C5":"#99999950"}} radius="sm" padding={2} onClick={()=>{setFocusedTab(i);setActiveTab(i)}} gap={1} align="center">
+        <text size="xs" weight={activeTab===i?"bold":"normal"}>{name}</text>
+        <box height="3px" width="100%" radius="full" background={activeTab===i?"#39866B":"transparent"}/>
+      </pressable>
+    {/each}
+  </row>
+  <box border radius="md" padding={3}>
+    <text size="sm">{tabContent[activeTab]}</text>
+  </box>
+  <row align="center" justify="center">
+    <button uniform color="secondary" variant="outline" onClick={()=>{let n=(focusedTab+2)%3;setFocusedTab(n);if(automatic)setActiveTab(n)}}><icon name="arrow-left"/></button>
+    <button color="secondary" variant="outline" onClick={()=>setActiveTab(focusedTab)}>Enter / Space</button>
+    <button uniform color="secondary" variant="outline" onClick={()=>{let n=(focusedTab+1)%3;setFocusedTab(n);if(automatic)setActiveTab(n)}}><icon name="arrow-right"/></button>
+  </row>
+  <caption>蓝色边框表示模拟键盘焦点，绿色下划线表示实际选中状态。</caption>
+  <divider/>
+  **当前 DOM / ARIA 状态**
+  <table>
+    <table-row>
+      <table-cell><caption>Tab</caption></table-cell>
+      <table-cell><caption>tabindex</caption></table-cell>
+      <table-cell><caption>selected</caption></table-cell>
+      <table-cell><caption>焦点</caption></table-cell>
+    </table-row>
+    {#each tabNames as name,i}
+      <table-row>
+        <table-cell><text size="xs">{name}</text></table-cell>
+        <table-cell><text color={focusedTab===i?"success":"secondary"}>{focusedTab===i?0:-1}</text></table-cell>
+        <table-cell><text size="sm">{String(activeTab===i)}</text></table-cell>
+        <table-cell>{#if focusedTab===i}<icon name="focus" color="#5185C5"/>{:else}<caption>—</caption>{/if}</table-cell>
+      </table-row>
+    {/each}
+  </table>
+  <caption>{automatic?"自动激活模式：移动焦点时，同时切换选中的 Tab。":"手动激活模式：方向键只移动焦点，按 Enter 或 Space 后才切换内容。"}</caption>
+</card>
+
+这个实验引出了一个非常重要的区别：
+
+**Focus（焦点）和 Selection（选中）不是同一个概念。**
+
+| 概念 | 含义 |
+|---|---|
+| Focus | 用户当前正在操作哪个元素 |
+| Selection | 组件当前实际选中了哪个元素 |
+| `tabindex="0"` | 哪个元素是组件的顺序焦点入口 |
+| `aria-selected="true"` | 哪个选项处于选中状态 |
+
+在手动激活的 Tabs 中，焦点可以位于 Specifications，而当前展示的内容仍然是 Description。
+
+因此，不应该直接用 `aria-selected` 来表示键盘焦点。
+
+### 9.3 完整 Tabs HTML
+
+```html
+<div role="tablist" aria-label="Product information">
+
+  <button
+    type="button"
+    role="tab"
+    id="tab-description"
+    aria-selected="true"
+    aria-controls="panel-description"
+    tabindex="0"
+  >
+    Description
+  </button>
+
+  <button
+    type="button"
+    role="tab"
+    id="tab-specifications"
+    aria-selected="false"
+    aria-controls="panel-specifications"
+    tabindex="-1"
+  >
+    Specifications
+  </button>
+
+  <button
+    type="button"
+    role="tab"
+    id="tab-reviews"
+    aria-selected="false"
+    aria-controls="panel-reviews"
+    tabindex="-1"
+  >
+    Reviews
+  </button>
+
+</div>
+
+<div
+  role="tabpanel"
+  id="panel-description"
+  aria-labelledby="tab-description"
+  tabindex="0"
+>
+  Made from 100% premium cotton.
+</div>
+
+<div
+  role="tabpanel"
+  id="panel-specifications"
+  aria-labelledby="tab-specifications"
+  tabindex="0"
+  hidden
+>
+  Material: Cotton. Weight: 220 g.
+</div>
+
+<div
+  role="tabpanel"
+  id="panel-reviews"
+  aria-labelledby="tab-reviews"
+  tabindex="0"
+  hidden
+>
+  Rated 4.8 out of 5.
+</div>
+```
+
+这里的 tabpanel 包含普通文字，因此设置 tabindex="0"，让键盘用户能够从 Tab 列表进入当前面板。如果面板起始处已经有合适的可聚焦控件，就不一定需要给面板本身添加 tabindex。
+
+### 9.4 JavaScript 实现
+
+下面采用手动激活模式。
+
+```javascript
+const tablist = document.querySelector('[role="tablist"]');
+
+const tabs = [
+  ...tablist.querySelectorAll('[role="tab"]')
+];
+
+function moveFocus(index) {
+  tabs.forEach((tab, i) => {
+    tab.tabIndex = i === index ? 0 : -1;
+  });
+
+  tabs[index].focus();
+}
+
+function activateTab(index) {
+  tabs.forEach((tab, i) => {
+    const selected = index === i;
+
+    tab.setAttribute(
+      'aria-selected',
+      String(selected)
+    );
+
+    const panel = document.getElementById(
+      tab.getAttribute('aria-controls')
+    );
+
+    panel.hidden = !selected;
+  });
+}
+
+tabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => {
+    moveFocus(index);
+    activateTab(index);
+  });
+});
+
+tablist.addEventListener('keydown', event => {
+  const index = tabs.indexOf(document.activeElement);
+
+  if (index === -1) return;
+
+  let nextIndex;
+
+  switch (event.key) {
+    case 'ArrowRight':
+      nextIndex = (index + 1) % tabs.length;
+      break;
+
+    case 'ArrowLeft':
+      nextIndex =
+        (index - 1 + tabs.length) % tabs.length;
+      break;
+
+    case 'Home':
+      nextIndex = 0;
+      break;
+
+    case 'End':
+      nextIndex = tabs.length - 1;
+      break;
+
+    default:
+      return;
+  }
+
+  event.preventDefault();
+
+  moveFocus(nextIndex);
+});
+```
+
+因为这里使用原生 button，所以不需要单独处理 Enter 和 Space，它们已经会触发 click 事件。
+
+对于手动激活模式，还可以在焦点离开整个 tablist 后，将下一次 Tab 入口恢复到当前选中的 Tab：
+
+```javascript
+tablist.addEventListener('focusout', event => {
+  if (tablist.contains(event.relatedTarget)) {
+    return;
+  }
+
+  tabs.forEach(tab => {
+    tab.tabIndex =
+      tab.getAttribute('aria-selected') === 'true'
+        ? 0
+        : -1;
+  });
+});
+```
+
+如果希望实现自动激活，则可以在方向键移动焦点后追加：
+
+```javascript
+moveFocus(nextIndex);
+activateTab(nextIndex);
+```
+
+通常只有在内容切换足够及时、不会产生明显等待时，才推荐使用自动激活模式。如果每次切换都需要 AJAX 请求，手动激活可能更加合适。<Cite ref="turn898861search0"/>
+
+---
+
+## 10. aria-activedescendant：虚拟焦点机制
+
+这是另一种非常重要的复合组件焦点管理方式。
+
+如果你正在开发 Shopify Predictive Search，就特别值得掌握这一机制。
+
+假设用户在搜索框中输入 `shirt`，页面出现了三条搜索建议。
+
+<box border radius="lg" padding={3} gap={2}>
+  <row border={{size:2,color:"#5185C5"}} radius="md" padding={3} align="center">
+    <icon name="search"/>
+    <text>shirt</text>
+    <box height="20px" width="1px" background="surface-inverted"/>
+    <spacer/>
+    <icon name="x" color="secondary"/>
+  </row>
+  <box border radius="md" padding={2} gap={2}>
+    {#each [{n:"Cotton T-shirt",c:"#333333",p:"$29.99"},{n:"Linen shirt",c:"#C6B49B",p:"$49.99"},{n:"Oversized T-shirt",c:"#7C8FA0",p:"$39.99"}] as p,i}
+      <row align="center" background={i===1?"#5185C518":"surface"} border={{size:1,color:i===1?"#5185C5":"transparent"}} radius="sm" padding={2}>
+        <svg viewBox="0 0 50 55" width="45px">
+          <rect width="50" height="55" rx="3" fill="#E3DCD2"/>
+          <path d="M17 7 L5 16 L12 26 L17 22 V48 H33 V22 L38 26 L45 16 L33 7 L29 11 H21 Z" fill={p.c}/>
+        </svg>
+        <box flex={1} gap={1}>
+          <text size="sm" weight="medium">{p.n}</text>
+          <caption>{p.p}</caption>
+        </box>
+        {#if i===1}<icon name="chevron-right" color="#5185C5"/>{/if}
+      </row>
+    {/each}
+  </box>
+  <caption>DOM 焦点仍然位于搜索输入框，但第二条搜索建议处于活动状态。</caption>
+</box>
+
+我们希望用户能够同时实现两个操作：
+
+一方面，继续在输入框中输入、删除文字；另一方面，使用上下方向键选择搜索建议。
+
+如果采用 Roving Tabindex，并在用户按下方向键时执行：
+
+```javascript
+option.focus();
+```
+
+DOM 焦点就会离开 input。
+
+此时用户继续输入文字，可能无法直接修改搜索框中的内容。
+
+这就是 `aria-activedescendant` 发挥作用的地方。
+
+### 10.1 核心原理
+
+```html
+<input
+  id="search-input"
+  type="search"
+  role="combobox"
+  aria-label="Search products"
+  aria-expanded="true"
+  aria-controls="search-results"
+  aria-autocomplete="list"
+  aria-activedescendant="result-2"
+>
+
+<ul id="search-results" role="listbox">
+
+  <li id="result-1" role="option">
+    Cotton T-shirt
+  </li>
+
+  <li id="result-2" role="option">
+    Linen shirt
+  </li>
+
+  <li id="result-3" role="option">
+    Oversized T-shirt
+  </li>
+
+</ul>
+```
+
+此时：
+
+```javascript
+document.activeElement.id;
+
+// "search-input"
+```
+
+但是：
+
+```javascript
+document.activeElement.getAttribute(
+  'aria-activedescendant'
+);
+
+// "result-2"
+```
+
+也就是说，真实 DOM 焦点与辅助技术感知的活动项可以是不同的元素。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 210" width="100%">
+    <rect x="12" y="5" width="316" height="46" rx="6" fill="#5185C5" fillOpacity=".10" stroke="#5185C5" strokeWidth="1.5"/>
+    <text x="23" y="23" fontSize="11" fontWeight="600" fill="#5185C5">DOM Focus</text>
+    <text x="23" y="39" fontSize="12" fill="currentColor">input#search-input</text>
+    <rect x="12" y="78" width="316" height="123" rx="6" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+    <text x="23" y="95" fontSize="10" fill="currentColor" opacity=".7">listbox #search-results</text>
+    {#each ["Cotton T-shirt","Linen shirt","Oversized T-shirt"] as n,i}
+      <rect x="22" y={103+i*30} width="200" height="26" rx="4" fill={i===1?"#39866B":"#888888"} fillOpacity={i===1?.13:.06} stroke={i===1?"#39866B":"none"}/>
+      <text x="31" y={120+i*30} fontSize="11" fill="currentColor">{`result-${i+1} · ${n}`}</text>
+    {/each}
+    <path d="M280 51 V146 H225" stroke="#39866B" strokeWidth="1.6" strokeDasharray="4 3" fill="none"/>
+    <path d="M231 142 L225 146 L231 150" stroke="#39866B" fill="none"/>
+    <text x="286" y="65" fontSize="9" fill="#39866B" textAnchor="middle">ARIA</text>
+    <text x="275" y="160" fontSize="10" fontWeight="600" fill="#39866B" textAnchor="middle">活动项</text>
+  </svg>
+  <caption>input 保持 DOM 焦点，通过 aria-activedescendant 指向当前活动选项。</caption>
+</box>
+
+屏幕阅读器可以根据这个属性获取当前活动选项的信息，而不需要将真实 DOM 焦点移到该选项上。
+
+不过，`aria-activedescendant` 只能用于支持该属性的角色，并且引用的目标必须满足 ARIA 规定的所属或控制关系。不能在任意 div 上使用它来指向页面中的任意元素。<Cite refs={["turn259686search25","turn259686search22"]}/>
+
+### 10.2 交互实验
+
+{@body const suggestions=["Cotton T-shirt","Linen shirt","Oversized T-shirt","Classic shirt"]}
+{@body const [searchValue,setSearchValue]=DIL.useState("shirt")}
+{@body const [activeSuggestion,setActiveSuggestion]=DIL.useState(-1)}
+{@body const [searchOpen,setSearchOpen]=DIL.useState(true)}
+{@body const matches=suggestions.filter(s=>s.toLowerCase().includes(searchValue.toLowerCase()))}
+<card gap={3}>
+  **Predictive Search 焦点实验室**
+  <label>Search products</label>
+  <row align="center">
+    <icon name="search"/>
+    <box flex={1}>
+      <input value={searchValue} onChange={v=>{setSearchValue(v);setSearchOpen(true);setActiveSuggestion(-1)}} placeholder="Search products"/>
+    </box>
+  </row>
+  {#if searchOpen&&matches.length>0}
+    <box border radius="md" padding={1} gap={1}>
+      {#each matches as item,i}
+        <pressable background={activeSuggestion===i?"#5185C518":"surface"} radius="sm" padding={3} onClick={()=>{setSearchValue(item);setSearchOpen(false);setActiveSuggestion(-1)}}>
+          <row align="center">
+            <text size="sm">{item}</text>
+            <spacer/>
+            {#if activeSuggestion===i}<icon name="arrow-left" size="sm" color="#5185C5"/>{/if}
+          </row>
+        </pressable>
+      {/each}
+    </box>
+  {:else if searchOpen}
+    <caption>No matching products.</caption>
+  {/if}
+  <grid columns={4} gap={1}>
+    <grid-item><button block variant="outline" color="secondary" disabled={matches.length===0} onClick={()=>{setSearchOpen(true);setActiveSuggestion(i=>i<0?matches.length-1:(i-1+matches.length)%matches.length)}}><icon name="arrow-up"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={matches.length===0} onClick={()=>{setSearchOpen(true);setActiveSuggestion(i=>(i+1)%matches.length)}}><icon name="arrow-down"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={!searchOpen||activeSuggestion<0} onClick={()=>{setSearchValue(matches[activeSuggestion]);setSearchOpen(false);setActiveSuggestion(-1)}}>Enter</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setSearchOpen(false);setActiveSuggestion(-1)}}>Esc</button></grid-item>
+  </grid>
+  <divider/>
+  **模拟浏览器状态**
+  <caption>document.activeElement</caption>
+  <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">input#search-input</text></box>
+  <caption>aria-activedescendant</caption>
+  <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{searchOpen&&activeSuggestion>=0?`result-${activeSuggestion+1}`:"未设置"}</text></box>
+  <caption>aria-expanded</caption>
+  <text size="sm">{String(searchOpen&&matches.length>0)}</text>
+  <divider/>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap={1}>
+      <caption>模拟活动项播报</caption>
+      <text size="sm">{searchOpen&&activeSuggestion>=0?`${matches[activeSuggestion]}, option, ${activeSuggestion+1} of ${matches.length}.`:"当前没有活动建议项。"}</text>
+    </box>
+  </row>
+  <caption>通过上方按钮模拟方向键。这里展示焦点管理原理，不是真实 DOM 焦点或屏幕阅读器输出。</caption>
+</card>
+
+### 10.3 JavaScript 核心实现
+
+```javascript
+const input = document.querySelector('#search-input');
+
+const listbox = document.querySelector('#search-results');
+
+let activeIndex = -1;
+
+function setActiveOption(index) {
+  const options = [
+    ...listbox.querySelectorAll('[role="option"]')
+  ];
+
+  if (index < 0 || index >= options.length) {
+    activeIndex = -1;
+
+    input.removeAttribute('aria-activedescendant');
+
+    options.forEach(option => {
+      option.classList.remove('is-active');
+    });
+
+    return;
+  }
+
+  activeIndex = index;
+
+  options.forEach((option, i) => {
+    option.classList.toggle(
+      'is-active',
+      i === index
+    );
+  });
+
+  const option = options[index];
+
+  input.setAttribute(
+    'aria-activedescendant',
+    option.id
+  );
+
+  option.scrollIntoView({
+    block: 'nearest',
+    behavior: 'instant'
+  });
+}
+```
+
+这里没有执行：
+
+```javascript
+option.focus();
+```
+
+只是更新了活动项的 ID、视觉样式和滚动位置。
+
+这意味着 input 仍然可以接收键盘输入。
+
+方向键处理：
+
+```javascript
+input.addEventListener('keydown', event => {
+  if (event.isComposing) return;
+
+  if (input.getAttribute('aria-expanded') !== 'true') {
+    return;
+  }
+
+  const options = [
+    ...listbox.querySelectorAll('[role="option"]')
+  ];
+
+  if (!options.length) return;
+
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault();
+
+      setActiveOption(
+        (activeIndex + 1) % options.length
+      );
+
+      break;
+
+    case 'ArrowUp':
+      event.preventDefault();
+
+      setActiveOption(
+        activeIndex <= 0
+          ? options.length - 1
+          : activeIndex - 1
+      );
+
+      break;
+
+    case 'Enter':
+      if (activeIndex >= 0) {
+        event.preventDefault();
+
+        selectOption(options[activeIndex]);
+      }
+
+      break;
+
+    case 'Escape':
+      event.preventDefault();
+
+      closeSearchResults();
+
+      break;
+  }
+});
+```
+
+其中 `selectOption()` 和 `closeSearchResults()` 属于业务层函数。
+
+关闭搜索结果时，还需要清理活动项：
+
+```javascript
+function closeSearchResults() {
+  setActiveOption(-1);
+
+  input.setAttribute('aria-expanded', 'false');
+
+  listbox.hidden = true;
+}
+```
+
+对于 AJAX 搜索建议，每次重新渲染列表之前，也应该检查或清理 `aria-activedescendant`，避免它指向已经不存在的 DOM 元素。
+
+以上只是虚拟焦点的核心代码，并不是完整的 Combobox 实现。选中状态、输入值更新、异步请求竞争、打开逻辑等问题将在第 16 课深入讲解。
+
+---
+
+## 11. Roving Tabindex 与 aria-activedescendant 对比
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **Roving Tabindex**
+      <svg viewBox="0 0 145 130" width="100%">
+        {#each ["Option A","Option B","Option C"] as n,i}
+          <rect x="10" y={5+i*42} width="125" height="32" rx="4" fill={i===1?"#5185C5":"none"} fillOpacity=".12" stroke={i===1?"#5185C5":"currentColor"} strokeOpacity={i===1?1:.25} strokeWidth={i===1?2:1}/>
+          <text x="72" y={18+i*42} fontSize="11" textAnchor="middle" fill="currentColor">{n}</text>
+          <text x="72" y={30+i*42} fontSize="9" textAnchor="middle" fill="currentColor">{i===1?"DOM focus · tabindex 0":"tabindex -1"}</text>
+        {/each}
+      </svg>
+      <caption>真实 DOM 焦点在选项之间移动。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **aria-activedescendant**
+      <svg viewBox="0 0 145 130" width="100%">
+        <rect x="5" y="3" width="135" height="28" rx="4" stroke="#5185C5" strokeWidth="2" fill="#5185C5" fillOpacity=".1"/>
+        <text x="72" y="20" fontSize="10" textAnchor="middle" fill="currentColor">input · DOM focus</text>
+        {#each ["Option A","Option B","Option C"] as n,i}
+          <rect x="5" y={39+i*29} width="103" height="24" rx="3" fill={i===1?"#39866B":"none"} fillOpacity=".15" stroke={i===1?"#39866B":"currentColor"} strokeOpacity={i===1?1:.25}/>
+          <text x="56" y={55+i*29} fontSize="10" textAnchor="middle" fill="currentColor">{n}</text>
+        {/each}
+        <path d="M125 31 V80 H110 M114 76 L110 80 L114 84" stroke="#39866B" strokeWidth="1.5" strokeDasharray="3 2" fill="none"/>
+      </svg>
+      <caption>真实焦点保持不变，通过 ARIA 指向活动项。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+| 对比项 | Roving Tabindex | aria-activedescendant |
+|---|---|---|
+| DOM 焦点 | 移动 | 保持在容器或输入框 |
+| 核心属性 | tabindex | aria-activedescendant |
+| 是否需要调用子项 focus() | 需要 | 不需要 |
+| 活动项滚动 | 浏览器通常自动处理 | 通常自行处理 |
+| 活动项样式 | 可以使用 `:focus` | 通常使用 class |
+| 是否需要唯一子项 ID | 此机制本身不要求 | 需要 |
+| 是否适合可编辑搜索框 | 通常不优先 | 非常适合 |
+| 常见组件 | Tabs、Toolbar、Menu | Combobox、Listbox |
+
+并不是某一种方案更加高级，而是适用场景不同。
+
+对于普通商品 Variant Picker，如果使用原生 radio，就已经具有基础的方向键导航能力，通常不需要自己重新实现 Roving Tabindex。
+
+---
+
+## 12. 如何通过 JavaScript 获取所有可聚焦元素？
+
+开发 Modal、Drawer、Mega Menu 时，经常需要获取某个容器内部的可聚焦元素。
+
+例如实现 Focus Trap，就需要找到第一个和最后一个可通过 Tab 访问的元素。
+
+### 12.1 一个基础查询方法
+
+```javascript
+const selector = [
+  'a[href]',
+  'button',
+  'input:not([type="hidden"])',
+  'select',
+  'textarea',
+  'summary',
+  '[tabindex]',
+  '[contenteditable="true"]'
+].join(',');
+
+const elements = document.querySelectorAll(selector);
+```
+
+但是，这段代码只找到了具有潜在焦点能力的元素。
+
+假设页面存在以下结构：
+
+```html
+<button disabled>Button A</button>
+
+<button tabindex="-1">Button B</button>
+
+<div hidden>
+  <button>Button C</button>
+</div>
+
+<div inert>
+  <button>Button D</button>
+</div>
+
+<button>Button E</button>
+```
+
+查询可能找到全部五个按钮，但实际状态是：
+
+| 元素 | 可以程序化聚焦 | 可以通过 Tab 访问 |
+|---|---|---|
+| Button A | 否 | 否 |
+| Button B | 是 | 否 |
+| Button C | 否 | 否 |
+| Button D | 否 | 否 |
+| Button E | 是 | 是 |
+
+因此，**querySelectorAll 查找到的元素不等于真实的 Tabbable 元素。**
+
+### 12.2 改进版查询函数
+
+```javascript
+function getTabbableCandidates(container) {
+  const selector = [
+    'a[href]',
+    'button',
+    'input:not([type="hidden"])',
+    'select',
+    'textarea',
+    'summary',
+    '[tabindex]',
+    '[contenteditable]:not([contenteditable="false"])',
+    'iframe'
+  ].join(',');
+
+  return [...container.querySelectorAll(selector)]
+    .filter(element => {
+      if (element.tabIndex < 0) return false;
+
+      if (element.matches(':disabled')) return false;
+
+      if (element.closest('[inert]')) return false;
+
+      if (element.getClientRects().length === 0) {
+        return false;
+      }
+
+      const style = getComputedStyle(element);
+
+      if (
+        style.visibility === 'hidden' ||
+        style.visibility === 'collapse'
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+}
+```
+
+这个函数可以处理普通页面中的部分常见情况，但还不能完全模拟浏览器的顺序焦点导航算法。
+
+比较复杂的情况包括原生 Radio Group、关闭的 details、Shadow DOM、iframe、contenteditable、正数 tabindex，以及浏览器自身的键盘访问设置。
+
+对于需要高度可靠的 Focus Trap 工具，建议使用经过验证的实现，例如 [tabbable](https://github.com/focus-trap/tabbable)，而不是仅靠一个简单的 CSS Selector。
+
+另外，不应该因为元素设置了 `aria-hidden="true"` 就认定它不可聚焦。这个属性不会自动改变真实的焦点行为。
+
+---
+
+## 13. Shopify Dawn 源码解析
+
+现在结合你之前学习过的 Dawn 源码，看看 Shopify 是如何处理焦点的。
+
+### 13.1 getFocusableElements()
+
+在 Dawn 的 `assets/global.js` 开头，可以找到这个函数。下面将其选择器拆分为数组，方便阅读，查询逻辑与原实现一致。<Cite ref="turn898861view0"/>
+
+```javascript
+function getFocusableElements(container) {
+  const selectors = [
+    'summary',
+    'a[href]',
+    'button:enabled',
+    "[tabindex]:not([tabindex^='-'])",
+    '[draggable]',
+    'area',
+    'input:not([type=hidden]):enabled',
+    'select:enabled',
+    'textarea:enabled',
+    'object',
+    'iframe'
+  ];
+
+  return Array.from(
+    container.querySelectorAll(
+      selectors.join(', ')
+    )
+  );
+}
+```
+
+逐项分析：
+
+| Selector | 用途 |
+|---|---|
+| `summary` | details 的展开触发器 |
+| `a[href]` | 具有目标地址的链接 |
+| `button:enabled` | 未被禁用的按钮 |
+| `[tabindex]:not([tabindex^='-'])` | 排除负数 tabindex 的这一组匹配项 |
+| `[draggable]` | 具有 draggable 属性的元素 |
+| `area` | 图片映射区域 |
+| `input:not([type=hidden]):enabled` | 非 hidden 且启用的输入框 |
+| `select:enabled` | 可用的下拉选择框 |
+| `textarea:enabled` | 可用的多行输入框 |
+| `object`、`iframe` | 嵌入内容 |
+
+### 13.2 Dawn 的实现存在什么局限？
+
+仔细分析，你会发现一个有意思的问题。
+
+```html
+<button tabindex="-1">Add to cart</button>
+```
+
+虽然 Dawn 中的这一部分选择器排除了负数 tabindex：
+
+```css
+[tabindex]:not([tabindex^='-'])
+```
+
+但是这个按钮仍然可以匹配：
+
+```css
+button:enabled
+```
+
+因为整个 CSS Selector 使用的是逗号连接，也就是 OR 关系。
+
+因此，该函数仍然可能返回这个按钮。
+
+另外，它没有统一过滤以下情况：
+
+| 情况 | 是否可能被查询出来 |
+|---|---|
+| `display: none` 的按钮 | 是 |
+| `visibility: hidden` 的按钮 | 是 |
+| inert 容器中的按钮 | 是 |
+| `tabindex="-1"` 的原生按钮 | 是 |
+| 未选中的原生 radio | 是 |
+
+所以 Dawn 的 `getFocusableElements()` 是一个服务于其主题组件的候选元素查询工具，并不是严格、完整的浏览器焦点计算器。
+
+不能仅仅因为某段代码来自 Dawn，就认为它适用于所有复杂组件。
+
+### 13.3 Dawn 的 trapFocus 如何使用这个函数？
+
+Dawn 会通过该函数获取容器内的元素，然后确定第一个和最后一个元素。
+
+简化后的核心逻辑：
+
+```javascript
+const elements = getFocusableElements(container);
+
+const first = elements[0];
+const last = elements[elements.length - 1];
+
+function handleKeydown(event) {
+  if (event.key !== 'Tab') return;
+
+  if (
+    event.target === last &&
+    !event.shiftKey
+  ) {
+    event.preventDefault();
+
+    first.focus();
+  }
+
+  if (
+    event.target === first &&
+    event.shiftKey
+  ) {
+    event.preventDefault();
+
+    last.focus();
+  }
+}
+```
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 233" width="100%">
+    <rect x="26" y="4" width="288" height="225" rx="8" stroke="currentColor" strokeOpacity=".3" fill="#888888" fillOpacity=".04"/>
+    <text x="42" y="25" fontSize="14" fontWeight="600" fill="currentColor">Cart Drawer</text>
+    {#each ["Close cart","Decrease quantity","Increase quantity","Checkout"] as n,i}
+      <rect x="78" y={39+i*47} width="184" height="30" rx="4" fill="#888888" fillOpacity=".08" stroke="currentColor" strokeOpacity=".3"/>
+      <text x="170" y={58+i*47} fontSize="11" textAnchor="middle" fill="currentColor">{n}</text>
+      {#if i<3}<path d={`M170 ${69+i*47} V${85+i*47} M166 ${81+i*47} L170 ${85+i*47} L174 ${81+i*47}`} stroke="#5185C5" fill="none" strokeWidth="1.5"/>{/if}
+    {/each}
+    <path d="M262 195 H289 V54 H264 M270 49 L264 54 L270 59" stroke="#5185C5" strokeWidth="1.5" strokeDasharray="4 3" fill="none"/>
+    <path d="M78 54 H49 V195 H76 M70 190 L76 195 L70 200" stroke="#39866B" strokeWidth="1.5" strokeDasharray="4 3" fill="none"/>
+    <text x="293" y="125" fontSize="9" fill="#5185C5" transform="rotate(-90 293 125)">Tab</text>
+    <text x="43" y="125" fontSize="9" fill="#39866B" transform="rotate(-90 43 125)">Shift + Tab</text>
+  </svg>
+  <caption>在首尾元素之间建立 Tab 循环。</caption>
+</box>
+
+Dawn 实际源码还处理了 `focusin`、`focusout`、初始焦点、事件监听清理等逻辑。
+
+这部分将在下一课 Focus Management 中完整拆解。
+
+源码地址：[Shopify Dawn — assets/global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js)。
+
+---
+
+## 14. 不同组件应该采用什么键盘操作？
+
+WAI-ARIA APG 提供了大量组件的标准交互模式。
+
+这张表值得在日常开发中收藏。
+
+| 组件 | Tab | 方向键 | Enter / Space | Esc |
+|---|---|---|---|---|
+| Button | 聚焦 | — | 激活 | — |
+| Link | 聚焦 | — | Enter 导航 | — |
+| Checkbox | 聚焦 | — | Space 切换 | — |
+| Radio Group | 进入或离开组 | 切换选项 | Space 选中 | — |
+| Tabs | 进入或离开列表 | 移动焦点 | 手动激活 | — |
+| Accordion | 遍历控件 | 可选支持 | 展开或折叠 | — |
+| Menu | 根据模式进入或离开 | 移动菜单项 | 执行操作 | 关闭菜单 |
+| Combobox | 聚焦输入框 | 选择建议项 | 确认 | 关闭建议 |
+| Slider | 聚焦 | 调整数值 | — | — |
+| Modal | 内部循环 | 取决于内容 | 操作内部控件 | 通常关闭 |
+
+这里尤其要注意 Shopify Header 导航菜单。
+
+普通网站导航 Dropdown 通常使用 Disclosure Pattern，即按钮控制普通链接列表的展开和折叠，不一定需要使用 `role="menu"` 和 `role="menuitem"`。
+
+ARIA Menu 更接近桌面软件的命令菜单，具有一套特定的键盘交互模型。<Cite ref="turn898861search8"/>
+
+所以不能因为 UI 设计稿叫 Mega Menu，就直接给它添加 ARIA Menu 角色。
+
+---
+
+## 15. 键盘事件处理中的常见错误
+
+| 错误写法 | 潜在问题 |
+|---|---|
+| 给所有 div 添加 tabindex="0" | 增加大量无意义的导航停靠点 |
+| 使用正数 tabindex 排列页面 | 破坏自然焦点顺序 |
+| 原生按钮同时处理 click 和键盘激活 | 可能重复执行操作 |
+| 全局阻止 Tab 默认行为 | 可能产生键盘陷阱 |
+| 全局监听 Space 并阻止默认行为 | 影响正常滚动及输入 |
+| 点击按钮后主动 blur() | 键盘用户丢失焦点位置 |
+| 用 aria-selected 表示当前焦点 | 混淆选中状态与焦点状态 |
+| 使用 tabindex="-1" 代替 disabled | 元素仍然可能被操作 |
+| 搜索建议切换时直接 focus 到选项 | 用户无法继续自然地编辑输入框 |
+
+还有一个比较常见的错误：
+
+```javascript
+document.addEventListener('keydown', event => {
+  event.preventDefault();
+});
+```
+
+这会影响浏览器大量原生键盘行为。
+
+正确的开发思想是：**只拦截当前组件实际需要处理的按键，并且仅在必要时调用 preventDefault()。**
+
+---
+
+## 16. 如何调试真实网站的键盘导航？
+
+### 16.1 实时监听焦点
+
+可以直接在 Chrome DevTools Console 中执行：
+
+```javascript
+document.addEventListener('focusin', event => {
+  const el = event.target;
+
+  console.log({
+    tag: el.tagName,
+    id: el.id,
+    class: el.className,
+    tabindex: el.tabIndex,
+    role: el.getAttribute('role'),
+    element: el
+  });
+});
+```
+
+然后不断按下 Tab 或 Shift + Tab，就能观察实际的焦点导航过程。
+
+### 16.2 记录键盘与 click 事件顺序
+
+```javascript
+const target = document.querySelector(
+  '#add-to-cart'
+);
+
+['keydown', 'keyup', 'click', 'focus', 'blur']
+  .forEach(type => {
+    target.addEventListener(type, event => {
+      console.log({
+        type: event.type,
+        key: event.key,
+        code: event.code,
+        repeat: event.repeat,
+        isTrusted: event.isTrusted
+      });
+    });
+  });
+```
+
+分别使用鼠标、Enter 和 Space 激活按钮，观察控制台输出。
+
+这可以帮助你理解浏览器原生交互，并快速定位重复加购等业务问题。
+
+### 16.3 高亮当前焦点
+
+如果网站没有正确的焦点样式，可以临时注入以下 CSS 进行测试：
+
+```javascript
+const style = document.createElement('style');
+
+style.id = 'focus-debug';
+
+style.textContent = `
+  :focus {
+    outline: 3px solid red !important;
+    outline-offset: 4px !important;
+  }
+`;
+
+document.head.appendChild(style);
+```
+
+测试结束后移除：
+
+```javascript
+document.querySelector('#focus-debug')?.remove();
+```
+
+注意，这只是调试辅助工具，不能证明网站自身原有的焦点样式符合 WCAG。
+
+---
+
+## 17. 本课知识测试
+
+{@body const quiz=[{q:"tabindex=\"-1\" 是否意味着元素无法通过 JavaScript 获得焦点？",opts:["是","否"],a:1,why:"负数 tabindex 通常只是移出顺序焦点导航，仍然允许程序化聚焦。"},{q:"原生 button 只监听 click，是否通常已经支持 Enter 和 Space 激活？",opts:["是","否"],a:0,why:"浏览器已经提供原生键盘激活行为，不需要重复实现。"},{q:"div 添加 role=\"button\" 和 tabindex=\"0\" 后，是否自动拥有原生按钮的全部键盘行为？",opts:["是","否"],a:1,why:"ARIA 提供语义，tabindex 提供焦点能力，键盘激活行为仍需要实现。"},{q:"普通 CSS order 改变元素视觉位置后，默认 Tab 顺序是否一定随之改变？",opts:["会","不会"],a:1,why:"视觉排列与默认顺序焦点导航是两个不同的机制。"},{q:"Roving Tabindex 中通常有多少个内部选项具有 tabindex=\"0\"？",opts:["一个","全部","零个"],a:0,why:"复合组件通常保留一个 Tab 入口，使用方向键管理内部焦点。"},{q:"手动激活 Tabs 中，获得焦点的 Tab 是否必须同时处于选中状态？",opts:["必须","不必须"],a:1,why:"手动激活模式下，焦点移动与内容切换是独立操作。"},{q:"Predictive Search 希望 DOM 焦点保持在 input 中，应该优先考虑哪种机制？",opts:["正数 tabindex","aria-activedescendant","每次调用 option.focus()"],a:1,why:"aria-activedescendant 可以表达当前活动选项，而不移动真实 DOM 焦点。"},{q:"Dawn 的 getFocusableElements() 返回的元素，是否一定全部可以通过 Tab 访问？",opts:["是","否"],a:1,why:"它是基于选择器的候选查询，并没有完整模拟浏览器的焦点导航算法。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box background="#39866B" height={5} radius="full" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.opts as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap=1>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 日常开发检查清单
+
+{@body const checks=["所有核心业务功能均可通过键盘完成","优先使用具有原生键盘能力的 HTML 控件","不为普通内容添加无意义的 tabindex","避免使用正数 tabindex","Tab 顺序符合逻辑阅读及操作顺序","不存在不可见的焦点","原生按钮没有重复的键盘激活逻辑","自定义按钮支持 Enter 和 Space","复合组件采用合理的内部导航模式","正确区分 Focus 与 Selection","aria-activedescendant 引用有效的目标 ID","只拦截组件实际需要处理的按键","用户能够顺利离开当前组件","使用真实键盘与屏幕阅读器进行测试"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Keyboard Accessibility Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as item,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{item}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks.map((x,i)=>(done[i]?"[x] ":"[ ] ")+x).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [WAI-ARIA Developing a Keyboard Interface](https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/) | 键盘交互及焦点管理核心指南 |
+| [MDN tabindex](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/tabindex) | tabindex 属性 |
+| [MDN KeyboardEvent](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent) | 键盘事件 API |
+| [MDN HTMLElement.focus()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/focus) | 程序化焦点 |
+| [ARIA activedescendant](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-activedescendant) | 虚拟焦点机制 |
+| [WAI-ARIA Tabs Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) | Tabs 交互模式 |
+| [WAI-ARIA Patterns](https://www.w3.org/WAI/ARIA/apg/patterns/) | 各类组件的键盘交互规范 |
+| [Dawn global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) | Shopify 实战源码 |
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">Keyboard Accessibility</title>
+    <caption>键盘无障碍开发知识体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"keyboard",t:"焦点基础",d:"Focusable、Tabbable、Interactive"},{i:"list-ordered",t:"焦点顺序",d:"tabindex、DOM Order"},{i:"focus",t:"Focus API",d:"activeElement、focus、blur"},{i:"code",t:"事件机制",d:"keydown、keyup、click"},{i:"arrow-left-right",t:"真实焦点移动",d:"Roving Tabindex"},{i:"scan",t:"虚拟焦点",d:"aria-activedescendant"},{i:"component",t:"组件交互",d:"Tabs、Radio、Combobox"},{i:"shopping-cart",t:"Dawn 源码",d:"getFocusableElements()"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本节课最重要的是建立以下几个认知：
+
+- 可聚焦不代表可通过 Tab 访问。
+- 可聚焦不代表具备完整的交互能力。
+- 焦点不等于选中状态。
+- DOM 焦点不等于辅助技术感知的活动项。
+- Tab 通常负责组件之间的导航，方向键负责复合组件内部的导航。
+- 原生 HTML 已经提供大量键盘行为，不要重复实现。
+
+掌握这些底层机制之后，再开发复杂 UI 组件，无障碍就不再只是简单地添加 ARIA 属性，而是可以系统地设计整个键盘交互模型。
+
+---
+
+**下一课：第 11 课——Focus Management 焦点管理**
+
+下一课是本套课程中非常重要的一课，我们将重点学习：
+
+- Initial Focus：初始焦点应该放在哪里。
+- Focus Trap：如何限制模态弹窗内部的焦点。
+- Focus Restoration：弹窗关闭后的焦点恢复。
+- Focus Loss：DOM 更新导致的焦点丢失。
+- Focus Stack：多层 Modal、Drawer 嵌套时的焦点管理。
+- `document.activeElement`、`inert` 和原生 dialog 的配合。
+- AJAX 与 Section Rendering 导致的焦点丢失。
+- Shopify Cart Drawer 商品删除、数量更新后的焦点处理。
+- Dawn 的 `trapFocus()` 和 `removeTrapFocus()` 完整源码解析。
+- 封装一套可复用的 Focus Manager。
+
+第 10 课解决的是**焦点如何移动**，第 11 课解决的是**在复杂业务状态变化时，焦点应该移动到哪里**。

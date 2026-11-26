@@ -18,6 +18,12 @@
       description: '企业培训版共 6 课。通过常见页面和 Shopify 组件学习 ADA 基础、键盘与读屏操作、项目整改和验收。',
       trackProgress: true,
     },
+    'ada-full': {
+      label: 'ADA 无障碍完整版',
+      title: 'ADA 无障碍完整版',
+      description: '从《讲解 ADA 无障碍》对话恢复的系统课程。共 25 篇编号课程，沿用第 1–26 课的编号，原对话跳过第 19 课。第 16 课含原答与续篇。',
+      trackProgress: true,
+    },
   };
   const area = areas[currentArea];
   const progressKey = area.trackProgress ? currentArea + '-completed' : null;
@@ -290,7 +296,58 @@
   }
 
   function scrollToHeading() {
-    document.getElementById(decodedHash())?.scrollIntoView();
+    const heading = decodedHash();
+    if (currentArea === 'ada-full' && /^section-\d+$/.test(heading)) {
+      article.querySelector('.full-lesson')?.dispatchEvent(new CustomEvent('lesson-section', { detail: heading }));
+      return;
+    }
+    document.getElementById(heading)?.scrollIntoView();
+  }
+
+  function showFullLesson(lesson) {
+    const frame = node('iframe', undefined, 'full-lesson');
+    const channel = crypto.randomUUID();
+    const title = lessonTitle(lesson);
+    frame.title = title;
+    frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+    frame.src = 'lessons/' + encodeURIComponent(lesson.id) + '/?channel=' + encodeURIComponent(channel);
+    const send = payload => frame.contentWindow.postMessage({ channel, ...payload }, '*');
+    const headingRequest = event => send({ section: event.detail });
+    frame.addEventListener('lesson-section', headingRequest);
+    frame.addEventListener('load', () => send({ dark: document.body.classList.contains('dark') }));
+    article.replaceChildren(frame);
+    const fallback = node('a', '查看对话导出原文', 'full-lesson-source');
+    fallback.href = lesson.file;
+    fallback.target = '_blank';
+    fallback.rel = 'noopener';
+    article.append(fallback);
+    frame.dataset.channel = channel;
+    frame.dataset.lesson = lesson.id;
+  }
+
+  if (currentArea === 'ada-full') {
+    addEventListener('message', event => {
+      const frame = article.querySelector('.full-lesson');
+      const message = event.data;
+      if (!frame || event.origin !== 'null' || event.source !== frame.contentWindow ||
+          message?.channel !== frame.dataset.channel || message.adaLesson !== frame.dataset.lesson) return;
+      if (Number.isFinite(message.height) && message.height > 0 && message.height < 250000) {
+        frame.style.height = Math.ceil(message.height) + 'px';
+      }
+      if (Array.isArray(message.headings)) {
+        pageToc.replaceChildren(node('h2', '本课目录'));
+        for (const heading of message.headings) {
+          if (!/^section-\d+$/.test(heading.id) || typeof heading.title !== 'string') continue;
+          const entry = node('a', heading.title, heading.depth === 3 ? 'level-3' : 'level-2');
+          entry.href = courseUrl(currentArea, current.id, '#' + heading.id);
+          pageToc.append(entry);
+        }
+        scrollToHeading();
+      }
+      if (Number.isFinite(message.offset) && message.offset >= 0 && message.offset < 250000) {
+        scrollTo({ top: scrollY + frame.getBoundingClientRect().top + message.offset - 82, behavior: 'instant' });
+      }
+    });
   }
 
   async function showRoute() {
@@ -315,6 +372,13 @@
       const lesson = current;
       article.replaceChildren(node('p', '正在加载课程…', 'loading'));
       try {
+        if (currentArea === 'ada-full') {
+          showFullLesson(lesson);
+          document.title = lesson.title + ' · ' + area.label;
+          setupFooter(lesson);
+          if (!location.hash) scrollTo({ top: 0, behavior: 'instant' });
+          return;
+        }
         const text = await content(currentArea, lesson);
         if (version !== renderVersion) return;
         if (currentArea === 'seo') {
@@ -502,6 +566,8 @@
   function setTheme(dark) {
     document.body.classList.toggle('dark', dark);
     themeToggle.setAttribute('aria-pressed', String(dark));
+    const frame = article.querySelector('.full-lesson');
+    if (frame) frame.contentWindow.postMessage({ channel: frame.dataset.channel, dark }, '*');
   }
   setTheme((readStorage('theme') ?? readStorage('pc-theme')) === 'dark');
   themeToggle.addEventListener('click', () => {

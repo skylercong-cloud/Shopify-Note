@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="250" viewBox="0 0 360 250">
+<rect width="360" height="250" rx="12" fill="#edf2f3"/>
+<path d="M115 53 152 32q29 32 56 0l37 21 49 56-41 27-22-24v105h-101V112l-23 24-41-27z" fill="#fff" stroke="#284955" stroke-width="3"/>
+<g stroke="#096862" stroke-width="2" fill="none"><path d="M130 91h101m-93-6-8 6 8 6m85-12 8 6-8 6M206 51v160m-6-151 6-9 6 9m-12 142 6 9 6-9M150 44h60"/></g>
+<g fill="#233844" font-size="14" font-family="system-ui,sans-serif"><text x="145" y="81">胸围</text><text x="211" y="151">衣长</text><text x="237" y="42">肩宽</text></g>
+</svg>

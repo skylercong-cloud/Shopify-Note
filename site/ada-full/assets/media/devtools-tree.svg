@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="252" viewBox="0 0 520 252">
+<rect width="520" height="252" rx="12" fill="#eef3f5"/>
+<rect x="13" y="13" width="494" height="226" rx="9" fill="#fff" stroke="#bdccd2"/>
+<rect x="13" y="13" width="494" height="43" rx="9" fill="#285584"/>
+<text x="27" y="41" fill="#fff" font-size="18" font-family="system-ui,sans-serif">Chrome DevTools · Accessibility</text>
+<rect x="26" y="66" width="466" height="24" rx="4" fill="#e9f3f2"/>
+<text x="35" y="83" fill="#243843" font-size="15" font-family="system-ui,sans-serif">▾ Accessibility Tree</text>
+<rect x="26" y="96" width="466" height="24" rx="4" fill="#f5f7f7"/>
+<text x="35" y="113" fill="#243843" font-size="15" font-family="system-ui,sans-serif">    document</text>
+<rect x="26" y="126" width="466" height="24" rx="4" fill="#e9f3f2"/>
+<text x="35" y="143" fill="#243843" font-size="15" font-family="system-ui,sans-serif">        main</text>
+<rect x="26" y="156" width="466" height="24" rx="4" fill="#f5f7f7"/>
+<text x="35" y="173" fill="#243843" font-size="15" font-family="system-ui,sans-serif">            button · Search</text>
+<rect x="26" y="186" width="466" height="24" rx="4" fill="#e9f3f2"/>
+<text x="35" y="203" fill="#243843" font-size="15" font-family="system-ui,sans-serif">Computed Properties    Role: button    Name: Search</text>
+<text x="492" y="233" text-anchor="end" fill="#435662" font-size="12" font-family="system-ui,sans-serif">教学示意</text>
+</svg>

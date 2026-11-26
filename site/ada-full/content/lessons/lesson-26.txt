@@ -1,0 +1,1742 @@
+# 第 26 课：自动化测试、CI/CD、团队规范与合规审计
+
+<row align="center">
+  <caption>阶段六：无障碍检测、修复与工程化</caption>
+  <spacer/>
+  <caption>26 / 26 课 · 最后一课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="100%"/>
+</box>
+
+经过前面五个阶段的理论学习和 Shopify 业务实战，以及最近两课的自动化检测与人工测试，我们已经掌握了网站无障碍开发的主要技术。
+
+最后一课，我们将从**个人开发能力提升到团队工程化能力**。
+
+假设你所在的跨境电商公司有多个 Shopify 网站、多套 Theme、多个前端开发人员，网站还在不断迭代。即使今天完成了所有无障碍整改，如何保证下个月新开发的功能不会再次引入问题？
+
+这就是本课需要解决的核心问题。
+
+我们将以 Shopify Liquid、原生 JavaScript、Playwright、axe-core 和 GitHub Actions 为技术基础，建立一套可以逐步应用于实际项目的无障碍工程体系。
+
+## 1. 企业级无障碍工程体系
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{i:"palette",t:"设计阶段 · Design System",d:"颜色对比度、组件状态、触控尺寸、交互规范"},{i:"code-xml",t:"编码阶段 · Development",d:"语义化 HTML、ARIA、公共组件、静态检查"},{i:"git-pull-request",t:"提交阶段 · Code Review",d:"无障碍代码审查、组件测试"},{i:"test-tube",t:"测试阶段 · Automated Testing",d:"Playwright、axe-core、业务交互断言"},{i:"workflow",t:"发布阶段 · CI/CD",d:"质量门禁、回归检测、报告生成"},{i:"keyboard",t:"验收阶段 · Manual Audit",d:"键盘、屏幕阅读器、完整购买流程"},{i:"shield-check",t:"运营阶段 · Continuous Accessibility",d:"商家配置、第三方 App、持续整改"}] as p,i}
+    <row border radius="md" padding={3} align="center" gap={3}>
+      <icon name={p.i} size="xl"/>
+      <box flex={1} gap={1}>
+        **{p.t}**
+        <caption>{p.d}</caption>
+      </box>
+    </row>
+    {#if i<6}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+这套体系的核心思想叫作 **Shift Left（质量左移）**：尽可能在设计和开发阶段发现问题，而不是等网站上线之后再集中整改。
+
+| 发现问题的阶段 | 典型修复方式 |
+|---|---|
+| 设计阶段 | 修改设计规范和组件设计 |
+| 开发阶段 | 修改当前组件代码 |
+| Code Review | 阻止错误代码合并 |
+| 自动化测试阶段 | 定位回归问题 |
+| 上线后 | 涉及多个页面、组件及重新发布 |
+| 用户投诉后 | 除技术整改外，还可能涉及业务和法律风险 |
+
+无障碍不应该是项目上线之前的一项临时任务，而应该成为整个软件开发生命周期的一部分。
+
+## 2. 建立分层检测机制
+
+对于 Shopify 项目，建议建立四层测试机制，而不是只在 CI 中执行一次 axe-core。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 225" width="100%">
+    <path d="M170 7 L218 62 H122 Z" fill="#577E9B" fillOpacity=".27" stroke="#577E9B"/>
+    <text x="170" y="48" fontSize="11" textAnchor="middle" fill="currentColor">人工审计</text>
+    <path d="M117 69 H223 L267 119 H73 Z" fill="#577E9B" fillOpacity=".19" stroke="#577E9B"/>
+    <text x="170" y="91" fontSize="12" textAnchor="middle" fill="currentColor">E2E Testing</text>
+    <text x="170" y="107" fontSize="10" textAnchor="middle" fill="currentColor">完整业务流程</text>
+    <path d="M67 126 H273 L307 165 H33 Z" fill="#577E9B" fillOpacity=".12" stroke="#577E9B"/>
+    <text x="170" y="143" fontSize="12" textAnchor="middle" fill="currentColor">Component Testing</text>
+    <text x="170" y="157" fontSize="10" textAnchor="middle" fill="currentColor">组件状态及交互</text>
+    <path d="M27 172 H313 L338 203 H2 Z" fill="#577E9B" fillOpacity=".06" stroke="#577E9B"/>
+    <text x="170" y="191" fontSize="12" textAnchor="middle" fill="currentColor">Static Analysis · 静态代码检查</text>
+    <text x="170" y="221" fontSize="10" textAnchor="middle" fill="currentColor">测试成本通常由下向上增加</text>
+  </svg>
+</box>
+
+| 测试层级 | 工具 | 主要检查内容 |
+|---|---|---|
+| 静态检查 | Theme Check、ESLint | 源码及编码规范 |
+| 组件检测 | Playwright、axe-core | 名称、角色、状态、焦点 |
+| E2E 检测 | Playwright | 搜索、筛选、加购、结算 |
+| 人工检测 | NVDA、VoiceOver | 真实辅助技术使用体验 |
+
+例如开发一个新的 Cart Drawer：
+
+静态检查负责发现代码问题，组件测试负责验证打开和关闭行为，E2E 测试负责验证加购后的购物车流程，人工测试则负责验证屏幕阅读器用户能否真正使用这个组件。
+
+每一层都有独立的价值，不能相互完全替代。
+
+---
+
+## 3. 静态代码检测：Theme Check 与 ESLint
+
+### 3.1 Shopify Theme Check
+
+Theme Check 是 Shopify 官方提供的 Liquid 和 JSON 静态检查工具，也集成在官方 Liquid VS Code 扩展中。<Cite ref="turn120024search5"/>
+
+在 Theme 项目根目录执行：
+
+```bash
+shopify theme check
+```
+
+它主要检查 Liquid 语法、模板引用、性能及 Shopify Theme 开发规范等问题。
+
+不过，Theme Check 并不是完整的无障碍检测工具。
+
+例如：
+
+```liquid
+<button>
+  {% render 'icon-search' %}
+</button>
+```
+
+即使这段 Liquid 完全符合语法规则，也不能保证最终生成的 button 具有 Accessible Name。
+
+因为静态检查工具没有完整的运行时 DOM、CSS、无障碍树和用户交互状态。
+
+### 3.2 ESLint 与 jsx-a11y
+
+如果项目使用 React，可以通过 `eslint-plugin-jsx-a11y` 检查 JSX 中的一部分无障碍问题，例如：
+
+| Rule | 检查内容 |
+|---|---|
+| `alt-text` | 图片替代文本 |
+| `anchor-is-valid` | 链接是否合理 |
+| `label-has-associated-control` | Label 与控件关联 |
+| `click-events-have-key-events` | 点击交互的键盘支持 |
+| `no-static-element-interactions` | 非交互元素上的交互行为 |
+| `aria-props` | ARIA 属性是否合法 |
+
+但是，传统 Shopify Theme 使用 Liquid，而不是 JSX，因此不能直接依靠 jsx-a11y 检测 `.liquid` 文件。
+
+对于你的 Shopify Theme 项目，更合理的组合是：
+
+```text
+Liquid / JSON  → Theme Check
+JavaScript     → ESLint
+Rendered HTML  → axe-core
+User Behavior  → Playwright
+真实辅助技术    → NVDA / VoiceOver
+```
+
+### 3.3 团队自定义静态规则
+
+还可以根据项目实际情况补充内部规则，例如禁止正数 tabindex、禁止移除焦点样式后不提供替代样式、要求纯图标按钮具备可访问名称。
+
+但是不要通过简单正则表达式就认定所有匹配代码都是 WCAG 违规。Liquid 条件渲染、HTML 上下文及组件封装都可能影响最终结果。
+
+---
+
+## 4. 搭建 Shopify 无障碍自动化测试项目
+
+接下来进入本课的核心实战。
+
+### 4.1 推荐项目目录
+
+```text
+shopify-theme/
+├── assets/
+├── config/
+├── layout/
+├── locales/
+├── sections/
+├── snippets/
+├── templates/
+│
+├── tests/
+│   ├── accessibility/
+│   │   ├── homepage.spec.ts
+│   │   ├── header.spec.ts
+│   │   ├── collection.spec.ts
+│   │   ├── product.spec.ts
+│   │   └── cart.spec.ts
+│   ├── e2e/
+│   │   └── purchase-flow.spec.ts
+│   ├── helpers/
+│   │   └── accessibility.ts
+│   └── baselines/
+│       └── accessibility.json
+│
+├── .github/
+│   └── workflows/
+│       └── accessibility.yml
+├── playwright.config.ts
+├── .theme-check.yml
+├── package.json
+└── package-lock.json
+```
+
+### 4.2 安装依赖
+
+```bash
+npm install -D @playwright/test @axe-core/playwright
+npx playwright install
+```
+
+如果需要通过 npm 运行 Theme Check，也可以在项目中安装 Shopify CLI：
+
+```bash
+npm install -D @shopify/cli
+```
+
+在 `package.json` 中增加：
+
+```json
+{
+  "scripts": {
+    "lint:theme": "shopify theme check",
+    "test:a11y": "playwright test tests/accessibility",
+    "test:e2e": "playwright test tests/e2e",
+    "test:report": "playwright show-report"
+  }
+}
+```
+
+### 4.3 Playwright 配置
+
+创建 `playwright.config.ts`：
+
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+
+const baseURL = process.env.STOREFRONT_URL;
+
+if (!baseURL) {
+  throw new Error('STOREFRONT_URL is required');
+}
+
+export default defineConfig({
+  testDir: './tests',
+
+  fullyParallel: false,
+
+  forbidOnly: !!process.env.CI,
+
+  retries: process.env.CI ? 1 : 0,
+
+  workers: process.env.CI ? 1 : undefined,
+
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ['json', {
+      outputFile: 'test-results/results.json'
+    }]
+  ],
+
+  use: {
+    baseURL,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure'
+  },
+
+  projects: [
+    {
+      name: 'desktop-chromium',
+      use: {
+        ...devices['Desktop Chrome']
+      }
+    },
+    {
+      name: 'mobile-webkit',
+      use: {
+        ...devices['iPhone 13']
+      }
+    }
+  ]
+});
+```
+
+这套配置同时检测桌面 Chromium 和模拟移动端 WebKit。
+
+需要注意，Playwright 的 iPhone 设备配置只模拟部分移动设备及浏览器特征，不能代替真实 iPhone 的 Safari 和 VoiceOver 测试。
+
+`STOREFRONT_URL` 应指向实际运行的测试店铺或预览环境，而不是本地存放 Liquid 源码的静态文件服务器。Shopify 的 Liquid 必须经过平台渲染。
+
+---
+
+## 5. 封装统一的 axe-core 检测工具
+
+每一个测试文件都重复编写 AxeBuilder 配置，维护起来会非常麻烦。
+
+因此可以统一封装。
+
+创建 `tests/helpers/accessibility.ts`：
+
+```typescript
+import AxeBuilder from '@axe-core/playwright';
+
+import {
+  expect,
+  type Page,
+  type TestInfo
+} from '@playwright/test';
+
+const WCAG_TAGS = [
+  'wcag2a',
+  'wcag2aa',
+  'wcag21a',
+  'wcag21aa',
+  'wcag22a',
+  'wcag22aa'
+];
+
+export async function scanAccessibility(
+  page: Page,
+  testInfo: TestInfo,
+  state: string
+) {
+  const results = await new AxeBuilder({ page })
+    .withTags(WCAG_TAGS)
+    .analyze();
+
+  // 将原始结果作为测试报告附件
+  await testInfo.attach(`axe-${state}.json`, {
+    body: JSON.stringify(results, null, 2),
+    contentType: 'application/json'
+  });
+
+  const violations = results.violations.flatMap(rule =>
+    rule.nodes.map(node => ({
+      rule: rule.id,
+      impact: node.impact ?? rule.impact,
+      target: node.target,
+      reason: node.failureSummary,
+      reference: rule.helpUrl
+    }))
+  );
+
+  expect(
+    violations,
+    `Accessibility violations in ${state}`
+  ).toEqual([]);
+
+  return results;
+}
+```
+
+Playwright 官方支持通过 `@axe-core/playwright` 运行检测、按规则标签筛选，以及使用公共 Fixture 统一配置。<Cite ref="turn120024search15"/>
+
+这里封装了四项能力：
+
+- 统一 WCAG 检测范围。
+- 保存完整的 axe JSON 报告，包括 Incomplete。
+- 提取易于开发者定位的问题。
+- 存在自动检测违规时，使测试失败。
+
+这样以后只需要调用：
+
+```typescript
+await scanAccessibility(page, testInfo, 'cart-open');
+```
+
+就可以执行统一的无障碍检测。
+
+注意：这里的零违规断言只是自动化质量门禁，不代表覆盖了 WCAG 2.2 AA 的全部要求。
+
+## 6. 页面状态自动化测试
+
+上一课已经强调过，一个 URL 不等于一个页面状态。
+
+例如首页默认状态没有任何无障碍问题，不代表打开 Header Mega Menu 后也没有问题。
+
+### 6.1 建立测试覆盖矩阵
+
+| 页面 | 必测状态 |
+|---|---|
+| Homepage | 默认、轮播切换、促销弹窗 |
+| Header | Mega Menu、移动端导航、搜索建议 |
+| Collection | 默认、筛选、排序、无结果 |
+| Product | 有货、售罄、Variant 切换、图片放大 |
+| Cart Drawer | 打开、修改数量、删除、空购物车 |
+| Checkout | 地址错误、配送选择、支付确认 |
+
+每种状态都可以独立执行 axe 扫描，同时增加业务及焦点断言。
+
+### 6.2 Homepage 测试
+
+创建 `tests/accessibility/homepage.spec.ts`：
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { scanAccessibility } from '../helpers/accessibility';
+
+test('homepage accessibility', async ({ page }, testInfo) => {
+  await page.goto('/');
+
+  await expect(
+    page.locator('#MainContent')
+  ).toBeVisible();
+
+  await scanAccessibility(
+    page,
+    testInfo,
+    'homepage-default'
+  );
+});
+```
+
+### 6.3 Cart Drawer 动态状态测试
+
+创建 `tests/accessibility/cart.spec.ts`：
+
+```typescript
+import { test, expect } from '@playwright/test';
+import { scanAccessibility } from '../helpers/accessibility';
+
+test('cart drawer accessibility', async ({ page }, testInfo) => {
+  await page.goto('/products/cotton-tshirt');
+
+  const addButton = page.getByRole('button', {
+    name: 'Add to cart',
+    exact: true
+  });
+
+  await expect(addButton).toBeEnabled();
+
+  await addButton.click();
+
+  const drawer = page.getByRole('dialog', {
+    name: 'Your cart'
+  });
+
+  await expect(drawer).toBeVisible();
+
+  await expect(
+    drawer.getByText('Cotton T-shirt', { exact: true })
+  ).toBeVisible();
+
+  await scanAccessibility(
+    page,
+    testInfo,
+    'cart-drawer-open'
+  );
+
+  await drawer.getByRole('button', {
+    name: 'Close shopping cart'
+  }).click();
+
+  await expect(drawer).toBeHidden();
+
+  await scanAccessibility(
+    page,
+    testInfo,
+    'cart-drawer-closed'
+  );
+});
+```
+
+这个测试覆盖打开和关闭两种状态。关闭状态同样值得扫描，因为隐藏 Drawer 中的交互控件可能仍然具有焦点能力。
+
+本例假设使用英文测试店铺，存在固定商品，并且店铺配置为加购后自动打开 Cart Drawer。
+
+---
+
+## 7. 无障碍行为的自动化断言
+
+axe-core 可以检查语义问题，但是无法充分理解业务行为是否正确。
+
+因此需要使用 Playwright 自身的断言能力。
+
+### 7.1 常用无障碍断言
+
+| Playwright API | 检测内容 |
+|---|---|
+| `getByRole()` | 按语义角色定位元素 |
+| `getByLabel()` | 按表单名称定位 |
+| `toHaveAccessibleName()` | 验证可访问名称 |
+| `toHaveAccessibleDescription()` | 验证可访问描述 |
+| `toBeFocused()` | 验证当前焦点 |
+| `toBeChecked()` | 验证选中状态 |
+| `toBeDisabled()` | 验证禁用状态 |
+| `toHaveAttribute()` | 验证 ARIA 属性 |
+| `toMatchAriaSnapshot()` | 验证无障碍语义结构 |
+
+### 7.2 为什么优先使用 getByRole？
+
+传统测试代码：
+
+```typescript
+const button = page.locator('.header-search-icon');
+
+await button.click();
+```
+
+推荐使用：
+
+```typescript
+const button = page.getByRole('button', {
+  name: 'Search',
+  exact: true
+});
+
+await button.click();
+```
+
+第二种方式不仅可以找到控件，还间接验证了它具有合理的角色及名称。
+
+假设其他开发人员将 Search 按钮改成：
+
+```html
+<div class="header-search-icon">
+  <svg></svg>
+</div>
+```
+
+基于 CSS Selector 的测试可能仍然通过，但基于 Role 的测试将无法找到预期按钮。
+
+这使得无障碍要求自然融入了普通业务测试。
+
+### 7.3 测试 Modal 的完整焦点生命周期
+
+```typescript
+test('cart drawer keyboard behavior', async ({ page }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'desktop-chromium',
+    'Desktop keyboard interaction test'
+  );
+
+  await page.goto('/');
+
+  const trigger = page.getByRole('button', {
+    name: /shopping cart/i
+  });
+
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const drawer = page.getByRole('dialog', {
+    name: 'Your cart'
+  });
+
+  await expect(drawer).toBeVisible();
+
+  const closeButton = drawer.getByRole('button', {
+    name: 'Close shopping cart'
+  });
+
+  // 此测试假设初始焦点规范为关闭按钮
+  await expect(closeButton).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(drawer).toBeHidden();
+
+  await expect(trigger).toBeFocused();
+});
+```
+
+对于 Focus Trap，还应该单独验证 Tab、Shift + Tab 在边界上的行为。
+
+### 7.4 测试 Variant Picker
+
+```typescript
+test('variant picker semantics', async ({ page }) => {
+  await page.goto('/products/cotton-tshirt');
+
+  const color = page.getByRole('group', {
+    name: 'Color',
+    exact: true
+  });
+
+  const black = color.getByRole('radio', {
+    name: 'Black',
+    exact: true
+  });
+
+  await black.check();
+
+  await expect(black).toBeChecked();
+  await expect(black).toHaveAccessibleName('Black');
+
+  await expect(
+    page.locator('[data-variant-status]')
+  ).toContainText('In stock');
+});
+```
+
+实际项目应准备固定 Variant 数据，并进一步验证提交的 Variant ID、实际价格以及库存状态。
+
+**无障碍测试与业务测试并不是两套完全独立的体系。** 很多高质量的业务自动化测试，本身就能够承担一部分无障碍回归检测职责。
+
+---
+
+## 8. Accessibility Snapshot 与 ARIA Snapshot
+
+这是非常值得前端开发工程师掌握的测试能力。
+
+普通 Screenshot Snapshot 关注的是页面视觉表现，而 ARIA Snapshot 关注的是页面提供给辅助技术的语义结构。
+
+Playwright 现在提供 `toMatchAriaSnapshot()` 用于验证 ARIA 快照。新项目可以优先使用这套能力，而不是依赖旧式的 `page.accessibility.snapshot()` API。<Cite ref="turn120024search2"/>
+
+### 8.1 三种快照的区别
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Visual Snapshot**
+      <box background="#E5DED3" radius="sm" padding={2}>
+        <svg viewBox="0 0 120 105" width="100%">
+          <path d="M40 7 L9 26 L25 47 L40 38 V99 H80 V38 L95 47 L111 26 L80 7 L60 17 Z" fill="#555555"/>
+        </svg>
+      </box>
+      <text size="sm" weight="medium">Cotton T-shirt</text>
+      **$29.99**
+      <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text color="#FFFFFF" size="sm">Add to cart</text></box>
+      <caption>检查布局、颜色、图像等视觉变化。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **ARIA Snapshot**
+      <box background="surface-tertiary" radius="sm" padding={2}>
+        <text size="xs" preserveWhitespace={true}>- heading "Cotton T-shirt" [level=1]{"\n"}- text: $29.99{"\n"}- button "Add to cart"</text>
+      </box>
+      <caption>检查角色、名称、状态及层级关系。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+此外，DOM Snapshot 可以记录 HTML 结构，但 HTML 发生变化不一定意味着视觉或无障碍语义发生变化。
+
+三种快照解决的是不同的问题。
+
+### 8.2 ARIA Snapshot 实战
+
+假设有以下 HTML：
+
+```html
+<fieldset id="ProductColor">
+
+  <legend>Color</legend>
+
+  <label>
+    <input type="radio" name="color" checked>
+    Black
+  </label>
+
+  <label>
+    <input type="radio" name="color">
+    White
+  </label>
+
+</fieldset>
+```
+
+测试：
+
+```typescript
+await expect(
+  page.locator('#ProductColor')
+).toMatchAriaSnapshot(`
+  - group "Color":
+    - radio "Black" [checked]
+    - radio "White"
+`);
+```
+
+如果开发人员后续移除了 fieldset、legend 或正确的 Radio 语义，快照就可能出现差异。
+
+### 8.3 将快照单独存储
+
+也可以将预期结构存储为 `.aria.yml` 文件：
+
+```typescript
+await expect(
+  page.locator('#ProductColor')
+).toMatchAriaSnapshot({
+  name: 'product-color.aria.yml'
+});
+```
+
+更新快照：
+
+```bash
+npx playwright test --update-snapshots
+```
+
+### 8.4 ARIA Snapshot 应该如何使用？
+
+不要对整个 Shopify 页面无差别地建立严格快照。
+
+因为商品名称、库存、购物车数量、营销文案等经常变化，过大的快照会产生大量无意义的差异。
+
+更推荐针对稳定的公共组件建立快照。
+
+| 组件 | 快照价值 |
+|---|---|
+| Variant Picker | 高 |
+| Tabs | 高 |
+| Accordion | 高 |
+| Quantity Selector | 高 |
+| Cart Drawer 的基础结构 | 高 |
+| 整个动态 Collection 页面 | 较低 |
+
+同时注意，Playwright 的 ARIA Snapshot 具有匹配规则，并不等于严格逐节点比较整个浏览器无障碍树。
+
+它也不能证明 NVDA 或 VoiceOver 的实际播报一定正确。
+
+---
+
+## 9. Baseline：如何处理历史遗留问题？
+
+假设公司已经运营了三年，现有 Shopify 网站累计存在 300 个自动检测问题。
+
+如果现在接入 CI，并直接要求：
+
+```typescript
+expect(results.violations).toEqual([]);
+```
+
+那么团队可能在完成全部历史整改之前，都无法正常提交代码。
+
+这种情况下，可以引入 **Accessibility Baseline（无障碍基线）**。
+
+它的目标不是允许问题永久存在，而是：
+
+**已有问题逐步整改，新增问题立即拦截。**
+
+<Chart content={{"chartType":"line","xKey":"week","series":[{"dataKey":"legacy","label":"历史遗留问题"},{"dataKey":"allowed","label":"允许的基线上限"}],"yAxisMin":0,"data":[{"week":"第1周","legacy":300,"allowed":300},{"week":"第2周","legacy":260,"allowed":260},{"week":"第3周","legacy":180,"allowed":180},{"week":"第4周","legacy":110,"allowed":110},{"week":"第5周","legacy":45,"allowed":45},{"week":"第6周","legacy":0,"allowed":0}]}}/>
+<caption>模拟整改趋势。已经修复的问题应从 Baseline 中移除，防止再次出现。</caption>
+
+### 9.1 三种基线策略
+
+| 策略 | 判断方式 | 推荐程度 |
+|---|---|---|
+| 总问题数量 | 当前数量不超过历史数量 | 较低 |
+| Rule ID | 不允许新增失败规则 | 一般 |
+| Violation Fingerprint | 比较具体规则和受影响节点 | 推荐 |
+
+为什么只比较数量不够？
+
+假设本次修复了 10 个颜色对比度问题，却引入了 10 个没有名称的按钮。
+
+总问题数量不变，但实际上产生了新的无障碍缺陷。
+
+因此，应尽可能识别具体问题，而不是仅统计数量。
+
+### 9.2 建立问题指纹
+
+```typescript
+import type { AxeResults } from 'axe-core';
+
+export function getFingerprints(results: AxeResults) {
+  return results.violations.flatMap(rule =>
+    rule.nodes.map(node =>
+      JSON.stringify([
+        rule.id,
+        node.target
+      ])
+    )
+  ).sort();
+}
+```
+
+可能得到：
+
+```json
+[
+  "[\"button-name\",[\"#HeaderSearchButton\"]]",
+  "[\"color-contrast\",[\".product-price\"]]"
+]
+```
+
+实际项目还需要按照测试页面、业务状态、浏览器项目分别保存基线，避免不同页面上的相似选择器被误认为同一个问题。
+
+### 9.3 基线记录结构
+
+`tests/baselines/accessibility.json`：
+
+```json
+{
+  "desktop-chromium/homepage-default": [
+    {
+      "rule": "button-name",
+      "target": ["#HeaderSearchButton"],
+      "issue": "A11Y-001",
+      "owner": "storefront-team",
+      "expiresAt": "2027-01-31"
+    }
+  ]
+}
+```
+
+这条记录包含的不只是规则和节点，还包括负责团队、整改任务及到期时间。
+
+### 9.4 新增问题检测
+
+```typescript
+import type { AxeResults } from 'axe-core';
+
+type BaselineEntry = {
+  rule: string;
+  target: unknown;
+  issue: string;
+  owner: string;
+  expiresAt: string;
+};
+
+export function findNewViolations(
+  results: AxeResults,
+  baseline: BaselineEntry[]
+) {
+  const today = new Date()
+    .toISOString()
+    .slice(0, 10);
+
+  const allowed = new Set(
+    baseline
+      .filter(item => item.expiresAt >= today)
+      .map(item => JSON.stringify([
+        item.rule,
+        item.target
+      ]))
+  );
+
+  return getFingerprints(results)
+    .filter(fingerprint => !allowed.has(fingerprint));
+}
+```
+
+在第 5 节的扫描工具中，可以将零违规断言替换为：
+
+```typescript
+const stateKey = `${testInfo.project.name}/${state}`;
+
+const known = baselines[stateKey] ?? [];
+
+const newViolations = findNewViolations(
+  results,
+  known
+);
+
+expect(newViolations).toEqual([]);
+```
+
+没有基线记录的新页面，默认仍然要求零自动检测违规。
+
+Playwright 官方无障碍测试文档也介绍了基于规则 ID 和目标选择器建立违规指纹的思路。<Cite ref="turn120024search15"/>
+
+### 9.5 Baseline 交互实验
+
+{@body const baselineRules=[{name:"Header Search 缺少名称",rule:"button-name",known:true},{name:"商品价格对比度不足",rule:"color-contrast",known:true},{name:"购物车隐藏区域仍可聚焦",rule:"aria-hidden-focus",known:true},{name:"新增 Quick Add 按钮缺少名称",rule:"button-name",known:false},{name:"新增 Newsletter 输入框缺少标签",rule:"label",known:false}]}
+{@body const [currentRules,setCurrentRules]=DIL.useState([true,true,true,false,false])}
+{@body const newRules=baselineRules.filter((r,i)=>currentRules[i]&&!r.known)}
+{@body const oldRules=baselineRules.filter((r,i)=>currentRules[i]&&r.known)}
+<card gap={3}>
+  **CI Baseline 实验室**
+  <caption>勾选表示当前代码中存在对应问题。</caption>
+  {#each baselineRules as r,i}
+    <row align="center">
+      <box flex={1} gap={1}>
+        <checkbox checked={currentRules[i]} onChange={v=>setCurrentRules(old=>old.map((x,j)=>j===i?v:x))}>{r.name}</checkbox>
+        <caption>{r.rule} · {r.known?"已登记基线":"未登记基线"}</caption>
+      </box>
+    </row>
+  {/each}
+  <divider/>
+  <grid columns={3}>
+    <grid-item><box gap={1}><caption>历史问题</caption><title size="xl">{oldRules.length}</title></box></grid-item>
+    <grid-item><box gap={1}><caption>新增问题</caption><title size="xl" color={newRules.length?"danger":"default"}>{newRules.length}</title></box></grid-item>
+    <grid-item><box gap={1}><caption>已修复历史问题</caption><title size="xl">{3-oldRules.length}</title></box></grid-item>
+  </grid>
+  <row align="center">
+    <icon name={newRules.length?"x-circle":"check-circle"} size="xl" color={newRules.length?"danger":"success"}/>
+    <box flex={1} gap={1}>
+      **CI {newRules.length?"Failed":"Passed"}**
+      <caption>{newRules.length?"检测到新增无障碍问题，阻止合并。":"没有新增问题，但历史问题仍需继续整改。"}</caption>
+    </box>
+  </row>
+  <button block color="secondary" variant="outline" onClick={()=>setCurrentRules([false,false,false,false,false])}>模拟修复全部问题</button>
+  <button block color="secondary" variant="ghost" onClick={()=>setCurrentRules([true,true,true,false,false])}>重置实验</button>
+</card>
+
+正式项目中还需要考虑选择器变化、重复节点、工具版本升级、基线到期以及过期记录清理等情况。
+
+不能允许开发者为了让 CI 通过，随意将新增问题加入 Baseline。修改基线应经过专门的 Code Review。
+
+---
+
+## 10. GitHub Actions：无障碍 CI/CD
+
+### 10.1 Shopify CI 与普通前端项目的区别
+
+普通 Vue 或 React 项目通常可以在 CI 中直接执行：
+
+```bash
+npm run build
+npm run preview
+```
+
+然后由 Playwright 访问 localhost。
+
+但 Shopify Liquid Theme 需要 Shopify 平台进行服务端渲染。
+
+因此，更完整的 CI 流程是：
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"开发者提交 Pull Request",d:"获取当前提交的 Theme 代码"},{t:"Static Checks",d:"Theme Check、ESLint"},{t:"Preview Deployment",d:"部署当前提交到未发布测试 Theme"},{t:"Playwright + axe-core",d:"访问对应 Theme 预览环境"},{t:"Generate Reports",d:"生成 JSON、HTML、截图及 Trace"},{t:"Quality Gate",d:"检查新增问题及业务测试"},{t:"Merge / Release",d:"通过审查后才允许发布"}] as p,i}
+    <box border radius="md" padding={2} gap={1}>**{p.t}**<caption>{p.d}</caption></box>
+    {#if i<6}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+</box>
+
+特别注意：如果 CI 测试的是线上正式 Theme，而不是当前 PR 对应的预览 Theme，那么即使测试全部通过，也无法证明当前 PR 没有引入问题。
+
+### 10.2 GitHub Actions 配置
+
+创建 `.github/workflows/accessibility.yml`：
+
+```yaml
+name: Accessibility Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      storefront_url:
+        description: URL of the matching test theme
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  theme-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Theme Check
+        run: npm run lint:theme -- --fail-level error
+
+  accessibility:
+    if: github.event_name == 'workflow_dispatch'
+    needs: theme-check
+    runs-on: ubuntu-latest
+
+    env:
+      STOREFRONT_URL: ${{ inputs.storefront_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Accessibility tests
+        run: npm run test:a11y
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+```
+
+Playwright 官方 CI 文档支持这种依赖安装、浏览器安装、测试执行和报告归档的基本流程。<Cite ref="turn120024search0"/>
+
+这是一套可以作为起点的分阶段配置：
+
+- 提交 PR 时自动运行 Theme Check。
+- 当前提交部署到测试 Theme 后，手动触发动态无障碍测试。
+- 后续接入公司的 Theme 预览部署流程，再将动态测试改为每个 PR 自动运行。
+
+这里没有假设你的公司已经具备 Shopify 自动预览部署环境，因此没有直接写入可能修改真实店铺的部署命令。
+
+正式环境应锁定依赖版本，并根据当前 CLI 和 GitHub Actions 版本调整运行环境。
+
+### 10.3 如何实现真正的 PR 质量门禁？
+
+在 GitHub 仓库中配置 Branch Protection 或 Rulesets，设置 Required Status Checks。
+
+GitHub 支持要求指定检查通过后才能合并 PR。<Cite ref="turn518538search4"/>
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="git-pull-request" size="lg"/>
+    **PR #128**
+    <caption>Update product card component</caption>
+  </row>
+  <divider/>
+  {#each [{t:"Theme Check",ok:true},{t:"ESLint",ok:true},{t:"Playwright E2E",ok:true},{t:"Accessibility Quality Gate",ok:false}] as p}
+    <row align="center">
+      <icon name={p.ok?"check-circle":"x-circle"} color={p.ok?"success":"danger"}/>
+      <text size="sm">{p.t}</text>
+      <spacer/>
+      <caption>{p.ok?"Passed":"Failed"}</caption>
+    </row>
+  {/each}
+  <box background="surface-tertiary" radius="sm" padding={3} gap={1}>
+    **合并被阻止**
+    <text size="sm">button-name: 新增 Quick Add 按钮缺少 Accessible Name。</text>
+  </box>
+  <caption>这是完成自动预览部署集成后的目标效果，并非上面手动触发配置已经实现的 PR 动态门禁。</caption>
+</box>
+
+在自动预览部署尚未接入前，只应把实际运行于 PR 的检查设为对应的必需检查。
+
+另外，Shopify 测试店铺密码、预览部署凭证等应通过安全的 Secrets 管理机制注入，不能直接写进 YAML 或提交到 Git。
+
+---
+
+## 11. 自动生成无障碍检测报告
+
+自动化测试除了告诉开发者通过或失败，还应该提供定位所需的数据。
+
+### 11.1 推荐报告内容
+
+| 字段 | 用途 |
+|---|---|
+| Commit SHA | 定位对应代码版本 |
+| Theme Version | 定位实际测试 Theme |
+| Page URL / State | 确定发生问题的场景 |
+| Browser / Viewport | 复现运行环境 |
+| Rule ID / Impact | 了解检测规则 |
+| WCAG Tags | 对应技术准则 |
+| DOM Target | 定位问题节点 |
+| Failure Summary | 理解失败原因 |
+| Screenshot / Trace | 复现业务操作 |
+| Baseline Status | 区分历史与新增问题 |
+
+通过前面配置的 `testInfo.attach()`，每次 axe 检测结果都会成为 Playwright 报告附件。
+
+本地可以运行：
+
+```bash
+npm run test:report
+```
+
+打开 HTML 报告。
+
+### 11.2 模拟团队质量报告
+
+<card gap={3}>
+  <row align="center">
+    **Storefront Accessibility Report**
+    <spacer/><caption>模拟构建 #128</caption>
+  </row>
+  <grid columns={2} gap={3}>
+    <grid-item><box gap={1}><caption>已扫描页面状态</caption><title size="2xl">32</title></box></grid-item>
+    <grid-item><box gap={1}><caption>新增违规节点条目</caption><title size="2xl" color="danger">2</title></box></grid-item>
+    <grid-item><box gap={1}><caption>历史违规节点条目</caption><title size="2xl">14</title></box></grid-item>
+    <grid-item><box gap={1}><caption>待人工检查条目</caption><title size="2xl">7</title></box></grid-item>
+  </grid>
+  <divider/>
+  **各业务模块违规情况**
+  <Chart content={{"chartType":"bar","xKey":"page","series":[{"dataKey":"existing","label":"历史问题"},{"dataKey":"new","label":"新增问题"}],"data":[{"page":"Home","existing":2,"new":0},{"page":"Header","existing":3,"new":0},{"page":"Collection","existing":4,"new":1},{"page":"Product","existing":2,"new":0},{"page":"Cart","existing":3,"new":1}]}}/>
+  <divider/>
+  <row align="center"><icon name="x-circle" color="danger"/><text weight="medium">Quality Gate Failed</text></row>
+  <caption>以上是教学用模拟数据。实际报告应从测试结果生成，并保留原始检测信息。</caption>
+</card>
+
+正式项目中，报告还应避免泄露真实消费者信息、购物车会话数据、店铺访问凭证等敏感内容。
+
+---
+
+## 12. 建立无障碍 Design System
+
+如果你只负责修复代码，却不参与设计规范制定，同一种问题很可能在下一份设计稿中再次出现。
+
+因此，团队需要建立统一的无障碍设计标准。
+
+### 12.1 Accessibility Design Tokens
+
+例如统一定义：
+
+```css
+:root {
+  /* Focus */
+  --focus-color: #005fcc;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+
+  /* Touch target */
+  --control-min-size: 44px;
+
+  /* Text */
+  --text-primary: #222222;
+  --text-secondary: #595959;
+  --text-error: #b42318;
+
+  /* Motion */
+  --motion-duration: 200ms;
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+  }
+}
+```
+
+这些是建议的基础 Token，不是说使用这些数值就自动满足 WCAG。
+
+例如焦点颜色是否合适，还需要结合实际背景和组件状态进行验证。
+
+### 12.2 统一组件状态
+
+每个交互组件的设计稿都应该考虑完整的状态，而不仅仅是 Default 和 Hover。
+
+<box border radius="lg" padding={3} gap={3}>
+  **Button Component**
+  <grid columns={2} gap={3}>
+    {#each [{t:"Default",bg:"#333333",fg:"#FFFFFF",label:"Add to cart"},{t:"Hover",bg:"#505050",fg:"#FFFFFF",label:"Add to cart"},{t:"Focus",bg:"#333333",fg:"#FFFFFF",label:"Add to cart"},{t:"Active",bg:"#111111",fg:"#FFFFFF",label:"Add to cart"},{t:"Disabled",bg:"#DDDDDD",fg:"#595959",label:"Sold out"},{t:"Loading",bg:"#555555",fg:"#FFFFFF",label:"Adding…"}] as p}
+      <grid-item>
+        <box gap={1}>
+          <caption>{p.t}</caption>
+          <box border={{size:2,color:p.t==="Focus"?"#005fcc":"transparent"}} radius="md" padding={1}>
+            <box background={p.bg} theme="light" radius="sm" padding={3} align="center">
+              <row align="center" gap={2}>
+                {#if p.t==="Loading"}<icon name="loader" size="sm" color={p.fg}/>{/if}
+                <text size="sm" color={p.fg}>{p.label}</text>
+              </row>
+            </box>
+          </box>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+  <caption>不同组件状态不仅需要视觉设计，还需要明确对应的语义与交互行为。</caption>
+</box>
+
+| 组件状态 | 技术实现重点 |
+|---|---|
+| Default | 正确的原生语义 |
+| Hover | 不作为唯一操作方式 |
+| Focus | 明确可见的焦点指示 |
+| Selected | checked、aria-selected 等适当状态 |
+| Disabled | disabled 或正确实现 aria-disabled |
+| Loading | 重复提交保护及状态通知 |
+| Error | 错误文字与控件关联 |
+| Expanded | 展开状态及内容同步 |
+
+### 12.3 为公共组件建立无障碍契约
+
+例如团队维护一个 Modal 组件，不应该只提供 CSS 和 JavaScript，还应该明确它的无障碍接口及行为。
+
+```typescript
+interface AccessibleDialogOptions {
+  initialFocus?: HTMLElement;
+
+  returnFocus?: HTMLElement;
+
+  closeOnEscape?: boolean;
+
+  closeOnOutsideClick?: boolean;
+
+  onOpen?: () => void;
+
+  onClose?: () => void;
+}
+```
+
+同时在组件文档中定义：
+
+| 契约 | 要求 |
+|---|---|
+| Semantic | 具有 dialog 语义及名称 |
+| Initial Focus | 打开时焦点进入合理位置 |
+| Focus Isolation | 背景不可意外访问 |
+| Keyboard | 提供适当的键盘关闭机制 |
+| Restoration | 关闭时恢复合理焦点 |
+| Lifecycle | 不依赖装饰性动画完成核心行为 |
+| Testing | 包含 axe、键盘及人工辅助技术测试 |
+
+这样后续开发 Quick Add、Size Guide、Search Modal、Cart Drawer 时，都可以复用同一个经过验证的基础组件。
+
+### 12.4 Shopify Theme 推荐公共模块
+
+```text
+assets/
+├── accessible-dialog.js
+├── accessible-disclosure.js
+├── accessible-tabs.js
+├── accessible-carousel.js
+├── accessible-combobox.js
+├── focus-manager.js
+├── live-announcer.js
+├── cart-controller.js
+└── accessibility.css
+
+snippets/
+├── icon-button.liquid
+├── accessible-modal.liquid
+├── visually-hidden.liquid
+├── variant-option.liquid
+└── quantity-selector.liquid
+```
+
+这些模块正是前面课程中学习的组件和技术。
+
+把它们沉淀成团队基础设施，比每次开发业务时重新实现一套焦点管理和 ARIA 逻辑更容易维护。
+
+---
+
+## 13. Code Review 无障碍规范
+
+建议将 Accessibility Checklist 纳入公司日常 PR Template。
+
+例如创建：
+
+```text
+.github/pull_request_template.md
+```
+
+以下内容可以直接作为团队模板的基础版本。
+
+{@body const prChecks=["优先使用原生 HTML 语义元素","所有交互控件具有准确的 Accessible Name","图片具有符合用途的 alt","表单字段具有标签及适当的错误反馈","所有功能可以通过键盘操作","焦点顺序合理且焦点可见","ARIA 属性与实际业务状态保持一致","Modal 正确隔离背景并恢复焦点","动态 DOM 更新不会意外丢失焦点","重要动态状态具有适当的通知机制","文字及非文本控件对比度符合适用要求","支持文字缩放、重排及文字间距调整","提供适用的动画暂停及拖拽替代操作","已通过相关页面状态的 axe-core 检测","复杂组件已进行真实辅助技术测试","没有未经审查的新增 Baseline 豁免"]}
+{@body const [prDone,setPrDone]=DIL.useState(Array(prChecks.length).fill(false))}
+<card gap={2}>
+  <row align="center">
+    **Accessibility PR Checklist**
+    <spacer/>
+    <caption>{prDone.filter(Boolean).length} / {prChecks.length}</caption>
+  </row>
+  <box background="surface-tertiary" radius="full" height={5}>
+    <box background="#39866B" height={5} radius="full" width={`${prDone.filter(Boolean).length/prChecks.length*100}%`}/>
+  </box>
+  {#each prChecks as c,i}
+    <checkbox checked={prDone[i]} onChange={v=>setPrDone(old=>old.map((x,j)=>j===i?v:x))} lineThrough={prDone[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy("## Accessibility Checklist\n\n"+prChecks.map((c,i)=>(prDone[i]?"- [x] ":"- [ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制 Markdown PR 模板</button>
+</card>
+
+对于不适用于当前 PR 的检查项，应标记为 N/A 并说明原因，而不是为了完成 Checklist 随意勾选。
+
+### 13.1 Definition of Done
+
+团队可以进一步将无障碍纳入需求的完成标准。
+
+一个组件只有在功能实现、视觉验收、键盘操作、自动检测和适用的屏幕阅读器测试全部完成后，才被认为真正开发完成。
+
+这样可以避免无障碍整改永远被安排到下一个 Sprint。
+
+---
+
+## 14. 第三方 Shopify App 无障碍管理
+
+这是 Shopify 项目区别于普通前端项目的另一个重要问题。
+
+即使你的 Theme 本身实现得非常好，安装第三方 App 后，仍然可能引入无障碍问题。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **Shopify Storefront**
+    <caption>最终消费者访问的网站</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    {#each [{t:"Theme",d:"团队可直接维护",i:"code-xml"},{t:"Review App",d:"评分及评论组件",i:"star"},{t:"Chat Widget",d:"客服聊天弹窗",i:"message-circle"},{t:"Cookie Consent",d:"隐私授权弹窗",i:"shield"},{t:"Subscription App",d:"订阅购买选项",i:"refresh-cw"},{t:"Upsell App",d:"推荐及促销组件",i:"shopping-bag"}] as p}
+      <grid-item><box border radius="md" padding={3} gap={1}><icon name={p.i} size="lg"/>**{p.t}**<caption>{p.d}</caption></box></grid-item>
+    {/each}
+  </grid>
+</box>
+
+### 14.1 常见第三方 App 问题
+
+| App 类型 | 常见风险 |
+|---|---|
+| 评论 App | 星级无名称、筛选不可操作 |
+| 客服 App | 无法通过键盘关闭 |
+| Cookie Banner | 模态焦点错误、按钮名称缺失 |
+| Upsell App | 弹窗抢夺焦点 |
+| 订阅 App | 购买方式缺少分组语义 |
+| 邮件营销 App | 表单标签及错误反馈缺失 |
+| 商品定制 App | Canvas 或拖拽缺少替代操作 |
+
+### 14.2 为什么不能简单地 exclude 第三方 App？
+
+例如：
+
+```typescript
+new AxeBuilder({ page })
+  .exclude('#third-party-app')
+  .analyze();
+```
+
+这可以让报告看起来更干净，但用户实际访问的网站并没有得到修复。
+
+在组件级测试中，临时排除某个不属于本次测试范围的模块可以合理；在完整网站合规审计中，不能因为代码来自第三方，就将用户实际遇到的障碍视为不存在。
+
+### 14.3 第三方 App 整改策略
+
+建议依次考虑：
+
+1. 检查 App 是否已有无障碍配置。
+2. 使用官方支持的样式及组件定制接口。
+3. 向 App 开发商提交详细复现报告。
+4. 对无法及时修复的问题建立整改记录及替代方案。
+5. 对严重阻断购买流程且长期无法修复的 App，评估替换或移除。
+
+对于 cross-origin iframe 或封闭的 Shadow DOM，Theme JavaScript 可能无法直接修改内部结构。
+
+不建议长期依靠 MutationObserver 强行修改第三方 App 的 ARIA 属性，因为这样可能与 App 自己的状态管理冲突。
+
+同样，Accessibility Overlay 或无障碍辅助工具栏，也不能代替底层语义、键盘交互及真实业务流程的整改。
+
+---
+
+## 15. 商家配置与 Shopify Theme 的特殊挑战
+
+Shopify Theme 并不是一套固定不变的页面。
+
+商家可以在 Theme Editor 中修改颜色、图片、Section、Block、文字内容及动画配置。
+
+因此，同一套 Theme 可能在一种配置下正常，在另一种配置下出现无障碍问题。
+
+### 15.1 Color Scheme 配置风险
+
+{@body const [merchantFg,setMerchantFg]=DIL.useState("#FFFFFF")}
+{@body const [merchantBg,setMerchantBg]=DIL.useState("#333333")}
+{@body const merchantLuminance=h=>{const a=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));return a[0]*.2126+a[1]*.7152+a[2]*.0722}}
+{@body const merchantRatio=(Math.max(merchantLuminance(merchantFg),merchantLuminance(merchantBg))+.05)/(Math.min(merchantLuminance(merchantFg),merchantLuminance(merchantBg))+.05)}
+<card gap={3}>
+  **Theme Editor 配色风险实验**
+  <box background={merchantBg} theme="light" radius="md" padding={5} align="center" gap={2}>
+    <title color={merchantFg} size="xl">Summer collection</title>
+    <text color={merchantFg} size="sm">Discover our latest styles.</text>
+    <box border={{size:1,color:merchantFg}} radius="sm" padding={2}>
+      <text color={merchantFg}>Shop now</text>
+    </box>
+  </box>
+  <label>商家配置 · 文字颜色</label>
+  <row gap={3}>
+    {#each ["#FFFFFF","#333333","#999999","#E7D5B9"] as c}
+      <pressable size="35px" border={{size:merchantFg===c?2:1,color:merchantFg===c?"#005fcc":"#88888870"}} radius="full" padding={2} onClick={()=>setMerchantFg(c)}><box background={c} radius="full" size="100%"/></pressable>
+    {/each}
+  </row>
+  <label>商家配置 · 背景颜色</label>
+  <row gap={3}>
+    {#each ["#333333","#FFFFFF","#E7D5B9","#8D9DA9"] as c}
+      <pressable size="35px" border={{size:merchantBg===c?2:1,color:merchantBg===c?"#005fcc":"#88888870"}} radius="full" padding={2} onClick={()=>setMerchantBg(c)}><box background={c} radius="full" size="100%"/></pressable>
+    {/each}
+  </row>
+  <divider/>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>普通文字对比度</caption>
+      <title size="2xl">{merchantRatio.toFixed(2)} : 1</title>
+    </box>
+    <text weight="medium" color={merchantRatio>=4.5?"success":"danger"}>{merchantRatio>=4.5?"AA Pass":"AA Fail"}</text>
+  </row>
+  <caption>即使组件代码完全没有变化，商家修改配色后，也可能导致对比度不再满足要求。</caption>
+</card>
+
+### 15.2 Theme 配置测试矩阵
+
+| 商家配置 | 需要检查的内容 |
+|---|---|
+| Color Scheme | 文字、按钮和状态对比度 |
+| Logo | 图片替代文本、链接名称 |
+| Image Banner | 文字与图片背景对比度 |
+| Slideshow | 自动播放与暂停 |
+| Rich Text | 标题层级、链接、图片 alt |
+| Custom Liquid | 任意自定义代码的风险 |
+| App Block | 第三方组件无障碍表现 |
+| 多语言 | 长文本布局及语言声明 |
+| Shopify Markets | 币种、配送和地区选择 |
+
+因此，Theme 开发者不仅需要提供合理的默认配置，还应该尽可能通过设计约束、设置说明及运营培训，降低商家错误配置的风险。
+
+**Theme 无障碍与实际店铺无障碍并不是同一个概念。**
+
+---
+
+## 16. 企业级 WCAG 合规审计
+
+前面介绍的自动化测试、人工测试和质量门禁属于日常工程体系。
+
+如果公司需要进行正式的 WCAG 合规评估，还需要更系统的方法。
+
+W3C 于 2026 年 7 月 23 日发布了 WCAG Evaluation Methodology（WCAG-EM）2.0 Group Note，可以作为网站无障碍合规评估的方法参考。<Cite refs={["turn120024search4","turn120024search21"]}/>
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{t:"Step 1 · Define Scope",d:"明确网站范围、目标标准、技术和测试环境"},{t:"Step 2 · Explore",d:"识别页面类型、公共组件、功能与完整业务流程"},{t:"Step 3 · Select Sample",d:"选取有代表性的页面及页面状态"},{t:"Step 4 · Evaluate",d:"结合自动检测、人工检查和辅助技术进行评估"},{t:"Step 5 · Report",d:"记录评估发现、范围、限制及结论"}] as p,i}
+    <box border radius="md" padding={3} gap={1}>**{p.t}**<caption>{p.d}</caption></box>
+    {#if i<4}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+### 16.1 WCAG 2.2 AA 是怎样的目标？
+
+需要理解，Level AA 并不是只检查 AA 准则，而是需要满足所有适用的 Level A 和 Level AA 准则。
+
+还应考虑完整页面、完整业务流程、受支持的无障碍技术以及非干扰等合规要求。
+
+例如：
+
+```text
+Homepage          通过
+Collection        通过
+Product           通过
+Cart              通过
+Checkout          无法通过键盘完成支付
+```
+
+不能仅仅因为大部分页面通过，就宣称整个购买流程符合 WCAG 2.2 AA。
+
+### 16.2 正式评估报告的组成
+
+| 章节 | 内容 |
+|---|---|
+| Executive Summary | 评估结果与主要风险 |
+| Scope | 店铺、页面及功能范围 |
+| Conformance Target | 目标 WCAG 版本和级别 |
+| Methodology | 测试方法、工具及环境 |
+| Representative Sample | 页面和状态样本 |
+| Findings | 具体准则及问题 |
+| Remediation Plan | 修复方式、负责人和优先级 |
+| Verification | 修复后的验证结果 |
+| Limitations | 未测试范围及评估限制 |
+
+### 16.3 ADA 与 WCAG 的关系
+
+这是整套课程开始时学习过的重要概念，现在再次强调。
+
+| 项目 | 性质 |
+|---|---|
+| ADA | 美国残障人士权利相关法律 |
+| WCAG | Web 内容无障碍技术标准 |
+| WAI-ARIA | 无障碍语义技术规范 |
+| APG | 组件设计和交互实现指导 |
+| WCAG-EM | 无障碍合规评估方法 |
+| axe-core | 自动化检测工具 |
+
+**不能将工具测试通过、WCAG 技术符合性和 ADA 法律合规直接画等号。**
+
+对于跨境电商企业，可以将 WCAG 2.2 AA 作为内部技术整改目标，但具体法律适用范围、合规义务以及诉讼风险，需要结合实际业务和适用法律进行专业评估。
+
+---
+
+## 17. 如何持续维护无障碍质量？
+
+建议将无障碍检查分布在日常开发、版本发布和运营过程中。
+
+| 周期 | 建议任务 |
+|---|---|
+| 每次代码提交 | 静态检查 |
+| 每次 PR | axe、组件交互测试、Code Review |
+| 每次版本发布 | 核心购买流程回归测试 |
+| 每周 | 关键页面及动态状态扫描 |
+| 每月 | 屏幕阅读器抽查、历史问题跟踪 |
+| 每季度 | 系统性人工评估 |
+| 安装或升级 App 后 | 第三方组件专项测试 |
+| 大型营销活动上线前 | 活动页面无障碍检查 |
+| Theme 大版本升级后 | 完整回归测试 |
+
+这里的周期是建议的团队管理方案，并不是 ADA 或 WCAG 统一规定的检测频率。
+
+### 17.1 推荐质量指标
+
+<grid columns={2} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={1}>
+      <caption>新增自动检测违规</caption>
+      <title size="2xl">0</title>
+      <caption>PR 质量门禁目标</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={1}>
+      <caption>核心购买流程测试</caption>
+      <title size="2xl">100%</title>
+      <caption>已定义测试用例通过率目标</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={1}>
+      <caption>未解决阻断性问题</caption>
+      <title size="2xl">0</title>
+      <caption>发布质量目标</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={1}>
+      <caption>历史遗留问题</caption>
+      <title size="2xl">持续下降</title>
+      <caption>技术债务整改目标</caption>
+    </box>
+  </grid-item>
+</grid>
+
+不要只使用 Lighthouse Accessibility Score 作为团队 KPI。
+
+更有价值的指标是新增问题数量、阻断性问题、历史问题整改进度、页面状态覆盖率和真实用户任务完成情况。
+
+---
+
+## 18. 在你所在公司的落地建议
+
+结合跨境电商 Shopify Theme 的实际开发场景，我建议分四个阶段建立体系，而不是一开始就开发复杂的内部无障碍平台。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="start">
+    <box size="40px" radius="md" background="surface-tertiary" align="center" justify="center"><title size="lg">01</title></box>
+    <box flex={1} gap={1}>
+      **建立现状基线**
+      <caption>建议第 1 周</caption>
+      使用 axe、Lighthouse、NVDA 扫描主要页面，建立问题清单，并定位公共组件中的问题根因。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box size="40px" radius="md" background="surface-tertiary" align="center" justify="center"><title size="lg">02</title></box>
+    <box flex={1} gap={1}>
+      **优先整改核心组件**
+      <caption>建议第 2～3 周</caption>
+      优先处理 Header、Modal、Variant Picker、Collection Filter、Product Card 和 Cart Drawer。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box size="40px" radius="md" background="surface-tertiary" align="center" justify="center"><title size="lg">03</title></box>
+    <box flex={1} gap={1}>
+      **建立自动化质量门禁**
+      <caption>建议第 4 周</caption>
+      接入 Playwright、axe-core、GitHub Actions 和 Baseline，拦截新增无障碍问题。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box size="40px" radius="md" background="surface-tertiary" align="center" justify="center"><title size="lg">04</title></box>
+    <box flex={1} gap={1}>
+      **沉淀团队基础设施**
+      <caption>持续迭代</caption>
+      建立无障碍组件库、Design System、PR Checklist、第三方 App 验收规范及定期审计流程。
+    </box>
+  </row>
+</box>
+
+上述四周安排只是实施路线示例，实际整改时间取决于店铺数量、现有问题规模、团队资源和第三方 App 的复杂程度。
+
+---
+
+## 19. 本课知识测试
+
+{@body const finalQuiz=[{q:"Theme Check 能否代替运行时无障碍检测？",o:["可以","不能"],a:1,e:"静态检查无法完整获取运行时 DOM、CSS 和用户交互状态。"}, {q:"Playwright 的 getByRole 相比 CSS Selector 有什么额外价值？",o:["可以间接验证元素的角色与名称","能够保证整个页面符合 WCAG"],a:0,e:"语义定位将一部分无障碍要求融入了业务测试。"}, {q:"ARIA Snapshot 主要检测什么？",o:["页面视觉像素","角色、名称、状态和语义结构"],a:1,e:"它与视觉快照关注不同层面的变化。"}, {q:"历史问题减少 10 个，但新增 10 个其他问题，是否应该通过新增问题门禁？",o:["应该，因为总数不变","不应该"],a:1,e:"应识别具体新增问题，而不只是比较数量。"}, {q:"CI 扫描正式线上 Theme，能否证明当前 PR 的 Theme 没有问题？",o:["能","不能"],a:1,e:"必须确保实际测试环境与当前代码版本一致。"}, {q:"第三方 App 产生的问题是否可以直接从完整合规审计中排除？",o:["可以","不能仅因为来自第三方就排除"],a:1,e:"用户访问的是包含第三方组件的完整页面。"}, {q:"自动化测试全部通过，是否代表 ADA 法律合规？",o:["代表","不代表"],a:1,e:"自动检测、技术符合性与法律合规具有不同的含义。"}, {q:"团队持续维护无障碍质量最有效的方式是什么？",o:["每年集中修复一次","将无障碍融入设计、开发、测试及发布全过程"],a:1,e:"通过公共组件、质量门禁及持续测试防止问题回归。"}]}
+{@body const [finalAnswers,setFinalAnswers]=DIL.useState(Array(finalQuiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **最后一课 · 课堂测验**
+    <spacer/>
+    <caption>答对 {finalAnswers.filter((a,i)=>a===finalQuiz[i].a).length} / {finalQuiz.length}</caption>
+  </row>
+  <box background="surface-tertiary" radius="full" height={5}>
+    <box background="#39866B" radius="full" height={5} width={`${finalAnswers.filter((a,i)=>a===finalQuiz[i].a).length/finalQuiz.length*100}%`}/>
+  </box>
+  {#each finalQuiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(finalAnswers[i])} onChange={v=>setFinalAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if finalAnswers[i]>=0}
+        <text size="sm" color={finalAnswers[i]===q.a?"success":"danger"}>{finalAnswers[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<finalQuiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setFinalAnswers(Array(finalQuiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 20. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [Shopify Theme Check](https://shopify.dev/docs/storefronts/themes/tools/theme-check) | Liquid 静态检查 |
+| [eslint-plugin-jsx-a11y](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y) | JSX 无障碍规则 |
+| [Playwright Accessibility Testing](https://playwright.dev/docs/accessibility-testing) | 自动化无障碍检测 |
+| [Playwright ARIA Snapshots](https://playwright.dev/docs/aria-snapshots) | 语义快照 |
+| [Playwright Assertions](https://playwright.dev/docs/test-assertions) | 自动化断言 |
+| [Playwright CI](https://playwright.dev/docs/ci) | CI/CD 集成 |
+| [axe-core](https://github.com/dequelabs/axe-core) | 检测引擎 |
+| [GitHub Protected Branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) | 质量门禁 |
+| [WCAG-EM 2.0](https://www.w3.org/TR/wcag-em-2/) | 合规评估方法 |
+| [WCAG 2.2](https://www.w3.org/TR/WCAG22/) | 技术标准 |
+| [Shopify Accessibility Best Practices](https://shopify.dev/docs/storefronts/themes/best-practices/accessibility) | Theme 无障碍开发 |
+
+本课代码以 TypeScript、Playwright、axe-core、GitHub Actions 和 WCAG 2.2 AA 为基础，尚未在你的实际仓库和 Shopify 测试店铺中运行验证。预览 Theme 部署、登录认证、商品测试数据以及完整基线管理需要结合公司现有基础设施补充。
+
+---
+
+# 整套 ADA 网站无障碍课程总结
+
+至此，我们最初规划的六个学习阶段已经全部结束。
+
+## 一、完整课程目录
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{t:"阶段一：无障碍基础与底层原理",start:1,s:["ADA、WCAG、ARIA 与 A11y","辅助技术与屏幕阅读器","Accessibility Tree 无障碍树","WCAG 四大原则与合规标准"]},{t:"阶段二：HTML、CSS 无障碍开发",start:5,s:["HTML 语义化与 Landmark 地标","图片、SVG、Icon 与多媒体","表单、Label 与错误提示","颜色对比度、字体与响应式布局","元素隐藏、动画与 CSS 无障碍"]},{t:"阶段三：JavaScript 与 ARIA 深入",start:10,s:["键盘导航与 tabindex","Focus Management 焦点管理","WAI-ARIA 属性与 Role 详解","Accessible Name 与 Description 计算规则","Live Region 与动态内容更新"]},{t:"阶段四：复杂 UI 组件无障碍实战",start:15,s:["Modal、Dialog、Drawer 弹窗组件","Dropdown、Menu、Combobox 下拉组件","Tabs、Accordion、Tooltip 组件","Carousel、Slider 轮播组件","SPA 路由、异步请求与动态页面"]},{t:"阶段五：Shopify 电商网站无障碍实战",start:20,s:["Header、Mega Menu 与商品搜索","商品详情页、Variant Picker 与商品图库","Collection 筛选、排序与分页","加购、Cart Drawer、Checkout 与 Dawn 源码"]},{t:"阶段六：无障碍检测、修复与工程化",start:24,s:["Lighthouse、axe、WAVE 与浏览器调试","人工测试、屏幕阅读器测试与问题修复","自动化测试、CI/CD、团队规范与合规审计"]}] as g,i}
+    <box gap={2}>
+      <row align="center">
+        **{g.t}**
+        <spacer/><icon name="check-circle" color="success" size="sm"/>
+      </row>
+      {#each g.s as s,j}
+        <row align="center" gap={2}>
+          <icon name={g.start+j===19?"skip-forward":"check"} color={g.start+j===19?"secondary":"success"} size="sm"/>
+          <box flex={1}><text size="sm" color={g.start+j===19?"secondary":"default"}>{g.start+j}. {s}</text></box>
+          {#if g.start+j===19}<caption>已跳过</caption>{/if}
+        </row>
+      {/each}
+    </box>
+    {#if i<5}<divider/>{/if}
+  {/each}
+</box>
+
+## 二、完整的无障碍知识体系
+
+经过这套课程，我们可以将网站无障碍开发归纳为八个核心维度。
+
+<grid columns={2} gap={2}>
+  {#each [{i:"code-xml",t:"Semantics",d:"HTML 语义、Role、Landmark"},{i:"tag",t:"Accessible Name",d:"名称、描述及计算规则"},{i:"keyboard",t:"Keyboard",d:"键盘导航与组件交互"},{i:"focus",t:"Focus Management",d:"焦点进入、保留、隔离与恢复"},{i:"refresh-cw",t:"Dynamic State",d:"ARIA 状态与 Live Region"},{i:"eye",t:"Visual Accessibility",d:"对比度、缩放、重排及动画"},{i:"shopping-cart",t:"Business Accessibility",d:"完整电商购买流程"},{i:"workflow",t:"Engineering",d:"自动检测、测试、CI 与团队规范"}] as p}
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <icon name={p.i} size="xl"/>
+        **{p.t}**
+        <caption>{p.d}</caption>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+以后遇到任何新的 UI 组件，都可以用这八个维度去分析，而不需要单独背诵每一种组件的所有实现方式。
+
+## 三、前端无障碍开发的十大原则
+
+这是我认为整套课程中最值得长期记住的内容。
+
+| 原则 | 核心思想 |
+|---|---|
+| 01. Native First | 优先使用原生 HTML 元素 |
+| 02. Semantic First | 先确定业务语义，再设计交互 |
+| 03. ARIA Is Not Behavior | ARIA 不会自动实现交互行为 |
+| 04. Keyboard First | 所有适用功能都应支持键盘 |
+| 05. Focus Is a State | 焦点是必须管理的组件状态 |
+| 06. State Synchronization | 数据、UI、ARIA 和交互状态保持一致 |
+| 07. Respect User Preferences | 尊重缩放、颜色和减少运动偏好 |
+| 08. Announce Meaningful Changes | 通知重要业务变化，而不是所有 DOM 变化 |
+| 09. Test Real User Flows | 测试完整任务，而不只是孤立页面 |
+| 10. Accessibility by Design | 从设计开始考虑无障碍，而不是事后补救 |
+
+其中第 5 条和第 6 条，对于 Shopify Theme 开发尤其重要，因为 Section Rendering 会频繁替换 DOM，而 Variant、Cart、Collection 又涉及复杂的业务状态变化。
+
+## 四、以后开发任何组件时的思考模型
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{q:"这个组件的真实业务含义是什么？",a:"确定原生元素或 ARIA Role。"},{q:"用户怎么知道它是什么、有什么作用？",a:"确定 Accessible Name 和 Description。"},{q:"用户如何通过键盘完成操作？",a:"确定键盘交互模型和焦点顺序。"},{q:"打开、关闭、切换、删除时焦点去哪里？",a:"确定完整的焦点生命周期。"},{q:"业务状态发生变化时需要通知什么？",a:"同步 ARIA State 与 Live Region。"},{q:"不同视觉能力的用户能否正常使用？",a:"检查对比度、缩放、尺寸及动画。"},{q:"如何证明实现正确？",a:"自动检测、行为断言和人工辅助技术测试。"}] as p,i}
+    <box gap={1} padding={2}>
+      **{i+1}. {p.q}**
+      <text color="secondary" size="sm">{p.a}</text>
+    </box>
+    {#if i<6}<divider/>{/if}
+  {/each}
+</box>
+
+如果能够熟练运用这个思考模型，即使将来遇到课程中没有讲过的复杂组件，也能够独立设计其无障碍实现。
+
+---
+
+## 五、课程完成情况
+
+<card gap={3}>
+  <box align="center" padding={3} gap={2}>
+    <svg viewBox="0 0 140 140" size="130px">
+      <circle cx="70" cy="70" r="59" stroke="#39866B" strokeOpacity=".15" strokeWidth="7" fill="none"/>
+      <circle cx="70" cy="70" r="59" stroke="#39866B" strokeWidth="7" fill="none" strokeDasharray="356.46 370.71" strokeLinecap="round" transform="rotate(-90 70 70)"/>
+      <path d="M45 69 L63 87 L96 51" stroke="#39866B" strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+    <title size="2xl">ADA 无障碍课程结课</title>
+    <caption>Website Accessibility & Shopify Development</caption>
+  </box>
+  <divider/>
+  <grid columns={3}>
+    <grid-item><box align="center"><title size="2xl">6</title><caption>学习阶段</caption></box></grid-item>
+    <grid-item><box align="center"><title size="2xl">25</title><caption>已讲授课程</caption></box></grid-item>
+    <grid-item><box align="center"><title size="2xl">1</title><caption>主动跳过</caption></box></grid-item>
+  </grid>
+  <divider/>
+  {#each [{t:"基础与底层原理",n:4,d:4,s:0},{t:"HTML、CSS 无障碍",n:5,d:5,s:0},{t:"JavaScript 与 ARIA",n:5,d:5,s:0},{t:"复杂 UI 组件实战",n:5,d:4,s:1},{t:"Shopify 电商实战",n:4,d:4,s:0},{t:"检测与工程化",n:3,d:3,s:0}] as p}
+    <box gap={1}>
+      <row align="center"><text size="sm">{p.t}</text><spacer/><caption>{p.d}/{p.n}{p.s?" · 跳过1课":""}</caption></row>
+      <row height={6} background="surface-tertiary" radius="full" gap={0} clip>
+        <box background="#39866B" height={6} width={`${p.d/p.n*100}%`}/>
+        {#if p.s}<box background="#999999" height={6} width={`${p.s/p.n*100}%`}/>{/if}
+      </row>
+    </box>
+  {/each}
+  <caption>课程已全部推进完成。第 19 课按照你的选择跳过。课程完成不等同于专业认证。</caption>
+</card>
+
+---
+
+## 六、结课后的实践方向
+
+考虑到你之前已经系统学习了 Shopify Theme 架构、数据模型、Dawn 源码、SEO 和网站性能优化，我认为接下来不必急着继续学习更多零散的无障碍理论。
+
+更有价值的是将这些知识沉淀为实际工程成果。
+
+| 实践项目 | 价值 |
+|---|---|
+| Shopify Accessibility Component Library | 建立可复用的无障碍组件库 |
+| Shopify Accessibility Test Suite | 建立完整的自动化回归测试体系 |
+| Shopify Theme Accessibility Guidelines | 沉淀公司内部开发规范 |
+| Dawn Accessibility Audit | 结合源码进行真实整改实战 |
+| Storefront Quality Dashboard | 统一管理性能、SEO 和无障碍质量 |
+
+其中，我最推荐优先开发一套 **Shopify Theme 无障碍基础组件库**，包含 Modal、Drawer、Tabs、Accordion、Combobox、Carousel、Focus Manager 和 Live Announcer。
+
+这些都是你在日常 Shopify 开发中能够反复使用的基础设施。
+
+至此，整套 ADA 网站无障碍课程正式结束。
+
+希望你以后理解的 Accessibility，不再只是 alt、aria-label、tabindex，也不再只是 Lighthouse 里的一个评分，而是一套与前端架构、组件设计、业务可靠性和用户体验紧密关联的工程能力。

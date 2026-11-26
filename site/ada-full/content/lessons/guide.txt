@@ -1,0 +1,116 @@
+我会按前端开发实战的方式组织这套课程，从 ADA、WCAG 的关系讲起，再逐步深入 HTML、ARIA、交互组件、测试和 Shopify 电商场景。
+
+当然可以。**ADA 无障碍（Accessibility，简称 A11y）是前端开发中非常值得系统学习的一项知识**，尤其是面向欧美市场的跨境电商网站。
+
+它不仅涉及 HTML 语义化、CSS 样式、JavaScript 交互，还涉及浏览器渲染机制、辅助技术、组件设计、用户体验、自动化测试以及法律合规。
+
+结合你的前端开发经验和 Shopify Theme 开发方向，我会将它设计为一套循序渐进的课程，和之前的 Shopify、SEO、网站性能优化课程一样，以理解原理和实际开发为主，而不是简单地罗列规范。
+
+# 一、ADA 网站无障碍系统学习路线
+
+整套课程规划为 **6 个阶段，共 26 课**。以 WCAG 2.2 AA 为主要技术学习目标，覆盖原生前端开发、复杂交互组件以及 Shopify 电商网站。
+
+<box border radius="lg" padding={4} gap={3}>
+  <row align="center">
+    <box background="#E1EBFC" radius="md" size="44px" align="center" justify="center">
+      <icon name="book-open" size="xl" color="#3465B4"/>
+    </box>
+    <box flex={1} gap=0>
+      **阶段一：无障碍基础与底层原理**
+      <caption>第 1～4 课 · 建立完整知识体系</caption>
+    </box>
+  </row>
+  <box padding={{left:2}}>
+    <text size="sm">第 1 课：ADA、WCAG、ARIA 与 A11y</text>
+    <text size="sm">第 2 课：辅助技术与屏幕阅读器</text>
+    <text size="sm">第 3 课：Accessibility Tree 无障碍树</text>
+    <text size="sm">第 4 课：WCAG 四大原则与合规标准</text>
+  </box>
+  <divider/>
+  <row align="center">
+    <box background="#DCF2E6" radius="md" size="44px" align="center" justify="center">
+      <icon name="code-xml" size="xl" color="#29835B"/>
+    </box>
+    <box flex={1} gap=0>
+      **阶段二：HTML、CSS 无障碍开发**
+      <caption>第 5～9 课 · 掌握基础开发规范</caption>
+    </box>
+  </row>
+  <box padding={{left:2}}>
+    <text size="sm">第 5 课：HTML 语义化与 Landmark 地标</text>
+    <text size="sm">第 6 课：图片、SVG、Icon 与多媒体</text>
+    <text size="sm">第 7 课：表单、Label 与错误提示</text>
+    <text size="sm">第 8 课：颜色对比度、字体与响应式布局</text>
+    <text size="sm">第 9 课：元素隐藏、动画与 CSS 无障碍</text>
+  </box>
+  <divider/>
+  <row align="center">
+    <box background="#EFE5FA" radius="md" size="44px" align="center" justify="center">
+      <icon name="keyboard" size="xl" color="#8450BC"/>
+    </box>
+    <box flex={1} gap=0>
+      **阶段三：JavaScript 与 ARIA 深入**
+      <caption>第 10～14 课 · 核心交互能力</caption>
+    </box>
+  </row>
+  <box padding={{left:2}}>
+    <text size="sm">第 10 课：键盘导航与 tabindex</text>
+    <text size="sm">第 11 课：Focus Management 焦点管理</text>
+    <text size="sm">第 12 课：WAI-ARIA 属性与 Role 详解</text>
+    <text size="sm">第 13 课：Accessible Name 与 Description 计算规则</text>
+    <text size="sm">第 14 课：Live Region 与动态内容更新</text>
+  </box>
+  <divider/>
+  <row align="center">
+    <box background="#FCEBD9" radius="md" size="44px" align="center" justify="center">
+      <icon name="panels-top-left" size="xl" color="#B6742F"/>
+    </box>
+    <box flex={1} gap=0>
+      **阶段四：复杂 UI 组件无障碍实战**
+      <caption>第 15～19 课 · 可直接应用于工作</caption>
+    </box>
+  </row>
+  <box padding={{left:2}}>
+    <text size="sm">第 15 课：Modal、Dialog、Drawer 弹窗组件</text>
+    <text size="sm">第 16 课：Dropdown、Menu、Combobox 下拉组件</text>
+    <text size="sm">第 17 课：Tabs、Accordion、Tooltip 组件</text>
+    <text size="sm">第 18 课：Carousel、Slider 轮播组件</text>
+    <text size="sm">第 19 课：SPA 路由、异步请求与动态页面</text>
+  </box>
+  <divider/>
+  <row align="center">
+    <box background="#DCEFED" radius="md" size="44px" align="center" justify="center">
+      <icon name="shopping-cart" size="xl" color="#287F79"/>
+    </box>
+    <box flex={1} gap=0>
+      **阶段五：Shopify 电商网站无障碍实战**
+      <caption>第 20～23 课 · 结合真实业务场景</caption>
+    </box>
+  </row>
+  <box padding={{left:2}}>
+    <text size="sm">第 20 课：Header、Mega Menu 与商品搜索</text>
+    <text size="sm">第 21 课：商品详情页、Variant Picker 与商品图库</text>
+    <text size="sm">第 22 课：Collection 筛选、排序与分页</text>
+    <text size="sm">第 23 课：加购、Cart Drawer、Checkout 与 Dawn 源码</text>
+  </box>
+  <divider/>
+  <row align="center">
+    <box background="#FBE2E2" radius="md" size="44px" align="center" justify="center">
+      <icon name="clipboard-check" size="xl" color="#B94848"/>
+    </box>
+    <box flex={1} gap=0>
+      **阶段六：无障碍检测、修复与工程化**
+      <caption>第 24～26 课 · 建立完整开发闭环</caption>
+    </box>
+  </row>
+  <box padding={{left:2}}>
+    <text size="sm">第 24 课：Lighthouse、axe、WAVE 与浏览器调试</text>
+    <text size="sm">第 25 课：人工测试、屏幕阅读器测试与问题修复</text>
+    <text size="sm">第 26 课：自动化测试、CI/CD、团队规范与合规审计</text>
+  </box>
+</box>
+
+学完整套课程后，你应该能够独立开发具有无障碍能力的组件、排查现有网站的无障碍问题、阅读第三方 ADA 审计报告，并且在开发阶段就避免大部分常见问题。
+
+---
+

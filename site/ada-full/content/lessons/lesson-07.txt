@@ -1,0 +1,2552 @@
+# 第 7 课：表单、Label 与错误提示
+
+<row align="center">
+  <caption>阶段二：HTML、CSS 无障碍开发</caption>
+  <spacer/>
+  <caption>7 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="26.92%" radius="full"/>
+</box>
+
+上一课我们学习了图片、SVG、Icon 和多媒体无障碍。
+
+这一课，我们重点学习 **Form Accessibility（表单无障碍）**。
+
+表单是电商网站中最重要的交互场景之一。在 Shopify Theme 开发中，几乎每个核心业务模块都涉及表单：
+
+| 业务场景 | 表单控件 |
+|---|---|
+| 商品详情页 | Variant Picker、Quantity Input |
+| Collection 页 | Checkbox、Radio、Price Range |
+| Predictive Search | Search Input |
+| Newsletter | Email Input |
+| Customer Account | 登录、注册、密码重置 |
+| Cart | 商品数量、订单备注 |
+| Checkout | 收货地址、配送方式、支付信息 |
+
+表单无障碍涉及的内容远不止给 input 添加 label，还需要考虑控件名称、分组关系、输入约束、禁用状态、错误处理、焦点管理以及动态消息播报。
+
+---
+
+## 1. 一个无障碍表单应该具备什么？
+
+假设我们需要开发一个用户注册表单。
+
+<box border radius="lg" padding={4} gap={3}>
+  <title size="xl">Create account</title>
+  <caption>All fields are required.</caption>
+  <box gap={1}>
+    **Full name**
+    <box border radius="md" padding={3}>
+      <text size="sm">Alex Smith</text>
+    </box>
+  </box>
+  <box gap={1}>
+    **Email address**
+    <box border={{size:2,color:"#B83E3E"}} radius="md" padding={3}>
+      example.com
+    </box>
+    <row align="start" gap={1}>
+      <icon name="alert-circle" color="danger" size="sm"/>
+      <box flex={1}><text color="danger" size="sm">Enter a valid email address, such as name@example.com.</text></box>
+    </row>
+  </box>
+  <box gap={1}>
+    **Password**
+    <row border radius="md" padding={3} align="center">
+      ••••••••••
+      <spacer/>
+      <icon name="eye"/>
+    </row>
+    <caption>Use at least 8 characters.</caption>
+  </box>
+  <row align="center">
+    <box size="18px" border radius="sm"/>
+    <text size="sm">I agree to the Terms of Service.</text>
+  </row>
+  <box background="#292929" theme="dark" radius="md" padding={3} align="center">
+    <text color="#FFFFFF" weight="medium">Create account</text>
+  </box>
+  <caption>注册表单无障碍设计示意</caption>
+</box>
+
+对于视觉用户，可以通过文字、输入框、红色边框和错误提示理解表单。
+
+但对于屏幕阅读器用户，我们需要保证他们也能获取以下信息：
+
+| 信息 | 对应的实现机制 |
+|---|---|
+| 这是什么控件？ | HTML 标签、Role |
+| 需要输入什么？ | label、Accessible Name |
+| 当前输入了什么？ | Value |
+| 是否必填？ | required |
+| 有什么输入限制？ | maxlength、pattern 等 |
+| 有哪些补充说明？ | aria-describedby |
+| 当前输入是否错误？ | aria-invalid |
+| 错误原因是什么？ | 错误说明及关联关系 |
+| 如何修复错误？ | 明确的错误建议 |
+| 提交是否成功？ | Live Region、焦点管理 |
+
+这就是我们本课需要逐步解决的问题。
+
+## 2. label 与 input 的关联机制
+
+### 2.1 为什么 input 需要 label？
+
+来看一段非常常见的代码：
+
+```html
+<span>Email address</span>
+<input type="email">
+```
+
+虽然文字紧挨着输入框，但是浏览器并不会仅仅因为它们在视觉上相邻，就自动建立两者之间的标签关系。
+
+对应的 Accessibility Tree 可能是：
+
+```text
+StaticText "Email address"
+textbox ""
+```
+
+输入框本身缺少明确的可访问名称。
+
+正确的写法：
+
+```html
+<label for="email">Email address</label>
+
+<input id="email" type="email">
+```
+
+对应的无障碍信息：
+
+```text
+textbox
+  Name: Email address
+  Value: ""
+  Focusable: true
+```
+
+屏幕阅读器可能播报：
+
+> Email address, edit, blank.
+
+### 2.2 label 的两种关联方式
+
+**方式一：显式关联（Explicit Association）**
+
+通过 `for` 和 `id` 建立关系。
+
+```html
+<label for="email">Email address</label>
+
+<input
+  id="email"
+  name="email"
+  type="email"
+>
+```
+
+**方式二：隐式关联（Implicit Association）**
+
+直接将表单控件放在 label 内部。
+
+```html
+<label>
+  Email address
+
+  <input
+    name="email"
+    type="email"
+  >
+</label>
+```
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **显式关联**
+      <svg viewBox="0 0 150 140" width="100%">
+        <rect x="5" y="5" width="140" height="42" rx="5" fill="#5185C5" fillOpacity=".1" stroke="#5185C5"/>
+        <text x="75" y="22" fontSize="11" textAnchor="middle" fill="currentColor">label</text>
+        <text x="75" y="37" fontSize="11" textAnchor="middle" fill="currentColor">for="email"</text>
+        <path d="M75 47 V81 M70 75 L75 81 L80 75" fill="none" stroke="#5185C5" strokeWidth="1.5"/>
+        <rect x="5" y="83" width="140" height="46" rx="5" fill="#39866B" fillOpacity=".1" stroke="#39866B"/>
+        <text x="75" y="102" fontSize="11" textAnchor="middle" fill="currentColor">input</text>
+        <text x="75" y="117" fontSize="11" textAnchor="middle" fill="currentColor">id="email"</text>
+      </svg>
+      <caption>通过 ID 建立关联，布局更加灵活。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **隐式关联**
+      <svg viewBox="0 0 150 140" width="100%">
+        <rect x="5" y="5" width="140" height="124" rx="5" fill="#5185C5" fillOpacity=".07" stroke="#5185C5"/>
+        <text x="15" y="24" fontSize="11" fill="currentColor">label</text>
+        <text x="15" y="47" fontSize="11" fill="currentColor">Email address</text>
+        <rect x="15" y="64" width="120" height="48" rx="5" fill="#39866B" fillOpacity=".1" stroke="#39866B"/>
+        <text x="75" y="92" fontSize="12" textAnchor="middle" fill="currentColor">input</text>
+      </svg>
+      <caption>通过 DOM 包含关系建立关联。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+两种方式都有效。
+
+在普通表单中，我更建议优先采用显式关联，因为它更方便处理独立的布局、错误提示、组件封装和 ID 引用关系。
+
+而对于 Checkbox、Radio、颜色选择器等组件，隐式关联也非常方便。
+
+### 2.3 label 不仅仅提供无障碍语义
+
+label 还有一个非常实用的原生交互能力：点击关联的标签，可以激活对应控件或将焦点移至控件。
+
+例如：
+
+```html
+<input type="checkbox" id="remember">
+
+<label for="remember">
+  Remember me
+</label>
+```
+
+{@body const [remember,setRemember]=DIL.useState(false)}
+<card gap={3}>
+  **点击区域体验**
+  <checkbox checked={remember} onChange={setRemember}>Remember me</checkbox>
+  <divider/>
+  <row align="center">
+    <caption>当前 checked 状态</caption>
+    <spacer/>
+    <text color={remember?"success":"secondary"}>{String(remember)}</text>
+  </row>
+  <caption>尝试点击文字而不是左侧复选框，也可以切换选中状态。这是原生 label 关联所提供的典型交互能力。</caption>
+</card>
+
+这对运动障碍用户和移动端用户非常有帮助，因为他们不必精准点击一个很小的复选框。
+
+### 2.4 label 的 JavaScript API
+
+浏览器还提供了相关的 DOM API。
+
+```html
+<label id="email-label" for="email">
+  Email address
+</label>
+
+<input id="email" type="email">
+```
+
+```javascript
+const input = document.querySelector('#email');
+const label = document.querySelector('#email-label');
+
+// 获取与 input 关联的 label 元素集合
+console.log(input.labels);
+
+// 获取 label 关联的表单控件
+console.log(label.control);
+
+// 获取 label 的 for 属性
+console.log(label.htmlFor);
+```
+
+需要注意，`input.labels` 获取的是原生 HTML label 关联关系，并不会将 `aria-label` 或 `aria-labelledby` 当作原生 label 元素返回。
+
+---
+
+## 3. label、placeholder、aria-label、aria-labelledby 的区别
+
+这是表单开发中最容易混淆的四个概念。
+
+假设我们要开发一个 Email 输入框。
+
+### 3.1 label
+
+```html
+<label for="email">Email address</label>
+<input id="email" type="email">
+```
+
+label 同时提供可见文字、可访问名称和原生标签交互能力。
+
+这是绝大多数表单控件的首选方案。
+
+### 3.2 placeholder
+
+```html
+<input
+  type="email"
+  placeholder="name@example.com"
+>
+```
+
+placeholder 的主要作用是提供输入示例或简短提示，而不是替代 label。
+
+虽然浏览器在缺少其他名称来源时，可能将 placeholder 作为后备可访问名称，但这种方式存在明显问题：输入内容后提示会消失，用户可能忘记字段的用途。
+
+### 3.3 aria-label
+
+```html
+<input
+  type="search"
+  aria-label="Search products"
+  placeholder="Search..."
+>
+```
+
+`aria-label` 直接为元素提供可访问名称，但不会生成视觉文字，也不会提供原生 label 的点击关联行为。
+
+比较适合用途已经非常明确、没有可见标签的紧凑型组件，例如 Header 中的搜索框。
+
+### 3.4 aria-labelledby
+
+```html
+<span id="email-title">Email address</span>
+
+<input
+  type="email"
+  aria-labelledby="email-title"
+>
+```
+
+`aria-labelledby` 通过 ID 引用其他元素的文字作为可访问名称。
+
+它还支持引用多个元素：
+
+```html
+<span id="field-name">Email address</span>
+<span id="field-required">Required</span>
+
+<input
+  type="email"
+  aria-labelledby="field-name field-required"
+>
+```
+
+最终名称可以是 `Email address Required`。
+
+但对于必填状态本身，仍然应优先使用原生 `required` 属性。
+
+### 3.5 四种方式对比
+
+| 特性 | label | placeholder | aria-label | aria-labelledby |
+|---|---|---|---|---|
+| 提供可访问名称 | 是 | 可能作为后备 | 是 | 是 |
+| 自身具有可见文字 | 是 | 是 | 否 | 否 |
+| 输入后提示仍存在 | 是 | 否 | 不适用 | 取决于引用元素 |
+| 点击文字激活控件 | 是 | 不适用 | 否 | 不自动支持 |
+| 支持引用多个元素 | 否 | 否 | 否 | 是 |
+| 推荐作为常规表单标签 | 是 | 否 | 特定场景 | 特定场景 |
+
+W3C 特别强调，即使一个控件已经通过 `aria-label` 获得可访问名称，也不代表它一定满足 WCAG 3.3.2 的标签和说明要求，因为视觉用户也需要理解控件用途。<Cite refs={["turn145909search3","turn145909search5"]}/>
+
+### 3.6 实际体验 placeholder 与 label
+
+{@body const [emailDemo,setEmailDemo]=DIL.useState("")}
+<card gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **仅使用 placeholder**
+        <box height="23px"/>
+        <input value={emailDemo} onChange={setEmailDemo} placeholder="Email address"/>
+        <caption>输入内容后，字段名称消失。</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **使用持久标签**
+        <label>Email address</label>
+        <input value={emailDemo} onChange={setEmailDemo} placeholder="name@example.com"/>
+        <caption>输入内容后，字段名称仍然可见。</caption>
+      </box>
+    </grid-item>
+  </grid>
+  <button block variant="outline" color="secondary" onClick={()=>setEmailDemo("alex@example.com")}>模拟填写邮箱</button>
+  <button block variant="ghost" color="secondary" onClick={()=>setEmailDemo("")}>清空</button>
+</card>
+
+现在很多 UI 设计会采用 Floating Label（浮动标签），输入时标签移动到输入框上方。
+
+这种设计没有问题，但应该使用真正的 HTML `label` 实现，而不是仅通过 placeholder 和 CSS 模拟标签。
+
+---
+
+## 4. Accessible Name 与 Accessible Description
+
+一个表单控件通常需要两种不同的信息：
+
+- **Name：这个输入框是什么？**
+- **Description：输入这个字段时需要注意什么？**
+
+例如密码输入框：
+
+```html
+<label for="password">Password</label>
+
+<input
+  id="password"
+  type="password"
+  aria-describedby="password-help"
+>
+
+<p id="password-help">
+  Use at least 8 characters.
+</p>
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  <box gap={1}>
+    **Password**
+    <row border radius="md" padding={3}>
+      <text color="secondary">Enter password</text>
+      <spacer/>
+      <icon name="eye"/>
+    </row>
+    <caption>Use at least 8 characters.</caption>
+  </box>
+  <divider/>
+  **Accessibility Node**
+  <table>
+    {#each [["Role","textbox（密码输入控件）"],["Name","Password"],["Description","Use at least 8 characters."],["Value","空"],["Focusable","true"]] as r}
+      <table-row><table-cell><caption>{r[0]}</caption></table-cell><table-cell>{r[1]}</table-cell></table-row>
+    {/each}
+  </table>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap={1}>
+      <caption>模拟屏幕阅读器播报</caption>
+      “Password, protected edit. Use at least 8 characters.”
+    </box>
+  </row>
+</box>
+
+`aria-describedby` 不会覆盖原有的 Accessible Name，而是提供补充说明。
+
+它也支持引用多个 ID：
+
+```html
+<input
+  id="password"
+  type="password"
+  aria-describedby="password-help password-policy"
+>
+
+<p id="password-help">
+  Use at least 8 characters.
+</p>
+
+<p id="password-policy">
+  Do not reuse your previous password.
+</p>
+```
+
+辅助技术可以获取两段描述。
+
+### 常见误区
+
+```html
+<input
+  type="password"
+  aria-label="Password, use at least 8 characters,
+    do not reuse your previous password"
+>
+```
+
+虽然这种写法可能让用户听到所有信息，但它将字段名称和输入说明混在了一起。
+
+更合理的设计是：
+
+| 属性 | 职责 |
+|---|---|
+| `aria-label` | 提供名称 |
+| `aria-labelledby` | 引用名称 |
+| `aria-describedby` | 引用补充说明 |
+| `aria-errormessage` | 引用错误信息 |
+
+不要让一个属性承担所有职责。
+
+---
+
+## 5. fieldset 与 legend：表单分组语义
+
+假设我们正在开发 Shopify 商品变体选择器。
+
+<box border radius="lg" padding={3} gap={3}>
+  **Color**
+  <row gap={3}>
+    {#each [{c:"#292929",n:"Black"},{c:"#D5BEA2",n:"Beige"},{c:"#758DA5",n:"Blue"}] as v,i}
+      <box align="center" gap={1}>
+        <box size="36px" radius="full" border={{size:2,color:i===0?"#5185C5":"transparent"}} align="center" justify="center">
+          <box size="28px" background={v.c} radius="full"/>
+        </box>
+        <caption>{v.n}</caption>
+      </box>
+    {/each}
+  </row>
+  **Size**
+  <row gap={2}>
+    {#each ["S","M","L","XL"] as s,i}
+      <box flex={1} border={{size:i===1?2:1,color:i===1?"#5185C5":"#88888850"}} radius="sm" padding={2} align="center">{s}</box>
+    {/each}
+  </row>
+</box>
+
+很多开发者可能会这样编写 HTML：
+
+```html
+<div class="variant-picker">
+  <div>Size</div>
+
+  <label>
+    <input type="radio" name="size" value="S">
+    S
+  </label>
+
+  <label>
+    <input type="radio" name="size" value="M">
+    M
+  </label>
+</div>
+```
+
+虽然每个 radio 都具有名称，但没有明确地将 `Size` 与整个选项组建立语义关联。
+
+推荐使用：
+
+```html
+<fieldset>
+  <legend>Size</legend>
+
+  <label>
+    <input type="radio" name="size" value="S">
+    S
+  </label>
+
+  <label>
+    <input type="radio" name="size" value="M" checked>
+    M
+  </label>
+
+  <label>
+    <input type="radio" name="size" value="L">
+    L
+  </label>
+</fieldset>
+```
+
+{@body const [size,setSize]=DIL.useState("M")}
+<card gap={3}>
+  <label>Size</label>
+  <radio-group direction="row" value={size} onChange={setSize}>
+    {#each ["S","M","L","XL"] as s}
+      <radio value={s}>{s}</radio>
+    {/each}
+  </radio-group>
+  <divider/>
+  **Accessibility Tree 模拟**
+  <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+    <text size="sm" weight="medium">group "Size"</text>
+    {#each ["S","M","L","XL"] as s}
+      <row align="center" padding={{left:3}}>
+        <icon name={size===s?"circle-dot":"circle"} color={size===s?"success":"secondary"}/>
+        <text size="sm">{`radio "${s}"`}</text>
+        <spacer/>
+        <caption>{size===s?"checked":"not checked"}</caption>
+      </row>
+    {/each}
+  </box>
+  <row align="center">
+    <icon name="volume-2"/>
+    <box flex={1}>
+      <caption>模拟播报</caption>
+      <text size="sm">Size, {size}, radio button, checked, {["S","M","L","XL"].indexOf(size)+1} of 4.</text>
+    </box>
+  </row>
+</card>
+
+其中三个属性或元素分别承担不同职责：
+
+| 元素或属性 | 作用 |
+|---|---|
+| `fieldset` | 建立表单控件分组 |
+| `legend` | 提供分组名称 |
+| 相同的 `name` | 建立原生 radio 互斥选择关系 |
+
+特别注意：即使多个 radio 具有相同 name，也不代表它们已经获得了分组名称。`legend` 仍然非常重要。
+
+如果默认的 fieldset 边框不符合设计稿，可以直接通过 CSS 移除：
+
+```css
+fieldset {
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+```
+
+没有必要为了去掉默认边框，将 fieldset 替换成 div。
+
+---
+
+## 6. required 与 aria-required 的区别
+
+两者都可以向辅助技术表达必填状态，但是实际行为完全不同。
+
+```html
+<input type="email" required>
+```
+
+```html
+<input type="email" aria-required="true">
+```
+
+| 特性 | required | aria-required="true" |
+|---|---|---|
+| 表达必填语义 | 是 | 是 |
+| 触发原生必填验证 | 是 | 否 |
+| 阻止无效表单提交 | 默认是 | 否 |
+| 支持 CSS `:required` | 是 | 否 |
+| 适用于支持该属性的原生控件 | 是 | 是 |
+| 适用于自定义 ARIA 控件 | 否 | 适用角色可以使用 |
+
+例如：
+
+```html
+<form>
+  <label for="email">Email address</label>
+
+  <input
+    id="email"
+    type="email"
+    name="email"
+    aria-required="true"
+  >
+
+  <button type="submit">Submit</button>
+</form>
+```
+
+如果邮箱为空，`aria-required="true"` 本身并不会阻止表单提交。
+
+因此，原生表单控件通常应该直接使用 `required`，没有必要再重复添加 `aria-required="true"`。
+
+### 6.1 必填状态的视觉表达
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Email address** <text color="danger" inline>*</text>
+      <box border radius="sm" height="38px"/>
+      <caption>使用星号标识，需要让用户知道星号代表必填。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Email address** <caption>Required</caption>
+      <box border radius="sm" height="38px"/>
+      <caption>通过明确的文字说明必填状态。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+如果采用星号，可以在表单顶部统一说明。
+
+```html
+<p>Fields marked with * are required.</p>
+
+<label for="email">
+  Email address
+  <span aria-hidden="true">*</span>
+</label>
+
+<input id="email" type="email" required>
+```
+
+这里星号负责视觉表达，而原生 required 负责程序化表达，避免辅助技术不必要地重复播报。
+
+---
+
+## 7. disabled、readonly、aria-disabled 的区别
+
+这三个属性非常重要，因为它们不仅影响 Accessibility Tree，还涉及焦点、用户交互、表单提交和验证。
+
+### 7.1 disabled
+
+```html
+<input
+  name="email"
+  type="email"
+  value="alex@example.com"
+  disabled
+>
+```
+
+原生 disabled 控件通常具有以下行为：
+
+- 不允许用户修改或激活。
+- 不进入正常 Tab 焦点顺序。
+- 不参与原生表单约束验证。
+- 不作为成功控件参与表单数据提交。
+- 向辅助技术暴露禁用状态。
+
+例如售罄商品的加购按钮：
+
+```html
+<button type="submit" disabled>
+  Sold out
+</button>
+```
+
+### 7.2 readonly
+
+```html
+<input
+  name="email"
+  type="email"
+  value="alex@example.com"
+  readonly
+>
+```
+
+readonly 表示用户可以查看、聚焦和复制内容，但不能直接编辑。
+
+它与 disabled 的一个重要区别是：readonly 控件仍然可以参与表单数据提交。
+
+需要注意，readonly 只适用于支持该属性的控件，例如文本输入框、数字输入框和 textarea，并不适用于 select、checkbox、radio 和 button。
+
+### 7.3 aria-disabled
+
+```html
+<button
+  type="button"
+  aria-disabled="true"
+>
+  Add to cart
+</button>
+```
+
+这个属性向辅助技术表达禁用状态，但不会自动禁用按钮的原生交互。
+
+也就是说，按钮仍然可能获得焦点，并触发 click 事件。
+
+因此，如果采用 `aria-disabled`，必须自己阻止对应操作。
+
+```javascript
+button.addEventListener('click', event => {
+  if (button.getAttribute('aria-disabled') === 'true') {
+    event.preventDefault();
+    return;
+  }
+
+  addToCart();
+});
+```
+
+如果它是表单提交按钮，还要在表单提交逻辑中处理禁用状态，因为表单可能通过其他方式被提交。
+
+### 7.4 三种属性完整对比
+
+| 特性 | disabled | readonly | aria-disabled |
+|---|---|---|---|
+| 向辅助技术表达状态 | 禁用 | 只读 | 禁用 |
+| 默认可以 Tab 聚焦 | 否 | 是 | 保持原行为 |
+| 用户可修改输入值 | 否 | 否 | 默认仍可修改 |
+| 用户可激活按钮 | 否 | 不适用 | 默认仍可激活 |
+| 参与表单提交 | 否 | 是 | 默认参与 |
+| 参与原生约束验证 | 否 | 否 | 默认不变 |
+| 自动应用浏览器禁用样式 | 是 | 视浏览器而定 | 否 |
+| 需要额外 JS 禁用行为 | 否 | 否 | 是 |
+
+以上以支持这些属性的原生表单控件为例。
+
+### 7.5 交互演示：不同状态下的 FormData
+
+{@body const fieldModes=[{id:"normal",name:"正常输入",attr:"",focus:true,edit:true,submit:true,ax:"正常"},{id:"disabled",name:"disabled",attr:"disabled",focus:false,edit:false,submit:false,ax:"disabled: true"},{id:"readonly",name:"readonly",attr:"readonly",focus:true,edit:false,submit:true,ax:"readonly: true"},{id:"aria",name:"aria-disabled",attr:'aria-disabled="true"',focus:true,edit:true,submit:true,ax:"disabled: true"}]}
+{@body const [fieldMode,setFieldMode]=DIL.useState("normal")}
+{@body const [fieldValue,setFieldValue]=DIL.useState("alex@example.com")}
+{@body const [formDataShow,setFormDataShow]=DIL.useState(false)}
+{@body const field=fieldModes.find(x=>x.id===fieldMode)}
+<card gap={3}>
+  **表单控件状态模拟器**
+  <radio-group direction="col" value={fieldMode} onChange={v=>{setFieldMode(v);setFormDataShow(false)}}>
+    {#each fieldModes as f}
+      <radio value={f.id}>{f.name}</radio>
+    {/each}
+  </radio-group>
+  <box background="surface-tertiary" radius="md" padding={3}>
+    <text size="sm">{`<input name="email" ${field.attr}>`}</text>
+  </box>
+  <label>Email address</label>
+  {#if fieldMode==="readonly"}
+    <box border radius="md" padding={3}>
+      {fieldValue}
+    </box>
+    <caption>只读状态示意</caption>
+  {:else}
+    <input value={fieldValue} onChange={v=>{setFieldValue(v);setFormDataShow(false)}} disabled={fieldMode==="disabled"}/>
+  {/if}
+  {#each [{n:"支持键盘聚焦",v:field.focus},{n:"允许用户编辑",v:field.edit},{n:"参与 FormData",v:field.submit}] as p}
+    <row align="center">
+      <text size="sm">{p.n}</text>
+      <spacer/>
+      <icon name={p.v?"check-circle":"x-circle"} color={p.v?"success":"secondary"}/>
+    </row>
+  {/each}
+  <row>
+    <caption>无障碍状态</caption>
+    <spacer/>
+    <text size="sm">{field.ax}</text>
+  </row>
+  <button block color="secondary" onClick={()=>setFormDataShow(true)}>模拟 new FormData(form)</button>
+  {#if formDataShow}
+    <box background="surface-tertiary" radius="md" padding={3}>
+      <caption>模拟序列化结果</caption>
+      <text preserveWhitespace={true}>{JSON.stringify(field.submit?{email:fieldValue}:{},null,2)}</text>
+    </box>
+  {/if}
+  {#if fieldMode==="aria"}
+    <text size="sm" color="warning">注意：ARIA 已经声明控件不可用，但实际仍然可以编辑。这说明 ARIA 不会自动实现禁用行为。</text>
+  {/if}
+  <caption>此处为原生属性行为的模拟，非实际 HTML FormData 调试环境。</caption>
+</card>
+
+### 7.6 Shopify 中什么时候适合使用 aria-disabled？
+
+例如商品加购过程中：
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      **正常状态**
+      <caption>允许提交加购请求</caption>
+    </box>
+    <box background="#292929" theme="dark" radius="sm" padding={3}><text color="#FFFFFF" size="sm">Add to cart</text></box>
+  </row>
+  <divider/>
+  <row align="center">
+    <box flex={1} gap={1}>
+      **请求进行中**
+      <caption>防止重复加购，同时可保留焦点</caption>
+    </box>
+    <box background="#666666" theme="dark" radius="sm" padding={3}>
+      <row align="center"><icon name="loader" color="#FFFFFF"/><text color="#FFFFFF" size="sm">Adding...</text></row>
+    </box>
+  </row>
+  <divider/>
+  <row align="center">
+    <box flex={1} gap={1}>
+      **请求完成**
+      <caption>恢复交互并通知用户结果</caption>
+    </box>
+    <box background="#292929" theme="dark" radius="sm" padding={3}><text color="#FFFFFF" size="sm">Add to cart</text></box>
+  </row>
+</box>
+
+如果请求期间使用原生 disabled，当前按钮可能失去焦点。
+
+如果希望保留用户的操作位置，可以考虑使用 `aria-disabled="true"`，同时通过 JavaScript 阻止重复请求。
+
+不过，不应该因此在所有场景中都用 aria-disabled 替代 disabled。对于真正不可用的控件，原生 disabled 通常仍然是最简单、最可靠的选择。
+
+---
+
+## 8. HTML 原生表单验证机制
+
+在学习自定义无障碍表单验证之前，我们需要先理解浏览器原生提供了哪些能力。
+
+HTML 已经提供了一整套 Constraint Validation API（约束验证 API）。
+
+### 8.1 原生验证属性
+
+| 属性 | 作用 | 示例 |
+|---|---|---|
+| `required` | 必须填写 | `required` |
+| `type` | 类型约束 | `type="email"` |
+| `minlength` | 最小字符长度 | `minlength="8"` |
+| `maxlength` | 最大字符长度 | `maxlength="20"` |
+| `min` | 最小值 | `min="1"` |
+| `max` | 最大值 | `max="10"` |
+| `step` | 数值步长 | `step="1"` |
+| `pattern` | 正则表达式约束 | `pattern="[0-9]{5}"` |
+
+例如 Shopify 商品购买数量：
+
+```html
+<label for="quantity">Quantity</label>
+
+<input
+  id="quantity"
+  name="quantity"
+  type="number"
+  value="1"
+  min="1"
+  max="10"
+  step="1"
+  required
+>
+```
+
+浏览器会根据这些属性进行相应的原生验证。
+
+### 8.2 ValidityState 对象
+
+你可以通过 JavaScript 获取控件的验证结果。
+
+```javascript
+const input = document.querySelector('#quantity');
+
+console.log(input.validity);
+```
+
+`validity` 返回的是 ValidityState 对象，它包含以下属性：
+
+| 属性 | 含义 |
+|---|---|
+| `valueMissing` | 必填字段没有输入 |
+| `typeMismatch` | 不符合输入类型 |
+| `patternMismatch` | 不匹配 pattern |
+| `tooLong` | 超过最大长度 |
+| `tooShort` | 小于最小长度 |
+| `rangeUnderflow` | 小于 min |
+| `rangeOverflow` | 大于 max |
+| `stepMismatch` | 不符合 step |
+| `badInput` | 浏览器无法将输入转换为所需类型 |
+| `customError` | 存在自定义错误 |
+| `valid` | 是否通过验证 |
+
+例如：
+
+```javascript
+const email = document.querySelector('#email');
+
+console.log(email.validity.valueMissing);
+console.log(email.validity.typeMismatch);
+console.log(email.validity.valid);
+```
+
+此外还有以下 API：
+
+| API | 作用 |
+|---|---|
+| `checkValidity()` | 检查是否通过约束验证 |
+| `reportValidity()` | 检查并请求浏览器展示原生错误提示 |
+| `setCustomValidity(message)` | 设置自定义验证错误 |
+| `validationMessage` | 获取当前验证错误信息 |
+| `willValidate` | 判断控件是否参与约束验证 |
+
+这些是浏览器原生能力，并不是 ARIA 提供的功能。<Cite refs={["turn145909search4","turn145909search20"]}/>
+
+### 8.3 ValidityState 交互模拟
+
+{@body const [qty,setQty]=DIL.useState("1")}
+{@body const quantity=Number(qty)}
+{@body const missing=qty.trim()===""}
+{@body const bad=!missing&&!Number.isFinite(quantity)}
+{@body const under=!missing&&!bad&&quantity<1}
+{@body const over=!missing&&!bad&&quantity>10}
+{@body const step=!missing&&!bad&&!Number.isInteger(quantity)}
+{@body const isValid=!missing&&!bad&&!under&&!over&&!step}
+<card gap={3}>
+  **商品数量验证模拟器**
+  <caption>约束：required · min=1 · max=10 · step=1</caption>
+  <row align="center">
+    <button uniform variant="outline" color="secondary" onClick={()=>setQty(String((Number(qty)||0)-1))}><icon name="minus"/></button>
+    <box flex={1}><input value={qty} onChange={setQty}/></box>
+    <button uniform variant="outline" color="secondary" onClick={()=>setQty(String((Number(qty)||0)+1))}><icon name="plus"/></button>
+  </row>
+  <row wrap="wrap" gap={2}>
+    {#each ["","0","1","5","10","11","2.5"] as v}
+      <button size="sm" variant="outline" color="secondary" onClick={()=>setQty(v)}>{v===""?"空值":v}</button>
+    {/each}
+  </row>
+  <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+    <caption>ValidityState 简化结果</caption>
+    {#each [{k:"valueMissing",v:missing},{k:"badInput",v:bad},{k:"rangeUnderflow",v:under},{k:"rangeOverflow",v:over},{k:"stepMismatch",v:step},{k:"valid",v:isValid}] as r}
+      <row align="center">
+        <text size="sm">{r.k}</text>
+        <spacer/>
+        <text size="sm" color={r.k==="valid"?(r.v?"success":"danger"):(r.v?"danger":"secondary")}>{String(r.v)}</text>
+      </row>
+    {/each}
+  </box>
+  <row align="center">
+    <icon name={isValid?"check-circle":"alert-circle"} color={isValid?"success":"danger"}/>
+    <text size="sm" color={isValid?"success":"danger"}>{isValid?"数量通过验证。":missing?"Please enter a quantity.":bad?"Please enter a number.":under?"Quantity must be at least 1.":over?"Quantity must not exceed 10.":"Please enter a whole number."}</text>
+  </row>
+  <caption>用于理解常见数值约束，不完全复现浏览器对输入字符及本地化数字的解析行为。</caption>
+</card>
+
+### 8.4 setCustomValidity 的常见陷阱
+
+假设我们要验证数量不能超过当前库存。
+
+```javascript
+if (Number(input.value) > availableStock) {
+  input.setCustomValidity('Not enough stock.');
+} else {
+  input.setCustomValidity('');
+}
+```
+
+一定不要忘记：
+
+```javascript
+input.setCustomValidity('');
+```
+
+如果曾经设置过自定义错误，但用户修改内容后没有清除这个错误，即使输入已经正确，控件仍然可能无法通过验证。
+
+### 8.5 submit() 与 requestSubmit()
+
+这也是很多前端开发者容易忽略的一个区别。
+
+```javascript
+form.submit();
+```
+
+直接调用 `submit()` 会绕过常规交互式约束验证，并且不会触发普通的 submit 事件。
+
+而：
+
+```javascript
+form.requestSubmit();
+```
+
+更接近用户实际点击提交按钮的行为，会执行适用的约束验证，并在验证通过后触发 submit 事件。
+
+| 行为 | submit() | requestSubmit() |
+|---|---|---|
+| 约束验证 | 跳过 | 执行（未禁用验证时） |
+| 触发 submit 事件 | 否 | 验证通过后触发 |
+| 模拟普通提交按钮 | 否 | 是 |
+
+因此，如果你希望通过 JavaScript 触发一次正常的表单提交流程，通常应该优先考虑 `requestSubmit()`。
+
+---
+
+## 9. aria-invalid、aria-describedby、aria-errormessage
+
+现在我们正式进入表单错误处理的核心部分。
+
+假设用户填写了一个错误的邮箱地址。
+
+<box border radius="lg" padding={3} gap={2}>
+  **Email address**
+  <box border={{size:2,color:"#B83E3E"}} radius="md" padding={3}>example.com</box>
+  <row align="start" gap={1}>
+    <icon name="alert-circle" color="danger"/>
+    <box flex={1}><text size="sm" color="danger">Enter a valid email address, such as name@example.com.</text></box>
+  </row>
+</box>
+
+视觉上需要表达错误状态，而无障碍层面还需要表达错误原因及其对应关系。
+
+### 9.1 aria-invalid
+
+```html
+<input
+  type="email"
+  aria-invalid="true"
+>
+```
+
+表示当前值未通过验证。
+
+它不会自动检查输入值，也不会自动阻止表单提交。
+
+ARIA 支持的值包括：
+
+| 值 | 含义 |
+|---|---|
+| `false` | 没有被标记为无效 |
+| `true` | 当前值无效 |
+| `grammar` | 语法错误 |
+| `spelling` | 拼写错误 |
+
+普通业务表单主要使用 true 和 false。
+
+另外，不建议在页面刚加载、用户尚未填写内容时，就将所有必填输入框设置为 `aria-invalid="true"`。
+
+应当根据用户交互和实际验证结果更新这个状态。
+
+### 9.2 aria-describedby
+
+```html
+<label for="email">Email address</label>
+
+<input
+  id="email"
+  type="email"
+  aria-invalid="true"
+  aria-describedby="email-error"
+>
+
+<p id="email-error">
+  Enter a valid email address.
+</p>
+```
+
+这种实现比较常见，且具有广泛的辅助技术兼容性。
+
+### 9.3 aria-errormessage
+
+ARIA 还提供了一个专门用于关联错误信息的属性：
+
+```html
+<label for="email">Email address</label>
+
+<input
+  id="email"
+  type="email"
+  aria-invalid="true"
+  aria-errormessage="email-error"
+>
+
+<p id="email-error">
+  Enter a valid email address.
+</p>
+```
+
+它用于明确表达：这个 ID 对应的内容是当前控件的错误消息。
+
+当 `aria-invalid="true"` 时，相关错误内容应当可供用户获取；错误解决后，应隐藏或移除错误消息的关联，并同步清除无效状态。<Cite refs={["turn145909search1","turn145909search2"]}/>
+
+### 9.4 应该使用哪一种？
+
+| 特性 | aria-describedby | aria-errormessage |
+|---|---|---|
+| 主要用途 | 补充说明 | 专门关联错误 |
+| 可以关联普通提示 | 是 | 不适合 |
+| 可以关联错误内容 | 是 | 是 |
+| 与 aria-invalid 配合 | 推荐 | 需要配合 |
+| 辅助技术兼容性 | 相对成熟 | 应针对目标环境测试 |
+
+对于需要覆盖多种浏览器和屏幕阅读器的跨境电商项目，我建议优先采用：
+
+```html
+aria-invalid="true"
+aria-describedby="email-help email-error"
+```
+
+它可以同时保留普通说明和错误描述。
+
+不要不加判断地让 `aria-describedby` 和 `aria-errormessage` 同时引用同一错误文本，否则部分辅助技术可能出现重复播报。
+
+---
+
+## 10. 错误提示应该在什么时候出现？
+
+表单验证一般有四种触发时机。
+
+| 验证时机 | 说明 | 建议 |
+|---|---|---|
+| 页面初始化 | 页面加载时验证 | 通常不推荐立即展示错误 |
+| `input` | 每次输入时验证 | 适合修正已有错误、密码规则提示 |
+| `blur` | 离开输入框时验证 | 适合部分字段的即时反馈 |
+| `submit` | 提交表单时验证 | 必须进行完整验证 |
+
+例如用户准备输入邮箱 `alex@example.com`。
+
+如果从输入第一个字母 `a` 开始，就持续播报“请输入有效的邮箱地址”，会严重干扰屏幕阅读器用户的操作。
+
+更合理的验证流程如下。
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"初始状态",d:"不展示错误，提供必要的输入说明"},{t:"用户开始输入",d:"允许用户正常完成输入"},{t:"离开字段或提交表单",d:"根据业务需要进行验证"},{t:"验证失败",d:"展示错误文字，更新 aria-invalid 和关联关系"},{t:"用户修改错误内容",d:"重新验证，适当更新或清除错误"},{t:"验证成功",d:"恢复正常状态，允许后续操作"}] as s,i}
+    <box border radius="md" padding={3} gap={1}>
+      **{s.t}**
+      <caption>{s.d}</caption>
+    </box>
+    {#if i<5}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+</box>
+
+这可以理解为一个简单的表单状态机。
+
+在 React、Vue 等框架中，我们通常会维护：
+
+```javascript
+{
+  value: '',
+  touched: false,
+  dirty: false,
+  invalid: false,
+  error: '',
+  submitting: false
+}
+```
+
+其中 `touched`、`dirty` 等属于应用层状态，并不是浏览器提供的 ARIA 属性。
+
+无障碍状态应该由实际业务状态推导得到，而不是作为一套完全独立的状态单独维护。
+
+---
+
+## 11. 表单错误如何通知屏幕阅读器？
+
+这里涉及我们之前学习的三个核心概念：
+
+- Accessibility Tree。
+- Focus Management。
+- Live Region。
+
+假设用户点击注册按钮，表单验证失败。
+
+即使 JavaScript 已经正确设置了 `aria-invalid="true"`，也不意味着屏幕阅读器一定会主动播报所有错误信息。
+
+通常可以采用三种错误反馈方案。
+
+### 11.1 将焦点移动到第一个错误字段
+
+```javascript
+const firstInvalid = form.querySelector(
+  '[aria-invalid="true"]'
+);
+
+firstInvalid?.focus();
+```
+
+由于焦点进入错误字段，屏幕阅读器可以获取字段名称、无效状态以及通过 `aria-describedby` 关联的错误信息。
+
+这种方式特别适合短表单，例如 Newsletter、登录表单和密码重置表单。
+
+### 11.2 Error Summary（错误摘要）
+
+对于注册、收货地址等包含多个字段的长表单，可以在顶部展示错误摘要。
+
+<box border radius="lg" padding={3} gap={3}>
+  <title size="xl">Shipping address</title>
+  <box border={{size:1,color:"#B83E3E"}} radius="md" padding={3} gap={2}>
+    <row align="center">
+      <icon name="alert-circle" color="danger"/>
+      **There are 3 errors**
+    </row>
+    <text underline={true} size="sm" color="danger">Enter your full name</text>
+    <text underline={true} size="sm" color="danger">Enter a valid email address</text>
+    <text underline={true} size="sm" color="danger">Enter your postal code</text>
+  </box>
+  {#each [{name:"Full name",value:"",error:"Enter your full name"},{name:"Email address",value:"example.com",error:"Enter a valid email address"},{name:"Postal code",value:"",error:"Enter your postal code"}] as f}
+    <box gap={1}>
+      **{f.name}**
+      <box border={{size:1,color:"#B83E3E"}} minHeight="38px" radius="sm" padding={2}>{f.value}</box>
+      <text color="danger" size="xs">{f.error}</text>
+    </box>
+  {/each}
+  <box background="#292929" theme="dark" padding={3} radius="sm" align="center"><text color="#FFFFFF">Continue</text></box>
+</box>
+
+对应的 HTML：
+
+```html
+<div id="error-summary" tabindex="-1">
+  <h2>There are 3 errors</h2>
+
+  <ul>
+    <li>
+      <a href="#full-name">
+        Enter your full name
+      </a>
+    </li>
+
+    <li>
+      <a href="#email">
+        Enter a valid email address
+      </a>
+    </li>
+
+    <li>
+      <a href="#postal-code">
+        Enter your postal code
+      </a>
+    </li>
+  </ul>
+</div>
+```
+
+验证失败后：
+
+```javascript
+errorSummary.focus();
+```
+
+用户可以先了解整个表单的错误情况，再通过摘要中的链接快速定位到对应字段。
+
+### 11.3 使用 Live Region
+
+例如注册失败：
+
+```html
+<div id="form-error" role="alert"></div>
+```
+
+```javascript
+formError.textContent =
+  'Unable to create your account. Please try again.';
+```
+
+`role="alert"` 隐含 assertive 类型的 Live Region，可能中断当前的语音播报来通知用户。
+
+对于不需要立即打断用户的消息，例如普通提交成功提示，更适合使用：
+
+```html
+<div id="form-status" role="status"></div>
+```
+
+```javascript
+formStatus.textContent =
+  'You have successfully subscribed.';
+```
+
+W3C 的表单通知指南也介绍了错误摘要、字段关联和动态反馈等实现方式。<Cite ref="turn145909search14"/>
+
+### 11.4 三种方式如何选择？
+
+| 场景 | 推荐方式 |
+|---|---|
+| 简单表单提交失败 | 聚焦第一个错误字段 |
+| 多字段表单提交失败 | Error Summary + 焦点管理 |
+| 异步提交成功 | `role="status"` |
+| 需要及时告知的异步失败 | 适当使用 `role="alert"` |
+| 字段获得焦点时读取错误 | `aria-describedby` |
+| 表达输入值无效 | `aria-invalid` |
+
+不建议对每个字段错误同时使用 `role="alert"`，然后再聚焦错误摘要和第一个输入框。
+
+这些机制如果全部叠加，可能造成大量重复播报。
+
+**无障碍的目标是让用户获得必要的信息，而不是让屏幕阅读器尽可能多地说话。**
+
+---
+
+## 12. 完整实战：实现一个无障碍表单
+
+下面我们使用原生 HTML、CSS 和 JavaScript 开发一个包含邮箱和密码验证的表单。
+
+它不依赖 React、Vue 或第三方验证库，可以直接应用于 Shopify Theme 中的自定义业务场景。
+
+### 12.1 交互效果
+
+{@body const [regEmail,setRegEmail]=DIL.useState("")}
+{@body const [regPassword,setRegPassword]=DIL.useState("")}
+{@body const [attempted,setAttempted]=DIL.useState(false)}
+{@body const [regSuccess,setRegSuccess]=DIL.useState(false)}
+{@body const [showPassword,setShowPassword]=DIL.useState(false)}
+{@body const emailError=!regEmail.trim()?"Enter your email address.":!/^[^\s@]+@[^\s@]+$/.test(regEmail)?"Enter a valid email address, such as name@example.com.":""}
+{@body const passwordError=!regPassword?"Enter your password.":regPassword.length<8?"Use at least 8 characters.":""}
+{@body const errorCount=Number(!!emailError)+Number(!!passwordError)}
+<card gap={3}>
+  <title size="xl">Create account</title>
+  <caption>所有字段均为必填 · 请使用虚构信息进行测试</caption>
+  {#if attempted&&errorCount>0}
+    <box border={{size:1,color:"#B83E3E"}} radius="md" padding={3} gap={2}>
+      <row align="center"><icon name="alert-circle" color="danger"/> **There {errorCount===1?"is 1 error":`are ${errorCount} errors`}**</row>
+      {#if emailError}<text size="sm" color="danger">Email: {emailError}</text>{/if}
+      {#if passwordError}<text size="sm" color="danger">Password: {passwordError}</text>{/if}
+    </box>
+  {/if}
+  <box gap={1}>
+    <label>Email address (required)</label>
+    <input value={regEmail} onChange={v=>{setRegEmail(v);setRegSuccess(false)}} placeholder="name@example.com" invalid={attempted&&!!emailError}/>
+    {#if attempted&&emailError}
+      <text size="sm" color="danger">{emailError}</text>
+    {/if}
+  </box>
+  <box gap={1}>
+    <label>Password (required)</label>
+    <row align="center">
+      <box flex={1}>
+        <input value={regPassword} onChange={v=>{setRegPassword(v);setRegSuccess(false)}} inputType={showPassword?"text":"password"} invalid={attempted&&!!passwordError}/>
+      </box>
+      <button size="sm" color="secondary" variant="outline" onClick={()=>setShowPassword(!showPassword)}><icon name={showPassword?"eye-off":"eye"}/> {showPassword?"Hide":"Show"}</button>
+    </row>
+    <caption>Use at least 8 characters.</caption>
+    {#if attempted&&passwordError}
+      <text size="sm" color="danger">{passwordError}</text>
+    {/if}
+  </box>
+  <button block onClick={()=>{setAttempted(true);setRegSuccess(errorCount===0)}}>Create account</button>
+  {#if regSuccess}
+    <row align="center">
+      <icon name="check-circle" color="success"/>
+      <text color="success" size="sm">Demo form validated successfully.</text>
+    </row>
+  {/if}
+  <divider/>
+  **无障碍状态模拟**
+  <table>
+    <table-row><table-cell><caption>属性</caption></table-cell><table-cell><caption>Email</caption></table-cell><table-cell><caption>Password</caption></table-cell></table-row>
+    <table-row><table-cell><text size="sm">required</text></table-cell><table-cell>true</table-cell><table-cell>true</table-cell></table-row>
+    <table-row><table-cell><text size="sm">aria-invalid</text></table-cell><table-cell><text size="sm" color={attempted&&emailError?"danger":"secondary"}>{String(attempted&&!!emailError)}</text></table-cell><table-cell><text size="sm" color={attempted&&passwordError?"danger":"secondary"}>{String(attempted&&!!passwordError)}</text></table-cell></table-row>
+    <table-row><table-cell><text size="sm">错误信息关联</text></table-cell><table-cell><text size="sm">{attempted&&emailError?"email-error":"无"}</text></table-cell><table-cell><text size="sm">{attempted&&passwordError?"password-error":"无"}</text></table-cell></table-row>
+  </table>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟提交反馈</caption>
+      <text size="sm">{regSuccess?"Form validated successfully.":!attempted?"等待用户提交。":errorCount?`There ${errorCount===1?"is 1 error":`are ${errorCount} errors`}.`:"所有字段已通过验证，可以再次提交。"}</text>
+    </box>
+  </row>
+  <button block variant="ghost" color="secondary" onClick={()=>{setRegEmail("");setRegPassword("");setAttempted(false);setRegSuccess(false);setShowPassword(false)}}>重置演示</button>
+  <caption>这是本地表单验证原理演示，不会创建真实账户或发送表单数据。</caption>
+</card>
+
+你可以先不填写任何内容，直接点击提交，再逐渐修正错误，观察 `aria-invalid` 和错误关联关系的变化。
+
+### 12.2 HTML 实现
+
+```html
+<form id="register-form">
+  <div
+    id="error-summary"
+    tabindex="-1"
+    hidden
+  >
+    <h2 id="error-summary-title"></h2>
+    <ul id="error-list"></ul>
+  </div>
+
+  <div class="form-field">
+    <label for="email">
+      Email address (required)
+    </label>
+
+    <input
+      id="email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      required
+    >
+
+    <p
+      id="email-error"
+      class="field-error"
+      hidden
+    ></p>
+  </div>
+
+  <div class="form-field">
+    <label for="password">
+      Password (required)
+    </label>
+
+    <input
+      id="password"
+      name="password"
+      type="password"
+      autocomplete="new-password"
+      minlength="8"
+      required
+      aria-describedby="password-help"
+    >
+
+    <p id="password-help">
+      Use at least 8 characters.
+    </p>
+
+    <p
+      id="password-error"
+      class="field-error"
+      hidden
+    ></p>
+  </div>
+
+  <button type="submit">
+    Create account
+  </button>
+
+  <div id="form-status" role="status"></div>
+</form>
+```
+
+这里没有在 HTML 中直接设置 `novalidate`，是为了保留 JavaScript 加载失败时的原生验证能力。
+
+### 12.3 CSS 实现
+
+```css
+.form-field {
+  margin-bottom: 20px;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.form-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+  border: 1px solid #767676;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.form-field input[aria-invalid="true"] {
+  border: 2px solid #b00020;
+}
+
+.field-error {
+  color: #b00020;
+  margin-top: 8px;
+}
+
+:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 3px;
+}
+
+#error-summary {
+  border: 2px solid #b00020;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+[hidden] {
+  display: none !important;
+}
+```
+
+这里直接使用 `aria-invalid` 作为 CSS 状态选择器。
+
+这样做有一个好处：视觉错误状态与无障碍错误状态来自同一个属性，不容易出现红色边框已经消失，但 ARIA 仍然显示错误的情况。
+
+### 12.4 JavaScript 实现
+
+```javascript
+const form = document.querySelector('#register-form');
+const email = document.querySelector('#email');
+const password = document.querySelector('#password');
+
+const summary = document.querySelector('#error-summary');
+const summaryTitle = document.querySelector(
+  '#error-summary-title'
+);
+const errorList = document.querySelector('#error-list');
+const status = document.querySelector('#form-status');
+
+const fields = [email, password];
+
+let submitted = false;
+```
+
+第一步：编写验证函数。
+
+```javascript
+function getError(input) {
+  const validity = input.validity;
+
+  if (validity.valueMissing) {
+    return input === email
+      ? 'Enter your email address.'
+      : 'Enter your password.';
+  }
+
+  if (validity.typeMismatch) {
+    return 'Enter a valid email address.';
+  }
+
+  if (
+    input === password &&
+    input.value.length < 8
+  ) {
+    return 'Use at least 8 characters.';
+  }
+
+  return validity.valid
+    ? ''
+    : input.validationMessage;
+}
+```
+
+第二步：编写通用错误状态更新函数。
+
+```javascript
+function updateFieldError(input, message) {
+  const error = document.getElementById(
+    `${input.id}-error`
+  );
+
+  const descriptions = new Set(
+    (input.getAttribute('aria-describedby') || '')
+      .split(/\s+/)
+      .filter(Boolean)
+  );
+
+  if (message) {
+    input.setAttribute('aria-invalid', 'true');
+
+    error.textContent = message;
+    error.hidden = false;
+
+    descriptions.add(error.id);
+  } else {
+    input.removeAttribute('aria-invalid');
+
+    error.textContent = '';
+    error.hidden = true;
+
+    descriptions.delete(error.id);
+  }
+
+  if (descriptions.size) {
+    input.setAttribute(
+      'aria-describedby',
+      [...descriptions].join(' ')
+    );
+  } else {
+    input.removeAttribute('aria-describedby');
+  }
+}
+```
+
+这里使用 Set 来管理 `aria-describedby`。
+
+因为密码输入框原本就有：
+
+```html
+aria-describedby="password-help"
+```
+
+验证失败后应该变为：
+
+```html
+aria-describedby="password-help password-error"
+```
+
+修正错误后再恢复为：
+
+```html
+aria-describedby="password-help"
+```
+
+如果直接覆盖整个属性，就可能导致原有的说明信息丢失。
+
+第三步：实现错误摘要。
+
+```javascript
+function renderSummary(errors) {
+  errorList.replaceChildren();
+
+  if (!errors.length) {
+    summary.hidden = true;
+    return;
+  }
+
+  summaryTitle.textContent =
+    errors.length === 1
+      ? 'There is 1 error'
+      : `There are ${errors.length} errors`;
+
+  errors.forEach(({ input, message }) => {
+    const li = document.createElement('li');
+    const link = document.createElement('a');
+
+    link.href = `#${input.id}`;
+    link.textContent = message;
+
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      input.focus();
+    });
+
+    li.appendChild(link);
+    errorList.appendChild(li);
+  });
+
+  summary.hidden = false;
+}
+```
+
+第四步：实现完整验证流程。
+
+```javascript
+function validateForm() {
+  const errors = [];
+
+  fields.forEach(input => {
+    const message = getError(input);
+
+    updateFieldError(input, message);
+
+    if (message) {
+      errors.push({ input, message });
+    }
+  });
+
+  renderSummary(errors);
+
+  return errors;
+}
+```
+
+第五步：处理提交及输入事件。
+
+```javascript
+form.addEventListener('submit', event => {
+  event.preventDefault();
+
+  submitted = true;
+  status.textContent = '';
+
+  const errors = validateForm();
+
+  if (errors.length) {
+    summary.focus();
+    return;
+  }
+
+  // 此处应调用真实业务 API。
+  // 示例仅展示前端验证，不代表账户已创建。
+  status.textContent =
+    'Form validated successfully.';
+});
+
+fields.forEach(input => {
+  input.addEventListener('input', () => {
+    status.textContent = '';
+
+    if (!submitted) return;
+
+    validateForm();
+  });
+});
+
+// 自定义验证初始化完成后，关闭浏览器原生提示。
+form.noValidate = true;
+```
+
+这套实现解决了以下问题：
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each ["原生 HTML 标签和可访问名称","原生 required 和 type 验证","持久可见的输入说明","自定义错误文字","aria-invalid 状态同步","aria-describedby 动态关联","错误摘要及字段定位","提交失败后的焦点管理","修正错误后清除无效状态","Live Region 提交结果反馈"] as t}
+    <row align="center">
+      <icon name="check-circle" color="success" size="sm"/>
+      <text size="sm">{t}</text>
+    </row>
+  {/each}
+</box>
+
+真实生产环境中，还需要将服务端返回的验证错误映射到对应字段，并且只有在服务端确认成功之后，才展示注册成功等业务消息。
+
+前端验证不能替代服务端验证。
+
+---
+
+## 13. autocomplete 与输入辅助
+
+`autocomplete` 是一个经常被忽略的 HTML 属性。
+
+它不仅可以提高用户填写表单的效率，还能够帮助浏览器识别输入字段的用途，并涉及 WCAG 1.3.5 Identify Input Purpose（AA）。
+
+例如：
+
+```html
+<input
+  type="email"
+  name="email"
+  autocomplete="email"
+>
+```
+
+浏览器可以根据 autocomplete 识别该字段的含义，从而提供合适的自动填充功能。
+
+### 13.1 常见 autocomplete 值
+
+| 字段 | autocomplete |
+|---|---|
+| 完整姓名 | `name` |
+| 名字 | `given-name` |
+| 姓氏 | `family-name` |
+| 用户名 | `username` |
+| 邮箱 | `email` |
+| 电话号码 | `tel` |
+| 当前密码 | `current-password` |
+| 新密码 | `new-password` |
+| 一次性验证码 | `one-time-code` |
+| 详细地址 | `street-address` |
+| 地址第一行 | `address-line1` |
+| 地址第二行 | `address-line2` |
+| 城市 | `address-level2` |
+| 州、省 | `address-level1` |
+| 邮政编码 | `postal-code` |
+| 国家代码 | `country` |
+| 信用卡持卡人姓名 | `cc-name` |
+| 信用卡号 | `cc-number` |
+
+### 13.2 配送地址和账单地址
+
+对于电商 Checkout，可以进一步指定输入用途。
+
+```html
+<input
+  name="shipping-address"
+  autocomplete="shipping address-line1"
+>
+
+<input
+  name="billing-address"
+  autocomplete="billing address-line1"
+>
+```
+
+如果页面中存在多个独立地址组，还可以使用 `section-*` 前缀。
+
+```html
+<input
+  autocomplete="section-primary shipping postal-code"
+>
+
+<input
+  autocomplete="section-secondary shipping postal-code"
+>
+```
+
+这样可以帮助浏览器区分不同的自动填充区域。
+
+### 13.3 autocomplete 与 aria-autocomplete 不是一回事
+
+```html
+<input autocomplete="email">
+```
+
+这是 HTML 的自动填充机制。
+
+```html
+<input
+  role="combobox"
+  aria-autocomplete="list"
+>
+```
+
+这是用于描述自定义输入建议交互模式的 ARIA 属性，例如 Shopify Predictive Search。
+
+| 属性 | 作用 |
+|---|---|
+| `autocomplete` | 浏览器识别字段用途并提供自动填充 |
+| `aria-autocomplete` | 向辅助技术描述输入建议的交互模式 |
+
+`aria-autocomplete="list"` 不会自动生成搜索建议列表。<Cite ref="turn145909search22"/>
+
+---
+
+## 14. type 与 inputmode 的区别
+
+在移动端表单开发中，这两个属性同样重要。
+
+```html
+<input type="number">
+```
+
+```html
+<input type="text" inputmode="numeric">
+```
+
+它们都可能调出适合输入数字的移动端键盘，但实际语义并不相同。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      **普通文本键盘**
+      <box background="surface-tertiary" radius="md" padding={2} gap={1}>
+        {#each ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"] as keys}
+          <row gap="2px" justify="center">
+            {#each keys.split("") as k}
+              <box flex={1} background="surface" border radius="sm" height="25px" align="center" justify="center"><text size="xs">{k}</text></box>
+            {/each}
+          </row>
+        {/each}
+        <row gap={1}>
+          <box background="surface" border radius="sm" padding={1}><text size="xs">123</text></box>
+          <box flex={1} background="surface" border radius="sm" padding={1} align="center"><text size="xs">space</text></box>
+        </row>
+      </box>
+      <caption>inputmode="text"</caption>
+    </grid-item>
+    <grid-item>
+      **数字键盘**
+      <box background="surface-tertiary" radius="md" padding={2}>
+        <grid columns={3} gap={1}>
+          {#each ["1","2","3","4","5","6","7","8","9","","0","⌫"] as k}
+            <grid-item>
+              <box background="surface" border radius="sm" height="27px" align="center" justify="center"><text size="sm">{k}</text></box>
+            </grid-item>
+          {/each}
+        </grid>
+      </box>
+      <caption>inputmode="numeric"</caption>
+    </grid-item>
+  </grid>
+  <caption>移动端软键盘示意，实际键盘样式由设备和输入法决定。</caption>
+</box>
+
+| 属性 | 作用 |
+|---|---|
+| `type` | 决定控件类型、语义及部分验证规则 |
+| `inputmode` | 提示设备使用何种虚拟键盘 |
+
+例如邮政编码和验证码虽然由数字组成，但它们通常不是用于数学运算的数值。
+
+因此不一定适合使用 `type="number"`。
+
+对于纯数字的邮编格式，可以这样写：
+
+```html
+<input
+  type="text"
+  inputmode="numeric"
+  autocomplete="postal-code"
+>
+```
+
+对于国际邮编，需要考虑部分国家的邮政编码包含字母，因此不能统一限制为纯数字。
+
+对于电话号码：
+
+```html
+<input
+  type="tel"
+  autocomplete="tel"
+>
+```
+
+对于验证码：
+
+```html
+<input
+  type="text"
+  inputmode="numeric"
+  autocomplete="one-time-code"
+>
+```
+
+前端不应该为了调出数字键盘，就将所有数字相关字段设置为 `type="number"`，因为 number 还具有 spinbutton 语义及数值增减行为。
+
+---
+
+## 15. 密码、验证码与无障碍身份验证
+
+WCAG 2.2 新增了 3.3.8 Accessible Authentication (Minimum)，等级为 AA。
+
+其核心要求是，身份验证过程通常不能强制用户完成认知功能测试，例如记忆或转录信息，除非提供了符合准则的替代方式、辅助机制或其他规定的例外。
+
+### 15.1 不要禁止密码粘贴
+
+以下代码不推荐：
+
+```javascript
+passwordInput.addEventListener('paste', event => {
+  event.preventDefault();
+});
+```
+
+它可能阻止用户使用密码管理器或粘贴密码，使认知障碍用户不得不记忆和手动输入密码。
+
+应该允许正常的密码管理器、复制粘贴和自动填充行为。
+
+### 15.2 显示与隐藏密码按钮
+
+{@body const [visiblePw,setVisiblePw]=DIL.useState(false)}
+<card gap={2}>
+  <label>Password</label>
+  <row align="center">
+    <box flex={1}>
+      <input value={visiblePw?"Example123":"••••••••••"} disabled={true}/>
+    </box>
+    <button size="sm" variant="outline" color="secondary" onClick={()=>setVisiblePw(!visiblePw)}>
+      <icon name={visiblePw?"eye-off":"eye"}/> {visiblePw?"Hide":"Show"}
+    </button>
+  </row>
+  <row>
+    <caption>按钮 Accessible Name</caption>
+    <spacer/>
+    <text size="sm">{visiblePw?"Hide password":"Show password"}</text>
+  </row>
+</card>
+
+HTML：
+
+```html
+<label for="password">Password</label>
+
+<input
+  id="password"
+  type="password"
+  autocomplete="current-password"
+>
+
+<button
+  id="password-toggle"
+  type="button"
+  aria-label="Show password"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+JavaScript：
+
+```javascript
+const input = document.querySelector('#password');
+const toggle = document.querySelector('#password-toggle');
+
+toggle.addEventListener('click', () => {
+  const isVisible = input.type === 'text';
+
+  input.type = isVisible ? 'password' : 'text';
+
+  toggle.setAttribute(
+    'aria-label',
+    isVisible ? 'Show password' : 'Hide password'
+  );
+});
+```
+
+由于按钮名称已经随下一步操作变化，因此这里没有必要再添加 `aria-pressed`。
+
+### 15.3 验证码组件
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **多个独立输入框**
+      <row gap={1}>
+        {#each ["1","2","3","4","5","6"] as n}
+          <box flex={1} border radius="sm" height="34px" align="center" justify="center"><text size="sm">{n}</text></box>
+        {/each}
+      </row>
+      <caption>需要额外处理焦点跳转、删除、粘贴及每个字段的名称。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **单个输入框**
+      <box border radius="sm" height="34px" align="center" justify="center">
+        <text size="lg">1 2 3 4 5 6</text>
+      </box>
+      <caption>更容易支持完整粘贴、自动填充和屏幕阅读器操作。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+可以使用单个原生输入框，通过 CSS 实现类似多个验证码格子的视觉效果，而不是一定要创建六个独立 input。
+
+```html
+<label for="otp">Verification code</label>
+
+<input
+  id="otp"
+  name="otp"
+  type="text"
+  inputmode="numeric"
+  autocomplete="one-time-code"
+  maxlength="6"
+  pattern="[0-9]{6}"
+  required
+>
+```
+
+这样既能保持常见 UI 风格，又可以减少复杂的焦点控制逻辑。
+
+---
+
+## 16. Shopify 实战：Newsletter 表单
+
+接下来我们结合真实 Shopify Theme 开发。
+
+Shopify 提供了 Liquid `{% form 'customer' %}` 来实现邮件订阅功能，并通过 form 对象提供提交结果相关信息。<Cite refs={["turn145909search0","turn145909search27"]}/>
+
+### 16.1 完整 Liquid 实现示例
+
+```liquid
+{%- liquid
+  assign form_id = 'NewsletterForm-' | append: section.id
+  assign email_id = 'NewsletterEmail-' | append: section.id
+  assign error_id = 'NewsletterError-' | append: section.id
+-%}
+
+{% form 'customer', id: form_id %}
+
+  <input
+    type="hidden"
+    name="contact[tags]"
+    value="newsletter"
+  >
+
+  <label for="{{ email_id }}">
+    Email address
+  </label>
+
+  <input
+    id="{{ email_id }}"
+    type="email"
+    name="contact[email]"
+    value="{{ form.email | escape }}"
+    autocomplete="email"
+    autocorrect="off"
+    autocapitalize="off"
+    required
+
+    {% if form.errors %}
+      aria-invalid="true"
+      aria-describedby="{{ error_id }}"
+    {% endif %}
+  >
+
+  <button type="submit">
+    Subscribe
+  </button>
+
+  {% if form.errors %}
+    <div
+      id="{{ error_id }}"
+      class="form-error"
+      tabindex="-1"
+    >
+      {{ form.errors | default_errors }}
+    </div>
+  {% endif %}
+
+  {% if form.posted_successfully? %}
+    <p
+      id="NewsletterSuccess-{{ section.id }}"
+      class="form-success"
+      tabindex="-1"
+    >
+      Thank you for subscribing.
+    </p>
+  {% endif %}
+
+{% endform %}
+```
+
+这是一个简化的教学实现，不是 Dawn 源码的直接复制。实际多语言项目应当使用 Theme 的 locale 翻译文件输出表单文案。
+
+### 16.2 为什么要结合 section.id 生成 ID？
+
+因为 Shopify Online Store 2.0 的 Section 可以在页面中被多次添加。
+
+假设首页中存在三个 Newsletter Section，如果全部使用：
+
+```html
+<input id="NewsletterEmail">
+```
+
+就会产生重复 ID，可能导致 label 与 input 的关联错误。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="danger" weight="medium">重复 ID</text>
+      {#each [1,2,3] as n}
+        <box border radius="sm" padding={2} gap={1}>
+          <caption>Section {n}</caption>
+          <text size="xs" color="danger">NewsletterEmail</text>
+        </box>
+      {/each}
+      <caption>多个标签可能引用到错误的输入框。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="success" weight="medium">唯一 ID</text>
+      {#each ["A","B","C"] as n}
+        <box border radius="sm" padding={2} gap={1}>
+          <caption>Section {n}</caption>
+          <text size="xs">NewsletterEmail-{n}</text>
+        </box>
+      {/each}
+      <caption>各组件拥有独立的关联关系。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+如果一个 Section 内还存在多个同类 Block，则可以继续结合 `block.id` 或循环索引生成唯一 ID。
+
+### 16.3 Shopify 服务端表单与 AJAX 表单的错误处理区别
+
+这是实际开发中需要特别注意的地方。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **传统表单提交**
+      {#each ["用户提交表单","Shopify 服务端处理","返回页面 HTML","Liquid 输出错误或成功信息","必要时恢复或移动焦点"] as t,i}
+        <box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="xs">{t}</text></box>
+        {#if i<4}<box align="center"><icon name="arrow-down" size="xs" color="secondary"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **AJAX 表单提交**
+      {#each ["用户提交表单","JavaScript 发起请求","服务器返回结果","JavaScript 更新 DOM 和 ARIA","Live Region 或焦点通知"] as t,i}
+        <box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="xs">{t}</text></box>
+        {#if i<4}<box align="center"><icon name="arrow-down" size="xs" color="secondary"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+</grid>
+
+对于传统表单提交，服务端返回的是一个新的页面文档。即使新页面中已经存在 `role="status"`，屏幕阅读器也不一定会自动播报其中的初始内容。
+
+因此，可以在确认当前表单提交返回结果后，通过焦点管理帮助用户获取反馈。
+
+例如：
+
+```javascript
+const result = document.getElementById(
+  'NewsletterSuccess-SECTION_ID'
+);
+
+result?.focus();
+```
+
+这里的 SECTION_ID 应替换为当前组件实际 ID，并且只在对应表单提交返回时执行，避免普通页面加载时抢占用户焦点。
+
+而对于 AJAX 表单，可以提前在 DOM 中建立一个空的 Live Region，等请求完成后更新其中的内容。
+
+---
+
+## 17. Shopify 商品数量选择器实战
+
+这是表单语义与图标按钮相结合的典型案例。
+
+{@body const [productQty,setProductQty]=DIL.useState(1)}
+<card gap={3}>
+  **Quantity**
+  <row align="center" gap={0} border radius="md">
+    <box padding={1}>
+      <button uniform color="secondary" variant="ghost" disabled={productQty<=1} onClick={()=>setProductQty(v=>Math.max(1,v-1))}><icon name="minus" size="lg"/></button>
+    </box>
+    <box flex={1} align="center">
+      <title size="xl" tabularNums={true}>{productQty}</title>
+    </box>
+    <box padding={1}>
+      <button uniform color="secondary" variant="ghost" disabled={productQty>=10} onClick={()=>setProductQty(v=>Math.min(10,v+1))}><icon name="plus" size="lg"/></button>
+    </box>
+  </row>
+  <caption>Minimum: 1 · Maximum: 10</caption>
+  <divider/>
+  **Accessibility Tree 模拟**
+  <row>
+    <text size="sm">button "Decrease quantity"</text>
+    <spacer/>
+    <caption>{productQty===1?"disabled":"enabled"}</caption>
+  </row>
+  <row>
+    <text size="sm">spinbutton "Quantity"</text>
+    <spacer/>
+    <caption>value: {productQty}</caption>
+  </row>
+  <row>
+    <text size="sm">button "Increase quantity"</text>
+    <spacer/>
+    <caption>{productQty===10?"disabled":"enabled"}</caption>
+  </row>
+</card>
+
+推荐的 HTML 结构：
+
+```html
+<label for="quantity">Quantity</label>
+
+<div class="quantity-selector">
+  <button
+    type="button"
+    aria-label="Decrease quantity"
+    disabled
+  >
+    -
+  </button>
+
+  <input
+    id="quantity"
+    name="quantity"
+    type="number"
+    min="1"
+    max="10"
+    step="1"
+    value="1"
+    required
+  >
+
+  <button
+    type="button"
+    aria-label="Increase quantity"
+  >
+    +
+  </button>
+</div>
+```
+
+JavaScript 需要根据当前数量同步两个按钮的 disabled 状态。
+
+在真实 Shopify 项目中，最小数量、最大数量以及数量递增规则应根据商品变体和业务规则动态设置，而不是固定写死为 1～10。
+
+另外，如果购物车中有多个商品数量选择器，则需要提供更加具体的控件名称，例如：
+
+```html
+aria-label="Increase quantity of Cotton T-shirt"
+```
+
+这样用户才能区分不同商品对应的操作。
+
+---
+
+## 18. 常见表单问题与对应 WCAG 准则
+
+| 常见问题 | 对应准则 | 等级 |
+|---|---|---|
+| 输入框缺少程序化名称 | 4.1.2 | A |
+| 表单缺少必要的可见标签或说明 | 3.3.2 | A |
+| Radio Group 缺少分组关系 | 1.3.1 | A |
+| 可访问名称不包含可见标签 | 2.5.3 | A |
+| 仅通过红色表示错误 | 1.4.1 | A |
+| 无法识别错误字段及原因 | 3.3.1 | A |
+| 缺少已知且适用的错误修正建议 | 3.3.3 | AA |
+| 适用的个人信息字段无法识别输入用途 | 1.3.5 | AA |
+| 动态状态消息无法被辅助技术获取 | 4.1.3 | AA |
+| 表单操作无法通过键盘完成 | 2.1.1 | A |
+| 焦点样式不可见 | 2.4.7 | AA |
+| 同一流程要求不必要的重复输入 | 3.3.7 | A |
+| 身份验证缺少必要的认知辅助机制 | 3.3.8 | AA |
+
+一项表单问题可能同时涉及多条 WCAG 准则，具体需要根据实际用户影响判断。
+
+---
+
+## 19. 如何快速排查现有网站的表单问题？
+
+可以在 Chrome DevTools Console 中运行以下代码。
+
+### 检查表单控件的标签和状态
+
+```javascript
+const controls = document.querySelectorAll(
+  'input:not([type="hidden"]), select, textarea'
+);
+
+console.table(
+  [...controls].map(el => ({
+    tag: el.tagName,
+
+    type: el.type,
+
+    id: el.id,
+
+    name: el.name,
+
+    labels: [...(el.labels || [])]
+      .map(label => label.textContent.trim())
+      .join(' | '),
+
+    ariaLabel: el.getAttribute('aria-label'),
+
+    labelledby: el.getAttribute('aria-labelledby'),
+
+    describedby: el.getAttribute('aria-describedby'),
+
+    required: el.required,
+
+    disabled: el.disabled,
+
+    invalid: el.getAttribute('aria-invalid'),
+
+    autocomplete: el.getAttribute('autocomplete'),
+
+    element: el
+  }))
+);
+```
+
+### 检查重复 ID
+
+```javascript
+const idMap = new Map();
+
+document.querySelectorAll('[id]').forEach(el => {
+  const elements = idMap.get(el.id) || [];
+
+  elements.push(el);
+
+  idMap.set(el.id, elements);
+});
+
+console.table(
+  [...idMap.entries()]
+    .filter(([id, elements]) => elements.length > 1)
+    .map(([id, elements]) => ({
+      id,
+      count: elements.length,
+      elements
+    }))
+);
+```
+
+### 检查失效的 ARIA 引用
+
+```javascript
+const attributes = [
+  'aria-labelledby',
+  'aria-describedby',
+  'aria-errormessage'
+];
+
+const problems = [];
+
+attributes.forEach(attr => {
+  document.querySelectorAll(`[${attr}]`)
+    .forEach(el => {
+      const ids = el.getAttribute(attr)
+        .split(/\s+/)
+        .filter(Boolean);
+
+      ids.forEach(id => {
+        if (!document.getElementById(id)) {
+          problems.push({
+            attribute: attr,
+            missingId: id,
+            element: el
+          });
+        }
+      });
+    });
+});
+
+console.table(problems);
+```
+
+这些脚本特别适合检查 Shopify Section Rendering、购物车动态更新、重复渲染 Snippet 等场景中的引用关系错误。
+
+当然，它们只能发现部分 DOM 结构问题，不能替代 Accessibility Tree 检查和真实屏幕阅读器测试。
+
+---
+
+## 20. 本课知识测试
+
+{@body const quiz=[{q:"一个 input 已经有 placeholder，是否就一定不需要 label？",opts:["是","否"],a:1,why:"placeholder 主要用于输入提示，输入后会消失，不能普遍替代持久标签。"},{q:"aria-required=\"true\" 是否会自动阻止空表单提交？",opts:["会","不会"],a:1,why:"ARIA 提供语义，原生 required 才提供相应的约束验证行为。"},{q:"哪种原生输入框状态仍然可以参与表单提交？",opts:["disabled","readonly"],a:1,why:"readonly 控件仍然可以提交，而 disabled 控件通常不会参与表单数据提交。"},{q:"给按钮设置 aria-disabled=\"true\" 后，是否还需要处理实际禁用行为？",opts:["需要","不需要"],a:0,why:"aria-disabled 不会自动阻止点击及键盘激活。"},{q:"哪种结构适合给多个商品尺寸 radio 提供分组名称？",opts:["div + span","fieldset + legend","多个独立的 form"],a:1,why:"fieldset 建立分组语义，legend 提供分组名称。"},{q:"输入框已有普通帮助说明，验证失败后应该如何处理 aria-describedby？",opts:["直接覆盖原有 ID","同时保留帮助说明和错误信息 ID","删除所有关联"],a:1,why:"需要保留原有帮助说明，并在错误发生时增加错误信息关联。"},{q:"设置 setCustomValidity('Error') 后，应该如何清除自定义错误？",opts:["setCustomValidity(false)","setCustomValidity('')","删除 aria-invalid"],a:1,why:"必须使用空字符串清除浏览器的自定义验证错误。"},{q:"希望通过 JavaScript 触发正常的表单提交和验证，优先使用哪个 API？",opts:["form.submit()","form.requestSubmit()"],a:1,why:"requestSubmit 更接近普通提交按钮的行为，会执行适用的约束验证。"},{q:"用户刚输入邮箱的第一个字符，就立即反复播报邮箱格式错误，是否推荐？",opts:["推荐","不推荐"],a:1,why:"过于频繁的错误播报会干扰输入，应合理选择验证时机。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.opts as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 21. 日常开发检查清单
+
+{@body const checklist=["所有表单控件具有明确的可访问名称","常规输入框具有持久可见的 Label","label 的 for 与 input 的 id 正确关联","页面不存在影响关联关系的重复 ID","Radio 和 Checkbox 组具有合理的分组名称","必填字段具有视觉及程序化状态","正确区分 disabled、readonly 和 aria-disabled","提供必要的输入格式与限制说明","使用正确的 autocomplete 和 inputmode","错误信息不仅通过颜色传递","aria-invalid 与实际验证状态保持一致","错误信息与对应输入框建立关联","提交失败时具有合理的焦点管理","动态成功或失败消息能够被辅助技术感知","允许密码粘贴和密码管理器使用","通过键盘完成整个表单填写与提交流程","通过 NVDA 或 VoiceOver 验证实际体验"]}
+{@body const [done,setDone]=DIL.useState(Array(checklist.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **表单无障碍检查清单**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checklist.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${done.filter(Boolean).length/checklist.length*100}%`}/>
+  </box>
+  {#each checklist as item,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{item}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checklist.map((x,i)=>(done[i]?"[x] ":"[ ] ")+x).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 22. 官方参考资料
+
+| 文档 | 主要内容 |
+|---|---|
+| [W3C Forms Tutorial](https://www.w3.org/WAI/tutorials/forms/) | 表单无障碍完整教程 |
+| [W3C Labeling Controls](https://www.w3.org/WAI/tutorials/forms/labels/) | 表单标签 |
+| [W3C Grouping Controls](https://www.w3.org/WAI/tutorials/forms/grouping/) | 表单分组 |
+| [W3C Validating Input](https://www.w3.org/WAI/tutorials/forms/validation/) | 输入验证 |
+| [W3C User Notifications](https://www.w3.org/WAI/tutorials/forms/notifications/) | 错误与成功消息 |
+| [MDN Constraint Validation](https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Constraint_validation) | 原生表单验证 API |
+| [MDN autocomplete](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/autocomplete) | 自动填充属性 |
+| [MDN aria-invalid](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-invalid) | 无效状态 |
+| [MDN aria-errormessage](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-errormessage) | 错误信息关联 |
+| [Shopify Accessibility](https://shopify.dev/docs/storefronts/themes/best-practices/accessibility) | Theme 无障碍规范 |
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">Form Accessibility</title>
+    <caption>表单无障碍开发体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"tag",t:"名称与说明",d:"label、aria-labelledby、aria-describedby"},{i:"layers",t:"分组关系",d:"fieldset、legend、radio name"},{i:"toggle-left",t:"控件状态",d:"required、disabled、readonly"},{i:"shield-check",t:"验证机制",d:"ValidityState、Constraint Validation API"},{i:"alert-circle",t:"错误处理",d:"aria-invalid、Error Summary"},{i:"volume-2",t:"操作反馈",d:"Focus Management、Live Region"},{i:"keyboard",t:"输入辅助",d:"autocomplete、inputmode"},{i:"shopping-cart",t:"Shopify 实战",d:"Newsletter、Variant、Quantity"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本节课最重要的是理解表单开发中的三个层面：
+
+**HTML 负责控件语义与原生验证，JavaScript 负责业务验证与交互逻辑，ARIA 负责补充必要的无障碍信息。**
+
+一个真正具备无障碍能力的表单，应该让用户能够理解需要填写什么、如何填写、哪里填错了、怎样修正错误，以及最终是否提交成功。
+
+---
+
+**下一课：第 8 课——颜色对比度、字体与响应式布局无障碍**
+
+下一课将重点进入 CSS 无障碍开发：
+
+- Relative Luminance 相对亮度的计算原理。
+- WCAG 颜色对比度 4.5:1、3:1、7:1 的区别。
+- 普通文字、大号文字及非文本 UI 的对比度要求。
+- 透明度、渐变色、背景图片如何影响颜色对比度。
+- px、rem、em 与无障碍之间的关系。
+- 200% 文字缩放和 400% 页面缩放。
+- Reflow 内容重排机制。
+- Text Spacing 文字间距规范。
+- CSS 固定高度、文字省略与内容裁切问题。
+- Forced Colors 高对比度模式。
+- Shopify Theme 如何建立符合无障碍要求的 Color Scheme 和 Design Token。
+
+这一课将帮助你从无障碍角度建立一套更加完整的 CSS 开发规范，而不仅仅是根据设计稿还原样式。

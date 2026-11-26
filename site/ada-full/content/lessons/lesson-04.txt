@@ -1,0 +1,1718 @@
+# 第 4 课：WCAG 四大原则与合规标准
+
+<row align="center">
+  <caption>阶段一：无障碍基础与底层原理</caption>
+  <spacer/>
+  <caption>4 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="15.38%" radius="full"/>
+</box>
+
+前面三节课，我们已经建立了无障碍开发的基础知识体系：
+
+- 第 1 课：ADA、WCAG、ARIA 与 A11y 的关系。
+- 第 2 课：辅助技术、屏幕阅读器及其操作方式。
+- 第 3 课：Accessibility Tree 的生成机制与动态变化。
+
+但实际工作中，我们如何判断一个网站是否满足无障碍要求？如何判断某种代码写法是否存在 ADA 问题？收到第三方公司的 ADA Audit Report 后，又该如何阅读和修复？
+
+这些问题都需要通过 WCAG 来解决。
+
+本节课是第一阶段的最后一课。我们的目标不是背诵所有 WCAG 准则，而是理解其组织结构，并且具备独立查询规范、分析问题和制定修复方案的能力。
+
+---
+
+## 1. WCAG 的整体结构
+
+WCAG 并不是一堆独立的开发规则，而是一套具有明确层级的技术标准。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    <title size="lg">WCAG 2.2</title>
+    <caption>Web Content Accessibility Guidelines</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Principles · 原则**
+    <caption>最高层级的无障碍目标</caption>
+    <title size="xl">4</title>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Guidelines · 指南**
+    <caption>每个原则下的具体目标</caption>
+    <title size="xl">13</title>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Success Criteria · 成功准则**
+    <caption>可以用于测试和判断合规性的要求</caption>
+    <title size="xl">86</title>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    **Techniques & Failures**
+    <caption>参考实现技术与常见失败案例</caption>
+  </box>
+</box>
+
+举个例子，假设我们想知道网站文字的颜色对比度应该达到多少。
+
+在 WCAG 中，它所属的层级为：
+
+<box border radius="lg" padding={3} gap={2}>
+  <text color="secondary" size="sm">Principle 原则</text>
+  **1. Perceivable — 可感知**
+  <box padding={{left:3}} gap={2}>
+    <text color="secondary" size="sm">Guideline 指南</text>
+    **1.4 Distinguishable — 可区分**
+    <box padding={{left:3}} gap={2}>
+      <text color="secondary" size="sm">Success Criterion 成功准则</text>
+      **1.4.3 Contrast (Minimum)**
+      最低颜色对比度
+      <caption>Level AA</caption>
+      <divider/>
+      <text size="sm">普通文字：至少 4.5:1</text>
+      <text size="sm">大号文字：至少 3:1</text>
+    </box>
+  </box>
+</box>
+
+因此，以后你在 ADA 审计报告中看到 `WCAG 1.4.3 AA`，就可以快速理解它的含义。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 130" width="100%">
+    {#each [{x:10,v:"1",t:"原则",d:"可感知"},{x:95,v:"4",t:"指南",d:"可区分"},{x:180,v:"3",t:"成功准则",d:"最低对比度"},{x:265,v:"AA",t:"合规等级",d:"Level AA"}] as n}
+      <rect x={n.x} y="8" width="65" height="53" rx="7" fill="#888888" fillOpacity=".1" stroke="currentColor" strokeOpacity=".18"/>
+      <text x={n.x+32.5} y="43" fontSize="27" fontWeight="600" textAnchor="middle" fill="currentColor">{n.v}</text>
+      <path d={`M${n.x+32.5} 63 V79`} stroke="currentColor" strokeOpacity=".4"/>
+      <text x={n.x+32.5} y="96" textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor">{n.t}</text>
+      <text x={n.x+32.5} y="115" textAnchor="middle" fontSize="10" fill="currentColor" opacity=".7">{n.d}</text>
+    {/each}
+    <text x="85" y="43" fontSize="20" fill="currentColor" textAnchor="middle">.</text>
+    <text x="170" y="43" fontSize="20" fill="currentColor" textAnchor="middle">.</text>
+  </svg>
+</box>
+
+需要特别注意，Success Criteria 是合规判断的依据，而 Techniques 是帮助开发者满足准则的参考方法，并不意味着只能使用规范列出的某一种代码实现。
+
+## 2. POUR 四大核心原则
+
+WCAG 的全部成功准则都围绕 POUR 展开。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="eye" size="3xl" color="#5185C5"/>
+      <title size="2xl">P</title>
+      **Perceivable**
+
+      可感知
+
+      <caption>用户能否获取页面信息？</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="keyboard" size="3xl" color="#39866B"/>
+      <title size="2xl">O</title>
+      **Operable**
+
+      可操作
+
+      <caption>用户能否使用页面功能？</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="brain" size="3xl" color="#9673C5"/>
+      <title size="2xl">U</title>
+      **Understandable**
+
+      可理解
+
+      <caption>用户能否理解内容与操作？</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="shield-check" size="3xl" color="#C6914A"/>
+      <title size="2xl">R</title>
+      **Robust**
+
+      健壮性
+
+      <caption>辅助技术能否正确解析页面？</caption>
+    </box>
+  </grid-item>
+</grid>
+
+下面我们逐一学习这四个原则，并结合电商网站实际开发场景进行分析。完整准则可以参考 W3C 的 [Understanding WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/)。
+
+## 3. Principle 1：Perceivable（可感知）
+
+可感知的核心要求是：网站提供的信息不能只依赖某一种感官获取。
+
+例如，不能要求用户必须能够看见图片、区分颜色或者听见声音，才能理解网站内容。
+
+这个原则包含四个指南。
+
+| 编号 | 指南 | 主要内容 |
+|---|---|---|
+| 1.1 | Text Alternatives | 文本替代 |
+| 1.2 | Time-based Media | 音视频等时基媒体 |
+| 1.3 | Adaptable | 内容结构与适应性 |
+| 1.4 | Distinguishable | 信息可区分性 |
+
+### 3.1 非文本内容：1.1.1（A）
+
+Non-text Content，要求有意义的非文本内容提供适当的文本替代信息。
+
+例如商品图片：
+
+```html
+<!-- 不推荐 -->
+<img src="product-001.jpg">
+
+<!-- 推荐 -->
+<img
+  src="product-001.jpg"
+  alt="Black cotton T-shirt with crew neck"
+>
+```
+
+对于装饰性图片，则可以使用空 alt：
+
+```html
+<img src="decorative-pattern.png" alt="">
+```
+
+这里有一个很重要的原则：alt 的内容应当根据图片在当前页面中的用途决定，而不是机械地描述图片的所有细节。
+
+### 3.2 信息与关系：1.3.1（A）
+
+Info and Relationships，要求通过视觉样式传递的信息、结构和关系，也能够被程序识别，或者以文字形式提供。
+
+例如：
+
+```html
+<div class="title">Product details</div>
+
+<div class="list">
+  <div>100% cotton</div>
+  <div>Machine washable</div>
+  <div>Regular fit</div>
+</div>
+```
+
+即使 CSS 将它们渲染成标题和列表，辅助技术也不一定能够识别这种结构。
+
+正确的方式：
+
+```html
+<h2>Product details</h2>
+
+<ul>
+  <li>100% cotton</li>
+  <li>Machine washable</li>
+  <li>Regular fit</li>
+</ul>
+```
+
+同样的要求还适用于表单标签、表格表头、单选按钮组等。
+
+### 3.3 颜色使用：1.4.1（A）
+
+Use of Color，要求不能仅仅通过颜色传递有意义的信息。
+
+例如 Shopify 商品变体选择器：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={3}>
+      <text color="danger" weight="medium">错误示例</text>
+      **Size**
+      <row gap={2}>
+        {#each ["S","M","L"] as s,i}
+          <box flex={1} background={i===1?"#C5DDD0":"#EEEEEE"} theme="light" radius="sm" padding={2} align="center">
+            <text color="#252525">{s}</text>
+          </box>
+        {/each}
+      </row>
+      <caption>仅通过背景颜色表示选中了 M。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={3}>
+      <text color="success" weight="medium">改进示例</text>
+      **Size**
+      <row gap={2}>
+        {#each ["S","M","L"] as s,i}
+          <box flex={1} background={i===1?"#C5DDD0":"#EEEEEE"} theme="light" border={{size:i===1?2:1,color:i===1?"#285D43":"#BBBBBB"}} radius="sm" padding={2} align="center" gap=0>
+            <text color="#252525">{s}</text>
+            {#if i===1}<icon name="check" size="xs" color="#285D43"/>{/if}
+          </box>
+        {/each}
+      </row>
+      <caption>通过边框、勾选图标及程序化选中状态共同表达信息。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+实际开发中，可以使用原生 radio 实现。
+
+```html
+<fieldset>
+  <legend>Size</legend>
+
+  <label>
+    <input type="radio" name="size" value="S">
+    S
+  </label>
+
+  <label>
+    <input type="radio" name="size" value="M" checked>
+    M
+  </label>
+
+  <label>
+    <input type="radio" name="size" value="L">
+    L
+  </label>
+</fieldset>
+```
+
+这样既能通过 CSS 表达视觉选中状态，又能通过原生 `checked` 状态通知辅助技术。
+
+### 3.4 最低颜色对比度：1.4.3（AA）
+
+Contrast (Minimum)。
+
+| 文本类型 | AA 要求 | AAA 要求 |
+|---|---:|---:|
+| 普通文字 | 4.5:1 | 7:1 |
+| 大号文字 | 3:1 | 4.5:1 |
+
+WCAG 所说的大号文字通常指至少 18pt（24 CSS px），或至少 14pt（约 18.67 CSS px）的粗体文字。部分特殊内容存在例外，例如品牌 Logo 和纯装饰文字。
+
+颜色对比度不是根据肉眼判断的，而是根据前景色和背景色的相对亮度计算：
+
+\[
+\text{Contrast Ratio}=\frac{L_1+0.05}{L_2+0.05}
+\]
+
+其中 \(L_1\) 是较亮颜色的相对亮度，\(L_2\) 是较暗颜色的相对亮度。
+
+{@body const [fg,setFg]=DIL.useState("#999999")}
+{@body const [bg,setBg]=DIL.useState("#FFFFFF")}
+{@body const validColor=c=>/^#[0-9a-fA-F]{6}$/.test(c)}
+{@body const luminance=c=>{let a=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255).map(v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4));return .2126*a[0]+.7152*a[1]+.0722*a[2]}}
+{@body const fgSafe=validColor(fg)?fg:"#999999"}
+{@body const bgSafe=validColor(bg)?bg:"#FFFFFF"}
+{@body const ratio=(Math.max(luminance(fgSafe),luminance(bgSafe))+.05)/(Math.min(luminance(fgSafe),luminance(bgSafe))+.05)}
+<card gap={3}>
+  **WCAG 颜色对比度计算器**
+
+  <grid columns={2}>
+    <grid-item>
+      <label>文字颜色（HEX）</label>
+      <row align="center">
+        <box size="26px" background={fgSafe} border radius="sm"/>
+        <box flex={1}><input value={fg} onChange={setFg} invalid={!validColor(fg)}/></box>
+      </row>
+    </grid-item>
+    <grid-item>
+      <label>背景颜色（HEX）</label>
+      <row align="center">
+        <box size="26px" background={bgSafe} border radius="sm"/>
+        <box flex={1}><input value={bg} onChange={setBg} invalid={!validColor(bg)}/></box>
+      </row>
+    </grid-item>
+  </grid>
+  <caption>快速切换文字颜色</caption>
+  <row gap={3} wrap="wrap">
+    {#each ["#CCCCCC","#999999","#777777","#767676","#595959","#333333","#000000"] as c}
+      <pressable onClick={()=>setFg(c)} gap={1} align="center">
+        <box size="29px" background={c} border={{size:fg===c?2:1,color:fg===c?"#5185C5":"#88888850"}} radius="full"/>
+        <text size="xs">{c.slice(0,4)}</text>
+      </pressable>
+    {/each}
+  </row>
+  <box background={bgSafe} border radius="md" padding={4} gap={2}>
+    <text color={fgSafe} size="sm">Free shipping on orders over $50.</text>
+    <text color={fgSafe}>Cotton T-shirt · $29.99</text>
+    <text color={fgSafe} weight="semibold" size="sm">Add to cart</text>
+    <title color={fgSafe} size="2xl">New arrivals</title>
+  </box>
+  <caption>当前对比度</caption>
+  <title size="2xl" color={ratio>=4.5?"success":"warning"} tabularNums={true}>{ratio.toFixed(2)} : 1</title>
+  {#if !validColor(fg)||!validColor(bg)}
+    <caption color="danger">请输入有效的六位 HEX 颜色值，当前使用后备颜色计算。</caption>
+  {/if}
+  <divider/>
+  {#each [{name:"AA · 普通文字",min:4.5},{name:"AA · 大号文字",min:3},{name:"AAA · 普通文字",min:7},{name:"AAA · 大号文字",min:4.5}] as item}
+    <row align="center">
+      <text size="sm">{item.name}</text>
+      <spacer/>
+      <caption>{item.min}:1</caption>
+      <icon name={ratio>=item.min?"check-circle":"x-circle"} color={ratio>=item.min?"success":"danger"}/>
+      <text size="sm" color={ratio>=item.min?"success":"danger"}>{ratio>=item.min?"通过":"未通过"}</text>
+    </row>
+  {/each}
+  <button color="secondary" variant="outline" block onClick={()=>{setFg("#767676");setBg("#FFFFFF")}}>体验白底灰字 AA 临界颜色</button>
+  <caption>适用于不透明纯色前景与背景。合规判断采用未四舍五入的实际数值。</caption>
+</card>
+
+在实际项目中，最容易不满足该准则的通常不是主要标题，而是辅助性文字：
+
+商品原价、配送说明、输入框 placeholder、商品卡片描述、面包屑导航、浅色链接以及表单提示。
+
+### 3.5 非文本对比度：1.4.11（AA）
+
+Non-text Contrast。
+
+文字达标并不代表整个 UI 就达标。
+
+用于识别控件、控件状态以及理解图形信息的必要视觉部分，通常需要与相邻颜色达到至少 3:1 的对比度。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <box background="#FFFFFF" theme="light" radius="md" padding={3} gap={2}>
+        <text color="#333333" size="sm">Email address</text>
+        <box border={{size:1,color:"#DDDDDD"}} height="40px" radius="sm"/>
+        <row align="center">
+          <box size="17px" border={{size:1,color:"#DDDDDD"}} radius="sm"/>
+          <text color="#333333" size="xs">Subscribe</text>
+        </row>
+      </box>
+      <text color="danger" size="sm">控件边框过浅</text>
+    </grid-item>
+    <grid-item>
+      <box background="#FFFFFF" theme="light" radius="md" padding={3} gap={2}>
+        <text color="#333333" size="sm">Email address</text>
+        <box border={{size:1,color:"#767676"}} height="40px" radius="sm"/>
+        <row align="center">
+          <box size="17px" border={{size:1,color:"#767676"}} radius="sm"/>
+          <text color="#333333" size="xs">Subscribe</text>
+        </row>
+      </box>
+      <text color="success" size="sm">必要边界清晰可见</text>
+    </grid-item>
+  </grid>
+  <caption>假设这些边框是用户识别输入框及复选框的必要信息。</caption>
+</box>
+
+这不意味着所有 UI 装饰边框都必须达到 3:1。关键是判断它是否承担了识别控件或状态的作用。
+
+### 3.6 文字缩放与页面重排
+
+这是两个容易混淆的准则。
+
+| 准则 | 等级 | 核心要求 |
+|---|---|---|
+| 1.4.4 Resize Text | AA | 文字放大至 200% 时不丢失内容或功能 |
+| 1.4.10 Reflow | AA | 在规定的窄视口下，不需要双向滚动即可使用内容，规定的例外除外 |
+| 1.4.12 Text Spacing | AA | 用户调整规定的文字间距后不丢失内容或功能 |
+
+例如以下 CSS：
+
+```css
+.product-title {
+  font-size: 18px;
+  height: 24px;
+  overflow: hidden;
+}
+```
+
+当用户放大字体后，商品标题可能被裁切。
+
+更合理的写法：
+
+```css
+.product-title {
+  font-size: 1.125rem;
+  line-height: 1.5;
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}
+```
+
+使用 rem 并不意味着自动满足 WCAG，最终仍然需要测试页面在缩放、换行和不同视口下的实际表现。
+
+对于常规纵向阅读的网站，Reflow 测试通常会检查 320 CSS px 宽度下的表现，这相当于在初始宽度为 1280 CSS px 的视口中放大至 400% 的效果。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <caption>固定布局 · 放大后</caption>
+      <box border radius="sm" clip={true} gap={2} padding={2}>
+        <svg viewBox="0 0 140 110" width="100%">
+          <rect x="2" y="2" width="136" height="106" fill="none" stroke="currentColor" strokeOpacity=".2"/>
+          <rect x="7" y="9" width="85" height="65" rx="3" fill="#B9AD9D"/>
+          <text x="100" y="20" fontSize="15" fill="currentColor">Cotton T-shirt</text>
+          <text x="100" y="42" fontSize="15" fill="currentColor">$29.99</text>
+          <rect x="100" y="53" width="100" height="24" rx="3" fill="#555555"/>
+          <text x="110" y="69" fontSize="11" fill="#FFFFFF">Add to cart</text>
+          <path d="M8 95 H132" stroke="currentColor" strokeOpacity=".2" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M8 95 H67" stroke="currentColor" strokeOpacity=".6" strokeWidth="5" strokeLinecap="round"/>
+        </svg>
+      </box>
+      <text color="danger" size="sm">内容溢出、需要横向滚动</text>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <caption>响应式布局 · 放大后</caption>
+      <box border radius="sm" padding={2} gap={2}>
+        <svg viewBox="0 0 140 110" width="100%">
+          <rect x="2" y="2" width="136" height="106" fill="none" stroke="currentColor" strokeOpacity=".2"/>
+          <rect x="8" y="7" width="124" height="40" rx="3" fill="#B9AD9D"/>
+          <text x="9" y="63" fontSize="13" fill="currentColor">Cotton T-shirt</text>
+          <text x="9" y="77" fontSize="11" fill="currentColor">$29.99</text>
+          <rect x="8" y="83" width="124" height="19" rx="3" fill="#39866B"/>
+          <text x="70" y="96" fontSize="10" textAnchor="middle" fill="#FFFFFF">Add to cart</text>
+        </svg>
+      </box>
+      <text color="success" size="sm">内容自动重排、功能完整</text>
+    </box>
+  </grid-item>
+</grid>
+
+---
+
+## 4. Principle 2：Operable（可操作）
+
+可操作的核心要求是：用户不应因为无法使用某种输入设备，而无法使用网站提供的功能。
+
+这也是 JavaScript 交互组件开发中涉及最多的原则。
+
+| 编号 | 指南 | 主要内容 |
+|---|---|---|
+| 2.1 | Keyboard Accessible | 键盘可访问 |
+| 2.2 | Enough Time | 提供充足的操作时间 |
+| 2.3 | Seizures and Physical Reactions | 避免诱发癫痫及身体不适 |
+| 2.4 | Navigable | 页面导航与焦点 |
+| 2.5 | Input Modalities | 多种输入方式 |
+
+### 4.1 键盘操作：2.1.1（A）
+
+Keyboard。
+
+网站功能应当可以通过键盘接口完成，除非该功能本质上依赖用户运动轨迹，而不仅仅依赖起点和终点。
+
+例如：
+
+```html
+<!-- 错误示例 -->
+<div class="button" onclick="openCart()">
+  Open cart
+</div>
+```
+
+```html
+<!-- 正确示例 -->
+<button type="button" onclick="openCart()">
+  Open cart
+</button>
+```
+
+下面这些电商组件都需要特别关注键盘操作。
+
+| 组件 | 应支持的典型操作 |
+|---|---|
+| 普通按钮 | Enter、Space |
+| 链接 | Enter |
+| Radio Group | Tab、方向键、Space |
+| Modal | Tab、Shift + Tab，通常支持 Esc 关闭 |
+| Tabs | 方向键切换焦点，按设计激活 |
+| Accordion | Enter、Space |
+| Carousel | 键盘可操作的上一张、下一张按钮 |
+| Combobox | 根据组件模式支持方向键、Enter、Esc |
+
+需要区分：WCAG 规定的是无障碍结果，而 WAI-ARIA APG 提供了这些组件的推荐键盘交互模式。
+
+并不是 WCAG 直接规定了每个组件必须使用表格中的所有按键。
+
+### 4.2 无键盘陷阱：2.1.2（A）
+
+No Keyboard Trap。
+
+如果用户能够通过键盘进入某个组件，也必须能够通过键盘离开该组件。
+
+例如用户打开购物车弹窗后，焦点进入了购物车内部。
+
+<box border radius="lg" padding={3} gap={3}>
+  <svg viewBox="0 0 340 216" width="100%">
+    <rect x="10" y="5" width="320" height="206" rx="10" fill="#888888" fillOpacity=".07" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="24" y="29" fontSize="14" fontWeight="600" fill="currentColor">Your cart</text>
+    {#each [{y:43,t:"Close cart"},{y:81,t:"Quantity"},{y:119,t:"Remove product"},{y:157,t:"Checkout"}] as n,i}
+      <rect x="72" y={n.y} width="185" height="26" rx="5" fill={i===3?"#39866B":"none"} stroke={i===3?"#39866B":"currentColor"} strokeOpacity=".5"/>
+      <text x="164" y={n.y+17} textAnchor="middle" fontSize="11" fill={i===3?"white":"currentColor"}>{n.t}</text>
+    {/each}
+    {#each [69,107,145] as y}
+      <path d={`M164 ${y} V${y+10} M161 ${y+7} L164 ${y+10} L167 ${y+7}`} stroke="#5185C5" fill="none" strokeWidth="1.5"/>
+    {/each}
+    <path d="M257 170 H290 V56 H260" fill="none" stroke="#5185C5" strokeWidth="1.5" strokeDasharray="4 3"/>
+    <path d="M265 52 L260 56 L265 60" fill="none" stroke="#5185C5" strokeWidth="1.5"/>
+    <text x="298" y="118" fontSize="10" fill="#5185C5" textAnchor="middle">Tab</text>
+    <path d="M72 56 H36 V191 H68" stroke="#39866B" fill="none" strokeWidth="1.5"/>
+    <text x="76" y="198" fontSize="10" fill="#39866B">Esc / Close → 返回页面</text>
+  </svg>
+  <caption>模态弹窗可以限制 Tab 在弹窗内部循环，但必须提供键盘可用的退出方式。</caption>
+</box>
+
+这里有两个概念需要区分：
+
+- **Focus Trap**：有意将焦点限制在模态弹窗内部，并提供可操作的关闭方式，是合理的设计。
+- **Keyboard Trap**：用户进入组件后无法通过键盘退出，是无障碍问题。
+
+我们将在第 11 课和第 15 课详细学习。
+
+### 4.3 跳过重复内容：2.4.1（A）
+
+Bypass Blocks。
+
+假设每个商品详情页顶部都有几十个导航链接。键盘用户每次打开新页面，都必须重复经过这些链接才能进入正文，体验非常差。
+
+因此，可以在页面顶部提供 Skip Link。
+
+```html
+<body>
+  <a class="skip-link" href="#main-content">
+    Skip to main content
+  </a>
+
+  <header>
+    <!-- Header navigation -->
+  </header>
+
+  <main id="main-content" tabindex="-1">
+    <!-- Main content -->
+  </main>
+</body>
+```
+
+{@body const [showSkip,setShowSkip]=DIL.useState(false)}
+{@body const [skipTarget,setSkipTarget]=DIL.useState(false)}
+<card gap={3}>
+  **Skip Link 原理演示**
+  <box border radius="md" clip={true} gap={0}>
+    <box background="surface-tertiary" padding={2} minHeight="34px">
+      {#if showSkip}
+        <button block color="secondary" onClick={()=>{setShowSkip(false);setSkipTarget(true)}}>Skip to main content</button>
+      {:else}
+        <caption>Skip Link 默认视觉隐藏</caption>
+      {/if}
+    </box>
+    <row padding={2} align="center">
+      **STORE**
+      <spacer/>
+      <icon name="search"/>
+      <icon name="shopping-bag"/>
+    </row>
+    <row padding={2} justify="between">
+      {#each ["Home","Women","Men","Sale"] as link}
+        <text size="sm">{link}</text>
+      {/each}
+    </row>
+    <box border={{size:skipTarget?2:1,color:skipTarget?"#5185C5":"#88888830"}} padding={3} gap={2}>
+      <title size="lg">Product details</title>
+      <row>
+        <svg viewBox="0 0 70 65" width="70px">
+          <rect width="70" height="65" rx="4" fill="#DFD6CA"/>
+          <path d="M24 10 L8 20 L16 34 L24 29 V54 H46 V29 L54 34 L62 20 L46 10 L41 15 H29 Z" fill="#8B8073"/>
+        </svg>
+        <box flex={1}>
+          **Cotton T-shirt**
+          <caption>$29.99</caption>
+          <text size="sm">Add to cart</text>
+        </box>
+      </row>
+      {#if skipTarget}<text size="sm" color="success">已模拟跳转至主内容区域</text>{/if}
+    </box>
+  </box>
+  <button block variant="outline" color="secondary" onClick={()=>{setShowSkip(true);setSkipTarget(false)}}>模拟按下第一个 Tab</button>
+  <button block variant="ghost" color="secondary" onClick={()=>{setShowSkip(false);setSkipTarget(false)}}>重置</button>
+  <caption>这是交互原理演示。真实 Skip Link 应在获得键盘焦点时可见，并使用户能够跳过重复导航。</caption>
+</card>
+
+如果你阅读 Dawn 的 `theme.liquid`，可以重点留意它的 Skip to content 链接。这正是解决重复导航问题的常见实现。
+
+### 4.4 焦点顺序：2.4.3（A）
+
+Focus Order。
+
+用户通过键盘访问交互元素时，如果顺序会影响理解或操作，那么焦点移动顺序必须保持合理。
+
+例如下面的页面：
+
+<grid columns={2} gap={3}>
+  {#each [false,true] as good}
+    <grid-item>
+      <box border radius="lg" padding={3} gap={2}>
+        <text color={good?"success":"danger"} weight="medium">{good?"合理顺序":"混乱顺序"}</text>
+        <svg viewBox="0 0 145 160" width="100%">
+          {#each ["Email","Password","Remember me","Login"] as t,i}
+            <rect x="27" y={7+i*39} width="113" height="28" rx="4" fill="#888888" fillOpacity=".07" stroke="currentColor" strokeOpacity=".25"/>
+            <text x="83" y={24+i*39} fontSize="10" textAnchor="middle" fill="currentColor">{t}</text>
+            <circle cx="11" cy={21+i*39} r="9" fill={good?"#39866B":"#B65E5E"}/>
+            <text x="11" y={25+i*39} fontSize="10" fontWeight="bold" textAnchor="middle" fill="white">{good?i+1:[3,1,4,2][i]}</text>
+          {/each}
+        </svg>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+比较常见的原因是：
+
+- 随意使用正数 `tabindex`。
+- CSS Flex/Grid 改变了视觉排列，但没有相应调整 DOM 顺序。
+- AJAX 更新之后焦点丢失或跳转到不合理的位置。
+
+CSS 的视觉排列顺序通常不会自动改变默认的 Tab 顺序，因此开发时必须特别注意 DOM 结构。
+
+### 4.5 焦点可见：2.4.7（AA）
+
+Focus Visible。
+
+很多前端项目的全局 CSS 都存在类似代码：
+
+```css
+* {
+  outline: none;
+}
+```
+
+如果没有提供其他有效的焦点指示样式，这就可能造成无障碍问题。
+
+更合理的写法：
+
+```css
+:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 4px;
+}
+```
+
+{@body const [focusStyle,setFocusStyle]=DIL.useState("outline")}
+<card gap={3}>
+  **焦点样式对比**
+  <segmented-control options={[{label:"无焦点样式",value:"none"},{label:"边框焦点",value:"outline"},{label:"背景焦点",value:"background"}]} value={focusStyle} onChange={setFocusStyle}/>
+  <box background="#FFFFFF" theme="light" radius="md" border padding={5} gap={4}>
+    {#each ["View product","Add to cart","Continue shopping"] as t,i}
+      <box align="center" padding={1} radius="md" border={{size:2,color:i===1&&focusStyle==="outline"?"#005FCC":"transparent"}}>
+        <box background={i===1&&focusStyle==="background"?"#005FCC":"#303030"} radius="sm" padding={3} width="100%" align="center">
+          <text color="#FFFFFF">{t}</text>
+        </box>
+      </box>
+    {/each}
+  </box>
+  <caption>假设当前键盘焦点在第二个按钮 Add to cart 上。</caption>
+  <text size="sm" color={focusStyle==="none"?"danger":"success"}>{focusStyle==="none"?"用户无法通过视觉判断当前焦点位置。":"用户可以通过明显的视觉变化识别当前焦点。"}</text>
+</card>
+
+注意，WCAG AA 的焦点可见要求并没有统一规定必须使用 2px 蓝色 outline。上面的代码只是常见且有效的实现方式，具体样式仍然需要结合背景和组件状态验证。
+
+### 4.6 焦点不被遮挡：2.4.11（AA）
+
+Focus Not Obscured (Minimum)。
+
+这是 WCAG 2.2 新增的准则。
+
+当交互组件获得键盘焦点时，不能被开发者创建的其他内容完全遮挡。
+
+这个问题在电商网站中特别常见，因为很多商品页面具有：
+
+- Sticky Header
+- Sticky Add to Cart
+- Cookie Banner
+- 在线客服悬浮窗
+- 固定底部促销栏
+
+<grid columns={2} gap={3}>
+  {#each [false,true] as good}
+    <grid-item>
+      <box border radius="lg" padding={2} gap={2}>
+        <svg viewBox="0 0 150 190" width="100%">
+          <rect x="3" y="3" width="144" height="184" rx="5" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+          <rect x="4" y="4" width="142" height="30" rx="3" fill="#888888" fillOpacity=".2"/>
+          <text x="75" y="23" fontSize="10" textAnchor="middle" fill="currentColor">STORE</text>
+          <rect x="16" y="43" width="118" height="50" rx="4" fill="#B8A897" fillOpacity=".5"/>
+          <text x="16" y="108" fontSize="11" fill="currentColor">Cotton T-shirt</text>
+          <rect x="16" y={good?118:154} width="118" height="23" rx="3" fill="none" stroke="#5185C5" strokeWidth="2"/>
+          <text x="75" y={good?133:169} fontSize="10" textAnchor="middle" fill="currentColor">Size selector</text>
+          <rect x="4" y="148" width="142" height="38" rx="3" fill="#555555"/>
+          <text x="75" y="170" textAnchor="middle" fill="#FFFFFF" fontSize="10">Sticky Add to cart</text>
+          {#if !good}<rect x="16" y="154" width="118" height="23" rx="3" fill="none" stroke="#E58787" strokeDasharray="4 3"/>{/if}
+        </svg>
+        <text color={good?"success":"danger"} size="sm">{good?"焦点保持可见":"焦点被固定栏完全遮挡"}</text>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+对于此类场景，可以考虑：
+
+```css
+html {
+  scroll-padding-top: 80px;
+  scroll-padding-bottom: 100px;
+}
+```
+
+实际数值应该根据固定 Header 和底部栏的高度设置，并结合真实的键盘导航测试。
+
+另外要区分两个级别：
+
+| 准则 | 要求 |
+|---|---|
+| 2.4.11 AA | 获得焦点的组件不被完全遮挡 |
+| 2.4.12 AAA | 获得焦点的组件任何部分均不被遮挡 |
+
+### 4.7 点击目标大小：2.5.8（AA）
+
+Target Size (Minimum)。
+
+这也是 WCAG 2.2 新增的准则。
+
+点击目标通常应至少达到 **24 × 24 CSS px**，或者满足规范规定的间距等例外。
+
+AAA 级的 2.5.5 则要求至少 44 × 44 CSS px，同样存在规定的例外。
+
+{@body const [targetSize,setTargetSize]=DIL.useState(24)}
+<card gap={3}>
+  <row align="center">
+    **点击区域大小演示**
+    <spacer/>
+    <title size="lg" tabularNums={true}>{targetSize} × {targetSize} px</title>
+  </row>
+  <slider min={12} max={64} step={1} value={targetSize} onChange={setTargetSize} marks={[{value:12,label:"12"},{value:24,label:"24 AA"},{value:44,label:"44 AAA"},{value:64,label:"64"}]}/>
+  <box align="center" justify="center" height="145px" background="surface-tertiary" radius="md">
+    <svg viewBox="0 0 250 130" width="250px">
+      <rect x={125-targetSize/2} y={65-targetSize/2} width={targetSize} height={targetSize} rx="3" fill="#5185C5" fillOpacity=".14" stroke="#5185C5" strokeWidth="1.5" strokeDasharray="3 2"/>
+      <path d="M120 60 L130 70 M130 60 L120 70" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d={`M${125-targetSize/2} ${75+targetSize/2} H${125+targetSize/2}`} stroke="currentColor" strokeOpacity=".5"/>
+      <text x="125" y={89+targetSize/2} fontSize="11" textAnchor="middle" fill="currentColor">{targetSize}px</text>
+    </svg>
+  </box>
+  <row>
+    <text size="sm">图标视觉尺寸</text>
+    <spacer/>
+    <text size="sm">12 × 12 px</text>
+  </row>
+  <row>
+    <text size="sm">实际点击目标</text>
+    <spacer/>
+    <text size="sm">{targetSize} × {targetSize} px</text>
+  </row>
+  <divider/>
+  <row align="center">
+    <text size="sm">AA 尺寸要求</text>
+    <spacer/>
+    <icon name={targetSize>=24?"check-circle":"x-circle"} color={targetSize>=24?"success":"warning"}/>
+    <text size="sm">{targetSize>=24?"满足":"需检查间距等例外"}</text>
+  </row>
+  <row align="center">
+    <text size="sm">AAA 尺寸要求</text>
+    <spacer/>
+    <icon name={targetSize>=44?"check-circle":"x-circle"} color={targetSize>=44?"success":"secondary"}/>
+    <text size="sm">{targetSize>=44?"满足":"低于尺寸阈值"}</text>
+  </row>
+  <caption>这是尺寸规则演示，不包含其他目标的间距和全部例外条件。</caption>
+</card>
+
+这里强调的是可操作区域，而不是图标本身的大小。
+
+例如：
+
+```html
+<button class="close-button" aria-label="Close cart">
+  <svg width="12" height="12" aria-hidden="true">
+    <!-- Close icon -->
+  </svg>
+</button>
+```
+
+```css
+.close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+```
+
+即使 UI 设计要求关闭图标只有 12px，也可以通过 CSS 提供更大的可操作区域。
+
+### 4.8 拖拽操作：2.5.7（AA）
+
+Dragging Movements。
+
+如果网站功能需要通过拖拽实现，则通常还需要提供不依赖拖拽的单指针操作方式，除非拖拽是功能本身不可替代的必要部分，或满足其他规定的例外。
+
+例如商品图片轮播：
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 320 132" width="100%">
+    {#each [0,1,2] as i}
+      <rect x={32+i*88} y="5" width="80" height="101" rx="5" fill={["#DED2C2","#D4D9DF","#DCDCDC"][i]}/>
+      <path d={`M${59+i*88} 19 L${43+i*88} 31 L${52+i*88} 48 L${59+i*88} 42 V86 H${85+i*88} V42 L${92+i*88} 48 L${101+i*88} 31 L${85+i*88} 19 L${79+i*88} 25 H${65+i*88} Z`} fill={["#9F8B72","#64758A","#454545"][i]}/>
+    {/each}
+    <circle cx="16" cy="55" r="12" stroke="currentColor" strokeOpacity=".3" fill="none"/>
+    <path d="M19 49 L13 55 L19 61" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <circle cx="304" cy="55" r="12" stroke="currentColor" strokeOpacity=".3" fill="none"/>
+    <path d="M301 49 L307 55 L301 61" stroke="currentColor" strokeWidth="2" fill="none"/>
+    {#each [0,1,2] as i}
+      <circle cx={145+i*15} cy="121" r="3.5" fill="currentColor" opacity={i===0?1:.25}/>
+    {/each}
+  </svg>
+  <caption>除了拖拽或滑动图片，也提供可以直接点击的上一张、下一张按钮。</caption>
+</box>
+
+类似的业务场景还有商品价格范围滑块、拖拽排序以及交互式产品对比。
+
+对于双端价格滑块，可以额外提供最低价和最高价输入框作为替代操作方式。
+
+上述焦点遮挡、目标大小、拖拽操作等要求都是 WCAG 2.2 中需要重点关注的新增内容。<Cite refs={["turn234267search11","turn234267search13"]}/>
+
+---
+
+## 5. Principle 3：Understandable（可理解）
+
+可理解的核心要求是：用户不仅能够获取信息和操作功能，还应该能够理解信息的含义、操作的方式及操作产生的结果。
+
+| 编号 | 指南 | 主要内容 |
+|---|---|---|
+| 3.1 | Readable | 内容可阅读 |
+| 3.2 | Predictable | 交互可预测 |
+| 3.3 | Input Assistance | 输入辅助与错误处理 |
+
+### 5.1 页面语言：3.1.1（A）
+
+Language of Page。
+
+网页的主要语言应该能够被程序识别。
+
+```html
+<html lang="en">
+```
+
+屏幕阅读器可以根据语言信息选择合适的语音发音规则。
+
+对于 Shopify 多语言网站，可以使用 Liquid 动态输出当前页面语言：
+
+```liquid
+<html lang="{{ request.locale.iso_code }}">
+```
+
+另外，3.1.2（AA）要求能够识别内容中符合条件的局部语言变化。
+
+例如：
+
+```html
+<p>
+  Our French collection is called
+  <span lang="fr">Bonjour Paris</span>.
+</p>
+```
+
+但并不是每个外语单词、专有名词或者技术术语都需要设置 lang。
+
+### 5.2 输入时的可预测性：3.2.2（A）
+
+On Input。
+
+改变表单控件的设置时，不应该在没有提前告知用户的情况下自动引发上下文变化。
+
+例如：
+
+```javascript
+languageSelect.addEventListener('change', () => {
+  window.location.href = languageSelect.value;
+});
+```
+
+如果用户使用键盘浏览语言选择框中的选项，可能还没有完成选择，页面就已经发生导航。
+
+一种更清晰的实现是：
+
+```html
+<label for="language">Language</label>
+
+<select id="language" name="language">
+  <option value="en">English</option>
+  <option value="fr">Français</option>
+</select>
+
+<button type="submit">Apply language</button>
+```
+
+当然，这并不意味着所有 `change` 事件都不能更新页面。
+
+例如切换 Shopify 商品 Variant 后更新价格、库存、图片，或者 Collection 筛选后更新商品列表，通常并不必然构成违反该准则的上下文变化。
+
+关键在于变化是否会使用户失去原有操作环境，以及是否具有合理的可预测性。
+
+### 5.3 标签与说明：3.3.2（A）
+
+Labels or Instructions。
+
+需要用户输入信息时，应提供适当的标签或说明。
+
+```html
+<!-- 不推荐 -->
+<input type="email" placeholder="Email address">
+```
+
+```html
+<!-- 推荐 -->
+<label for="email">Email address (required)</label>
+
+<input
+  type="email"
+  id="email"
+  name="email"
+  autocomplete="email"
+  required
+>
+```
+
+Placeholder 不能完全替代持久可见的 label，因为用户输入内容之后，placeholder 就会消失。
+
+### 5.4 错误识别与错误建议
+
+这两个准则经常同时出现在 ADA 审计报告中。
+
+| 准则 | 等级 | 要求 |
+|---|---|---|
+| 3.3.1 Error Identification | A | 识别错误字段，并通过文字描述错误 |
+| 3.3.3 Error Suggestion | AA | 在已知可行修复方法且没有规定例外时，提供修复建议 |
+
+例如电商网站注册表单：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="danger" weight="medium">错误示例</text>
+      <caption>Email address</caption>
+      <box border={{size:2,color:"#C65353"}} radius="sm" padding={2}>
+        <text size="sm">example.com</text>
+      </box>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center">Submit</box>
+      <caption>仅显示红色边框，用户不知道错误原因。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="success" weight="medium">正确示例</text>
+      <caption>Email address</caption>
+      <box border={{size:2,color:"#C65353"}} radius="sm" padding={2}>
+        <text size="sm">example.com</text>
+      </box>
+      <row align="start" gap={1}>
+        <icon name="alert-circle" color="danger" size="sm"/>
+        <box flex={1}><text color="danger" size="xs">Enter a valid email address, such as name@example.com.</text></box>
+      </row>
+      <box background="surface-tertiary" radius="sm" padding={2} align="center">Submit</box>
+    </box>
+  </grid-item>
+</grid>
+
+对应的 HTML 可以这样实现：
+
+```html
+<label for="email">Email address</label>
+
+<input
+  type="email"
+  id="email"
+  aria-invalid="true"
+  aria-describedby="email-error"
+>
+
+<p id="email-error">
+  Enter a valid email address,
+  such as name@example.com.
+</p>
+```
+
+其中：
+
+`aria-invalid` 用于告知辅助技术当前输入值无效。
+
+`aria-describedby` 用于建立输入框和错误说明之间的关系。
+
+如果错误信息是动态插入的，还需要根据实际交互考虑错误播报或焦点管理。
+
+### 5.5 防止重要操作错误：3.3.4（AA）
+
+Error Prevention (Legal, Financial, Data)。
+
+对于涉及法律承诺、金融交易、重要数据修改等操作的页面，需要提供规范要求的错误预防机制之一，例如允许撤销、检查输入错误，或者提交前确认和更正信息。
+
+这在电商网站的 Checkout 中特别重要。
+
+<box border radius="lg" padding={3} gap={2}>
+  <title size="lg">Review your order</title>
+  <divider/>
+  <row>
+    <text color="secondary" size="sm">Product</text>
+    <spacer/>
+    <text size="sm">Cotton T-shirt × 1</text>
+  </row>
+  <row>
+    <text color="secondary" size="sm">Variant</text>
+    <spacer/>
+    <text size="sm">Black / M</text>
+  </row>
+  <row>
+    <text color="secondary" size="sm">Subtotal</text>
+    <spacer/>
+    $29.99
+  </row>
+  <row>
+    <text color="secondary" size="sm">Shipping</text>
+    <spacer/>
+    $5.00
+  </row>
+  <divider/>
+  <row>
+    **Total**
+    <spacer/>
+    **$34.99**
+  </row>
+  <box border radius="sm" padding={2} align="center">Edit order</box>
+  <box background="#333333" radius="sm" padding={2} align="center" theme="dark"><text color="#FFFFFF">Confirm and pay</text></box>
+  <caption>订单确认页面示意：用户可以在付款前检查商品、费用及配送信息。</caption>
+</box>
+
+提供订单确认、修改商品数量、检查收货地址等功能，不仅是良好的业务体验，也涉及无障碍错误预防。
+
+### 5.6 避免重复输入：3.3.7（A）
+
+Redundant Entry。
+
+这是 WCAG 2.2 新增的准则。
+
+在同一个操作流程中，如果用户之前已经输入或提供过某项信息，而后续步骤再次需要该信息，通常应当自动填充或者允许用户选择已有信息。
+
+例如 Checkout 中的配送地址与账单地址：
+
+{@body const [sameAddress,setSameAddress]=DIL.useState(true)}
+<card gap={3}>
+  **Shipping address**
+  <box background="surface-tertiary" radius="md" padding={3}>
+    <text size="sm">Alex Smith</text>
+    <text size="sm">123 Example Street</text>
+    <text size="sm">Los Angeles, CA 90001</text>
+  </box>
+  <divider/>
+  **Billing address**
+  <checkbox checked={sameAddress} onChange={setSameAddress}>Same as shipping address</checkbox>
+  {#if sameAddress}
+    <row align="center">
+      <icon name="check-circle" color="success"/>
+      <caption>使用已经提供的配送地址</caption>
+    </row>
+  {:else}
+    <label>Full name</label>
+    <input placeholder="Full name"/>
+    <label>Street address</label>
+    <input placeholder="Street address"/>
+    <label>City</label>
+    <input placeholder="City"/>
+  {/if}
+</card>
+
+安全需要、信息已经失效以及重复输入本身不可替代的情况，可能属于例外。
+
+---
+
+## 6. Principle 4：Robust（健壮性）
+
+健壮性的核心要求是：网页内容能够被浏览器、辅助技术等用户代理可靠地解释。
+
+这一原则只有一个指南。
+
+| 编号 | 指南 | 主要内容 |
+|---|---|---|
+| 4.1 | Compatible | 兼容性 |
+
+但它包含两个对现代前端开发特别重要的成功准则。
+
+### 6.1 名称、角色、值：4.1.2（A）
+
+Name, Role, Value。
+
+这条准则在复杂 JavaScript 组件的 ADA 审计报告中非常常见。
+
+其核心要求包括：UI 组件的名称和角色能够被程序识别，用户可设置的状态、属性和值能够通过程序设置，相关变化能够提供给用户代理及辅助技术。
+
+这恰好对应我们上一课学习的 Accessibility Tree。
+
+例如一个自定义收藏按钮：
+
+```html
+<div class="favorite active" onclick="toggleFavorite()">
+  <svg>
+    <!-- Heart icon -->
+  </svg>
+</div>
+```
+
+虽然视觉用户能够看到收藏图标变成红色，但是辅助技术可能无法知道它是什么、叫什么、是否已经收藏。
+
+正确的实现：
+
+```html
+<button
+  type="button"
+  aria-label="Favorite"
+  aria-pressed="false"
+>
+  <svg aria-hidden="true">
+    <!-- Heart icon -->
+  </svg>
+</button>
+```
+
+JavaScript 在切换收藏状态时同步更新 `aria-pressed`。
+
+{@body const [isFav,setIsFav]=DIL.useState(false)}
+<card gap={3}>
+  <box align="center" padding={3}>
+    <button size="xl" variant="outline" color="secondary" onClick={()=>setIsFav(!isFav)}>
+      <icon name="heart" size="3xl" color={isFav?"#C65368":"secondary"}/>
+      Favorite
+    </button>
+  </box>
+  <box border radius="md" padding={3} gap={2}>
+    <caption>Accessibility Node</caption>
+    <row><text size="sm">Name</text><spacer/>Favorite</row>
+    <row><text size="sm">Role</text><spacer/>button</row>
+    <row><text size="sm">Pressed</text><spacer/><text color={isFav?"success":"secondary"}>{String(isFav)}</text></row>
+  </box>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1}>
+      <caption>模拟屏幕阅读器播报</caption>
+      **Favorite, toggle button, {isFav?"pressed":"not pressed"}.**
+    </box>
+  </row>
+</card>
+
+常见的 4.1.2 问题包括：
+
+| 组件 | 典型问题 |
+|---|---|
+| Icon Button | 缺少可访问名称 |
+| Accordion | 缺少展开或折叠状态 |
+| Tabs | 缺少选中状态 |
+| Custom Select | 缺少角色、名称或值 |
+| Slider | 缺少当前值及范围信息 |
+| Variant Picker | 无法获取选中状态 |
+| Dialog | 缺少对话框角色或名称 |
+
+后续 ARIA 和复杂组件开发阶段，我们会频繁涉及这条准则。
+
+### 6.2 状态消息：4.1.3（AA）
+
+Status Messages。
+
+用户执行操作后，如果网站在不改变上下文的情况下展示状态消息，那么这些消息应当可以通过适当的角色或属性被辅助技术获取，而无需主动接收焦点。
+
+例如 Shopify AJAX 加购：
+
+```html
+<div
+  id="cart-status"
+  role="status"
+  class="visually-hidden"
+></div>
+```
+
+```javascript
+// 实际加购请求成功之后执行
+cartStatus.textContent =
+  'Cotton T-shirt added to your cart.';
+```
+
+再比如 Collection AJAX 筛选。
+
+{@body const [filter,setFilter]=DIL.useState("all")}
+{@body const results={all:128,black:36,white:42,blue:50}}
+<card gap={3}>
+  **Collection 筛选演示**
+  <label>Color</label>
+  <radio-group direction="row" value={filter} onChange={setFilter}>
+    <radio value="all">All</radio>
+    <radio value="black">Black</radio>
+    <radio value="white">White</radio>
+    <radio value="blue">Blue</radio>
+  </radio-group>
+  <divider/>
+  <title size="lg">{results[filter]} products</title>
+  <grid columns={3} gap={2}>
+    {#each [0,1,2] as i}
+      <grid-item>
+        <svg viewBox="0 0 90 105" width="100%">
+          <rect width="90" height="105" rx="5" fill="#D9D6D0"/>
+          <path d="M31 15 L11 28 L22 49 L31 42 V87 H59 V42 L68 49 L79 28 L59 15 L53 22 H37 Z" fill={filter==="all"?["#3A3A3A","#F5F4F1","#6A829C"][i]:{black:"#3A3A3A",white:"#F5F4F1",blue:"#6A829C"}[filter]} stroke="#888888" strokeOpacity=".4"/>
+        </svg>
+      </grid-item>
+    {/each}
+  </grid>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <row><icon name="volume-2"/><caption>模拟 Live Region 消息</caption></row>
+    **{results[filter]} products found.**
+  </box>
+</card>
+
+筛选完成后，可以让用户在继续操作筛选控件的同时，获知当前筛选结果的商品数量。
+
+没有必要仅仅为了通知商品数量变化，就强行将焦点移动到商品列表。
+
+这也是 Live Region 与 Focus Management 之间的一个重要区别。
+
+---
+
+## 7. WCAG A、AA、AAA 到底有什么区别？
+
+<box border radius="lg" padding={3} gap={3}>
+  <svg viewBox="0 0 340 192" width="100%">
+    <rect x="8" y="5" width="324" height="180" rx="9" fill="#39866B" fillOpacity=".07" stroke="#39866B" strokeOpacity=".5"/>
+    <text x="20" y="25" fontSize="13" fontWeight="600" fill="currentColor">AAA · 全部 86 条</text>
+    <rect x="25" y="39" width="290" height="133" rx="7" fill="#39866B" fillOpacity=".12" stroke="#39866B" strokeOpacity=".6"/>
+    <text x="38" y="60" fontSize="13" fontWeight="600" fill="currentColor">AA · 累计 55 条</text>
+    <rect x="43" y="75" width="254" height="82" rx="6" fill="#39866B" fillOpacity=".23" stroke="#39866B"/>
+    <text x="170" y="108" fontSize="20" fontWeight="600" textAnchor="middle" fill="currentColor">A</text>
+    <text x="170" y="131" fontSize="12" textAnchor="middle" fill="currentColor">31 条基础成功准则</text>
+  </svg>
+  <divider/>
+  <row>
+    **Level A**
+    <spacer/>
+    <caption>31 条</caption>
+  </row>
+  <row>
+    **Level AA**
+    <spacer/>
+    <caption>31 + 24 = 55 条</caption>
+  </row>
+  <row>
+    **Level AAA**
+    <spacer/>
+    <caption>31 + 24 + 31 = 86 条</caption>
+  </row>
+  <caption>WCAG 2.2 成功准则数量，按已移除 4.1.1 计算。</caption>
+</box>
+
+这里有几个容易误解的地方。
+
+**第一，满足 AA 必须同时满足 A。**
+
+不能只修复 AA 级问题，而忽略 A 级问题。
+
+**第二，WCAG 合规等级不是百分制评分。**
+
+假设一个网站通过了 54 条 A 和 AA 准则，但有一条适用准则没有满足，那么它仍然不能宣称已经完全符合 WCAG 2.2 AA。
+
+**第三，A、AA、AAA 不等于 Bug 的严重程度。**
+
+审计报告中的 Critical、Serious、Moderate、Minor 属于问题影响程度分类，与 WCAG 合规等级是两个不同的体系。
+
+例如：
+
+| 问题 | WCAG 等级 | 可能的严重程度 |
+|---|---|---|
+| 无法通过键盘完成付款 | A | Critical |
+| 商品装饰性图标存在多余语义 | 视实际情况 | Minor |
+| 正文颜色对比度不足 | AA | Serious |
+| 固定底部栏完全遮挡焦点 | AA | Serious |
+
+实际严重程度需要根据受影响的用户、功能和业务流程确定。
+
+**第四，合规是针对完整页面和完整流程的。**
+
+WCAG 要求完整页面满足相应准则。如果页面属于一个完整的操作流程，那么该流程中的所有页面也必须达到相应等级。<Cite ref="turn234267search2"/>
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{name:"Homepage",ok:true},{name:"Collection",ok:true},{name:"Product Detail",ok:true},{name:"Cart",ok:true},{name:"Checkout",ok:false}] as item,i}
+    <row border radius="md" padding={3} align="center">
+      <text weight="medium">{item.name}</text>
+      <spacer/>
+      <icon name={item.ok?"check-circle":"x-circle"} color={item.ok?"success":"danger"}/>
+      <text size="sm" color={item.ok?"success":"danger"}>{item.ok?"假设达标":"未达标"}</text>
+    </row>
+    {#if i<4}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+  <divider/>
+  <text color="danger" weight="medium">完整购买流程未达到目标合规等级</text>
+</box>
+
+这意味着即使 Shopify Theme 本身做得非常好，如果第三方 App、评论组件、支付流程或其他内容引入了无障碍问题，仍然需要将这些问题纳入整体评估。
+
+---
+
+## 8. WCAG 2.0、2.1、2.2 有什么区别？
+
+<box border radius="lg" padding={3} gap={3}>
+  <list connector="solid" marker="number" gap={3}>
+    <list-item>
+      **WCAG 2.0**
+
+      <caption>2008 年 12 月 11 日</caption>
+
+      61 条成功准则，建立 POUR、A/AA/AAA 体系以及基础网页无障碍要求。
+    </list-item>
+    <list-item>
+      **WCAG 2.1**
+
+      <caption>2018 年 6 月 5 日</caption>
+
+      原始发布版本共 78 条准则，在 2.0 基础上增加移动设备、低视力、认知障碍及输入方式等方面的要求。
+    </list-item>
+    <list-item>
+      **WCAG 2.2**
+
+      <caption>2023 年 10 月 5 日</caption>
+
+      新增 9 条准则，移除已经过时的 4.1.1 Parsing，共 86 条准则。
+    </list-item>
+  </list>
+</box>
+
+WCAG 2.2 新增的九条准则如下：
+
+| 编号 | 名称 | 等级 |
+|---|---|---|
+| 2.4.11 | 焦点不被完全遮挡 | AA |
+| 2.4.12 | 焦点完全不被遮挡 | AAA |
+| 2.4.13 | 焦点外观 | AAA |
+| 2.5.7 | 拖拽操作替代方式 | AA |
+| 2.5.8 | 最小目标尺寸 | AA |
+| 3.2.6 | 一致的帮助入口 | A |
+| 3.3.7 | 避免重复输入 | A |
+| 3.3.8 | 无障碍身份验证（最低要求） | AA |
+| 3.3.9 | 无障碍身份验证（增强要求） | AAA |
+
+W3C 在 2.2 中移除了原有的 4.1.1 Parsing 准则，但这并不意味着开发者可以忽略 HTML 结构错误。例如重复 ID 导致 label 或 ARIA 引用错误，仍然可能违反其他适用准则。<Cite ref="turn234267search1"/>
+
+对于我们这套课程以及新开发的跨境电商网站，建议以 **WCAG 2.2 AA** 作为技术目标，同时核对公司合同、审计要求以及具体市场的法律要求。
+
+美国 ADA Title II 针对州和地方政府网站的技术规则采用 WCAG 2.1 AA，而私人商业网站涉及的 Title III 合规问题不能直接与之等同。达到某个 WCAG 等级也不意味着自动获得法律免责。<Cite refs={["turn234267search27","turn234267search29"]}/>
+
+---
+
+## 9. 如何阅读一份 ADA Audit Report？
+
+这部分与你实际工作中的 ADA 修复任务关系很大。
+
+假设公司委托第三方进行网站无障碍审计，你收到以下报告。
+
+<card gap={3}>
+  <row align="center">
+    <icon name="file-text" size="xl"/>
+    <box flex={1} gap=0>
+      **Accessibility Audit Report**
+      <caption>模拟审计报告 · Issue #A11Y-023</caption>
+    </box>
+  </row>
+  <divider/>
+  <row>
+    <caption>Issue</caption>
+    <spacer/>
+    <text weight="medium" size="sm">Button has no accessible name</text>
+  </row>
+  <row>
+    <caption>Severity</caption>
+    <spacer/>
+    <badge color="danger">Serious</badge>
+  </row>
+  <row>
+    <caption>WCAG</caption>
+    <spacer/>
+    <text size="sm">4.1.2 · Level A</text>
+  </row>
+  <row>
+    <caption>Page</caption>
+    <spacer/>
+    <text size="sm">Product detail page</text>
+  </row>
+  <row>
+    <caption>Selector</caption>
+    <spacer/>
+    <text size="sm">#cart-icon-bubble</text>
+  </row>
+  <divider/>
+  **Observed Behavior**
+
+  <text size="sm">The shopping cart button is announced as an unlabeled button by the screen reader.</text>
+
+  **Expected Behavior**
+
+  <text size="sm">The button should have a meaningful accessible name that identifies its purpose.</text>
+
+  **User Impact**
+
+  <text size="sm">Screen reader users may be unable to determine the purpose of the shopping cart button.</text>
+
+  **Recommendation**
+
+  <text size="sm">Provide a descriptive accessible name using appropriate HTML or ARIA.</text>
+</card>
+
+作为前端工程师，收到这份报告后应该怎么处理？
+
+### 第一步：复现问题
+
+找到对应元素：
+
+```html
+<button id="cart-icon-bubble">
+  <svg>
+    <!-- Cart icon -->
+  </svg>
+</button>
+```
+
+使用 NVDA 访问该按钮，可能只听到：
+
+> Button.
+
+再打开 Chrome DevTools 的 Accessibility 面板，检查 Name 是否为空。
+
+### 第二步：理解对应的 WCAG 准则
+
+在报告中找到：
+
+```text
+WCAG 4.1.2 — Name, Role, Value
+Level A
+```
+
+通过 [Understanding 4.1.2](https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html) 阅读该准则的目的和实现建议。
+
+### 第三步：修复代码
+
+对于纯图标按钮，可以使用 `aria-label`。
+
+```liquid
+<button
+  type="button"
+  id="cart-icon-bubble"
+  aria-label="{{ 'templates.cart.cart' | t | escape }}"
+>
+  <svg aria-hidden="true" focusable="false">
+    <!-- Cart icon -->
+  </svg>
+</button>
+```
+
+这里使用 Shopify 翻译机制，而不是将英文名称直接硬编码在模板里。具体翻译 key 需要根据当前 Theme 的 locale 文件确定。
+
+### 第四步：验证修复结果
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="danger" weight="medium">修复前</text>
+      <box align="center" padding={3}><icon name="shopping-cart" size="3xl"/></box>
+      <divider/>
+      <caption>Role</caption>
+      button
+      <caption>Name</caption>
+      <text color="danger">空</text>
+      <divider/>
+      <caption>模拟播报</caption>
+      “Button.”
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <text color="success" weight="medium">修复后</text>
+      <box align="center" padding={3}><icon name="shopping-cart" size="3xl"/></box>
+      <divider/>
+      <caption>Role</caption>
+      button
+      <caption>Name</caption>
+      <text color="success">Cart</text>
+      <divider/>
+      <caption>模拟播报</caption>
+      “Cart, button.”
+    </box>
+  </grid-item>
+</grid>
+
+两者的视觉表现完全一样，但无障碍表现已经发生变化。
+
+除了检查 Name，还需要验证按钮可以通过键盘激活、打开购物车后焦点正确转移，并且关闭后焦点能够合理恢复。
+
+完整的 ADA 修复工作流应当是：
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each ["收到 Audit Report","定位页面、组件和 DOM 元素","使用辅助技术复现问题","查询对应 WCAG 成功准则","分析根本原因","修复 HTML / CSS / JavaScript","进行自动化和人工回归测试","记录修复结果与测试证据"] as step,i}
+    <box border radius="md" padding={2} align="center">
+      <text weight="medium" size="sm">{step}</text>
+    </box>
+    {#if i<7}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+不要仅仅根据审计报告的 Recommendation 添加一个 ARIA 属性就结束任务。必须理解它解决了什么问题，以及是否引入了新的问题。
+
+---
+
+## 10. 前端开发最值得熟悉的 WCAG 准则
+
+虽然 WCAG 2.2 AA 涉及 55 条成功准则，但以下这些在日常 Shopify Theme 开发中尤其值得优先掌握。
+
+{@body const rules=[["1.1.1","A","非文本内容","图片、SVG、图标"],["1.3.1","A","信息与关系","语义化、表单、列表、表格"],["1.3.2","A","有意义的顺序","DOM 顺序与阅读顺序"],["1.4.1","A","颜色使用","错误、库存、选中状态"],["1.4.3","AA","最低颜色对比度","正文、辅助文字、价格"],["1.4.4","AA","文字缩放","200% 文字放大"],["1.4.10","AA","内容重排","响应式布局"],["1.4.11","AA","非文本对比度","控件边框、图标、状态"],["1.4.12","AA","文字间距","布局适应性"],["1.4.13","AA","悬停或焦点内容","Tooltip、Mega Menu"],["2.1.1","A","键盘操作","所有交互组件"],["2.1.2","A","无键盘陷阱","Modal、Drawer"],["2.2.2","A","暂停、停止、隐藏","自动轮播、滚动公告"],["2.4.1","A","跳过重复内容","Skip Link"],["2.4.2","A","页面标题","document.title"],["2.4.3","A","焦点顺序","tabindex、DOM 顺序"],["2.4.4","A","链接目的","商品链接、阅读更多"],["2.4.6","AA","标题与标签","Heading、Label"],["2.4.7","AA","焦点可见","focus-visible"],["2.4.11","AA","焦点不被完全遮挡","Sticky Header、Sticky Cart"],["2.5.3","A","名称包含可见标签","语音控制、Accessible Name"],["2.5.7","AA","拖拽替代操作","Carousel、Price Slider"],["2.5.8","AA","最小目标尺寸","图标按钮、移动端控件"],["3.1.1","A","页面语言","html lang"],["3.2.2","A","输入可预测","下拉选择、自动跳转"],["3.3.1","A","错误识别","表单验证"],["3.3.2","A","标签或说明","表单控件"],["3.3.3","AA","错误建议","注册、结算"],["4.1.2","A","名称、角色、值","ARIA、复杂组件"],["4.1.3","AA","状态消息","AJAX、Live Region"]]}
+{@body const [ruleFilter,setRuleFilter]=DIL.useState("all")}
+{@body const [ruleSearch,setRuleSearch]=DIL.useState("")}
+{@body const filteredRules=rules.filter(r=>(ruleFilter==="all"||r[1]===ruleFilter)&&r.join(" ").toLowerCase().includes(ruleSearch.toLowerCase()))}
+<card gap={3}>
+  **WCAG 前端开发速查表**
+
+  <input placeholder="搜索编号、组件或关键词" value={ruleSearch} onChange={setRuleSearch}/>
+  <segmented-control value={ruleFilter} onChange={setRuleFilter} options={[{label:"全部",value:"all"},{label:"Level A",value:"A"},{label:"Level AA",value:"AA"}]}/>
+  <caption>显示 {filteredRules.length} / {rules.length} 条常用准则</caption>
+  <table>
+    <table-row>
+      <table-cell width="60px">编号</table-cell>
+      <table-cell>准则</table-cell>
+      <table-cell>开发场景</table-cell>
+    </table-row>
+    {#each filteredRules as r}
+      <table-row>
+        <table-cell>
+          <text size="sm" weight="medium">{r[0]}</text>
+          <caption>{r[1]}</caption>
+        </table-cell>
+        <table-cell><text size="sm">{r[2]}</text></table-cell>
+        <table-cell><text size="sm" color="secondary">{r[3]}</text></table-cell>
+      </table-row>
+    {/each}
+  </table>
+  {#if filteredRules.length===0}<caption>没有找到匹配的准则。</caption>{/if}
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.openUrl("https://www.w3.org/WAI/WCAG22/quickref/")}>查看 W3C 完整准则速查表 <icon name="external-link" size="sm"/></button>
+</card>
+
+不需要现在就记住这 30 条准则。随着后面 HTML、CSS、ARIA 和组件开发课程的推进，我们会逐渐掌握它们。
+
+---
+
+## 11. 如何将 WCAG 融入前端开发流程？
+
+无障碍不应该只是测试团队最后负责的工作，而应该在每个开发阶段落实。
+
+| 阶段 | 无障碍关注点 |
+|---|---|
+| 产品需求 | 功能是否具有替代操作方式 |
+| UI 设计 | 对比度、点击区域、焦点样式、错误提示 |
+| HTML 开发 | 语义化、Heading、Label、Landmark |
+| CSS 开发 | 缩放、响应式、内容隐藏、视觉状态 |
+| JavaScript 开发 | 键盘交互、焦点管理、ARIA 状态 |
+| AJAX 开发 | 动态内容变化、状态消息 |
+| Code Review | 检查语义、状态与交互是否一致 |
+| QA 测试 | axe、Lighthouse、键盘、屏幕阅读器 |
+| 上线维护 | 第三方 App、新增内容和组件回归测试 |
+
+例如开发一个 Shopify 商品变体选择器时，不应该等到测试阶段才考虑无障碍，而应该从选择 HTML 标签开始，就确定它的 Role、Name、State、键盘操作方式和视觉状态。
+
+这样修复成本会低得多。
+
+## 12. 本课知识测试
+
+{@body const quiz=[{q:"网站满足所有 AA 级准则，但存在未通过的 A 级准则，能否宣称达到 AA？",opts:["可以","不可以"],a:1,why:"AA 必须同时满足全部适用的 A 和 AA 准则。"},{q:"普通文字的 WCAG AA 最低颜色对比度是多少？",opts:["3:1","4.5:1","7:1"],a:1,why:"普通文字的 AA 最低对比度是 4.5:1，大号文字通常是 3:1。"},{q:"购物车关闭按钮的 SVG 图标只有 12px，但实际点击区域为 44×44px，是否满足 2.5.8 的尺寸要求？",opts:["满足","不满足"],a:0,why:"准则关注实际操作目标尺寸，而不是内部图标的视觉尺寸。"},{q:"AJAX 加购成功后，页面显示成功消息，但没有让屏幕阅读器用户感知该消息，主要涉及哪条准则？",opts:["1.4.3","2.4.7","4.1.3"],a:2,why:"4.1.3 Status Messages 关注无需改变焦点即可被辅助技术获取的状态消息。"},{q:"Lighthouse 无障碍评分达到 100，是否能够证明网站符合 WCAG AA？",opts:["能","不能"],a:1,why:"自动化检测只能覆盖部分无障碍问题，还需要人工和辅助技术测试。"},{q:"模态弹窗将 Tab 焦点限制在弹窗内部，并提供键盘可操作的关闭按钮，是否必然属于键盘陷阱？",opts:["是","不是"],a:1,why:"合理的 Focus Trap 与无法退出的 Keyboard Trap 不同。"},{q:"自定义按钮缺少可访问名称，最直接涉及哪个准则？",opts:["4.1.2","2.5.8","3.1.1"],a:0,why:"4.1.2 Name, Role, Value 要求 UI 组件提供可程序识别的名称、角色等信息。"}]}
+{@body const [selectedAnswers,setSelectedAnswers]=DIL.useState(Array(7).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {selectedAnswers.filter((v,i)=>v===quiz[i].a).length} / 7</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${selectedAnswers.filter((v,i)=>v===quiz[i].a).length/7*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(selectedAnswers[i])} onChange={v=>setSelectedAnswers(old=>old.map((x,j)=>j===i?Number(v):x))}>
+        {#each q.opts as opt,j}
+          <radio value={String(j)}>{opt}</radio>
+        {/each}
+      </radio-group>
+      {#if selectedAnswers[i]>=0}
+        <row align="start">
+          <icon name={selectedAnswers[i]===q.a?"check-circle":"x-circle"} color={selectedAnswers[i]===q.a?"success":"danger"}/>
+          <box flex={1}>
+            <text size="sm" color={selectedAnswers[i]===q.a?"success":"danger"}>{selectedAnswers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<6}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setSelectedAnswers(Array(7).fill(-1))}>重新测试</button>
+</card>
+
+## 13. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [WCAG 2.2 完整规范](https://www.w3.org/TR/WCAG22/) | 查询正式合规要求 |
+| [WCAG Quick Reference](https://www.w3.org/WAI/WCAG22/quickref/) | 日常开发准则速查 |
+| [Understanding WCAG](https://www.w3.org/WAI/WCAG22/Understanding/) | 理解每条准则的目的 |
+| [WCAG Techniques](https://www.w3.org/WAI/WCAG22/Techniques/) | 查询参考实现及失败案例 |
+| [What's New in WCAG 2.2](https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/) | 了解 2.2 新增要求 |
+| [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/) | 学习复杂组件交互模式 |
+
+其中最建议你加入浏览器收藏夹的是 Quick Reference 和 Understanding WCAG。这两个网站在日常 ADA 问题修复中非常实用。
+
+---
+
+## 第一阶段学习总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="check-circle" color="success" size="xl"/>
+    **阶段一：无障碍基础与底层原理**
+    <spacer/>
+    <caption>4 / 4</caption>
+  </row>
+  {#each [{t:"第 1 课：ADA、WCAG、ARIA 与 A11y",d:"理解为什么需要无障碍"},{t:"第 2 课：辅助技术与屏幕阅读器",d:"理解用户如何访问网页"},{t:"第 3 课：Accessibility Tree",d:"理解浏览器如何暴露无障碍信息"},{t:"第 4 课：WCAG 四大原则与合规标准",d:"理解如何判断无障碍是否达标"}] as item}
+    <row align="start">
+      <icon name="check-circle" color="success"/>
+      <box flex={1} gap=1>
+        <text weight="medium" size="sm">{item.t}</text>
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+  {/each}
+</box>
+
+至此，我们已经完成第一阶段的全部理论课程。
+
+接下来的课程将更多地涉及具体代码实现，不再以理论知识为主。
+
+**下一课：第 5 课——HTML 语义化与 Landmark 地标**
+
+我们将正式进入第二阶段：HTML、CSS 无障碍开发，重点学习：
+
+- HTML Semantic Elements 的底层意义。
+- Landmark 地标区域及其导航机制。
+- `header`、`footer`、`main`、`nav`、`aside`、`section`、`article` 的正确使用方式。
+- HTML 标签与 Implicit ARIA Role 的对应关系。
+- 为什么同一个 header 标签在不同位置具有不同的无障碍语义。
+- Heading 标题层级与页面结构。
+- Link 与 Button 的本质区别。
+- Shopify `theme.liquid` 的整体语义化布局。
+- 常见 HTML 语义化错误及修复方案。
+
+这一课会让你从无障碍角度重新认识那些平时已经非常熟悉的 HTML 标签。

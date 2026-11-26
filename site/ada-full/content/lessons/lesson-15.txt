@@ -1,0 +1,2228 @@
+# 第 15 课：Modal、Dialog、Drawer 弹窗组件
+
+<row align="center">
+  <caption>阶段四：复杂 UI 组件无障碍实战</caption>
+  <spacer/>
+  <caption>15 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="57.69%"/>
+</box>
+
+前十四节课，我们已经系统学习了 HTML 语义、CSS 无障碍、键盘导航、焦点管理、ARIA、AccName 和 Live Region。
+
+从这一课开始，正式进入第四阶段：**复杂 UI 组件无障碍实战**。
+
+接下来，我们不再孤立地学习某一个属性，而是站在组件开发者的角度，将之前学习的技术整合起来。
+
+本课主要围绕 Shopify 中非常常见的弹窗组件展开，包括 Cart Drawer、Quick Add Modal、Size Guide、Search Modal、商品图片预览、移动端筛选抽屉等。
+
+最终，我们将实现一套基于原生 dialog 和 Web Component 的可复用弹窗组件。
+
+---
+
+## 1. Modal、Dialog、Drawer、Popover 的本质区别
+
+很多前端开发人员会将这几个概念混在一起。
+
+实际上，有些概念描述的是视觉表现，有些描述的是交互模式，还有些描述的是 HTML 语义。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <svg viewBox="0 0 160 120" width="100%">
+        <rect x="2" y="2" width="156" height="116" rx="5" fill="#888888" fillOpacity=".18" stroke="currentColor" strokeOpacity=".25"/>
+        <path d="M12 15 H148 M12 29 H45 M12 39 H45 M12 49 H45" stroke="currentColor" strokeOpacity=".18" strokeWidth="3"/>
+        <rect x="30" y="24" width="100" height="74" rx="5" fill="#F1EDE5" stroke="#999999"/>
+        <text x="40" y="42" fontSize="10" fill="#333333" fontWeight="600">Size guide</text>
+        <path d="M116 33 L122 39 M122 33 L116 39" stroke="#333333"/>
+        <path d="M40 54 H120 M40 66 H120 M40 78 H120 M66 49 V86 M95 49 V86" stroke="#999999" strokeWidth=".8"/>
+      </svg>
+      **Modal Dialog**
+      <caption>模态对话框，背景不可交互。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <svg viewBox="0 0 160 120" width="100%">
+        <rect x="2" y="2" width="156" height="116" rx="5" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+        <rect x="10" y="23" width="53" height="61" rx="4" fill="#C3B29E"/>
+        <path d="M72 27 H145 M72 38 H120" stroke="currentColor" strokeOpacity=".4" strokeWidth="3"/>
+        <rect x="73" y="51" width="70" height="54" rx="4" fill="#F1EDE5" stroke="#999999"/>
+        <text x="79" y="65" fontSize="8" fill="#333333">Help panel</text>
+        <path d="M80 75 H134 M80 84 H134 M80 93 H113" stroke="#999999" strokeWidth="2"/>
+      </svg>
+      **Non-modal Dialog**
+      <caption>非模态对话框，仍可操作背景。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <svg viewBox="0 0 160 120" width="100%">
+        <rect x="2" y="2" width="156" height="116" rx="5" fill="#888888" fillOpacity=".18" stroke="currentColor" strokeOpacity=".25"/>
+        <rect x="10" y="25" width="55" height="65" rx="3" fill="#C3B29E" fillOpacity=".5"/>
+        <rect x="78" y="2" width="80" height="116" rx="4" fill="#F1EDE5" stroke="#999999"/>
+        <text x="85" y="16" fontSize="10" fontWeight="600" fill="#333333">Your cart</text>
+        <rect x="85" y="28" width="27" height="35" rx="2" fill="#C3B29E"/>
+        <path d="M118 32 H149 M118 41 H145" stroke="#888888" strokeWidth="2"/>
+        <rect x="85" y="90" width="66" height="18" rx="3" fill="#333333"/>
+        <text x="118" y="102" textAnchor="middle" fontSize="8" fill="white">Checkout</text>
+      </svg>
+      **Drawer**
+      <caption>抽屉式视觉布局，可以是模态或非模态。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <svg viewBox="0 0 160 120" width="100%">
+        <rect x="2" y="2" width="156" height="116" rx="5" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+        <rect x="93" y="12" width="55" height="20" rx="3" fill="#777777" fillOpacity=".15" stroke="currentColor" strokeOpacity=".25"/>
+        <text x="120" y="25" fontSize="9" textAnchor="middle" fill="currentColor">Country</text>
+        <rect x="72" y="36" width="76" height="62" rx="4" fill="#F1EDE5" stroke="#999999"/>
+        {#each ["United States","Canada","Germany"] as n,i}
+          <text x="79" y={50+i*17} fontSize="9" fill="#333333">{n}</text>
+        {/each}
+      </svg>
+      **Popover**
+      <caption>浮动内容区域，通常是非模态的。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+| 类型 | 背景可操作 | 是否限制焦点 | 常见场景 |
+|---|---|---|---|
+| Modal Dialog | 否 | 是 | Quick Add、尺寸说明 |
+| Non-modal Dialog | 是 | 否 | 帮助面板 |
+| Modal Drawer | 否 | 是 | Cart Drawer、移动端筛选 |
+| Non-modal Drawer | 是 | 否 | 常驻筛选侧栏 |
+| Popover | 通常是 | 通常否 | 国家选择、辅助信息 |
+| Alert Dialog | 否 | 是 | 重要操作确认 |
+
+最重要的认知是：
+
+**Drawer 不是一种独立的 ARIA Role，而是一种视觉布局形式。**
+
+ARIA 中没有 `role="drawer"`，也没有 `role="modal"`。
+
+如果购物车抽屉具有模态行为，那么它在无障碍语义上就是一个 Modal Dialog。
+
+---
+
+## 2. 一个合格的 Modal 需要实现什么？
+
+根据 WAI-ARIA APG 的 Modal Dialog Pattern，一个完整的模态弹窗应该具有明确的名称、合理的初始焦点、内部键盘导航、背景交互隔离，以及关闭后的焦点恢复。<Cite ref="turn171841search8"/>
+
+| 技术 | 在 Modal 中的职责 |
+|---|---|
+| Role | 表达 dialog 或 alertdialog 语义 |
+| Accessible Name | 告诉用户当前是什么弹窗 |
+| Initial Focus | 打开时将焦点移入弹窗 |
+| Focus Trap | 限制页面内的焦点导航范围 |
+| Inert | 禁止背景区域交互 |
+| Scroll Lock | 防止背景页面意外滚动 |
+| Escape | 提供键盘退出机制 |
+| Focus Restoration | 关闭后恢复操作位置 |
+| Live Region | 通知弹窗内部的异步业务变化 |
+| Reduced Motion | 支持减少运动偏好 |
+
+其中 Scroll Lock 属于常见的交互设计需求，不是所有 Modal 都必须采用相同的滚动锁定技术。
+
+这些内容实际上都是前面课程的综合应用。
+
+## 3. 原生 dialog 完整 API
+
+过去，我们通常使用 div 模拟弹窗。
+
+```html
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-title"
+>
+  ...
+</div>
+```
+
+现在，现代浏览器已经提供了原生 HTML dialog 元素。
+
+```html
+<dialog aria-labelledby="modal-title">
+  <h2 id="modal-title">Your cart</h2>
+</dialog>
+```
+
+两者最大的区别在于，原生 dialog 不仅提供语义，还提供一系列浏览器级别的交互行为。
+
+### 3.1 常用 API
+
+| API | 作用 |
+|---|---|
+| `showModal()` | 以模态方式打开 |
+| `show()` | 以非模态方式打开 |
+| `close(value)` | 直接关闭 |
+| `requestClose(value)` | 请求关闭，允许取消 |
+| `open` | 当前是否处于打开状态 |
+| `returnValue` | 弹窗关闭时的返回值 |
+| `closedBy` | 控制允许哪些用户关闭方式 |
+| `cancel` 事件 | 关闭请求发生时触发 |
+| `close` 事件 | 弹窗关闭后触发 |
+
+其中 `requestClose()`、`closedBy` 属于相对较新的能力，使用时需要考虑目标浏览器兼容性。<Cite refs={["turn171841search14","turn171841search26"]}/>
+
+### 3.2 showModal() 与 show()
+
+```javascript
+const dialog = document.querySelector('dialog');
+
+// 模态打开
+dialog.showModal();
+
+// 非模态打开
+dialog.show();
+```
+
+实际开发时应该根据组件类型选择其中一种，而不是连续调用两者。
+
+| 能力 | showModal() | show() |
+|---|---|---|
+| 原生 dialog 语义 | 有 | 有 |
+| 进入 Top Layer | 是 | 否 |
+| `::backdrop` 遮罩 | 有 | 无 |
+| 背景自动隔离 | 是 | 否 |
+| 背景正常 Tab 访问 | 否 | 是 |
+| 原生焦点初始化 | 有 | 有 |
+| 默认 Esc 关闭 | 支持 | 通常不支持 |
+
+特别注意：
+
+```html
+<dialog open>
+  Your cart
+</dialog>
+```
+
+直接添加 `open` 属性只是显示 dialog，不会建立真正的模态行为。
+
+同样，不建议通过下面的方式关闭一个已经使用 showModal() 打开的弹窗：
+
+```javascript
+dialog.removeAttribute('open');
+```
+
+应该使用：
+
+```javascript
+dialog.close();
+```
+
+否则可能破坏原生模态生命周期，并且不会正常触发 close 事件。<Cite refs={["turn171841search25","turn171841search36"]}/>
+
+---
+
+## 4. Top Layer 与 z-index 的区别
+
+这是原生 dialog 相对于传统自定义弹窗非常重要的优势。
+
+假设页面存在以下结构：
+
+```html
+<div class="product-section">
+  <div class="custom-modal">
+    ...
+  </div>
+</div>
+
+<header class="sticky-header">
+  ...
+</header>
+```
+
+```css
+.product-section {
+  position: relative;
+  z-index: 1;
+}
+
+.custom-modal {
+  position: fixed;
+  z-index: 999999;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+```
+
+即使 `.custom-modal` 设置了非常大的 z-index，它仍然可能被 Header 遮挡。
+
+因为它受到祖先 Stacking Context（层叠上下文）的限制。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 220" width="100%">
+    <rect x="30" y="153" width="280" height="56" rx="7" fill="#888888" fillOpacity=".08" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="170" y="174" fontSize="12" fontWeight="600" textAnchor="middle" fill="currentColor">普通页面</text>
+    <text x="170" y="192" fontSize="10" textAnchor="middle" fill="currentColor">Product section · z-index: 1</text>
+    <rect x="40" y="84" width="260" height="53" rx="7" fill="#5185C5" fillOpacity=".1" stroke="#5185C5" strokeOpacity=".65"/>
+    <text x="170" y="104" fontSize="12" fontWeight="600" textAnchor="middle" fill="currentColor">其他层叠上下文</text>
+    <text x="170" y="122" fontSize="10" textAnchor="middle" fill="currentColor">Sticky Header · z-index: 100</text>
+    <rect x="50" y="8" width="240" height="56" rx="7" fill="#39866B" fillOpacity=".12" stroke="#39866B" strokeWidth="1.5"/>
+    <text x="170" y="30" fontSize="14" fontWeight="600" textAnchor="middle" fill="currentColor">Top Layer</text>
+    <text x="170" y="48" fontSize="11" textAnchor="middle" fill="currentColor">Modal dialog / Popover / Fullscreen</text>
+    <path d="M170 83 V65 M170 152 V138" stroke="currentColor" strokeOpacity=".35" strokeDasharray="3 3"/>
+  </svg>
+  <caption>Top Layer 是浏览器管理的独立顶层，不是简单地设置一个更大的 z-index。</caption>
+</box>
+
+当执行：
+
+```javascript
+dialog.showModal();
+```
+
+浏览器会将弹窗呈现在 Top Layer 中，因此不需要通过不断增大 z-index 来解决普通页面的层叠冲突。
+
+需要注意，dialog 并没有因此被移动到 body 下，它在 DOM 中的真实父子关系仍然存在。
+
+通过 Popover API 打开的元素也可以进入 Top Layer，但 Popover 本身是非模态的。<Cite refs={["turn171841search18","turn171841search1"]}/>
+
+### 4.1 ::backdrop
+
+原生模态 dialog 提供了专门的遮罩伪元素。
+
+```css
+dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+```
+
+也可以实现背景模糊：
+
+```css
+dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+  backdrop-filter: blur(4px);
+}
+```
+
+不再需要单独创建一个全屏遮罩 div。
+
+不过，遮罩负责视觉表现，真正的背景交互隔离来自 showModal() 的原生模态行为。
+
+---
+
+## 5. 实战一：原生 Size Guide Modal
+
+先实现一个完整的、可以直接在普通 HTML 页面中运行的尺寸说明弹窗。
+
+### 5.1 HTML
+
+```html
+<button
+  id="open-size-guide"
+  type="button"
+  aria-haspopup="dialog"
+>
+  Size guide
+</button>
+
+<dialog
+  id="size-guide"
+  aria-labelledby="size-guide-title"
+>
+  <header class="modal-header">
+    <h2
+      id="size-guide-title"
+      tabindex="-1"
+      autofocus
+    >
+      Size guide
+    </h2>
+
+    <button
+      type="button"
+      data-close
+      aria-label="Close size guide"
+    >
+      ×
+    </button>
+  </header>
+
+  <p>All measurements are in centimeters.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Size</th>
+        <th scope="col">Chest</th>
+        <th scope="col">Length</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr>
+        <th scope="row">S</th>
+        <td>96</td>
+        <td>66</td>
+      </tr>
+
+      <tr>
+        <th scope="row">M</th>
+        <td>100</td>
+        <td>68</td>
+      </tr>
+
+      <tr>
+        <th scope="row">L</th>
+        <td>104</td>
+        <td>70</td>
+      </tr>
+    </tbody>
+  </table>
+</dialog>
+```
+
+### 5.2 CSS
+
+```css
+dialog {
+  box-sizing: border-box;
+  width: min(600px, calc(100% - 32px));
+
+  max-height: 85vh;
+  max-height: 85dvh;
+
+  overflow: auto;
+  overscroll-behavior: contain;
+
+  padding: 24px;
+  border: 0;
+  border-radius: 12px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-header button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+dialog table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+dialog th,
+dialog td {
+  padding: 12px 6px;
+  text-align: start;
+  border-bottom: 1px solid #999;
+}
+
+dialog :focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 3px;
+}
+```
+
+### 5.3 JavaScript
+
+```javascript
+const dialog = document.querySelector('#size-guide');
+
+const trigger = document.querySelector(
+  '#open-size-guide'
+);
+
+const closeButton = dialog.querySelector('[data-close]');
+
+trigger.addEventListener('click', () => {
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+});
+
+closeButton.addEventListener('click', () => {
+  dialog.close();
+});
+```
+
+就这样，最基础的原生模态弹窗已经实现。
+
+{@body const [sizeOpen,setSizeOpen]=DIL.useState(false)}
+<card gap={3}>
+  <row align="start">
+    <box width="100px" background="#E1D8CA" radius="md" padding={2}>
+      <svg viewBox="0 0 100 115" width="100%">
+        <path d="M34 8 L8 25 L22 46 L34 38 V106 H66 V38 L78 46 L92 25 L66 8 L58 16 H42 Z" fill="#74695B"/>
+      </svg>
+    </box>
+    <box flex={1} gap={2}>
+      **Premium Cotton T-shirt**
+      <title size="lg">$29.99</title>
+      <caption>Size: M</caption>
+      <button block color="secondary" variant="outline" disabled={sizeOpen} onClick={()=>setSizeOpen(true)}>Size guide</button>
+    </box>
+  </row>
+  {#if sizeOpen}
+    <box background="surface-tertiary" radius="md" padding={3}>
+      <box background="surface" border radius="md" padding={3} gap={3}>
+        <row align="center">
+          <box flex={1} border={{size:2,color:"#5185C5"}} radius="sm" padding={2}>
+            <title size="lg">Size guide</title>
+          </box>
+          <button uniform color="secondary" variant="ghost" onClick={()=>setSizeOpen(false)}><icon name="x"/></button>
+        </row>
+        <caption>All measurements are in centimeters.</caption>
+        | Size | Chest | Length |
+        |---|---:|---:|
+        | S | 96 | 66 |
+        | M | 100 | 68 |
+        | L | 104 | 70 |
+        <button block color="secondary" variant="outline" onClick={()=>setSizeOpen(false)}>Close size guide</button>
+      </box>
+    </box>
+  {/if}
+  <divider/>
+  <row><caption>dialog.open</caption><spacer/>{String(sizeOpen)}</row>
+  <row><caption>背景交互状态</caption><spacer/>{sizeOpen?"Inert":"Normal"}</row>
+  <row><caption>模拟焦点位置</caption><spacer/><text size="sm">{sizeOpen?"Size guide 标题":"Size guide 触发按钮"}</text></row>
+  <caption>这是弹窗状态与焦点生命周期的模拟演示，真实原生 dialog 行为请使用上面的代码在浏览器中测试。</caption>
+</card>
+
+### 5.4 浏览器替我们完成了什么？
+
+这里并没有手动实现以下功能：
+
+```javascript
+trapFocus();
+setBackgroundInert();
+listenForEscape();
+```
+
+浏览器已经提供了基础的模态隔离、初始焦点选择、默认关闭请求和焦点恢复能力。
+
+我们主要需要负责：
+
+- 为弹窗提供正确的名称。
+- 选择合适的初始焦点。
+- 提供可见且可访问的关闭入口。
+- 处理特殊的焦点恢复场景。
+- 设计内部滚动、业务逻辑和动画。
+
+对于新开发的 Theme 组件，原生 dialog 可以显著降低开发和维护成本。
+
+---
+
+## 6. cancel、close 事件与关闭机制
+
+在复杂业务中，打开和关闭弹窗并不仅仅是修改显示状态。
+
+例如，用户正在编辑收货地址，此时按下 Esc，我们可能需要判断是否存在尚未保存的数据。
+
+### 6.1 cancel 与 close 的区别
+
+| 事件 | 触发时机 | 可以阻止关闭 | 是否冒泡 |
+|---|---|---|---|
+| `cancel` | 收到关闭请求时 | 是 | 否 |
+| `close` | 弹窗已经关闭后 | 否 | 否 |
+
+这两个事件承担不同的生命周期职责。<Cite refs={["turn171841search9","turn171841search24"]}/>
+
+### 6.2 close() 与 requestClose()
+
+```javascript
+dialog.close();
+```
+
+直接关闭弹窗，不经过可取消的 cancel 事件。
+
+```javascript
+dialog.requestClose();
+```
+
+先发出关闭请求，允许开发者通过 cancel 事件阻止关闭。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **close()**
+      {#each ["调用 close()","关闭弹窗","触发 close 事件"] as t,i}
+        <box border radius="sm" padding={2} align="center"><text size="sm">{t}</text></box>
+        {#if i<2}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **requestClose()**
+      <box border radius="sm" padding={2} align="center"><text size="sm">发出关闭请求</text></box>
+      <box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>
+      <box border radius="sm" padding={2} align="center"><text size="sm">cancel 事件</text></box>
+      <grid columns={2} gap={1}>
+        <grid-item><box background="surface-tertiary" radius="sm" padding={2}><text size="xs">阻止：保持打开</text></box></grid-item>
+        <grid-item><box background="surface-tertiary" radius="sm" padding={2}><text size="xs">允许：关闭弹窗</text></box></grid-item>
+      </grid>
+    </box>
+  </grid-item>
+</grid>
+
+因此，对于需要统一执行关闭前校验的组件，可以优先使用 requestClose()。<Cite refs={["turn171841search6","turn171841search21"]}/>
+
+### 6.3 阻止关闭的业务示例
+
+```javascript
+let isSaving = false;
+
+dialog.addEventListener('cancel', event => {
+  if (isSaving) {
+    event.preventDefault();
+
+    status.textContent =
+      'Saving your changes. Please wait.';
+  }
+});
+```
+
+这里的 status 应该是弹窗内部提前存在的 Live Region。
+
+如果暂时阻止用户关闭弹窗，应明确告知原因，并确保操作失败或超时后能够恢复退出能力，不能让用户无限期地被困在弹窗中。
+
+### 6.4 在 close 事件中统一清理资源
+
+```javascript
+dialog.addEventListener('close', () => {
+  stopVideoPlayback();
+  abortPendingRequests();
+  clearTemporaryState();
+});
+```
+
+相比只在关闭按钮的 click 事件中进行清理，这种方式更加合理。
+
+因为弹窗可能通过 Esc、JavaScript、表单提交等不同方式关闭。
+
+---
+
+## 7. 点击遮罩关闭：Light Dismiss
+
+对于 Size Guide、Quick Add、Cart Drawer 等弹窗，通常允许点击外部遮罩关闭。
+
+但是对于支付确认、删除确认等重要操作，可能不希望用户误触遮罩导致弹窗关闭。
+
+### 7.1 closedby 属性
+
+现代 HTML 提供了一个专门控制关闭方式的属性。
+
+```html
+<dialog closedby="any">
+  ...
+</dialog>
+```
+
+| closedby | 点击外部关闭 | Esc 等关闭请求 | 开发者主动关闭 |
+|---|---|---|---|
+| `any` | 支持 | 支持 | 支持 |
+| `closerequest` | 不支持 | 支持 | 支持 |
+| `none` | 不支持 | 不支持 | 支持 |
+
+原生 dialog 通过 showModal() 打开时，如果未指定该属性，默认行为相当于 closerequest。
+
+截至目前，closedby 尚未达到广泛浏览器兼容的 Baseline 状态，因此仍然需要特性检测。<Cite ref="turn526085view1"/>
+
+### 7.2 传统兼容方案
+
+很多开发者会这样实现：
+
+```javascript
+dialog.addEventListener('click', event => {
+  if (event.target === dialog) {
+    dialog.close();
+  }
+});
+```
+
+这里有一个潜在问题：点击 dialog 内部的 padding 或空白区域时，event.target 也可能是 dialog 本身。
+
+因此，可以进一步判断指针是否位于弹窗矩形之外。
+
+```javascript
+function isOutside(event, dialog) {
+  const rect = dialog.getBoundingClientRect();
+
+  return (
+    event.clientX < rect.left ||
+    event.clientX > rect.right ||
+    event.clientY < rect.top ||
+    event.clientY > rect.bottom
+  );
+}
+
+let pressedOutside = false;
+
+dialog.addEventListener('pointerdown', event => {
+  pressedOutside =
+    event.target === dialog &&
+    isOutside(event, dialog);
+});
+
+dialog.addEventListener('pointerup', event => {
+  const shouldClose =
+    pressedOutside &&
+    event.target === dialog &&
+    isOutside(event, dialog);
+
+  pressedOutside = false;
+
+  if (shouldClose) {
+    dialog.close();
+  }
+});
+
+dialog.addEventListener('pointercancel', () => {
+  pressedOutside = false;
+});
+```
+
+同时判断 pointerdown 和 pointerup，是为了减少用户从弹窗内部拖动到外部时意外关闭弹窗的情况。
+
+这个示例适用于普通矩形弹窗。对于复杂形状、多指触摸和具有关闭前校验的组件，还需要进一步处理。
+
+**点击遮罩只是额外的关闭方式，不能替代可通过键盘操作的 Close 按钮。**
+
+---
+
+## 8. 实战二：Alert Dialog 删除确认组件
+
+Alert Dialog 是一种需要用户注意并作出响应的模态对话框。
+
+例如删除收货地址：
+
+{@body const [confirmOpen,setConfirmOpen]=DIL.useState(false)}
+{@body const [addressExists,setAddressExists]=DIL.useState(true)}
+{@body const [confirmMessage,setConfirmMessage]=DIL.useState("")}
+<card gap={3}>
+  <row align="center">
+    **Saved addresses**
+    <spacer/>
+    <caption>{addressExists?"1 address":"0 addresses"}</caption>
+  </row>
+  {#if addressExists}
+    <box border radius="md" padding={3} gap={2}>
+      <row align="center">
+        <icon name="map-pin"/>
+        **Home address**
+      </row>
+      <caption>Default shipping address</caption>
+      <button block color="danger" variant="outline" disabled={confirmOpen} onClick={()=>{setConfirmOpen(true);setConfirmMessage("")}}>Remove address</button>
+    </box>
+  {/if}
+  {#if confirmOpen}
+    <box background="surface-tertiary" radius="md" padding={3}>
+      <box background="surface" border radius="md" padding={3} gap={3}>
+        <row align="center">
+          <icon name="alert-triangle" color="danger" size="xl"/>
+          <title size="lg">Remove saved address?</title>
+        </row>
+        <text size="sm">This address will be permanently removed from your account.</text>
+        <grid columns={2}>
+          <grid-item>
+            <box border={{size:2,color:"#5185C5"}} radius="md" padding={1}>
+              <button block variant="outline" color="secondary" onClick={()=>{setConfirmOpen(false);setConfirmMessage("Operation canceled.")}}>Cancel</button>
+            </box>
+          </grid-item>
+          <grid-item>
+            <button block color="danger" onClick={()=>{setConfirmOpen(false);setAddressExists(false);setConfirmMessage("Address removed successfully.")}}>Remove</button>
+          </grid-item>
+        </grid>
+        <caption>初始焦点位于风险较低的 Cancel 按钮。</caption>
+      </box>
+    </box>
+  {/if}
+  {#if confirmMessage}<text size="sm">{confirmMessage}</text>{/if}
+  <divider/>
+  <row><caption>Role</caption><spacer/>alertdialog</row>
+  <row><caption>Name</caption><spacer/><text size="sm">Remove saved address?</text></row>
+  <row align="start"><caption>Initial Focus</caption><spacer/><text size="sm">{confirmOpen?"Cancel":addressExists?"Remove address":"Saved addresses 标题（备用焦点）"}</text></row>
+  <button block color="secondary" variant="ghost" onClick={()=>{setAddressExists(true);setConfirmOpen(false);setConfirmMessage("")}}>重置演示</button>
+  <caption>模拟删除确认流程，不会删除真实数据。</caption>
+</card>
+
+### 8.1 HTML 实现
+
+```html
+<dialog
+  id="delete-address-dialog"
+  role="alertdialog"
+  aria-labelledby="delete-title"
+  aria-describedby="delete-description"
+>
+  <h2 id="delete-title">
+    Remove saved address?
+  </h2>
+
+  <p id="delete-description">
+    This address will be permanently
+    removed from your account.
+  </p>
+
+  <form method="dialog">
+    <button
+      type="submit"
+      value="cancel"
+      autofocus
+    >
+      Cancel
+    </button>
+
+    <button
+      type="submit"
+      value="confirm"
+    >
+      Remove
+    </button>
+  </form>
+</dialog>
+```
+
+这里有三个值得学习的设计。
+
+第一，使用 `role="alertdialog"` 表达需要用户响应的重要对话框。
+
+第二，通过 `aria-describedby` 关联简短的风险说明。
+
+第三，将初始焦点放在 Cancel 按钮上，降低意外执行破坏性操作的风险。这也符合 APG 对难以撤销操作的焦点设计建议。<Cite ref="turn171841search0"/>
+
+### 8.2 form method="dialog"
+
+这是原生 dialog 非常实用的一个功能。
+
+```html
+<form method="dialog">
+```
+
+这种表单提交方式不会像普通表单一样向服务器发送请求，而是关闭所在的 dialog，并将提交按钮的 value 作为弹窗返回值。
+
+```javascript
+function confirmRemoval() {
+  dialog.returnValue = '';
+  dialog.showModal();
+}
+
+dialog.addEventListener('close', () => {
+  if (dialog.returnValue === 'confirm') {
+    removeAddress();
+  }
+});
+```
+
+| 用户操作 | 业务结果 |
+|---|---|
+| 点击 Cancel | 不删除 |
+| 点击 Remove | 执行删除逻辑 |
+| 按 Esc | 不删除 |
+
+每次打开前重置 returnValue，可以避免上一次弹窗的返回值影响本次判断。
+
+如果删除操作需要等待服务器返回结果后才能关闭弹窗，则应该改为普通按钮配合异步请求，而不是使用自动关闭的 method="dialog"。
+
+---
+
+## 9. 实战三：如何将原生 dialog 实现为 Cart Drawer？
+
+很多开发者认为，原生 dialog 只能实现居中的弹窗。
+
+实际上，dialog 的视觉布局完全可以通过 CSS 自定义。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 280" width="100%">
+    <rect x="3" y="3" width="334" height="274" rx="7" stroke="currentColor" strokeOpacity=".25" fill="#888888" fillOpacity=".15"/>
+    <text x="14" y="24" fontSize="12" fontWeight="600" fill="currentColor" opacity=".6">STYLE STORE</text>
+    <rect x="14" y="42" width="99" height="128" rx="4" fill="#A99B89" fillOpacity=".45"/>
+    <text x="14" y="189" fontSize="11" fill="currentColor" opacity=".5">Premium Cotton</text>
+    <rect x="14" y="205" width="99" height="27" rx="3" fill="#888888" fillOpacity=".25"/>
+    <rect x="126" y="3" width="211" height="274" rx="5" fill="#F3F0EA" stroke="#A9A39A"/>
+    <text x="138" y="24" fontSize="14" fontWeight="600" fill="#333333">Your cart (2)</text>
+    <path d="M316 15 L326 25 M326 15 L316 25" stroke="#333333" strokeWidth="1.8"/>
+    <path d="M137 37 H325" stroke="#999999" strokeOpacity=".6"/>
+    {#each [{y:48,c:"#4C4C4C",t:"Cotton T-shirt",p:"$29.99"},{y:119,c:"#A38F76",t:"Linen shirt",p:"$49.99"}] as p}
+      <rect x="138" y={p.y} width="47" height="58" rx="3" fill="#DED6CB"/>
+      <path d={`M154 ${p.y+7} L142 ${p.y+16} L149 ${p.y+26} L154 ${p.y+22} V${p.y+50} H170 V${p.y+22} L175 ${p.y+26} L182 ${p.y+16} L170 ${p.y+7} Z`} fill={p.c}/>
+      <text x="193" y={p.y+12} fontSize="11" fontWeight="600" fill="#333333">{p.t}</text>
+      <text x="193" y={p.y+26} fontSize="10" fill="#555555">{p.p}</text>
+      <rect x="193" y={p.y+34} width="70" height="21" rx="3" fill="none" stroke="#999999"/>
+      <text x="228" y={p.y+48} fontSize="10" textAnchor="middle" fill="#333333">−　1　+</text>
+    {/each}
+    <path d="M138 191 H325" stroke="#999999" strokeOpacity=".5"/>
+    <text x="138" y="209" fontSize="11" fill="#333333">Estimated total</text>
+    <text x="325" y="209" fontSize="12" fontWeight="600" textAnchor="end" fill="#333333">$79.98</text>
+    <rect x="138" y="221" width="187" height="32" rx="4" fill="#333333"/>
+    <text x="231" y="241" fontSize="12" fill="white" textAnchor="middle">Checkout</text>
+    <text x="231" y="266" fontSize="9" fill="#555555" textAnchor="middle">Continue shopping</text>
+  </svg>
+  <caption>使用原生 dialog 实现的右侧模态购物车抽屉布局。</caption>
+</box>
+
+### 9.1 HTML 结构
+
+```html
+<dialog
+  id="cart-drawer"
+  class="drawer"
+  aria-labelledby="cart-title"
+>
+  <div class="drawer-layout">
+
+    <header class="drawer-header">
+      <h2 id="cart-title" tabindex="-1" autofocus>
+        Your cart
+      </h2>
+
+      <button
+        type="button"
+        data-close
+        aria-label="Close shopping cart"
+      >
+        ×
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <div id="cart-items">
+        <!-- AJAX cart items -->
+      </div>
+    </div>
+
+    <footer class="drawer-footer">
+      <!-- Cart total and checkout -->
+    </footer>
+
+    <p
+      id="cart-status"
+      role="status"
+      class="visually-hidden"
+    ></p>
+
+    <p
+      id="cart-error"
+      role="alert"
+    ></p>
+
+  </div>
+</dialog>
+```
+
+注意，Live Region 位于 dialog 内部，但处于经常被 Section Rendering 替换的 cart-items 区域之外。
+
+这就是上一课动态通知知识的实际应用。
+
+### 9.2 CSS 实现右侧抽屉
+
+```css
+dialog.drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+
+  width: min(100%, 480px);
+  max-width: none;
+
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+
+  border: 0;
+  border-radius: 0;
+
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.drawer-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+
+.drawer-header,
+.drawer-footer {
+  flex-shrink: 0;
+  padding: 16px;
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.drawer::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **Header**
+    <caption>标题、关闭按钮</caption>
+  </box>
+  <box border={{size:1,color:"#5185C5"}} radius="md" padding={4} gap={3}>
+    <row align="center">
+      <box flex={1}>
+        **Scrollable Body**
+        <caption>购物车商品列表</caption>
+      </box>
+      <icon name="arrow-down-up" color="#5185C5"/>
+    </row>
+    <box background="surface-tertiary" radius="sm" padding={3}>Product A</box>
+    <box background="surface-tertiary" radius="sm" padding={3}>Product B</box>
+    <box background="surface-tertiary" radius="sm" padding={3}>Product C</box>
+  </box>
+  <box border radius="md" padding={3} gap={2}>
+    **Footer**
+    <row><caption>Estimated total</caption><spacer/>$79.98</row>
+    <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF">Checkout</text></box>
+  </box>
+  <caption>Flex 布局实现顶部和底部固定、中间内容独立滚动。</caption>
+</box>
+
+`min-height: 0` 在这里非常重要，它允许 Flex 子元素缩小，从而在中间区域建立独立滚动。
+
+不过，当用户放大字体至 200% 或处于很矮的横屏视口时，Header 和 Footer 可能占据过多空间。
+
+可以在必要时切换为整个 Drawer 滚动：
+
+```css
+@media (max-height: 500px) {
+  .drawer-layout {
+    height: auto;
+  }
+
+  .drawer-body {
+    overflow: visible;
+    flex: none;
+  }
+}
+```
+
+具体断点需要根据实际内容测试。不能仅仅因为 Checkout 按钮是固定的，就认为它在所有视口中一定可访问。
+
+---
+
+## 10. Scroll Lock：背景滚动锁定
+
+这里要区分三个概念：
+
+| 技术 | 职责 |
+|---|---|
+| `inert` | 禁止背景交互与无障碍访问 |
+| Focus Trap | 限制页面内的焦点移动 |
+| Scroll Lock | 禁止背景页面滚动 |
+
+即使原生 dialog 已经处理了模态背景隔离，也不应该假设所有浏览器都会自动满足项目所需的背景滚动锁定效果。
+
+### 10.1 基于 CSS 的方案
+
+对于支持 `:has()` 和 `:modal` 的浏览器：
+
+```css
+html:has(dialog:modal) {
+  overflow: hidden;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+```
+
+这种方案的优势是，滚动状态直接由当前是否存在原生模态弹窗决定。
+
+当第二层 Modal 关闭，而第一层 Modal 仍然存在时，背景依然保持滚动锁定。
+
+### 10.2 传统 JavaScript 方案的问题
+
+```javascript
+function openModal() {
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.body.style.overflow = '';
+}
+```
+
+对于只有一个 Modal 的简单页面可能没有问题。
+
+但是对于多层 Modal：
+
+```text
+打开 Cart Drawer → 锁定滚动
+打开 Size Guide → 锁定滚动
+关闭 Size Guide → 解除滚动
+```
+
+此时 Cart Drawer 仍然打开，背景却已经恢复滚动。
+
+可以使用 Set 维护当前持有滚动锁的组件。
+
+```javascript
+const scrollLocks = new Set();
+
+function lockScroll(owner) {
+  scrollLocks.add(owner);
+
+  document.documentElement.classList.add(
+    'modal-scroll-lock'
+  );
+}
+
+function unlockScroll(owner) {
+  scrollLocks.delete(owner);
+
+  if (scrollLocks.size === 0) {
+    document.documentElement.classList.remove(
+      'modal-scroll-lock'
+    );
+  }
+}
+```
+
+```css
+html.modal-scroll-lock {
+  overflow: hidden;
+}
+```
+
+这里假设所有弹窗共同使用这一滚动锁管理器。
+
+实际项目还需要在 iOS Safari、软键盘弹出、页面回弹以及滚动位置恢复等场景下测试。复杂情况下可以使用经过验证的滚动锁定库。
+
+---
+
+## 11. 弹窗动画与生命周期管理
+
+这是第 9 课 CSS 动画知识在实际组件中的应用。
+
+原生 dialog 的动画有一个特殊之处：关闭时，浏览器通常会将它从显示状态切换为隐藏状态，并移出 Top Layer。
+
+因此，普通的 transition 不一定能够直接实现退出动画。
+
+### 11.1 最简单可靠的方式：只实现进入动画
+
+```css
+@media (prefers-reduced-motion: no-preference) {
+  .drawer[open] {
+    animation: drawer-enter 250ms ease-out;
+  }
+
+  @keyframes drawer-enter {
+    from {
+      transform: translateX(100%);
+    }
+
+    to {
+      transform: translateX(0);
+    }
+  }
+}
+```
+
+这样：
+
+- 调用 showModal() 后立即建立原生模态行为。
+- CSS 负责 Drawer 的滑入效果。
+- 调用 close() 后立即关闭。
+- 减少运动模式下直接显示 Drawer。
+
+对于十分关注稳定性和兼容性的项目，这种方式已经足够实用。
+
+### 11.2 现代 CSS 实现进入和退出动画
+
+现代 CSS 提供了几个相关能力。
+
+| CSS 特性 | 职责 |
+|---|---|
+| `@starting-style` | 定义元素首次显示时的过渡起点 |
+| `allow-discrete` | 允许适用的离散属性参与过渡 |
+| `display` | 在退出动画期间延迟隐藏 |
+| `overlay` | 在退出动画期间延迟移出 Top Layer |
+
+这些特性可以配合实现原生 dialog 的进入和退出动画。<Cite refs={["turn526085search0","turn526085search2","turn526085search3"]}/>
+
+```css
+@media (prefers-reduced-motion: no-preference) {
+  @supports (transition-behavior: allow-discrete)
+    and (overlay: auto) {
+
+    dialog.drawer {
+      transform: translateX(100%);
+      opacity: 0;
+
+      transition:
+        transform 250ms ease,
+        opacity 250ms ease,
+        display 250ms allow-discrete,
+        overlay 250ms allow-discrete;
+    }
+
+    dialog.drawer[open] {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    @starting-style {
+      dialog.drawer[open] {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+  }
+}
+```
+
+{@body const [motion,setMotion]=DIL.useState(true)}
+{@body const [drawerProgress,setDrawerProgress]=DIL.useState(100)}
+<card gap={3}>
+  **Drawer 动画实验室**
+  <checkbox checked={motion} onChange={setMotion}>启用滑动动画</checkbox>
+  <svg viewBox="0 0 330 185" width="100%">
+    <defs><clipPath id="drawer-lesson15"><rect x="3" y="3" width="324" height="179" rx="5"/></clipPath></defs>
+    <rect x="3" y="3" width="324" height="179" rx="5" stroke="currentColor" strokeOpacity=".25" fill="#888888" fillOpacity=".04"/>
+    <text x="15" y="23" fontSize="12" fontWeight="600" fill="currentColor">STYLE STORE</text>
+    <rect x="15" y="35" width="94" height="100" rx="4" fill="#C4B8A8"/>
+    <text x="15" y="151" fontSize="10" fill="currentColor">Cotton T-shirt</text>
+    <g clipPath="url(#drawer-lesson15)">
+      <rect x="3" y="3" width="324" height="179" fill="#000000" opacity={motion?drawerProgress/100*.28:drawerProgress>0?.28:0}/>
+      <g transform={`translate(${motion?150*(1-drawerProgress/100):drawerProgress>0?0:150} 0)`}>
+        <rect x="177" y="3" width="150" height="179" fill="#F1EDE7" stroke="#999999"/>
+        <text x="189" y="25" fontSize="12" fontWeight="600" fill="#333333">Your cart</text>
+        <rect x="189" y="40" width="48" height="60" rx="3" fill="#C4B8A8"/>
+        <text x="245" y="52" fontSize="9" fill="#333333">T-shirt × 1</text>
+        <rect x="189" y="139" width="126" height="27" rx="4" fill="#333333"/>
+        <text x="252" y="156" textAnchor="middle" fontSize="11" fill="white">Checkout</text>
+      </g>
+    </g>
+  </svg>
+  <row align="center"><caption>模拟动画进度</caption><spacer/>{drawerProgress}%</row>
+  <slider min={0} max={100} step={5} value={drawerProgress} onChange={setDrawerProgress}/>
+  <grid columns={2}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>setDrawerProgress(0)}>关闭状态</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>setDrawerProgress(100)}>打开状态</button></grid-item>
+  </grid>
+  <caption>手动模拟视觉过渡，减少运动模式不执行中间位移。</caption>
+</card>
+
+需要特别注意，退出动画期间仍然显示的弹窗，可能已经不再具有原来的模态交互状态。
+
+**视觉上的动画结束，不一定等于语义上的关闭时刻。**
+
+因此应该测试退出动画期间的鼠标操作、焦点恢复和快速重新打开行为。现代 CSS 特性也需要兼容性测试，不支持时允许直接显示和关闭即可。
+
+---
+
+## 12. 不使用原生 dialog，如何实现自定义 Modal？
+
+在维护旧版 Shopify Theme 时，我们可能无法直接将所有 Modal 改成原生 dialog。
+
+因此，还需要理解传统实现。
+
+### 12.1 DOM 架构
+
+```html
+<div id="storefront">
+  <header>...</header>
+
+  <main>
+    <button id="open-modal" type="button">
+      Size guide
+    </button>
+  </main>
+
+  <footer>...</footer>
+</div>
+
+<div id="modal-root">
+
+  <div id="custom-modal" hidden>
+
+    <div
+      class="modal-overlay"
+      aria-hidden="true"
+    ></div>
+
+    <div
+      id="modal-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      tabindex="-1"
+    >
+      <h2 id="modal-title" tabindex="-1">
+        Size guide
+      </h2>
+
+      <button id="close-modal" type="button">
+        Close
+      </button>
+
+      <!-- Dialog content -->
+    </div>
+
+  </div>
+
+</div>
+```
+
+最关键的是 storefront 与 modal-root 的关系。
+
+<box border radius="lg" padding={3} gap={2}>
+  **body**
+  <box padding={{left:3}} gap={2}>
+    <box border radius="md" padding={3} gap={2}>
+      <row align="center">
+        **#storefront**
+        <spacer/>
+        <text color="secondary" size="sm">inert</text>
+      </row>
+      <box padding={{left:3}} gap={1}>
+        <text size="sm">header</text>
+        <text size="sm">main</text>
+        <text size="sm">footer</text>
+      </box>
+    </box>
+    <box border={{size:1,color:"#39866B"}} radius="md" padding={3} gap={2}>
+      **#modal-root**
+      <box padding={{left:3}} gap={1}>
+        <text size="sm">modal-overlay</text>
+        <text size="sm">dialog · aria-modal="true"</text>
+        <text color="success" size="sm">保留当前交互能力</text>
+      </box>
+    </box>
+  </box>
+  <caption>自定义 Modal 放在背景区域之外，避免被祖先的 inert 一起禁用。</caption>
+</box>
+
+如果将 Modal 放在 storefront 内部，然后执行：
+
+```javascript
+storefront.inert = true;
+```
+
+自定义 Modal 也会变得不可交互。
+
+### 12.2 基础 CSS
+
+```css
+#custom-modal[hidden] {
+  display: none !important;
+}
+
+#custom-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 50%);
+}
+
+#modal-panel {
+  position: relative;
+
+  box-sizing: border-box;
+  width: min(100%, 600px);
+  max-height: 85dvh;
+  overflow: auto;
+
+  background: white;
+  color: #222;
+
+  padding: 24px;
+  border-radius: 12px;
+}
+```
+
+### 12.3 JavaScript 实现
+
+使用第 11 课介绍的 `focus-trap` 库，避免自行重新实现复杂的浏览器焦点计算。
+
+```bash
+npm install focus-trap
+```
+
+```javascript
+import { createFocusTrap } from 'focus-trap';
+
+const storefront =
+  document.querySelector('#storefront');
+
+const modal =
+  document.querySelector('#custom-modal');
+
+const panel =
+  document.querySelector('#modal-panel');
+
+const trigger =
+  document.querySelector('#open-modal');
+
+const closeButton =
+  document.querySelector('#close-modal');
+
+let trap;
+let previousFocus;
+let previousInert;
+
+function openModal(opener) {
+  if (!modal.hidden) return;
+
+  previousFocus = opener;
+  previousInert = storefront.inert;
+
+  modal.hidden = false;
+  storefront.inert = true;
+
+  lockScroll(modal);
+
+  trap = createFocusTrap(panel, {
+    initialFocus: '#modal-title',
+    fallbackFocus: panel,
+    escapeDeactivates: false,
+    returnFocusOnDeactivate: false,
+    clickOutsideDeactivates: false,
+    allowOutsideClick: event =>
+      event.target ===
+        modal.querySelector('.modal-overlay')
+  });
+
+  trap.activate();
+}
+
+function closeModal() {
+  if (modal.hidden) return;
+
+  trap?.deactivate();
+  trap = null;
+
+  modal.hidden = true;
+  storefront.inert = previousInert;
+
+  unlockScroll(modal);
+
+  if (previousFocus?.isConnected) {
+    previousFocus.focus();
+  }
+
+  previousFocus = null;
+}
+
+trigger.addEventListener('click', event => {
+  openModal(event.currentTarget);
+});
+
+closeButton.addEventListener('click', closeModal);
+
+modal.querySelector('.modal-overlay')
+  .addEventListener('click', closeModal);
+
+modal.addEventListener('keydown', event => {
+  if (
+    event.key === 'Escape' &&
+    !event.defaultPrevented
+  ) {
+    event.preventDefault();
+    closeModal();
+  }
+});
+```
+
+这里复用了前面的滚动锁定函数。代码中的 npm import 需要通过构建工具打包，不能直接将裸模块名称放进未配置模块解析的 Shopify JS 文件中。
+
+该实现针对单层、自定义模态弹窗。生产环境还需要处理备用焦点、嵌套弹窗栈、组件销毁和异常清理等情况。
+
+### 12.4 与原生 dialog 的对比
+
+| 能力 | 原生 dialog | 自定义 Modal |
+|---|---|---|
+| 基础 Role | 浏览器提供 | 手动添加 |
+| 模态背景隔离 | 浏览器提供 | 手动实现 |
+| Top Layer | 支持 | 通常不支持 |
+| 焦点限制 | 浏览器提供 | 手动实现或使用库 |
+| Esc 关闭 | 默认支持 | 手动实现 |
+| 焦点恢复 | 浏览器提供基础能力 | 手动实现 |
+| 遮罩 | `::backdrop` | 独立 DOM |
+| 多层弹窗 | 原生模态叠加能力 | 自己维护 |
+| 开发维护成本 | 相对较低 | 相对较高 |
+
+因此，如果没有特殊的浏览器兼容性或现有架构约束，新项目优先使用原生 dialog。
+
+---
+
+## 13. Popover API 与 Dialog 的区别
+
+Popover API 是另一项值得前端开发者掌握的原生 HTML 能力。
+
+例如网站中的配送说明浮层：
+
+```html
+<button
+  type="button"
+  popovertarget="shipping-info"
+>
+  Shipping information
+</button>
+
+<div id="shipping-info" popover="auto">
+  <p>Free shipping on orders over $50.</p>
+
+  <button
+    type="button"
+    popovertarget="shipping-info"
+    popovertargetaction="hide"
+  >
+    Close
+  </button>
+</div>
+```
+
+上面的代码甚至不需要 JavaScript，就能够实现基础的显示与隐藏。
+
+{@body const [popOpen,setPopOpen]=DIL.useState(false)}
+<card gap={3}>
+  <row align="center">
+    **Cotton T-shirt**
+    <spacer/>
+    **$29.99**
+  </row>
+  <button block variant="outline" color="secondary" onClick={()=>setPopOpen(!popOpen)}>Shipping information <icon name="chevron-down" size="sm"/></button>
+  {#if popOpen}
+    <box border radius="md" padding={3} gap={2}>
+      **Shipping information**
+      <text size="sm">Free shipping on orders over $50.</text>
+      <caption>Estimated delivery: 3–5 business days.</caption>
+      <button block variant="ghost" color="secondary" onClick={()=>setPopOpen(false)}>Close</button>
+    </box>
+  {/if}
+  <button block onClick={()=>setPopOpen(false)}>Add to cart</button>
+  <divider/>
+  <row><caption>Popover 状态</caption><spacer/>{popOpen?"Open":"Closed"}</row>
+  <row><caption>背景交互</caption><spacer/><text color="success" size="sm">始终可操作</text></row>
+  <caption>非模态浮层不需要限制整个页面的焦点。</caption>
+</card>
+
+### 13.1 Popover API 提供的能力
+
+```javascript
+element.showPopover();
+
+element.hidePopover();
+
+element.togglePopover();
+```
+
+Popover 可以进入 Top Layer，`popover="auto"` 还支持原生 Light Dismiss。
+
+但 Popover API 不会根据内容自动赋予菜单、列表框或对话框等具体业务语义，也不会将背景变成模态隔离状态。<Cite refs={["turn171841search17","turn171841search23"]}/>
+
+因此：
+
+| 业务需求 | 推荐技术 |
+|---|---|
+| 必须完成或关闭当前弹窗才能继续 | dialog.showModal() |
+| 可同时操作其他页面内容的浮层 | Popover API |
+| 普通 Accordion 内容展开 | details 或 Disclosure |
+| 商品搜索建议列表 | Combobox + Listbox |
+| 常驻侧栏 | 普通 HTML 区域 |
+| 删除确认 | Modal + alertdialog |
+
+下一课讲解 Dropdown、Menu 和 Combobox 时，还会继续应用 Popover API。
+
+---
+
+## 14. Shopify Dawn 弹窗源码解析
+
+结合之前学习过的 Dawn 源码，我们来看看 Shopify 官方参考主题是怎样实现弹窗的。
+
+Dawn 的弹窗体系主要涉及：
+
+| 文件 | 职责 |
+|---|---|
+| `assets/global.js` | ModalDialog、ModalOpener |
+| `assets/cart-drawer.js` | Cart Drawer |
+| `assets/quick-add.js` | Quick Add Modal |
+| `snippets/cart-drawer.liquid` | 购物车弹窗 HTML |
+| `assets/component-cart-drawer.css` | 抽屉视觉布局 |
+
+### 14.1 ModalDialog 与 ModalOpener
+
+Dawn 使用两个自定义元素建立弹窗触发关系。
+
+```html
+<modal-opener data-modal="#SizeGuideModal">
+
+  <button type="button" aria-haspopup="dialog">
+    Size guide
+  </button>
+
+</modal-opener>
+
+<modal-dialog id="SizeGuideModal">
+
+  <div
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="SizeGuideTitle"
+    tabindex="-1"
+  >
+    <h2 id="SizeGuideTitle">Size guide</h2>
+
+    <!-- Modal content -->
+  </div>
+
+</modal-dialog>
+```
+
+以上是为了说明架构而简化的 HTML，不是可以直接替换 Dawn 现有弹窗的完整代码。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **modal-opener**
+    <caption>监听内部按钮的点击事件</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>通过 data-modal 查找目标</caption></box>
+  <box border radius="md" padding={3} align="center">
+    **modal-dialog**
+    <caption>show(opener) / hide()</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    {#each ["Focus Trap","Focus Restoration","Scroll Lock","Media Pause"] as t}
+      <grid-item><box background="surface-tertiary" radius="sm" padding={3} align="center"><text size="sm">{t}</text></box></grid-item>
+    {/each}
+  </grid>
+</box>
+
+当前 Dawn 公开源码中的 ModalDialog 会在连接到文档后，将自身移动到 body 下，并保存原 Shopify Section 的标识。
+
+打开时记录触发按钮、限制滚动、设置 open 状态、加载适用的延迟内容并建立焦点限制。关闭时解除滚动限制、移除 open 状态、恢复焦点，同时处理媒体暂停。<Cite ref="turn999904view0"/>
+
+### 14.2 为什么 Dawn 要将 Modal 移动到 body？
+
+主要是为了让弹窗脱离原 Section 的布局和层叠上下文影响。
+
+这与 React Portal 的设计思想有些类似：
+
+```text
+原始 DOM：
+
+body
+ └─ Shopify Section
+     └─ modal-dialog
+
+移动之后：
+
+body
+ ├─ Shopify Section
+ └─ modal-dialog
+```
+
+这样可以减少 `overflow`、祖先 transform 和 Stacking Context 对弹窗显示的影响。
+
+不过，移动 DOM 也可能影响依赖祖先结构的 CSS 选择器、Section 生命周期和局部重新渲染。因此，Theme Editor 中的 Section 卸载和重新加载也需要测试。
+
+如果改用原生 dialog，Top Layer 能够解决许多这类布局问题，而无需实际移动 DOM。
+
+### 14.3 Cart Drawer 源码
+
+Dawn 的 CartDrawer 是一个独立的自定义元素。
+
+其主要流程为：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **open()**
+      {#each ["记录触发元素","添加 active 状态","等待 Transition","建立 Focus Trap","限制背景滚动"] as t,i}
+        <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{t}</text></box>
+        {#if i<4}<box align="center"><icon name="arrow-down" color="secondary" size="xs"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **close()**
+      {#each ["移除 active 状态","解除 Focus Trap","恢复触发元素焦点","解除背景滚动限制"] as t,i}
+        <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{t}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" color="secondary" size="xs"/></box>{/if}
+      {/each}
+    </box>
+  </grid-item>
+</grid>
+
+当前源码中，Cart Drawer 会通过 transitionend 事件建立焦点限制，并且在 Section Rendering 更新内部 HTML 后重新绑定遮罩点击事件。<Cite ref="turn999904view1"/>
+
+这里值得重点关注几个潜在的工程问题。
+
+| 场景 | 需要验证的内容 |
+|---|---|
+| 禁用 CSS Transition | Focus Trap 是否仍然初始化 |
+| Cart Drawer 快速打开又关闭 | 是否存在延迟事件争夺焦点 |
+| AJAX 替换购物车内容 | 原有焦点是否丢失 |
+| 原触发元素被重新渲染 | 是否具有备用恢复目标 |
+| 嵌套 Quick Add 与 Cart Drawer | 全局焦点限制是否冲突 |
+| 多个 Modal 同时打开 | 滚动锁是否提前释放 |
+
+这也是为什么我们不能简单复制 Dawn 的实现，就认为自己的业务组件已经完整符合无障碍要求。
+
+源码参考：
+
+[ModalDialog — global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) · [CartDrawer — cart-drawer.js](https://github.com/Shopify/dawn/blob/main/assets/cart-drawer.js)
+
+---
+
+## 15. 封装可复用的 Web Component 弹窗组件
+
+现在整合本节课的知识，为自己的 Shopify Theme 开发一个基于原生 dialog 的通用组件。
+
+我建议采用 Light DOM，而不是必须使用 Shadow DOM。这样能够方便地接入 Liquid 渲染、Theme Color Scheme、Section Rendering 和已有 CSS 体系。
+
+### 15.1 组件架构
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={2} gap={2}>
+    {#each ["Size Guide","Cart Drawer","Quick Add","Search Modal"] as t}
+      <grid-item><box border radius="sm" padding={2} align="center"><text size="sm">{t}</text></box></grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border={{size:1,color:"#5185C5"}} radius="md" padding={3} gap={1} align="center">
+    <title size="lg">accessible-modal</title>
+    <caption>统一打开、关闭、焦点恢复和生命周期</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each ["open(trigger)","close(value)","requestClose(value)","disconnectedCallback()"] as t}
+      <grid-item><box border radius="sm" padding={2} align="center"><text size="xs">{t}</text></box></grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    **Native HTMLDialogElement**
+    <caption>由浏览器提供基础模态能力</caption>
+  </box>
+</box>
+
+### 15.2 accessible-modal.js
+
+```javascript
+class AccessibleModal extends HTMLElement {
+  connectedCallback() {
+    if (this.controller) return;
+
+    this.dialog = this.querySelector('dialog');
+
+    if (!this.dialog) return;
+
+    this.controller = new AbortController();
+
+    const signal = this.controller.signal;
+
+    this.dialog.addEventListener(
+      'close',
+      () => this.handleClose(),
+      { signal }
+    );
+
+    this.addEventListener('click', event => {
+      const button = event.target.closest(
+        '[data-modal-close]'
+      );
+
+      if (!button) return;
+
+      // 避免父层组件处理子层 Modal 的按钮
+      if (button.closest('accessible-modal') !== this) {
+        return;
+      }
+
+      this.requestClose();
+    }, { signal });
+  }
+
+  open(trigger = document.activeElement) {
+    if (!this.dialog || this.dialog.open) {
+      return;
+    }
+
+    this.opener = trigger;
+    this.openerId = trigger?.id;
+
+    this.dialog.returnValue = '';
+
+    this.dialog.showModal();
+  }
+
+  close(value = '') {
+    if (this.dialog?.open) {
+      this.dialog.close(value);
+    }
+  }
+
+  requestClose(value = '') {
+    if (!this.dialog?.open) return;
+
+    if (
+      typeof this.dialog.requestClose === 'function'
+    ) {
+      this.dialog.requestClose(value);
+      return;
+    }
+
+    // 旧浏览器的关闭前校验兼容方案
+    const event = new Event('cancel', {
+      cancelable: true
+    });
+
+    if (this.dialog.dispatchEvent(event)) {
+      this.dialog.close(value);
+    }
+  }
+
+  handleClose() {
+    // 避免旧 close 事件干扰已经重新打开的弹窗
+    if (this.dialog.open) return;
+
+    const active = document.activeElement;
+
+    // 原生浏览器已恢复合理焦点时，不主动抢夺
+    const needsRestoration =
+      !active ||
+      active === document.body ||
+      this.dialog.contains(active);
+
+    if (needsRestoration) {
+      this.restoreFocus();
+    }
+
+    this.opener = null;
+    this.openerId = null;
+
+    this.dispatchEvent(
+      new CustomEvent('modal:closed', {
+        bubbles: true,
+        detail: {
+          returnValue: this.dialog.returnValue
+        }
+      })
+    );
+  }
+
+  restoreFocus() {
+    const fallbackId =
+      this.getAttribute('data-fallback-focus');
+
+    const candidates = [
+      this.opener,
+
+      this.openerId
+        ? document.getElementById(this.openerId)
+        : null,
+
+      fallbackId
+        ? document.getElementById(fallbackId)
+        : null
+    ];
+
+    for (const element of candidates) {
+      if (!element?.isConnected) continue;
+      if (element.matches(':disabled')) continue;
+
+      if (
+        element.closest(
+          '[inert], [aria-hidden="true"]'
+        )
+      ) {
+        continue;
+      }
+
+      element.focus();
+
+      if (document.activeElement === element) {
+        return;
+      }
+    }
+  }
+
+  disconnectedCallback() {
+    this.controller?.abort();
+    this.controller = null;
+
+    if (this.dialog?.open) {
+      this.dialog.close();
+    }
+
+    this.opener = null;
+    this.openerId = null;
+  }
+}
+
+if (!customElements.get('accessible-modal')) {
+  customElements.define(
+    'accessible-modal',
+    AccessibleModal
+  );
+}
+```
+
+这里主要实现了：
+
+| 能力 | 实现方式 |
+|---|---|
+| 原生模态行为 | `showModal()` |
+| 关闭前校验 | `requestClose()` |
+| 旧浏览器兼容 | 特性检测与 cancel 事件 |
+| 焦点恢复 | 原触发元素及备用 ID |
+| 生命周期管理 | connected/disconnectedCallback |
+| 事件清理 | AbortController |
+| 业务事件 | `modal:closed` |
+
+### 15.3 通用触发机制
+
+为了支持动态渲染的 Shopify 商品卡片，可以采用事件委托。
+
+```javascript
+document.addEventListener('click', event => {
+  const trigger = event.target.closest(
+    '[data-modal-open]'
+  );
+
+  if (!trigger) return;
+
+  const modal = document.getElementById(
+    trigger.dataset.modalOpen
+  );
+
+  if (!(modal instanceof AccessibleModal)) {
+    return;
+  }
+
+  event.preventDefault();
+
+  modal.open(trigger);
+});
+```
+
+这样即使 Shopify Section Rendering 替换了触发按钮，新按钮也能够继续工作。
+
+### 15.4 在 Liquid 中使用
+
+例如创建 `snippets/size-guide-modal.liquid`：
+
+```liquid
+{%- assign modal_id = 'SizeGuide-' 
+  | append: section.id
+-%}
+
+<button
+  type="button"
+  id="Open-{{ modal_id }}"
+  data-modal-open="{{ modal_id }}"
+  aria-haspopup="dialog"
+>
+  Size guide
+</button>
+
+<accessible-modal
+  id="{{ modal_id }}"
+  data-fallback-focus="MainContent"
+>
+
+  <dialog
+    aria-labelledby="Title-{{ modal_id }}"
+    class="size-guide-modal"
+  >
+
+    <h2
+      id="Title-{{ modal_id }}"
+      tabindex="-1"
+      autofocus
+    >
+      Size guide
+    </h2>
+
+    <button
+      type="button"
+      data-modal-close
+      aria-label="Close size guide"
+    >
+      ×
+    </button>
+
+    <div class="modal-content">
+      {{ content }}
+    </div>
+
+  </dialog>
+
+</accessible-modal>
+```
+
+这里的 content 是调用 snippet 时传入的内容参数。
+
+这个示例假设每个 Section 只渲染一个 Size Guide。若存在多个实例，需要额外传入唯一实例标识，避免 ID 冲突。
+
+### 15.5 在 theme.liquid 中加载
+
+```liquid
+<script
+  src="{{ 'accessible-modal.js' | asset_url }}"
+  defer="defer"
+></script>
+```
+
+配合前面的 dialog CSS、Drawer CSS 和滚动锁定样式，就能够在多个业务组件中复用同一套基础设施。
+
+### 15.6 组件设计的边界
+
+不建议把所有购物车、商品、库存、搜索等业务逻辑都塞进 AccessibleModal。
+
+比较合理的分层是：
+
+| 模块 | 职责 |
+|---|---|
+| AccessibleModal | 弹窗生命周期、语义、焦点 |
+| CartDrawer | 商品数量、删除、购物车 API |
+| ProductForm | 商品加购 |
+| AccessibilityAnnouncer | 动态消息通知 |
+| ScrollLockManager | 滚动锁定 |
+| SectionRenderer | HTML 更新、焦点保留 |
+
+上面的 Web Component 是基础教学版本。它假设 dialog 外壳保持稳定、脚本在 HTML 解析后执行；对于动态替换整个 dialog、复杂嵌套弹窗、快速重开及异步卸载等场景，还需要进一步完善和测试。
+
+---
+
+## 16. 如何测试弹窗组件？
+
+### 16.1 检查真正的模态状态
+
+在 DevTools Console 中执行：
+
+```javascript
+const dialog = document.querySelector('dialog');
+
+console.table({
+  open: dialog.open,
+
+  modal: dialog.matches(':modal'),
+
+  activeElement: document.activeElement,
+
+  focusInside:
+    dialog.contains(document.activeElement)
+});
+```
+
+一个值得记住的选择器：
+
+```javascript
+document.querySelectorAll('dialog:modal');
+```
+
+它可以找到当前处于原生模态状态的 dialog。
+
+而：
+
+```javascript
+document.querySelectorAll('dialog[open]');
+```
+
+还可能包含非模态对话框。
+
+### 16.2 Playwright 自动化测试
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('size guide modal accessibility', async ({ page }) => {
+  await page.goto('/products/cotton-tshirt');
+
+  const trigger = page.getByRole('button', {
+    name: 'Size guide',
+    exact: true
+  });
+
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Size guide'
+  });
+
+  await expect(dialog).toBeVisible();
+
+  await expect(
+    dialog.getByRole('heading', {
+      name: 'Size guide'
+    })
+  ).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(dialog).not.toBeVisible();
+
+  await expect(trigger).toBeFocused();
+});
+```
+
+这可以验证几个核心行为：
+
+- 键盘能够打开弹窗。
+- 弹窗具有正确的 Role 和 Name。
+- 初始焦点正确。
+- Esc 能够关闭。
+- 关闭后恢复焦点。
+
+但这还不是完整的无障碍测试，需要补充 Tab 正向与反向导航、背景隔离、不同屏幕尺寸以及真实屏幕阅读器测试。
+
+---
+
+## 17. 本课知识测试
+
+{@body const qs=[{q:"Drawer 是否具有专门的 ARIA Role？",o:["role=\"drawer\"","role=\"modal\"","没有，需要根据实际交互模式选择角色"],a:2,e:"Drawer 是视觉布局形式，模态 Drawer 通常采用 dialog 语义。"},{q:"直接给 dialog 添加 open 属性，是否等同于 showModal()？",o:["等同","不等同"],a:1,e:"open 只是打开状态，showModal() 才建立原生模态行为。"},{q:"Top Layer 是否只是一个特别大的 z-index？",o:["是","不是"],a:1,e:"Top Layer 是由浏览器管理的独立顶层。"},{q:"哪个 API 允许通过 cancel 事件阻止关闭？",o:["close()","requestClose()"],a:1,e:"requestClose() 提供关闭前的可取消请求。"},{q:"删除重要数据的确认弹窗，初始焦点通常更适合放在哪里？",o:["Delete 按钮","Cancel 按钮"],a:1,e:"优先聚焦风险较低的操作，可以减少意外删除。"},{q:"Popover API 是否默认禁止背景页面操作？",o:["是","否"],a:1,e:"通过 Popover API 创建的浮层属于非模态交互。"},{q:"能否只依靠 transitionend 初始化必要的焦点管理？",o:["可以","不推荐"],a:1,e:"动画可能被取消或禁用，必要的交互逻辑必须有可靠保障。"},{q:"Cart Drawer 内的状态消息应该优先放在哪里？",o:["当前模态弹窗内部","已经处于 inert 状态的背景区域"],a:0,e:"模态背景可能不再向辅助技术暴露，内部业务消息应该位于有效范围内。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(qs.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===qs[i].a).length} / {qs.length}</caption>
+  </row>
+  {#each qs as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.e}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<qs.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(qs.length).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 弹窗组件无障碍检查清单
+
+{@body const checks=["根据真实交互模式选择 Modal 或 Non-modal","弹窗具有明确的 Accessible Name","打开时初始焦点合理","模态背景不可被键盘和鼠标操作","Tab 与 Shift + Tab 不会进入背景页面","具有可访问的关闭按钮","支持适当的 Esc 退出方式","关闭后恢复触发元素或备用焦点","嵌套弹窗只由最上层管理模态交互","背景滚动锁不会被提前解除","关闭状态下内部控件不可聚焦","200% 字体缩放后内容和功能完整","窄屏及横屏下可以访问 Checkout 等操作","支持 prefers-reduced-motion","业务逻辑不完全依赖动画结束事件","弹窗内部动态消息能够被感知","AJAX 更新不会破坏弹窗生命周期","组件销毁后正确清理事件和资源","通过真实浏览器与屏幕阅读器测试"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Modal Accessibility Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box background="#39866B" height={5} radius="full" width={`${done.filter(Boolean).length/checks.length*100}%`}/>
+  </box>
+  {#each checks as c,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks.map((c,i)=>(done[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [WAI-ARIA Modal Dialog Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) | 模态弹窗设计规范 |
+| [WAI-ARIA Alert Dialog Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/alertdialog/) | 重要操作确认弹窗 |
+| [MDN dialog](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog) | HTML 原生弹窗 |
+| [MDN HTMLDialogElement](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement) | JavaScript API |
+| [MDN Top Layer](https://developer.mozilla.org/en-US/docs/Glossary/Top_layer) | 浏览器顶层机制 |
+| [MDN Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) | 原生非模态浮层 |
+| [MDN starting-style](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@starting-style) | 进入动画 |
+| [focus-trap](https://github.com/focus-trap/focus-trap) | 自定义焦点限制库 |
+| [Shopify Dawn](https://github.com/Shopify/dawn) | Theme 实战源码 |
+
+本课选择了原生 dialog + Light DOM Web Component 作为新组件的主要技术方案。Dawn 分析基于公开 main 分支，其他代码属于教学实现，尚未在你的实际 Theme 和浏览器、辅助技术环境中运行验证。
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">Accessible Modal</title>
+    <caption>完整弹窗组件技术体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"layers",t:"原生机制",d:"dialog、Top Layer、backdrop"},{i:"focus",t:"焦点生命周期",d:"Initial、Trap、Restore"},{i:"shield",t:"交互隔离",d:"inert、Scroll Lock"},{i:"keyboard",t:"关闭机制",d:"Esc、cancel、requestClose"},{i:"alert-triangle",t:"确认弹窗",d:"Alert Dialog、returnValue"},{i:"panel-right",t:"Drawer",d:"响应式抽屉与内部滚动"},{i:"move-horizontal",t:"动画",d:"Reduced Motion、离散过渡"},{i:"component",t:"组件封装",d:"Web Component、Liquid"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本节课最重要的开发思想是：
+
+**Modal 并不是一个设置了 position: fixed 和高 z-index 的 div，而是一套完整的交互生命周期。**
+
+在现代前端开发中，应该尽可能让浏览器承担底层通用能力，让应用层负责业务逻辑，而不是自己重复实现浏览器已经提供的机制。
+
+---
+
+**下一课：第 16 课——Dropdown、Menu、Combobox 下拉组件**
+
+这一课会涉及很多容易混淆的 UI 组件，也是 Shopify Header 和 Predictive Search 开发的核心知识。
+
+主要内容包括：
+
+- Dropdown、Disclosure、Menu、Listbox、Combobox 的本质区别。
+- 为什么普通网站导航不应该随意使用 `role="menu"`。
+- 原生 select 与自定义 Select。
+- Menu Button Pattern。
+- Listbox 单选与多选模式。
+- Combobox 可编辑与不可编辑模式。
+- Roving Tabindex 与 aria-activedescendant 实战。
+- 方向键、Home、End、Typeahead 字符搜索。
+- 点击外部关闭与焦点离开处理。
+- Popover API 与下拉组件定位。
+- Shopify Mega Menu 无障碍开发。
+- Shopify Predictive Search 完整交互实现。
+- Dawn 中 `predictive-search.js` 的源码深入解析。
+
+下一课我们将重点解决一个实际开发中非常常见的问题：**视觉上都是下拉框，但为什么不同下拉组件需要完全不同的 ARIA 语义和键盘交互机制？**

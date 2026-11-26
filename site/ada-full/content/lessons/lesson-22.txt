@@ -1,0 +1,2360 @@
+# 第 22 课：Collection 筛选、排序与分页
+
+<row align="center">
+  <caption>阶段五：Shopify 电商网站无障碍实战</caption>
+  <spacer/>
+  <caption>22 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="84.62%"/>
+</box>
+
+上一课，我们学习了商品详情页、Variant Picker、商品图库以及商品状态同步。
+
+这一课，我们进入 Shopify 的另一个核心业务页面：**PLP（Product Listing Page，商品列表页）**，也就是我们经常开发的 Collection 页面。
+
+之前学习 Shopify 数据模型时，我们已经讨论过 Collection 原生筛选、排序以及自定义筛选条件的问题。这一课将从无障碍和前端工程的角度，进一步研究如何完整实现这些功能。
+
+本课的核心是：当用户不断执行筛选、排序、分页操作，Shopify 又通过 Section Rendering 不断更新 DOM 时，如何保证业务数据、页面状态、键盘焦点和屏幕阅读器通知始终保持一致。
+
+## 1. Collection 页面的无障碍架构
+
+<box border radius="lg" padding={3} gap={3}>
+  <caption>Home / Clothing</caption>
+  <title size="2xl">Clothing</title>
+  <caption>Discover our everyday essentials.</caption>
+  <divider/>
+  <row align="center">
+    <text size="sm">48 products</text>
+    <spacer/>
+    <box border radius="sm" padding={2}>
+      <row align="center"><text size="xs">Sort by: Best selling</text><icon name="chevron-down" size="xs"/></row>
+    </box>
+  </row>
+  <row wrap="wrap" gap={2}>
+    <box background="surface-tertiary" radius="full" padding={2}><row gap={2}><text size="xs">Black</text><icon name="x" size="xs"/></row></box>
+    <box background="surface-tertiary" radius="full" padding={2}><row gap={2}><text size="xs">Size M</text><icon name="x" size="xs"/></row></box>
+    <text size="xs" underline={true}>Clear all</text>
+  </row>
+  <row align="start" gap={3}>
+    <box width="100px" gap={2}>
+      **Filters**
+      <divider/>
+      <text size="sm" weight="medium">Availability</text>
+      <row gap={1}><icon name="square-check" size="sm"/><text size="xs">In stock</text></row>
+      <row gap={1}><icon name="square" size="sm"/><text size="xs">Sold out</text></row>
+      <divider/>
+      <text size="sm" weight="medium">Color</text>
+      {#each ["Black","White","Blue"] as c,i}
+        <row gap={1}><icon name={i===0?"square-check":"square"} size="sm"/><text size="xs">{c}</text></row>
+      {/each}
+      <divider/>
+      <text size="sm" weight="medium">Price</text>
+      <svg viewBox="0 0 100 28" width="100%">
+        <path d="M8 14 H92" stroke="currentColor" strokeOpacity=".25" strokeWidth="4"/>
+        <path d="M20 14 H77" stroke="#5185C5" strokeWidth="4"/>
+        <circle cx="20" cy="14" r="6" fill="#5185C5"/>
+        <circle cx="77" cy="14" r="6" fill="#5185C5"/>
+      </svg>
+      <caption>$0 — $100</caption>
+    </box>
+    <box flex={1}>
+      <grid columns={2} gap={2}>
+        {#each [{n:"Cotton T-shirt",p:"$29.99",c:"#444444"},{n:"Classic shirt",p:"$49.99",c:"#A39A8D"},{n:"Linen top",p:"$39.99",c:"#E6E2D8"},{n:"Casual jacket",p:"$89.99",c:"#718396"}] as p}
+          <grid-item>
+            <box gap={1}>
+              <box background="#E4DED5" radius="sm" padding={2}>
+                <svg viewBox="0 0 80 90" width="100%">
+                  <path d="M26 7 L5 22 L17 39 L26 33 V83 H54 V33 L63 39 L75 22 L54 7 L40 14 Z" fill={p.c} stroke="#999999" strokeWidth=".5"/>
+                </svg>
+              </box>
+              <text size="xs" weight="medium">{p.n}</text>
+              <caption>{p.p}</caption>
+              <box border radius="sm" padding={1} align="center"><text size="xs">Quick add</text></box>
+            </box>
+          </grid-item>
+        {/each}
+      </grid>
+    </box>
+  </row>
+  <divider/>
+  <row align="center" justify="center" gap={4}>
+    <icon name="chevron-left" size="sm"/>
+    <text underline={true} weight="bold">1</text>
+    2
+    3
+    <icon name="chevron-right" size="sm"/>
+  </row>
+  <caption>典型 Collection 页面结构，商品及数量为教学示意。</caption>
+</box>
+
+| 业务模块 | 无障碍开发重点 |
+|---|---|
+| Collection Title | H1、页面语义 |
+| Product Grid | 列表语义、阅读顺序 |
+| Product Card | 图片、链接、价格、Quick Add |
+| Faceted Search | Checkbox、Fieldset、Legend |
+| Price Range | 数值输入框、双滑块 |
+| Active Filters | 当前筛选条件、删除操作 |
+| Sort By | Select、On Input |
+| Filter Drawer | 模态隔离、焦点恢复 |
+| Product Count | Live Region |
+| Pagination | 导航地标、aria-current |
+| Load More | 动态追加、焦点管理 |
+| Section Rendering | 请求竞争、DOM 更新、状态恢复 |
+
+---
+
+## 2. Product Grid：商品列表的语义结构
+
+在开发 Collection 页面时，很多开发者会直接使用大量 div 来实现 Grid 布局。
+
+```html
+<div class="product-grid">
+  <div class="product-card">...</div>
+  <div class="product-card">...</div>
+  <div class="product-card">...</div>
+</div>
+```
+
+视觉上没有问题，但缺少商品之间的列表关系。
+
+更推荐使用原生列表语义：
+
+```liquid
+{% paginate collection.products by 24 %}
+
+  <ul class="product-grid" role="list">
+
+    {% for product in collection.products %}
+      <li>
+        {% render 'card-product', card_product: product %}
+      </li>
+    {% endfor %}
+
+  </ul>
+
+  {% render 'pagination', paginate: paginate %}
+
+{% endpaginate %}
+```
+
+对应的 Accessibility Tree：
+
+<box border radius="lg" padding={3} gap={2}>
+  **main**
+  <box padding={{left:3}} gap={2}>
+    <text size="sm">heading level 1 "Clothing"</text>
+    <text size="sm">status "48 products found"</text>
+    <box border radius="md" padding={3} gap={2}>
+      **list · 24 items**
+      {#each ["Cotton T-shirt","Classic shirt","Linen top"] as p}
+        <box padding={{left:3}} gap={1}>
+          <caption>listitem</caption>
+          <text size="sm">heading level 2 "{p}"</text>
+          <text size="sm">link "{p}"</text>
+          <text size="sm">button "Quick add: {p}"</text>
+        </box>
+      {/each}
+      <caption>...其余商品</caption>
+    </box>
+    <text size="sm">navigation "Pagination"</text>
+  </box>
+</box>
+
+需要特别注意：视觉上的 CSS Grid，并不意味着应该使用 `role="grid"`。
+
+ARIA Grid 是一种具有特定方向键导航机制的复合组件，例如可编辑数据表格。普通电商商品列表使用 `ul` 和 `li` 通常就足够了。
+
+这里显式添加 `role="list"`，也是为了应对部分 Safari 环境在使用 `list-style: none` 后可能出现的列表语义丢失问题。
+
+---
+
+## 3. Product Card 商品卡片
+
+### 3.1 图片和商品名称是否应该分别使用链接？
+
+常见的商品卡片结构：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <box background="#E5DED3" border={{size:2,color:"#3978BC"}} radius="sm" padding={3}>
+        <svg viewBox="0 0 100 110" width="100%">
+          <path d="M34 8 L8 25 L22 46 L34 38 V103 H66 V38 L78 46 L92 25 L66 8 L50 16 Z" fill="#535353"/>
+        </svg>
+      </box>
+      <caption>Tab 停靠点 1</caption>
+      <box border={{size:2,color:"#3978BC"}} radius="sm" padding={1}>
+        <text size="sm" underline={true}>Cotton T-shirt</text>
+      </box>
+      <caption>Tab 停靠点 2</caption>
+      **$29.99**
+      <box border radius="sm" padding={2} align="center"><text size="sm">Quick add</text></box>
+      <caption>Tab 停靠点 3</caption>
+    </box>
+    **两个重复商品链接**
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <box border={{size:2,color:"#3978BC"}} radius="sm" padding={1} gap={2}>
+        <box background="#E5DED3" radius="sm" padding={3}>
+          <svg viewBox="0 0 100 110" width="100%">
+            <path d="M34 8 L8 25 L22 46 L34 38 V103 H66 V38 L78 46 L92 25 L66 8 L50 16 Z" fill="#535353"/>
+          </svg>
+        </box>
+        <text size="sm" underline={true}>Cotton T-shirt</text>
+      </box>
+      <caption>Tab 停靠点 1</caption>
+      **$29.99**
+      <box border={{size:2,color:"#3978BC"}} radius="sm" padding={2} align="center"><text size="sm">Quick add</text></box>
+      <caption>Tab 停靠点 2</caption>
+    </box>
+    **合并为一个商品链接**
+  </grid-item>
+</grid>
+
+如果图片和商品名称都跳转到同一个 PDP，可以考虑将它们合并为一个链接。
+
+24 张商品卡片就可以减少 24 个重复的 Tab 停靠点。
+
+### 3.2 推荐 HTML 与 Liquid
+
+```liquid
+<article class="product-card">
+
+  <a href="{{ product.url }}"
+    aria-labelledby="ProductTitle-{{ section.id }}-{{ product.id }}"
+  >
+    {{
+      product.featured_image
+      | image_url: width: 600
+      | image_tag: loading: 'lazy'
+    }}
+
+    <h2 id="ProductTitle-{{ section.id }}-{{ product.id }}">
+      {{ product.title | escape }}
+    </h2>
+  </a>
+
+  <p>
+    {{ product.price | money_with_currency }}
+  </p>
+
+  <button type="button"
+    aria-label="Quick add: {{ product.title | escape }}"
+    aria-haspopup="dialog"
+  >
+    Quick add
+  </button>
+
+</article>
+```
+
+这里假设商品图片主要用于识别商品，链接名称由商品标题提供；如果图片表达了额外的重要商品信息，还需要保证这些信息具有适当的文本替代。
+
+Quick Add 按钮必须位于商品链接之外。
+
+下面这种嵌套是不合理的：
+
+```html
+<a href="/products/shirt">
+
+  <img src="shirt.jpg" alt="Cotton T-shirt">
+
+  <button>Add to cart</button>
+
+</a>
+```
+
+链接内部不能嵌套其他交互控件。
+
+### 3.3 为什么 Quick Add 需要包含商品名称？
+
+假设页面上有 24 个 Quick Add 按钮。
+
+如果每一个按钮的 Accessible Name 都只是：
+
+```text
+Quick add
+```
+
+屏幕阅读器用户通过按钮列表浏览页面时，很难区分对应商品。
+
+更合理的名称是：
+
+```text
+Quick add: Cotton T-shirt
+Quick add: Linen shirt
+Quick add: Classic jacket
+```
+
+而且保留了视觉按钮上的 Quick add 文字，符合 Label in Name 的设计要求。
+
+---
+
+## 4. Shopify Faceted Search 数据模型
+
+Shopify Storefront Filtering 支持基于商品数据、Variant Option、Metafield、价格、可购买性等条件筛选商品。商家可以通过 Search & Discovery App 等方式配置筛选条件，Theme 则负责渲染及交互。<Cite refs={["turn175122search3","turn175122search8"]}/>
+
+### 4.1 Filter 对象
+
+```liquid
+{% for filter in collection.filters %}
+  {{ filter.label }}
+  {{ filter.type }}
+{% endfor %}
+```
+
+| 属性 | 作用 |
+|---|---|
+| `filter.label` | 筛选组名称 |
+| `filter.type` | 筛选类型 |
+| `filter.values` | 候选筛选值 |
+| `filter.active_values` | 已选择的筛选值 |
+| `filter.min_value` | 当前最低价格筛选值 |
+| `filter.max_value` | 当前最高价格筛选值 |
+| `filter.range_max` | 筛选范围最高价格 |
+| `filter.url_to_remove` | 清除整个筛选组的 URL |
+
+### 4.2 Filter Value 对象
+
+| 属性 | 作用 |
+|---|---|
+| `value.label` | 用户看到的名称 |
+| `value.value` | 实际筛选值 |
+| `value.param_name` | URL 参数名称 |
+| `value.active` | 是否已经选中 |
+| `value.count` | 匹配该值的商品数量 |
+| `value.url_to_remove` | 移除该筛选值的 URL |
+
+这些属性由 Shopify 提供，因此 Theme 不需要自行猜测每个筛选条件应该对应什么 URL 参数。<Cite refs={["turn175122search5","turn175122search6"]}/>
+
+### 4.3 数据与 URL 的关系
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} gap={2}>
+    **Shopify Filter**
+    <row><caption>label</caption><spacer/>Color</row>
+    <row><caption>type</caption><spacer/>list</row>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} gap={2}>
+    **Filter Value**
+    <row><caption>label</caption><spacer/>Black</row>
+    <row><caption>value</caption><spacer/>Black</row>
+    <row><caption>active</caption><spacer/>true</row>
+    <caption>param_name</caption>
+    <text size="sm">filter.v.option.color</text>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3}>
+    **URL**
+    <text size="xs">/collections/clothing?filter.v.option.color=Black</text>
+  </box>
+</box>
+
+多个筛选值可以通过 URL 参数提交给 Shopify，服务器负责根据筛选条件计算商品集合。
+
+这意味着无障碍开发不需要重新实现商品筛选算法，而是需要保证 Shopify 返回的筛选状态能够正确映射到前端控件。
+
+---
+
+## 5. Checkbox 与多选筛选的完整实现
+
+商品筛选器通常由多个可展开的筛选组组成。
+
+<box border radius="md" padding={3} gap={2}>
+  <row align="center">
+    **Color**
+    <spacer/><caption>2 selected</caption><icon name="chevron-up" size="sm"/>
+  </row>
+  <divider/>
+  {#each [{n:"Black",c:"#333333",count:18,checked:true},{n:"White",c:"#FAF9F5",count:12,checked:false},{n:"Blue",c:"#8198B2",count:8,checked:true},{n:"Red",c:"#AC6868",count:0,checked:false}] as p}
+    <row align="center">
+      <icon name={p.checked?"square-check":"square"} color={p.count===0?"secondary":"default"}/>
+      <box size="18px" radius="full" border background={p.c}/>
+      <text size="sm" color={p.count===0?"secondary":"default"}>{p.n}</text>
+      <spacer/>
+      <caption>({p.count})</caption>
+    </row>
+  {/each}
+</box>
+
+### 5.1 Liquid 实现
+
+```liquid
+<form
+  id="CollectionFilters"
+  action="{{ collection.url }}"
+  method="get"
+>
+
+  {% for filter in collection.filters %}
+
+    {% case filter.type %}
+
+      {% when 'boolean', 'list' %}
+
+        <details
+          id="Facet-{{ section.id }}-{{ forloop.index }}"
+          {% if filter.active_values.size > 0 %}open{% endif %}
+        >
+          <summary>
+            {{ filter.label | escape }}
+
+            {% if filter.active_values.size > 0 %}
+              ({{ filter.active_values.size }} selected)
+            {% endif %}
+          </summary>
+
+          <fieldset>
+            <legend class="visually-hidden">
+              {{ filter.label | escape }}
+            </legend>
+
+            {% for value in filter.values %}
+
+              {% assign input_id = section.id
+                | append: '-'
+                | append: value.param_name
+                | append: '-'
+                | append: forloop.index
+              %}
+
+              <div class="filter-option">
+
+                <input
+                  type="checkbox"
+                  id="{{ input_id | escape }}"
+                  name="{{ value.param_name }}"
+                  value="{{ value.value | escape }}"
+                  {% if value.active %}checked{% endif %}
+                  {% if value.count == 0 and value.active == false %}
+                    disabled
+                  {% endif %}
+                >
+
+                <label for="{{ input_id | escape }}">
+                  {{ value.label | escape }}
+                  ({{ value.count }})
+                </label>
+
+              </div>
+
+            {% endfor %}
+
+          </fieldset>
+
+        </details>
+
+    {% endcase %}
+
+  {% endfor %}
+
+  <button type="submit">
+    Apply filters
+  </button>
+
+</form>
+```
+
+这段代码采用原生 GET Form，即使 JavaScript 加载失败，也能通过完整页面请求实现筛选。
+
+### 5.2 Fieldset 与 Legend 的作用
+
+当屏幕阅读器用户进入某个筛选组时，可以获得类似这样的信息：
+
+```text
+Color, grouping
+Black, checkbox, checked, 18
+White, checkbox, not checked, 12
+Blue, checkbox, checked, 8
+```
+
+而不是只有：
+
+```text
+Black
+White
+Blue
+```
+
+尤其当页面上存在多个名称相似的筛选选项时，分组信息十分重要。
+
+### 5.3 为什么 count 为 0 的选项不能全部禁用？
+
+注意前面的 Liquid 判断：
+
+```liquid
+{% if value.count == 0 and value.active == false %}
+  disabled
+{% endif %}
+```
+
+如果某个筛选条件已经被选中，即使当前匹配数量为 0，也应该允许用户取消它。
+
+否则用户可能无法通过原来的筛选控件解除限制。
+
+这与上一课的 Sold Out Variant 有相似之处：**业务上的不可用状态，并不一定意味着控件本身应该被禁止操作。**
+
+### 5.4 实时筛选还是点击 Apply？
+
+| 方案 | 优点 | 缺点 |
+|---|---|---|
+| 每次 change 立即更新 | 反馈及时 | 可能频繁请求和播报 |
+| Debounce 后更新 | 减少请求次数 | 仍需处理请求竞争 |
+| 点击 Apply 后更新 | 操作可预测，可批量选择 | 多一次确认操作 |
+
+对于桌面端筛选，可以采用实时更新。
+
+对于移动端模态 Filter Drawer，我更推荐先选择多个条件，再点击 Apply 或 View results，避免用户每次选择 Checkbox 都触发页面跳动。
+
+---
+
+## 6. Price Range：价格范围筛选
+
+价格范围筛选是 Collection 页面中较复杂的一类控件。
+
+通常存在三种实现方式。
+
+<box border radius="lg" padding={3} gap={3}>
+  **方案一：两个数字输入框**
+  <grid columns={2}>
+    <grid-item><label>Minimum price</label><box border radius="sm" padding={3}>$ 20</box></grid-item>
+    <grid-item><label>Maximum price</label><box border radius="sm" padding={3}>$ 150</box></grid-item>
+  </grid>
+  <caption>实现简单，适合精确输入。</caption>
+  <divider/>
+  **方案二：双滑块**
+  <svg viewBox="0 0 320 68" width="100%">
+    <path d="M15 32 H305" stroke="currentColor" strokeOpacity=".2" strokeWidth="5" strokeLinecap="round"/>
+    <path d="M44 32 H232" stroke="#3978BC" strokeWidth="5"/>
+    <circle cx="44" cy="32" r="10" fill="#FFFFFF" stroke="#3978BC" strokeWidth="2"/>
+    <circle cx="232" cy="32" r="10" fill="#FFFFFF" stroke="#3978BC" strokeWidth="2"/>
+    <text x="44" y="13" fontSize="12" textAnchor="middle" fill="currentColor">$20</text>
+    <text x="232" y="13" fontSize="12" textAnchor="middle" fill="currentColor">$150</text>
+    <text x="15" y="59" fontSize="10" fill="currentColor">$0</text>
+    <text x="305" y="59" fontSize="10" textAnchor="end" fill="currentColor">$200</text>
+  </svg>
+  <caption>视觉体验直观，但需要额外实现两个滑块之间的约束关系。</caption>
+  <divider/>
+  **方案三：双滑块 + 数字输入框**
+  <svg viewBox="0 0 320 40" width="100%">
+    <path d="M15 20 H305" stroke="currentColor" strokeOpacity=".2" strokeWidth="5" strokeLinecap="round"/>
+    <path d="M44 20 H232" stroke="#3978BC" strokeWidth="5"/>
+    <circle cx="44" cy="20" r="10" fill="#FFFFFF" stroke="#3978BC" strokeWidth="2"/>
+    <circle cx="232" cy="20" r="10" fill="#FFFFFF" stroke="#3978BC" strokeWidth="2"/>
+  </svg>
+  <grid columns={2}>
+    <grid-item><label>From</label><box border radius="sm" padding={2}>$ 20</box></grid-item>
+    <grid-item><label>To</label><box border radius="sm" padding={2}>$ 150</box></grid-item>
+  </grid>
+  <caption>同时支持快速选择与精确输入，适合大多数电商业务。</caption>
+</box>
+
+如果设计没有强制要求双滑块，两个原生输入框往往是成本最低、兼容性最好的方案。
+
+Dawn 当前公开源码中的 `price-facet.liquid` 也采用了两个文字输入框，并使用 `inputmode="decimal"` 提示移动端显示适合数字输入的键盘。<Cite ref="turn440670view1"/>
+
+### 6.1 原生 Range Slider 的语义
+
+```html
+<label for="price">
+  Maximum price (USD)
+</label>
+
+<input
+  id="price"
+  type="range"
+  min="0"
+  max="200"
+  step="1"
+  value="100"
+>
+```
+
+原生 `input[type="range"]` 已经提供 slider 语义、当前值、最小值、最大值以及键盘操作。
+
+所以不需要重复设置：
+
+```html
+role="slider"
+aria-valuemin="0"
+aria-valuemax="200"
+aria-valuenow="100"
+```
+
+### 6.2 自定义双滑块的 ARIA 结构
+
+HTML 没有直接提供一个拥有两个 Thumb 的原生 Range Input。
+
+如果完全自定义双滑块，需要为每一个 Thumb 分别提供 Slider 语义。
+
+```html
+<div role="group" aria-label="Price range">
+
+  <div class="range-track">
+
+    <div
+      role="slider"
+      tabindex="0"
+      aria-label="Minimum price"
+      aria-valuemin="0"
+      aria-valuemax="150"
+      aria-valuenow="20"
+      aria-valuetext="20 US dollars"
+    ></div>
+
+    <div
+      role="slider"
+      tabindex="0"
+      aria-label="Maximum price"
+      aria-valuemin="20"
+      aria-valuemax="200"
+      aria-valuenow="150"
+      aria-valuetext="150 US dollars"
+    ></div>
+
+  </div>
+
+</div>
+```
+
+这里有一个重要的细节：两个 Slider 的取值范围是相互约束的。
+
+最低价格不能超过最高价格，最高价格不能低于最低价格。因此，一个 Thumb 的值改变之后，另一个 Thumb 对应的 ARIA 边界也必须更新。
+
+### 6.3 键盘操作规范
+
+| 按键 | 行为 |
+|---|---|
+| Tab | 在两个 Thumb 之间移动焦点 |
+| Shift + Tab | 反向移动 |
+| ArrowRight / Up | 增加当前值 |
+| ArrowLeft / Down | 减少当前值 |
+| Home | 移动至当前允许的最小值 |
+| End | 移动至当前允许的最大值 |
+| PageUp / PageDown | 可选，进行较大幅度调整 |
+
+两个 Thumb 都应该保留键盘访问入口，而且 Tab 顺序不应因两个滑块的视觉位置变化而改变。W3C APG 对双滑块的相互约束及触屏辅助技术兼容性有专门的设计指导。<Cite ref="turn175122search1"/>
+
+### 6.4 双滑块交互实验
+
+{@body const [low22,setLow22]=DIL.useState(20)}
+{@body const [high22,setHigh22]=DIL.useState(150)}
+{@body const [thumb22,setThumb22]=DIL.useState("min")}
+{@body const changeThumb22=(delta)=>{if(thumb22==="min")setLow22(v=>Math.min(high22,Math.max(0,v+delta)));else setHigh22(v=>Math.max(low22,Math.min(200,v+delta)))}}
+<card gap={3}>
+  **Multi-Thumb Slider 实验室**
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>Minimum price</caption>
+      <title size="2xl">${low22}</title>
+    </box>
+    <text color="secondary">—</text>
+    <box flex={1} gap={1} align="end">
+      <caption>Maximum price</caption>
+      <title size="2xl">${high22}</title>
+    </box>
+  </row>
+  <svg viewBox="0 0 320 65" width="100%">
+    <path d="M16 30 H304" stroke="currentColor" strokeOpacity=".2" strokeWidth="5" strokeLinecap="round"/>
+    <path d={`M${16+low22/200*288} 30 H${16+high22/200*288}`} stroke="#3978BC" strokeWidth="5" strokeLinecap="round"/>
+    {#each [{n:"min",v:low22},{n:"max",v:high22}] as p}
+      {#if thumb22===p.n}<circle cx={16+p.v/200*288} cy="30" r="14" stroke="#3978BC" strokeDasharray="3 2" fill="none"/>{/if}
+      <circle cx={16+p.v/200*288} cy="30" r="9" fill="#FFFFFF" stroke="#3978BC" strokeWidth="2"/>
+    {/each}
+    {#each [0,50,100,150,200] as n}
+      <path d={`M${16+n/200*288} 45 v4`} stroke="currentColor" strokeOpacity=".5"/>
+      <text x={16+n/200*288} y="62" textAnchor="middle" fontSize="10" fill="currentColor">${n}</text>
+    {/each}
+  </svg>
+  <label>最低价格</label>
+  <slider min={0} max={Math.max(1,high22)} step={1} value={low22} onChange={v=>setLow22(Math.min(v,high22))}/>
+  <label>最高价格</label>
+  <slider min={Math.min(199,low22)} max={200} step={1} value={high22} onChange={v=>setHigh22(Math.max(v,low22))}/>
+  <segmented-control value={thumb22} onChange={setThumb22} options={[{label:"聚焦最低价格",value:"min"},{label:"聚焦最高价格",value:"max"}]}/>
+  <grid columns={4} gap={1}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>thumb22==="min"?setLow22(0):setHigh22(low22)}>Home</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>changeThumb22(-1)}><icon name="arrow-left"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>changeThumb22(1)}><icon name="arrow-right"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>thumb22==="min"?setLow22(high22):setHigh22(200)}>End</button></grid-item>
+  </grid>
+  <divider/>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box border radius="sm" padding={2} gap={1}>
+        **Minimum Thumb**
+        <text size="xs">aria-valuemin: 0</text>
+        <text size="xs">aria-valuemax: {high22}</text>
+        <text size="xs">aria-valuenow: {low22}</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="sm" padding={2} gap={1}>
+        **Maximum Thumb**
+        <text size="xs">aria-valuemin: {low22}</text>
+        <text size="xs">aria-valuemax: 200</text>
+        <text size="xs">aria-valuenow: {high22}</text>
+      </box>
+    </grid-item>
+  </grid>
+  <box background="surface-tertiary" radius="sm" padding={2}>
+    <text size="xs" preserveWhitespace={true}>{`filter.v.price.gte=${low22}\nfilter.v.price.lte=${high22}`}</text>
+  </box>
+  <button block variant="ghost" color="secondary" onClick={()=>{setLow22(20);setHigh22(150);setThumb22("min")}}>重置实验</button>
+  <caption>本实验用两个独立的原生滑块模拟共享轨道和 ARIA 数值约束。</caption>
+</card>
+
+尝试改变最低价格，观察 Maximum Thumb 的 aria-valuemin 如何同步变化。
+
+### 6.5 JavaScript 核心实现
+
+下面是自定义 Thumb 的键盘与语义状态管理代码。
+
+```javascript
+const state = {
+  min: 20,
+  max: 150,
+  lowerLimit: 0,
+  upperLimit: 200,
+  step: 1
+};
+
+const minThumb = document.querySelector('[data-thumb="min"]');
+const maxThumb = document.querySelector('[data-thumb="max"]');
+
+const currency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD'
+});
+
+function setPrice(type, value) {
+  if (type === 'min') {
+    state.min = Math.max(
+      state.lowerLimit,
+      Math.min(value, state.max)
+    );
+  } else {
+    state.max = Math.min(
+      state.upperLimit,
+      Math.max(value, state.min)
+    );
+  }
+
+  render();
+}
+
+function render() {
+  minThumb.setAttribute(
+    'aria-valuemin', state.lowerLimit
+  );
+
+  minThumb.setAttribute(
+    'aria-valuemax', state.max
+  );
+
+  minThumb.setAttribute(
+    'aria-valuenow', state.min
+  );
+
+  minThumb.setAttribute(
+    'aria-valuetext', currency.format(state.min)
+  );
+
+  maxThumb.setAttribute(
+    'aria-valuemin', state.min
+  );
+
+  maxThumb.setAttribute(
+    'aria-valuemax', state.upperLimit
+  );
+
+  maxThumb.setAttribute(
+    'aria-valuenow', state.max
+  );
+
+  maxThumb.setAttribute(
+    'aria-valuetext', currency.format(state.max)
+  );
+
+  // 此处同步视觉位置及价格输入框
+}
+
+function onKeydown(event, type) {
+  const min = type === 'min'
+    ? state.lowerLimit
+    : state.min;
+
+  const max = type === 'min'
+    ? state.max
+    : state.upperLimit;
+
+  let value = state[type];
+
+  switch (event.key) {
+    case 'ArrowRight':
+    case 'ArrowUp':
+      value += state.step;
+      break;
+
+    case 'ArrowLeft':
+    case 'ArrowDown':
+      value -= state.step;
+      break;
+
+    case 'Home':
+      value = min;
+      break;
+
+    case 'End':
+      value = max;
+      break;
+
+    default:
+      return;
+  }
+
+  event.preventDefault();
+
+  setPrice(type, value);
+}
+
+minThumb.addEventListener('keydown', event => {
+  onKeydown(event, 'min');
+});
+
+maxThumb.addEventListener('keydown', event => {
+  onKeydown(event, 'max');
+});
+
+render();
+```
+
+以上仅实现键盘操作和 ARIA 数值约束，尚未包含指针拖拽、触屏、轨道点击、视觉位置计算等完整功能。
+
+正式项目建议优先使用原生 Range Input 或经过充分无障碍验证的组件库，并提供两个可直接输入价格的字段作为替代操作。
+
+### 6.6 Shopify 价格参数
+
+Shopify 原生筛选通常使用：
+
+```text
+filter.v.price.gte=20
+filter.v.price.lte=150
+```
+
+不过在 Liquid 中，仍然应该优先使用：
+
+```liquid
+{{ filter.min_value.param_name }}
+{{ filter.max_value.param_name }}
+```
+
+特别注意，Liquid 中的价格数值与 URL 中用户输入的货币金额不能不加区分地直接使用。
+
+正式项目需要正确处理当前币种、金额单位、小数分隔符以及区域格式。
+
+---
+
+## 7. Active Filters：已选筛选条件
+
+Active Filters 通常以 Chip 或 Tag 的形式展示。
+
+{@body const availableFilters22=[{group:"Color",name:"Black",count:18},{group:"Color",name:"Blue",count:8},{group:"Size",name:"M",count:16},{group:"Availability",name:"In stock",count:32}]}
+{@body const [chosen22,setChosen22]=DIL.useState([0,2])}
+<card gap={3}>
+  **Active Filters 实验室**
+  {#each availableFilters22 as f,i}
+    <checkbox checked={chosen22.includes(i)} onChange={v=>setChosen22(old=>v?[...old,i]:old.filter(n=>n!==i))}>{f.group}: {f.name}</checkbox>
+  {/each}
+  <divider/>
+  <row wrap="wrap" gap={2}>
+    {#each chosen22 as i}
+      <button size="sm" color="secondary" variant="outline" pill={true} onClick={()=>setChosen22(old=>old.filter(n=>n!==i))}>{availableFilters22[i].group}: {availableFilters22[i].name} <icon name="x" size="sm"/></button>
+    {/each}
+    {#if chosen22.length>0}
+      <button size="sm" variant="ghost" color="secondary" onClick={()=>setChosen22([])}>Clear all</button>
+    {:else}
+      <caption>没有已选筛选条件</caption>
+    {/if}
+  </row>
+  <caption>筛选 Checkbox 和已选条件应该始终保持同步。</caption>
+</card>
+
+### 7.1 使用 Shopify 原生移除 URL
+
+```liquid
+<div class="active-filters">
+
+  <h2 class="visually-hidden">
+    Applied filters
+  </h2>
+
+  <ul role="list">
+
+    {% for filter in collection.filters %}
+
+      {% for value in filter.active_values %}
+
+        <li>
+          <a
+            href="{{ value.url_to_remove }}"
+            aria-label="Remove filter: {{ filter.label | escape }}: {{ value.label | escape }}"
+          >
+            {{ filter.label | escape }}:
+            {{ value.label | escape }}
+
+            <span aria-hidden="true">×</span>
+          </a>
+        </li>
+
+      {% endfor %}
+
+    {% endfor %}
+
+  </ul>
+
+</div>
+```
+
+这里使用链接，而不是普通 span。
+
+这样在 JavaScript 不可用时，用户仍然能够访问对应 URL 来移除筛选条件；JavaScript 可用时，则可以拦截链接执行 AJAX 更新。
+
+价格范围属于特殊筛选类型，应根据 `filter.min_value` 和 `filter.max_value` 另外生成对应的价格 Chip。
+
+### 7.2 删除 Chip 之后，焦点应该去哪里？
+
+这是 Active Filters 最容易遗漏的问题。
+
+<box border radius="lg" padding={3} gap={3}>
+  <caption>删除前</caption>
+  <row wrap="wrap" gap={2}>
+    <box border radius="full" padding={2}><text size="sm">Black ×</text></box>
+    <box border={{size:2,color:"#3978BC"}} radius="full" padding={2}><text size="sm">Size M ×</text></box>
+    <box border radius="full" padding={2}><text size="sm">In stock ×</text></box>
+  </row>
+  <box align="center"><icon name="arrow-down"/><caption>删除 Size M</caption></box>
+  <caption>删除后</caption>
+  <row wrap="wrap" gap={2}>
+    <box border radius="full" padding={2}><text size="sm">Black ×</text></box>
+    <box border={{size:2,color:"#3978BC"}} radius="full" padding={2}><text size="sm">In stock ×</text></box>
+  </row>
+  <caption>原焦点元素已被删除，将焦点移至下一个合理的删除控件。</caption>
+</box>
+
+推荐焦点恢复顺序：
+
+1. 如果还有下一个 Chip，聚焦下一项。
+2. 如果没有下一项，聚焦上一项。
+3. 如果所有 Chip 都被删除，聚焦筛选入口或商品结果标题。
+4. 如果用户在请求期间主动移动了焦点，则不要擅自抢回焦点。
+
+不能简单地在更新完成后执行：
+
+```javascript
+document.body.focus();
+```
+
+也不应该每删除一个筛选条件，就将用户送回页面顶部。
+
+---
+
+## 8. Sort By 排序与 WCAG On Input
+
+Shopify Collection 原生排序通常采用 `collection.sort_options`。
+
+```liquid
+{% assign sort_by = collection.sort_by
+  | default: collection.default_sort_by
+%}
+
+<label for="SortBy">
+  Sort by
+</label>
+
+<select id="SortBy" name="sort_by">
+
+  {% for option in collection.sort_options %}
+
+    <option
+      value="{{ option.value | escape }}"
+      {% if option.value == sort_by %}
+        selected
+      {% endif %}
+    >
+      {{ option.name | escape }}
+    </option>
+
+  {% endfor %}
+
+</select>
+```
+
+### 8.1 修改 Select 后立即排序，是否违反 ADA 无障碍要求？
+
+不一定。
+
+WCAG 3.2.2 On Input 主要限制的是控件值变化后产生用户未预期的上下文变化，而不是禁止所有动态内容更新。<Cite ref="turn440670view2"/>
+
+| 排序行为 | 无障碍判断 |
+|---|---|
+| 选择后 AJAX 更新商品列表，保留焦点 | 通常可以 |
+| 选择后立即刷新整个页面，且没有提前说明 | 可能违反 3.2.2 |
+| 选择后自动聚焦商品列表 | 可能造成意外的上下文变化 |
+| 点击 Apply sort 后进行页面跳转 | 用户主动触发，通常合理 |
+| 选择后只更新 URL 和商品顺序 | 通常可以，仍需验证整体行为 |
+
+因此，很多 Shopify Theme 使用下面的代码，并不意味着一定违反 WCAG：
+
+```javascript
+select.addEventListener('change', event => {
+  updateCollection(event.target.value);
+});
+```
+
+关键在于更新过程中是否保留用户的操作上下文。
+
+### 8.2 排序完成后如何通知？
+
+假设排序之前有 48 件商品，排序之后仍然有 48 件商品。
+
+如果仅仅更新 Live Region：
+
+```javascript
+status.textContent = '48 products found.';
+```
+
+由于文字没有发生实质变化，屏幕阅读器可能不会播报。
+
+更有意义的方式是补充排序信息：
+
+```javascript
+status.textContent =
+  '48 products, sorted by price, low to high.';
+```
+
+这样用户可以明确知道排序操作已经生效。
+
+---
+
+## 9. Mobile Filter Drawer
+
+移动端筛选通常使用模态 Drawer。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <row><icon name="menu" size="sm"/><spacer/>**STORE**<spacer/><icon name="shopping-bag" size="sm"/></row>
+      <divider/>
+      **Clothing**
+      <row border radius="sm" padding={2}><icon name="sliders-horizontal" size="sm"/><text size="xs">Filter and sort</text></row>
+      <caption>48 products</caption>
+      <grid columns={2} gap={1}>
+        {#each ["#444444","#AF9D88","#EEEEEE","#8297AF"] as c}
+          <grid-item>
+            <box background="#E5DED3" radius="sm" padding={2}>
+              <svg viewBox="0 0 60 70" width="100%">
+                <path d="M20 5 L4 17 L13 29 L20 25 V65 H40 V25 L47 29 L56 17 L40 5 L30 11 Z" fill={c}/>
+              </svg>
+            </box>
+            <caption>$29.99</caption>
+          </grid-item>
+        {/each}
+      </grid>
+    </box>
+    <caption textAlign="center">Collection 页面</caption>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <row align="center">**Filters**<spacer/><icon name="x" size="sm"/></row>
+      <caption>24 products found</caption>
+      <divider/>
+      <row><text size="sm">Availability</text><spacer/><icon name="chevron-down" size="sm"/></row>
+      <divider/>
+      <row><text size="sm">Color</text><spacer/><icon name="chevron-up" size="sm"/></row>
+      {#each ["Black","White","Blue"] as c,i}
+        <row><icon name={i===0?"square-check":"square"} size="sm"/><text size="sm">{c}</text></row>
+      {/each}
+      <divider/>
+      <row><text size="sm">Price</text><spacer/><icon name="chevron-down" size="sm"/></row>
+      <spacer/>
+      <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF" size="sm">View 24 products</text></box>
+      <text size="sm" textAlign="center" underline={true}>Clear all</text>
+    </box>
+    <caption textAlign="center">Filter Drawer</caption>
+  </grid-item>
+</grid>
+
+这里可以直接复用第 15 课的原生 dialog 组件。
+
+```html
+<button
+  type="button"
+  aria-haspopup="dialog"
+  aria-controls="FilterDrawer"
+>
+  Filter and sort
+</button>
+
+<dialog
+  id="FilterDrawer"
+  aria-labelledby="FilterDrawerTitle"
+>
+  <h2 id="FilterDrawerTitle">Filters</h2>
+
+  <button type="button" data-close autofocus>
+    Close filters
+  </button>
+
+  <form id="MobileFilterForm">
+
+    <!-- Checkbox, price range, sort -->
+
+    <p role="status" data-filter-count></p>
+
+    <button type="submit">
+      Apply filters
+    </button>
+
+  </form>
+</dialog>
+```
+
+### 9.1 Draft State 与 Applied State
+
+移动端筛选有一个非常值得学习的状态管理思想。
+
+```javascript
+const state = {
+  draftFilters: {
+    color: ['Black', 'Blue']
+  },
+
+  appliedFilters: {
+    color: ['Black']
+  }
+};
+```
+
+| 状态 | 含义 |
+|---|---|
+| draftFilters | 用户在抽屉中正在编辑的条件 |
+| appliedFilters | 当前 Collection 实际使用的条件 |
+
+如果采用 Apply 模式，用户关闭 Drawer 时，可以丢弃尚未确认的 draftFilters。
+
+点击 Apply 时，再将 Draft State 应用到 Collection。
+
+{@body const [draft22,setDraft22]=DIL.useState(["Black"])}
+{@body const [applied22,setApplied22]=DIL.useState(["Black"])}
+{@body const [drawer22,setDrawer22]=DIL.useState(false)}
+<card gap={3}>
+  **筛选状态实验室**
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>Collection 已应用的颜色</caption>
+      **{applied22.join(", ")||"All colors"}**
+    </box>
+    <button variant="outline" color="secondary" disabled={drawer22} onClick={()=>{setDraft22([...applied22]);setDrawer22(true)}}><icon name="sliders-horizontal" size="sm"/> Filters</button>
+  </row>
+  {#if drawer22}
+    <box border radius="md" padding={3} gap={2}>
+      <row align="center">**Filters**<spacer/><button uniform variant="ghost" color="secondary" onClick={()=>{setDraft22([...applied22]);setDrawer22(false)}}><icon name="x"/></button></row>
+      {#each ["Black","White","Blue"] as c}
+        <checkbox checked={draft22.includes(c)} onChange={v=>setDraft22(old=>v?[...old,c]:old.filter(x=>x!==c))}>{c}</checkbox>
+      {/each}
+      <button block onClick={()=>{setApplied22([...draft22]);setDrawer22(false)}}>Apply filters</button>
+      <button block color="secondary" variant="ghost" onClick={()=>{setDraft22([...applied22]);setDrawer22(false)}}>Cancel</button>
+    </box>
+  {/if}
+  <divider/>
+  <caption>draftFilters</caption>
+  <text size="sm">{JSON.stringify({color:draft22})}</text>
+  <caption>appliedFilters</caption>
+  <text size="sm">{JSON.stringify({color:applied22})}</text>
+  <caption>尝试修改筛选项后关闭 Drawer，再重新打开，观察未提交状态是否被丢弃。</caption>
+</card>
+
+如果业务设计为实时筛选，则可以不维护 Draft State，但关闭 Drawer 就不能再暗示未提交的变化会被撤销。
+
+此外，实时显示结果数量的 Live Region 应位于当前模态 Drawer 内部，而不是已经被模态隔离的背景页面。
+
+---
+
+## 10. Collection AJAX 更新的完整架构
+
+这一节是本课的核心内容。
+
+Shopify Collection 的筛选不是简单地重新渲染 Product Grid，而是多个区域同时更新。
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={3} gap={1}>
+    {#each ["Checkbox","Sort by","Remove filter"] as t}
+      <grid-item><box border radius="sm" padding={2} align="center"><text size="xs">{t}</text></box></grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Collection Controller**
+    <caption>URL 参数 · 请求取消 · 请求版本</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    **Shopify Section Rendering API**
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    {#each ["Product Grid","Filter Values","Active Filters","Product Count","Pagination","Sort State"] as t}
+      <grid-item><box border radius="sm" padding={2} align="center"><text size="sm">{t}</text></box></grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Accessibility Management**
+    <caption>焦点恢复 · 展开状态 · 动态通知</caption>
+  </box>
+</box>
+
+### 10.1 为什么不能只更新 Product Grid？
+
+假设初始 Collection 数据为：
+
+| 筛选条件 | 商品数量 |
+|---|---:|
+| Black | 18 |
+| White | 12 |
+| Blue | 8 |
+
+选择 Size M 之后，可能变成：
+
+| 筛选条件 | 商品数量 |
+|---|---:|
+| Black | 6 |
+| White | 4 |
+| Blue | 0 |
+
+因此筛选之后，不仅需要更新商品列表，还需要更新其他 Filter Value 的 count 和 disabled 状态。
+
+否则，用户看到的筛选器就不再与真实商品数据一致。
+
+### 10.2 推荐 DOM 架构
+
+```html
+<div
+  id="CollectionRoot"
+  data-section-id="template--123__product-grid"
+>
+
+  <div id="FacetPanel">
+    <!-- Filter form and sorting -->
+  </div>
+
+  <div id="ActiveFilters">
+    <!-- Removable filters -->
+  </div>
+
+  <h2 id="ResultsTitle" tabindex="-1">
+    Products
+  </h2>
+
+  <p
+    id="ProductCount"
+    role="status"
+    aria-atomic="true"
+  >
+    48 products found.
+  </p>
+
+  <div id="ProductGridContainer" aria-busy="false">
+    <!-- Product list and pagination -->
+  </div>
+
+  <p id="CollectionError" role="alert"></p>
+
+</div>
+```
+
+其中 ProductCount、ResultsTitle、CollectionError 尽量保留原 DOM 节点，而不是每次都整体替换。
+
+这样可以稳定地承担 Live Region、备用焦点及错误反馈职责。
+
+### 10.3 使用 FormData 生成 URL
+
+```javascript
+function getFilterURL(form) {
+  const url = new URL(
+    form.action,
+    window.location.origin
+  );
+
+  const params = new URLSearchParams(
+    new FormData(form)
+  );
+
+  // 筛选或排序变化后回到第一页
+  params.delete('page');
+
+  // 移除空的价格筛选字段
+  for (const key of [
+    'filter.v.price.gte',
+    'filter.v.price.lte'
+  ]) {
+    if (params.get(key) === '') {
+      params.delete(key);
+    }
+  }
+
+  url.search = params.toString();
+
+  return url;
+}
+```
+
+例如两个颜色选项使用相同的 name：
+
+```html
+<input
+  type="checkbox"
+  name="filter.v.option.color"
+  value="Black"
+  checked
+>
+
+<input
+  type="checkbox"
+  name="filter.v.option.color"
+  value="Blue"
+  checked
+>
+```
+
+FormData 可以保留多个同名字段，而不是只留下最后一个值。
+
+因此不要随意将 FormData 转换为普通 Object，否则可能丢失多选筛选条件。
+
+该方案假设排序与筛选字段处于同一个 GET Form 中；如果桌面端和移动端使用不同表单，需要额外合并适当的字段。
+
+---
+
+## 11. 请求竞争与 DOM 更新
+
+假设用户快速执行了三次筛选操作。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 180" width="100%">
+    <text x="4" y="13" fontSize="11" fill="currentColor">请求发出</text>
+    <text x="336" y="13" fontSize="11" textAnchor="end" fill="currentColor">请求返回</text>
+    {#each [{n:"A · Black",x:86,y:25,w:246,c:"#999999",r:"18 products"},{n:"B · Blue",x:125,y:75,w:173,c:"#999999",r:"8 products"},{n:"C · Size M",x:164,y:125,w:80,c:"#39866B",r:"4 products"}] as p}
+      <text x="4" y={p.y+18} fontSize="10" fill="currentColor">{p.n}</text>
+      <rect x={p.x} y={p.y} width={p.w} height="27" rx="4" stroke={p.c} fill={p.c} fillOpacity=".16"/>
+      <text x={p.x+p.w-3} y={p.y+41} textAnchor="end" fontSize="10" fill={p.c}>{p.r}</text>
+    {/each}
+  </svg>
+  <caption>C 是最新操作，却可能最先返回。如果 A 最后覆盖页面，视觉 UI、筛选状态和播报都会出错。</caption>
+</box>
+
+必须同时考虑 AbortController 和请求版本控制。
+
+### 11.1 主请求逻辑
+
+```javascript
+let controller;
+let requestVersion = 0;
+
+async function updateCollection(
+  pageURL,
+  { pushHistory = true } = {}
+) {
+  const version = ++requestVersion;
+
+  controller?.abort();
+  controller = new AbortController();
+
+  const root = document.querySelector('#CollectionRoot');
+
+  const grid = root.querySelector('#ProductGridContainer');
+  const count = root.querySelector('#ProductCount');
+  const error = root.querySelector('#CollectionError');
+
+  grid.setAttribute('aria-busy', 'true');
+  error.textContent = '';
+
+  try {
+    const requestURL = new URL(pageURL);
+
+    requestURL.searchParams.set(
+      'section_id',
+      root.dataset.sectionId
+    );
+
+    const response = await fetch(requestURL, {
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error('Request failed');
+    }
+
+    const html = new DOMParser().parseFromString(
+      await response.text(),
+      'text/html'
+    );
+
+    if (version !== requestVersion) return;
+
+    const nextRoot = html.querySelector('#CollectionRoot');
+
+    if (!nextRoot) {
+      throw new Error('Invalid section response');
+    }
+
+    renderCollection(root, nextRoot);
+
+    const nextCount = nextRoot.querySelector('#ProductCount');
+
+    count.textContent = nextCount.textContent.trim();
+
+    if (pushHistory && pageURL.href !== location.href) {
+      history.pushState(null, '', pageURL);
+    }
+
+  } catch (err) {
+    if (
+      err.name === 'AbortError' ||
+      version !== requestVersion
+    ) return;
+
+    error.textContent =
+      'Unable to update products. Previous results are still displayed. Please try again.';
+
+  } finally {
+    if (version === requestVersion) {
+      grid.setAttribute('aria-busy', 'false');
+    }
+  }
+}
+```
+
+这里将页面 URL 和 Section 请求 URL 分开。
+
+浏览器地址栏中的 URL 不应该包含用于内部 HTML 渲染的 `section_id` 参数。
+
+另外，请求失败后应明确告诉用户目前显示的是旧结果，而不是让用户误认为新筛选条件已经生效。
+
+---
+
+## 12. Section Rendering 后的焦点恢复
+
+假设用户聚焦了 Black Checkbox，服务器返回新的筛选器 HTML。
+
+如果直接执行：
+
+```javascript
+facetPanel.innerHTML = nextFacetPanel.innerHTML;
+```
+
+原来拥有焦点的 Checkbox 就被销毁了。
+
+即使新 DOM 中存在同样的 ID，它也不是原来的 DOM 节点。
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **更新之前**
+        <row border={{size:2,color:"#3978BC"}} radius="sm" padding={2}><icon name="square-check" size="sm"/><text size="sm">Black (18)</text></row>
+        <caption>DOM Node A</caption>
+        <text color="success" size="sm">拥有焦点</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **更新之后**
+        <row border radius="sm" padding={2}><icon name="square-check" size="sm"/><text size="sm">Black (6)</text></row>
+        <caption>DOM Node B</caption>
+        <text color="danger" size="sm">焦点可能丢失</text>
+      </box>
+    </grid-item>
+  </grid>
+  <caption>业务标识相同，不代表 DOM 节点相同。</caption>
+</box>
+
+### 12.1 为控件建立稳定的业务标识
+
+```liquid
+<input
+  type="checkbox"
+  data-focus-key="{{ value.param_name | escape }}:{{ value.value | escape }}"
+  name="{{ value.param_name }}"
+  value="{{ value.value | escape }}"
+>
+```
+
+例如：
+
+```text
+filter.v.option.color:Black
+filter.v.option.color:White
+filter.v.option.size:M
+```
+
+相较于依赖 forloop.index，这种标识在筛选项顺序变化时更加稳定。
+
+如果桌面端和移动端同时存在筛选控件，则还需要区分实例前缀，避免恢复到另一套控件。
+
+### 12.2 保存 Accordion 的展开状态
+
+筛选器不仅需要恢复焦点，还应该保留用户已经展开的筛选组。
+
+```javascript
+function captureOpenFacets(root) {
+  return new Set(
+    [...root.querySelectorAll('details[open][id]')]
+      .map(details => details.id)
+  );
+}
+```
+
+更新之后：
+
+```javascript
+function restoreOpenFacets(root, openIds) {
+  root.querySelectorAll('details[id]')
+    .forEach(details => {
+      details.open = openIds.has(details.id);
+    });
+}
+```
+
+正式实现应当使用稳定的筛选组标识，而不是依赖可能因筛选组增删而变化的索引。
+
+### 12.3 统一渲染方法
+
+下面补齐上一节的 `renderCollection()`。
+
+```javascript
+function renderCollection(root, nextRoot) {
+  const regions = [
+    'FacetPanel',
+    'ActiveFilters',
+    'ProductGridContainer'
+  ];
+
+  const pairs = regions.map(id => ({
+    current: root.querySelector(`#${id}`),
+    next: nextRoot.querySelector(`#${id}`)
+  }));
+
+  if (pairs.some(pair => !pair.current || !pair.next)) {
+    throw new Error('Missing collection region');
+  }
+
+  // 在真正替换 DOM 之前获取焦点
+  const active = document.activeElement;
+
+  const affected = pairs.find(pair =>
+    pair.current.contains(active)
+  );
+
+  const focusKey = affected
+    ? active.dataset.focusKey
+    : null;
+
+  const focusId = affected
+    ? active.id
+    : null;
+
+  const openFacets = captureOpenFacets(root);
+
+  pairs.forEach(({ current, next }) => {
+    current.innerHTML = next.innerHTML;
+  });
+
+  restoreOpenFacets(root, openFacets);
+
+  // 用户焦点不在更新范围内，不主动移动焦点
+  if (!affected || active.isConnected) return;
+
+  const replacement = focusKey
+    ? [...affected.current.querySelectorAll('[data-focus-key]')]
+        .find(element =>
+          element.dataset.focusKey === focusKey
+        )
+    : focusId
+      ? document.getElementById(focusId)
+      : null;
+
+  const candidates = [
+    replacement,
+
+    affected.current.querySelector(
+      'a[href], button:not(:disabled)'
+    ),
+
+    root.querySelector('#ResultsTitle')
+  ];
+
+  for (const element of candidates) {
+    if (!element?.isConnected) continue;
+
+    if (element.matches(':disabled')) continue;
+
+    if (element.closest('[inert], [hidden]')) continue;
+
+    element.focus();
+
+    if (document.activeElement === element) {
+      break;
+    }
+  }
+}
+```
+
+这段代码展示的是通用恢复机制。
+
+如果删除 Active Filter，应进一步记录原 Chip 相邻的业务标识，以便优先恢复到下一项或上一项，而不是总是恢复到第一个链接。
+
+**更理想的优化是：如果某个控件没有必要被销毁，就不要销毁它。**
+
+例如仅更新 Checkbox 对应的数量、disabled 状态以及 label 内容，而不是替换整个 Checkbox 节点。
+
+---
+
+## 13. Product Count 与 Live Region
+
+第 14 课已经详细介绍了 Live Region。本节重点研究 Collection 中的正确通知范围。
+
+### 13.1 错误实现
+
+```html
+<div id="ProductGridContainer" aria-live="polite">
+
+  <!-- 24 张商品卡片 -->
+
+</div>
+```
+
+每次筛选后，屏幕阅读器可能收到大量商品名称、价格和按钮变化。
+
+这些内容应该由用户自行浏览，而不是全部通过 Live Region 强制通知。
+
+### 13.2 推荐实现
+
+```liquid
+<p
+  id="ProductCount"
+  role="status"
+  aria-atomic="true"
+>
+  {{ collection.products_count }} products found.
+</p>
+
+<div
+  id="ProductGridContainer"
+  aria-busy="false"
+>
+  <!-- Products -->
+</div>
+```
+
+Shopify 中需要区分两个数量：
+
+| 属性 | 含义 |
+|---|---|
+| `collection.all_products_count` | Collection 未筛选时的商品总数 |
+| `collection.products_count` | 当前 Collection 筛选后的商品数量 |
+| `paginate.items` | 当前分页集合的总条目数 |
+| `paginate.page_size` | 每页设定的条目数量 |
+
+`collection.products_count` 适合展示筛选后的结果总数，而不是仅统计当前 DOM 中已经渲染的商品卡片。<Cite ref="turn175122search17"/>
+
+### 13.3 筛选交互综合实验
+
+{@body const sampleProducts22=[{n:"Cotton T-shirt",c:"Black",p:29.99,hex:"#444444"},{n:"Classic shirt",c:"White",p:49.99,hex:"#FAF8F1"},{n:"Linen top",c:"Blue",p:39.99,hex:"#8196AA"},{n:"Casual jacket",c:"Black",p:89.99,hex:"#444444"},{n:"Basic sweatshirt",c:"Blue",p:59.99,hex:"#8196AA"},{n:"Premium tee",c:"White",p:19.99,hex:"#FAF8F1"}]}
+{@body const [filterColors22,setFilterColors22]=DIL.useState([])}
+{@body const [sort22,setSort22]=DIL.useState("default")}
+{@body const [changed22,setChanged22]=DIL.useState(false)}
+{@body const filtered22=sampleProducts22.filter(p=>!filterColors22.length||filterColors22.includes(p.c)).sort((a,b)=>sort22==="asc"?a.p-b.p:sort22==="desc"?b.p-a.p:0)}
+<card gap={3}>
+  **Collection 无障碍实验室**
+  <row align="center">
+    <title size="lg">Clothing</title>
+    <spacer/><caption>{filtered22.length} products</caption>
+  </row>
+  **Color**
+  <row wrap="wrap" gap={3}>
+    {#each ["Black","White","Blue"] as c}
+      <checkbox checked={filterColors22.includes(c)} onChange={v=>{setFilterColors22(old=>v?[...old,c]:old.filter(n=>n!==c));setChanged22(true)}}>{c}</checkbox>
+    {/each}
+  </row>
+  <label>Sort by</label>
+  <select value={sort22} onChange={v=>{setSort22(v);setChanged22(true)}} options={[{label:"Featured",value:"default"},{label:"Price, low to high",value:"asc"},{label:"Price, high to low",value:"desc"}]}/>
+  {#if filterColors22.length}
+    <row wrap="wrap" gap={2}>
+      {#each filterColors22 as c}
+        <button pill={true} size="sm" variant="outline" color="secondary" onClick={()=>{setFilterColors22(old=>old.filter(n=>n!==c));setChanged22(true)}}>{c} <icon name="x" size="xs"/></button>
+      {/each}
+      <button size="sm" variant="ghost" color="secondary" onClick={()=>{setFilterColors22([]);setChanged22(true)}}>Clear all</button>
+    </row>
+  {/if}
+  <grid columns={3} gap={2}>
+    {#each filtered22 as p}
+      <grid-item>
+        <box gap={1}>
+          <box background="#E4DED5" radius="sm" padding={2}>
+            <svg viewBox="0 0 80 85" width="100%">
+              <path d="M26 7 L5 22 L17 39 L26 33 V78 H54 V33 L63 39 L75 22 L54 7 L40 15 Z" fill={p.hex} stroke="#999999" strokeWidth=".7"/>
+            </svg>
+          </box>
+          <text size="xs">{p.n}</text>
+          <text size="sm" weight="medium">${p.p.toFixed(2)}</text>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+  <divider/>
+  <caption>URL Search Params</caption>
+  <box background="surface-tertiary" radius="sm" padding={2}>
+    <text size="xs" preserveWhitespace={true}>{[...filterColors22.map(c=>`filter.v.option.color=${c}`),...(sort22==="default"?[]:[`sort_by=price-${sort22==="asc"?"ascending":"descending"}`])].join("\n")||"无筛选参数"}</text>
+  </box>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟 Live Region</caption>
+      <text size="sm">{changed22?`${filtered22.length} products found. Sorted by ${sort22==="default"?"featured":sort22==="asc"?"price, low to high":"price, high to low"}.`:"等待筛选或排序操作。"}</text>
+    </box>
+  </row>
+  <caption>本实验使用六件虚构商品，模拟筛选、排序、URL 和状态消息之间的同步关系。</caption>
+</card>
+
+需要注意：Live Region 是让用户感知更新结果的机制，不是让用户移动到结果区域的机制。
+
+筛选之后，通常应保留原控件焦点。
+
+---
+
+## 14. URL、History API 与浏览器返回
+
+虽然我们跳过了第 19 课 SPA 路由，本节仍然需要介绍 Collection 特有的 History 管理。
+
+假设用户进行了以下操作：
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{n:1,t:"初始页面",url:"/collections/clothing"},{n:2,t:"选择 Black",url:"?filter.v.option.color=Black"},{n:3,t:"价格升序",url:"?filter.v.option.color=Black&sort_by=price-ascending"}] as p,i}
+    <box border radius="md" padding={3} gap={1}>
+      **{p.n}. {p.t}**
+      <text size="xs">{p.url}</text>
+    </box>
+    {#if i<2}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+  <caption>每次确认筛选后，可以建立新的浏览器历史记录。</caption>
+</box>
+
+当用户点击浏览器返回按钮时，不应该只是地址栏发生变化。
+
+商品列表、Checkbox、Sort By、Active Filters 和结果数量都需要恢复到对应 URL 的状态。
+
+```javascript
+window.addEventListener('popstate', () => {
+  updateCollection(
+    new URL(window.location.href),
+    { pushHistory: false }
+  );
+});
+```
+
+这里必须设置 `pushHistory: false`，否则浏览器执行返回操作时，又会创建新的历史记录。
+
+### pushState 与 replaceState
+
+| API | 推荐场景 |
+|---|---|
+| `history.pushState()` | 用户完成一次新的筛选操作 |
+| `history.replaceState()` | 替换当前记录或初始化状态 |
+| `popstate` | 浏览器前进与后退 |
+
+价格滑块拖动时，不建议每移动一个像素就调用 pushState。
+
+可以在用户结束拖动、确认价格范围或点击 Apply 后，再提交新的筛选状态。
+
+在生产环境中，还应处理历史恢复请求失败、URL 与显示结果不一致、滚动位置恢复等情况。
+
+---
+
+## 15. Pagination 分页组件
+
+传统分页实际上非常适合无障碍访问。
+
+### 15.1 Liquid 实现
+
+```liquid
+{% if paginate.pages > 1 %}
+
+  <nav aria-label="Pagination">
+
+    <ul role="list">
+
+      {% if paginate.previous %}
+        <li>
+          <a href="{{ paginate.previous.url }}"
+            aria-label="Previous page">
+            Previous
+          </a>
+        </li>
+      {% endif %}
+
+      {% for part in paginate.parts %}
+        <li>
+
+          {% if part.is_link %}
+
+            <a
+              href="{{ part.url }}"
+              aria-label="Page {{ part.title }}"
+            >
+              {{ part.title }}
+            </a>
+
+          {% elsif part.title == paginate.current_page %}
+
+            <span aria-current="page">
+              {{ part.title }}
+            </span>
+
+          {% else %}
+
+            <span>{{ part.title }}</span>
+
+          {% endif %}
+
+        </li>
+      {% endfor %}
+
+      {% if paginate.next %}
+        <li>
+          <a href="{{ paginate.next.url }}"
+            aria-label="Next page">
+            Next
+          </a>
+        </li>
+      {% endif %}
+
+    </ul>
+
+  </nav>
+
+{% endif %}
+```
+
+分页导航不需要 `role="tablist"`，因为它不是同一个组件内部的 Tab Panel 切换，而是用于访问不同页的商品结果。
+
+{@body const [page22,setPage22]=DIL.useState(1)}
+<card gap={3}>
+  <row justify="center" align="center" gap={2}>
+    <button uniform color="secondary" variant="outline" disabled={page22===1} onClick={()=>setPage22(n=>n-1)}><icon name="chevron-left"/></button>
+    {#each [1,2,3,4,5] as n}
+      <button uniform color="secondary" variant={page22===n?"solid":"ghost"} onClick={()=>setPage22(n)}>{n}</button>
+    {/each}
+    <button uniform color="secondary" variant="outline" disabled={page22===5} onClick={()=>setPage22(n=>n+1)}><icon name="chevron-right"/></button>
+  </row>
+  <divider/>
+  <row><caption>Current page</caption><spacer/>{page22}</row>
+  <row><caption>aria-current="page"</caption><spacer/>Page {page22}</row>
+  <row><caption>商品范围</caption><spacer/>{(page22-1)*24+1}–{page22*24} / 120</row>
+  <caption>模拟五页商品分页。</caption>
+</card>
+
+### 15.2 AJAX Pagination 的焦点应该移到哪里？
+
+这里与筛选操作略有不同。
+
+| 操作 | 推荐焦点策略 |
+|---|---|
+| Checkbox 筛选 | 保留 Checkbox 焦点 |
+| 商品排序 | 保留 Select 焦点 |
+| 删除 Active Filter | 恢复相邻控件 |
+| 点击下一页 | 通常移至新结果标题 |
+| 加载更多商品 | 保留或移至第一项新增内容，视业务设计 |
+
+分页操作的目的是浏览下一批商品。如果用户点击 Next 后仍然停留在页面最底部，可能需要反复向上查找新商品。
+
+对于 AJAX 分页，可以在完成更新后执行：
+
+```javascript
+const heading = document.querySelector('#ResultsTitle');
+
+heading.focus({
+  preventScroll: true
+});
+
+heading.scrollIntoView({
+  block: 'start',
+  behavior: 'instant'
+});
+```
+
+同时确保 Sticky Header 不会完全遮挡该标题。
+
+这是根据分页业务目标进行的焦点管理，而不是一律要求所有 AJAX 操作都移动焦点。
+
+---
+
+## 16. Load More 与 Infinite Scroll
+
+现代电商网站经常使用加载更多或无限滚动代替分页。
+
+<grid columns={3} gap={2}>
+  {#each [{t:"Pagination",d:"分批访问结果",mode:0},{t:"Load More",d:"主动追加商品",mode:1},{t:"Infinite Scroll",d:"滚动自动追加",mode:2}] as p}
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        **{p.t}**
+        <grid columns={2} gap={1}>
+          {#each [0,1,2,3] as n}
+            <grid-item><box background="#D8D0C4" radius="sm" height="43px"/></grid-item>
+          {/each}
+        </grid>
+        {#if p.mode===0}
+          <row justify="center" gap={2}><text size="xs" underline={true}>1</text><text size="xs">2</text><text size="xs">3</text></row>
+        {:else if p.mode===1}
+          <box border radius="sm" padding={2} align="center"><text size="xs">Load more</text></box>
+        {:else}
+          <box align="center"><icon name="loader" size="sm"/><caption>Loading...</caption></box>
+        {/if}
+        <caption>{p.d}</caption>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+| 对比项 | Pagination | Load More | Infinite Scroll |
+|---|---|---|---|
+| 键盘操作 | 简单 | 较简单 | 较复杂 |
+| 用户控制加载 | 强 | 强 | 弱 |
+| URL 状态管理 | 容易 | 中等 | 较复杂 |
+| 返回位置恢复 | 相对容易 | 需处理 | 较复杂 |
+| Footer 访问 | 容易 | 容易 | 可能困难 |
+| 焦点管理 | 较简单 | 需处理新增内容 | 复杂 |
+
+对于需要兼顾无障碍和 SEO 的 Shopify Theme，我通常优先采用 Pagination 或具有分页回退链接的 Load More。
+
+### 16.1 Load More 的关键问题
+
+假设当前页面有 24 张商品卡片，后面是 Load More 按钮。
+
+用户点击后，新的 24 张商品被追加在按钮之前。
+
+```text
+Product 1
+...
+Product 24
+Product 25   ← 新增
+...
+Product 48   ← 新增
+Load more    ← 当前焦点
+Footer
+```
+
+如果焦点始终停留在 Load More，那么用户再次按 Tab，可能直接进入 Footer，跳过刚刚加载的 24 件商品。
+
+一种合理的策略是加载成功后将焦点移动至第一张新增商品的链接。
+
+```javascript
+const firstNewProduct =
+  newProducts[0]?.querySelector('a[href]');
+
+firstNewProduct?.focus();
+```
+
+另一种策略是重新设计 DOM 顺序，让保留在 Load More 按钮上的焦点能够自然进入新增内容。
+
+无论哪种方式，都应该保证用户可以顺利访问刚加载的商品。
+
+### 16.2 加载更多的状态通知
+
+```html
+<p role="status" id="LoadMoreStatus"></p>
+
+<button type="button" id="LoadMoreButton">
+  Load more products
+</button>
+```
+
+请求完成：
+
+```javascript
+status.textContent =
+  '24 more products loaded. Showing 48 of 120 products.';
+```
+
+当所有商品加载完成时，如果 Load More 按钮即将消失，需要先处理其焦点。
+
+### 16.3 Infinite Scroll 的问题
+
+Infinite Scroll 本身不是 WCAG 禁止的交互模式，但实现不当容易产生以下问题：
+
+- 用户难以访问 Footer。
+- 自动加载没有明确通知。
+- DOM 数量持续增长，影响辅助技术和页面性能。
+- 虚拟列表移除了用户正在访问的内容。
+- 返回商品列表时无法恢复原来的浏览位置。
+- 加载失败后没有手动重试入口。
+
+因此，不建议只为了追求视觉体验，就将所有 Collection 分页改成无限滚动。
+
+---
+
+## 17. Shopify Dawn 源码深入解析
+
+本次查阅了 Dawn 公开 main 分支中的 `facets.js`、`facets.liquid`、`price-facet.liquid` 等相关源码。
+
+### 17.1 文件结构
+
+<box border radius="lg" padding={3} gap={2}>
+  <row><icon name="folder"/> **Dawn**</row>
+  <box padding={{left:4}} gap={3}>
+    <row><icon name="folder" color="secondary"/> **sections**</row>
+    <box padding={{left:4}} gap={1}>
+      <text size="sm">main-collection-product-grid.liquid</text>
+      <text size="sm">main-search.liquid</text>
+    </box>
+    <row><icon name="folder" color="secondary"/> **snippets**</row>
+    <box padding={{left:4}} gap={1}>
+      {#each ["facets.liquid","price-facet.liquid","card-product.liquid","pagination.liquid"] as n}
+        <row><icon name="file-code" size="xs"/><text size="sm">{n}</text></row>
+      {/each}
+    </box>
+    <row><icon name="folder" color="secondary"/> **assets**</row>
+    <box padding={{left:4}} gap={1}>
+      {#each ["facets.js","component-facets.css","component-card.css","show-more.js"] as n}
+        <row><icon name="file-code" size="xs"/><text size="sm">{n}</text></row>
+      {/each}
+    </box>
+  </box>
+</box>
+
+### 17.2 facets.liquid
+
+这个文件负责服务端生成筛选器，包括不同布局的筛选控件、已选条件、排序、价格输入以及结果数量。
+
+Dawn 同时处理桌面端和移动端筛选器，并为部分控件提供筛选数量和页面更新相关的无障碍信息。<Cite refs={["turn175122search2","turn175122search9"]}/>
+
+### 17.3 FacetFiltersForm 的架构
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{t:"FacetFiltersForm",d:"监听表单 input 事件"},{t:"debouncedOnSubmit",d:"800ms 防抖处理"},{t:"renderPage()",d:"计算 Section 请求及更新流程"},{t:"Cache / Fetch",d:"读取缓存或请求 Shopify"},{t:"renderSection()",d:"协调多个页面区域的更新"}] as s,i}
+    <box border radius="md" padding={2} gap={1}>**{s.t}**<caption>{s.d}</caption></box>
+    {#if i<4}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    {#each ["renderFilters()","renderProductGridContainer()","renderProductCount()","History 更新"] as n}
+      <grid-item><box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="xs">{n}</text></box></grid-item>
+    {/each}
+  </grid>
+</box>
+
+值得学习的是，Dawn 将筛选业务集中在一个控制器中，并使用相同的逻辑服务 Collection 与 Search Results 页面。
+
+### 17.4 renderFilters() 为什么不直接替换整个筛选器？
+
+这是 Dawn 中非常值得深入理解的一部分。
+
+它会识别触发当前更新的筛选组，将该筛选组与其他筛选组区别处理。
+
+可以将其核心思想概括为：
+
+```javascript
+// 教学伪代码
+const activeFacet = getTriggeredFacet(event);
+
+const otherFacets = getNewFacets()
+  .filter(facet => facet.id !== activeFacet.id);
+
+renderOtherFacets(otherFacets);
+
+updateActiveFacetCounts(activeFacet);
+```
+
+这样能够尽可能保留当前操作区域，再更新其他筛选组及相关信息。
+
+实际源码还会处理服务器不再返回的筛选组、新增筛选组、移动端数量以及适用的焦点恢复。
+
+### 17.5 renderProductCount()
+
+Dawn 更新商品数量时，主要更新现有计数容器的内容，而不是每次重新建立整个计数容器。
+
+它还会同步桌面端结果数量及 Loading 状态。
+
+这与第 14 课中保持 Live Region 节点稳定的思想一致。
+
+### 17.6 源码有哪些值得进一步审查的地方？
+
+在本次查阅的 `facets.js` 中，`renderSectionFromFetch()` 使用 fetch 请求并将返回的 HTML 交给后续渲染逻辑。在该方法中没有看到显式的 AbortController 或最新请求版本校验。<Cite ref="turn440670view0"/>
+
+因此扩展 Dawn 时，可以重点检查：
+
+| Dawn 机制 | 建议审查的场景 |
+|---|---|
+| 800ms Debounce | 慢网络下仍可能出现请求竞争 |
+| Section HTML 缓存 | 缓存结果是否仍符合当前业务状态 |
+| DOM 局部替换 | 用户焦点是否丢失 |
+| 当前筛选组特殊处理 | Checkbox 状态与数量是否一致 |
+| 桌面、移动两套表单 | ID 与业务状态是否重复或冲突 |
+| History API | 返回时是否完整恢复筛选 |
+| Loading Spinner | 请求失败后是否正确清理 |
+| Product Count | 相同数量的排序结果是否能够被感知 |
+
+这些是基于源码提出的工程审查点，并不代表已经通过实际辅助技术测试确认的 Dawn 缺陷。
+
+源码链接：[facets.js](https://github.com/Shopify/dawn/blob/main/assets/facets.js) · [facets.liquid](https://github.com/Shopify/dawn/blob/main/snippets/facets.liquid) · [price-facet.liquid](https://github.com/Shopify/dawn/blob/main/snippets/price-facet.liquid)
+
+---
+
+## 18. Collection 无障碍自动化测试
+
+### 18.1 筛选后的焦点保留
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('filter preserves keyboard focus', async ({ page }) => {
+  await page.goto('/collections/clothing');
+
+  const black = page.getByRole('checkbox', {
+    name: /^Black\b/
+  });
+
+  await black.focus();
+  await black.press('Space');
+
+  await expect(
+    page.locator('#ProductCount')
+  ).toHaveText('18 products found.');
+
+  await expect(black).toBeChecked();
+  await expect(black).toBeFocused();
+
+  await expect(page).toHaveURL(
+    /filter.v.option.color=Black/
+  );
+});
+```
+
+### 18.2 排序后的状态同步
+
+```javascript
+test('sorting preserves select focus', async ({ page }) => {
+  await page.goto('/collections/clothing');
+
+  const sort = page.getByLabel('Sort by');
+
+  await sort.focus();
+
+  await sort.selectOption('price-ascending');
+
+  await expect(page).toHaveURL(
+    /sort_by=price-ascending/
+  );
+
+  await expect(sort).toBeFocused();
+
+  await expect(
+    page.locator('#ProductGridContainer')
+  ).toHaveAttribute('aria-busy', 'false');
+});
+```
+
+正式测试还应该验证商品价格的实际排列顺序，而不是只检查 URL。
+
+### 18.3 浏览器返回测试
+
+```javascript
+test('back restores applied filters', async ({ page }) => {
+  await page.goto('/collections/clothing');
+
+  const black = page.getByRole('checkbox', {
+    name: /^Black\b/
+  });
+
+  await black.check();
+
+  await expect(page).toHaveURL(
+    /filter.v.option.color=Black/
+  );
+
+  await page.goBack();
+
+  await expect(black).not.toBeChecked();
+
+  await expect(
+    page.locator('#ProductCount')
+  ).toHaveText('48 products found.');
+});
+```
+
+以上测试针对本课假设的组件结构、即时 AJAX 筛选模式及固定测试商品数据。实际项目需要结合 Apply 模式、页面配置和 API Mock 调整。
+
+---
+
+## 19. Collection 常见问题与 WCAG 对照
+
+| 常见问题 | 可能涉及的 WCAG 准则 |
+|---|---|
+| 商品列表缺少合理语义关系 | 1.3.1 Info and Relationships |
+| Checkbox 缺少名称 | 4.1.2 Name, Role, Value |
+| Color Filter 只通过颜色表达 | 1.4.1 Use of Color |
+| 自定义滑块无法键盘操作 | 2.1.1 Keyboard |
+| 滑块只支持拖拽 | 2.5.7 Dragging Movements |
+| 筛选后焦点丢失 | 2.4.3 Focus Order |
+| Filter Drawer 无法键盘退出 | 2.1.2 No Keyboard Trap |
+| 删除筛选条件的按钮名称不明确 | 4.1.2 Name, Role, Value |
+| 排序导致未经提示的页面跳转 | 3.2.2 On Input |
+| 筛选结果数量无法被感知 | 4.1.3 Status Messages |
+| Sticky Filter 遮挡焦点 | 2.4.11 Focus Not Obscured |
+| 分页按钮点击区域过小且无适用例外 | 2.5.8 Target Size |
+
+具体是否构成违规，还需要结合对应准则的适用条件进行判断。
+
+## 20. 本课知识测试
+
+{@body const quiz22=[{q:"普通商品列表应该优先使用哪种语义？",o:["role=\"grid\"","ul + li","role=\"listbox\""],a:1,e:"商品列表不是具有特殊方向键操作的 ARIA Grid，也不是选项选择控件。"},{q:"已经选中但 count 为 0 的筛选项，是否应该直接禁用？",o:["应该","通常不应该"],a:1,e:"用户仍然需要能够取消已经应用的筛选条件。"},{q:"双滑块的最低价格发生变化时，需要更新什么？",o:["仅更新视觉位置","同步最高价格滑块的最小值约束"],a:1,e:"双滑块的当前值及相互依赖的 ARIA 边界都需要保持一致。"},{q:"Select 变化后立即 AJAX 排序，是否必然违反 WCAG 3.2.2？",o:["必然违反","不一定"],a:1,e:"该准则主要限制未经提前说明的上下文变化，并不禁止普通动态内容更新。"},{q:"Collection 筛选后应该将整个商品列表设置为 Live Region 吗？",o:["应该","通常不应该"],a:1,e:"优先通知结果数量或简洁摘要，避免播报整个商品列表。"},{q:"Section Rendering 恢复焦点时，应在什么时候获取当前焦点？",o:["请求开始时","实际替换 DOM 之前"],a:1,e:"请求期间用户可能已经移动焦点，因此要尊重最新操作位置。"},{q:"筛选或排序发生变化时，通常应该如何处理 page 参数？",o:["回到第一页","始终保留之前的页码"],a:0,e:"筛选后的商品总量和分页范围可能发生变化。"},{q:"Load More 完成后焦点仍在按钮上，是否一定合理？",o:["一定合理","需要根据新增内容的 DOM 顺序判断"],a:1,e:"如果新增商品全部位于按钮之前，用户可能继续 Tab 时跳过新增商品。"}]}
+{@body const [answers22,setAnswers22]=DIL.useState(Array(quiz22.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers22.filter((a,i)=>a===quiz22[i].a).length} / {quiz22.length}</caption>
+  </row>
+  {#each quiz22 as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers22[i])} onChange={v=>setAnswers22(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers22[i]>=0}
+        <text size="sm" color={answers22[i]===q.a?"success":"danger"}>{answers22[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<quiz22.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers22(Array(quiz22.length).fill(-1))}>重新测试</button>
+</card>
+
+## 21. 日常开发检查清单
+
+{@body const checks22=["商品列表具有合理的列表语义","商品卡片避免不必要的重复链接","Quick Add 名称包含对应商品信息","筛选组具有明确名称及分组关系","Checkbox 选中状态正确","已选但零结果的筛选项仍可取消","价格输入框具有名称及币种信息","双滑块支持键盘及非拖拽替代操作","Active Filter 删除后合理恢复焦点","Filter Drawer 具有正确的模态行为","排序不会导致未经提示的上下文变化","筛选 URL 与实际结果保持一致","浏览器前进后退可以恢复筛选状态","过期请求不会覆盖新结果","AJAX 更新保留必要的焦点及展开状态","商品数量通过 Live Region 通知","请求失败具有明确错误反馈","分页正确使用 aria-current","Load More 后可以访问新增商品","无限滚动不会阻碍其他页面区域的访问","通过真实键盘及屏幕阅读器测试"]}
+{@body const [done22,setDone22]=DIL.useState(Array(checks22.length).fill(false))}
+<card gap={2}>
+  <row align="center">
+    **Collection Accessibility Checklist**
+    <spacer/>
+    <caption>{done22.filter(Boolean).length} / {checks22.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full">
+    <box height={5} background="#39866B" radius="full" width={`${done22.filter(Boolean).length/checks22.length*100}%`}/>
+  </box>
+  {#each checks22 as c,i}
+    <checkbox checked={done22[i]} onChange={v=>setDone22(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done22[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks22.map((c,i)=>(done22[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 22. 官方参考资料
+
+| 文档 | 学习重点 |
+|---|---|
+| [Shopify Storefront Filtering](https://shopify.dev/docs/storefronts/themes/navigation-search/filtering/storefront-filtering) | 原生筛选机制 |
+| [Liquid filter](https://shopify.dev/docs/api/liquid/objects/filter) | Filter 数据模型 |
+| [Liquid filter_value](https://shopify.dev/docs/api/liquid/objects/filter_value) | 筛选值数据模型 |
+| [Liquid paginate](https://shopify.dev/docs/api/liquid/tags/paginate) | 分页 |
+| [Section Rendering API](https://shopify.dev/docs/api/ajax/section-rendering) | 局部页面渲染 |
+| [WAI-ARIA Slider Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/slider/) | 数值滑块 |
+| [Multi-Thumb Slider Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/slider-multithumb/) | 双滑块 |
+| [WCAG 3.2.2 On Input](https://www.w3.org/WAI/WCAG22/Understanding/on-input.html) | 控件变化与上下文 |
+| [Dawn facets.js](https://github.com/Shopify/dawn/blob/main/assets/facets.js) | 筛选控制器 |
+
+本课选择了原生 GET Form、Checkbox、Select、Section Rendering、请求版本控制作为主要教学方案。代码展示了核心模块，尚未组合成完整的生产级 Section，也未在你的实际 Theme 和辅助技术环境中运行验证；多实例管理、完整价格本地化、错误重试、滑块指针操作等仍需完善。
+
+---
+
+## 本课总结
+
+Collection 页面的无障碍开发，本质上是六种状态的同步。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 275" width="100%">
+    <g stroke="currentColor" strokeOpacity=".35" strokeWidth="1.4" fill="none">
+      <path d="M118 113 L62 57 M222 113 L278 57 M101 140 H65 M239 140 H275 M121 169 L63 220 M219 169 L277 220"/>
+    </g>
+    <rect x="102" y="105" width="136" height="70" rx="9" stroke="#3978BC" strokeWidth="1.6" fill="#3978BC" fillOpacity=".1"/>
+    <text x="170" y="132" textAnchor="middle" fontSize="14" fontWeight="600" fill="currentColor">Collection</text>
+    <text x="170" y="151" textAnchor="middle" fontSize="12" fill="currentColor">State Controller</text>
+    {#each [{x:2,y:3,w:120,t:"Filter State",s:"当前筛选条件"},{x:218,y:3,w:120,t:"URL State",s:"浏览器历史"},{x:0,y:116,w:83,t:"Data",s:"服务端结果"},{x:257,y:116,w:83,t:"UI State",s:"视觉呈现"},{x:2,y:218,w:120,t:"Focus State",s:"用户操作位置"},{x:218,y:218,w:120,t:"ARIA State",s:"语义与通知"}] as n}
+      <rect x={n.x} y={n.y} width={n.w} height="52" rx="7" stroke="currentColor" strokeOpacity=".3" fill="#888888" fillOpacity=".05"/>
+      <text x={n.x+n.w/2} y={n.y+20} textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor">{n.t}</text>
+      <text x={n.x+n.w/2} y={n.y+37} textAnchor="middle" fontSize="10" fill="currentColor">{n.s}</text>
+    {/each}
+  </svg>
+</box>
+
+一个成熟的 Collection 控制器，不应该仅仅负责获取 HTML 并替换商品列表。
+
+它还需要确保：
+
+**用户选择了什么、URL 记录了什么、服务器返回了什么、页面显示了什么、辅助技术感知到了什么，始终保持一致。**
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体课程位置</caption>
+      <title size="2xl">84.6%</title>
+    </box>
+    <box gap={1}>
+      <caption>已学习 21 课</caption>
+      <caption>已跳过 1 课</caption>
+      <caption>剩余 4 课</caption>
+    </box>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4,s:0},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5,s:0},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5,s:0},{t:"阶段四：复杂 UI 组件实战",n:5,d:4,s:1},{t:"阶段五：Shopify 电商实战",n:4,d:3,s:0},{t:"阶段六：检测与工程化",n:3,d:0,s:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm">{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}{s.s?" · 跳过1课":""}</caption>{/if}
+      </row>
+      <row background="surface-tertiary" height={5} radius="full" gap={0} clip={true}>
+        <box background="#39866B" height={5} width={`${s.d/s.n*100}%`}/>
+        {#if s.s}<box background="#A0A0A0" height={5} width={`${s.s/s.n*100}%`}/>{/if}
+      </row>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 23 课——加购、Cart Drawer、Checkout 与 Dawn 源码**
+
+这是第五阶段的最后一课，主要学习：
+
+- Product Form 与 AJAX 加购的无障碍实现。
+- Add to cart、Buy now、Accelerated Checkout 的区别。
+- 加购 Loading 状态与重复提交控制。
+- Cart Drawer 的完整无障碍架构。
+- 购物车商品数量更新与焦点恢复。
+- 删除商品后的焦点管理。
+- Empty Cart 状态。
+- 折扣、原价、总价及运费信息。
+- AJAX Cart API 错误与库存限制。
+- Shopify Checkout 的无障碍开发边界。
+- Dawn `product-form.js`、`cart.js`、`cart-drawer.js` 源码深入解析。
+- 从商品选择到结算的完整购买流程无障碍测试。
+
+学完第 23 课后，我们将进入最后一个阶段：**无障碍检测、修复与工程化**，系统学习 Lighthouse、axe、WAVE、屏幕阅读器测试以及如何将 ADA 无障碍检测接入日常开发流程。

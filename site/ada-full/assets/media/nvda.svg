@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="200" viewBox="0 0 520 200">
+<rect width="520" height="200" rx="12" fill="#eef3f5"/>
+<rect x="13" y="13" width="494" height="174" rx="9" fill="#fff" stroke="#bdccd2"/>
+<rect x="13" y="13" width="494" height="43" rx="9" fill="#431f63"/>
+<text x="27" y="41" fill="#fff" font-size="18" font-family="system-ui,sans-serif">NV Access</text>
+<text x="260" y="137" text-anchor="middle" fill="#431f63" font-size="43" font-weight="700" font-family="system-ui,sans-serif">NVDA</text>
+<text x="492" y="181" text-anchor="end" fill="#435662" font-size="12" font-family="system-ui,sans-serif">教学示意</text>
+</svg>

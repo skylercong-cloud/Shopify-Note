@@ -1,0 +1,1902 @@
+# 第 9 课：元素隐藏、动画与 CSS 无障碍
+
+<row align="center">
+  <caption>阶段二：HTML、CSS 无障碍开发</caption>
+  <spacer/>
+  <caption>9 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="34.62%" radius="full"/>
+</box>
+
+上一课，我们学习了颜色对比度、字体缩放、响应式布局、Forced Colors 和 Color Scheme。
+
+这一课是第二阶段的最后一课，主要解决两类问题：
+
+**第一类：元素隐藏。** 如何保证视觉隐藏、键盘焦点、鼠标交互和 Accessibility Tree 中的状态保持一致。
+
+**第二类：动画与动态视觉效果。** 如何在保留网站交互体验的同时，避免动画影响用户阅读、操作，甚至引发身体不适。
+
+在 Shopify Theme 开发中，这些知识几乎贯穿所有复杂组件，包括 Cart Drawer、Mega Menu、Predictive Search、Carousel、Tooltip、Announcement Bar 和商品图片预览。
+
+---
+
+## 1. 元素隐藏的五个维度
+
+在日常开发中，我们经常说“隐藏一个元素”。
+
+但是对于浏览器而言，隐藏并不是一种单一状态。
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">一个 HTML 元素</title>
+    <caption>可以从五个不同维度判断其状态</caption>
+  </box>
+  {#each [{i:"code",t:"DOM Tree",d:"元素是否仍然存在于文档中？"},{i:"layout-grid",t:"Layout",d:"元素是否占据页面布局空间？"},{i:"eye",t:"Visual Rendering",d:"用户是否能够看到元素？"},{i:"mouse-pointer-click",t:"Interaction",d:"元素能否被点击或获得焦点？"},{i:"accessibility",t:"Accessibility Tree",d:"辅助技术是否能够访问元素？"}] as item}
+    <row align="center">
+      <box size="42px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name={item.i} size="xl"/></box>
+      <box flex={1} gap={1}>
+        **{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+  {/each}
+</box>
+
+这五个维度并不总是同步变化。
+
+例如，将一个按钮设置为 `opacity: 0`，只是改变它的视觉透明度，并不会自动将它从键盘焦点顺序和无障碍树中移除。
+
+这也是很多 ADA 问题产生的根本原因：**开发者隐藏了视觉界面，却没有正确处理相应的交互状态和无障碍语义。**
+
+## 2. 常见元素隐藏方式完整对比
+
+在第 3 课，我们从 Accessibility Tree 的角度了解过这些属性。这一次，我们重点研究它们在真实开发场景中的使用方式。
+
+| 隐藏方式 | 占据布局 | 视觉可见 | Tab 可访问 | AX Tree 可访问 |
+|---|---|---|---|---|
+| `display: none` | 否 | 否 | 否 | 否 |
+| `visibility: hidden` | 是 | 否 | 否 | 否 |
+| `opacity: 0` | 是 | 否 | 是 | 是 |
+| `hidden` | 否 | 否 | 否 | 否 |
+| `aria-hidden="true"` | 是 | 是 | 仍可能 | 应排除 |
+| `inert` | 是 | 是 | 否 | 否 |
+| `transform` 移出屏幕 | 是 | 否 | 仍可能 | 是 |
+| `pointer-events: none` | 是 | 是 | 是 | 是 |
+| `visually-hidden` | 通常否 | 否 | 原有行为 | 是 |
+| `content-visibility: hidden` | 保留外盒 | 内容不可见 | 后代不可访问 | 后代被排除 |
+
+以上以普通可聚焦元素、常规 CSS 样式为例。部分属性存在继承、样式覆盖和浏览器兼容性等特殊情况。
+
+### 2.1 交互实验：观察不同隐藏方式
+
+{@body const modes=[{id:"normal",label:"正常显示",visual:true,layout:true,focus:true,ax:true,pointer:true,desc:"元素正常显示，支持键盘与鼠标交互。"},{id:"display",label:"display: none",visual:false,layout:false,focus:false,ax:false,pointer:false,desc:"适合完全关闭的菜单、弹窗和条件渲染内容。"},{id:"visibility",label:"visibility: hidden",visual:false,layout:true,focus:false,ax:false,pointer:false,desc:"隐藏元素但保留布局空间，也可以用于配合过渡动画。"},{id:"opacity",label:"opacity: 0",visual:false,layout:true,focus:true,ax:true,pointer:true,desc:"仅透明化，用户仍可能操作看不见的元素。"},{id:"aria",label:'aria-hidden="true"',visual:true,layout:true,focus:true,ax:false,pointer:true,desc:"不能用于仍可聚焦的交互控件或其祖先。"},{id:"inert",label:"inert",visual:true,layout:true,focus:false,ax:false,pointer:false,desc:"适合暂时禁止整个区域的用户交互，例如模态弹窗背后的页面。"},{id:"pointer",label:"pointer-events: none",visual:true,layout:true,focus:true,ax:true,pointer:false,desc:"阻止普通指针命中，但不会自动禁止键盘激活。"}]}
+{@body const [mode,setMode]=DIL.useState("normal")}
+{@body const current=modes.find(m=>m.id===mode)}
+<card gap={3}>
+  **元素隐藏方式实验室**
+  <select value={mode} onChange={setMode} options={modes.map(m=>({label:m.label,value:m.id}))}/>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <caption>视觉页面</caption>
+        <text size="sm">Cotton T-shirt</text>
+        {#if current.layout}
+          <box height="40px" border={{size:1,color:current.visual?"transparent":"#99999950"}} radius="sm" justify="center" align="center" background={current.visual?"#333333":"surface"}>
+            {#if current.visual}<text color="#FFFFFF" size="sm">Add to cart</text>{:else}<caption>保留占位</caption>{/if}
+          </box>
+        {/if}
+        <text size="sm">$29.99</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <caption>Accessibility Tree</caption>
+        <text size="sm">main</text>
+        <box padding={{left:2}} gap={2}>
+          <text size="xs">heading "Cotton T-shirt"</text>
+          {#if current.ax}<text size="xs" color="success">button "Add to cart"</text>{:else}<caption>按钮节点被排除</caption>{/if}
+          <text size="xs">text "$29.99"</text>
+        </box>
+      </box>
+    </grid-item>
+  </grid>
+  {#each [{n:"元素占据布局空间",v:current.layout},{n:"视觉可见",v:current.visual},{n:"Tab 键可以访问",v:current.focus},{n:"鼠标可以直接点击",v:current.pointer},{n:"辅助技术可以访问",v:current.ax}] as p}
+    <row align="center">
+      <text size="sm">{p.n}</text>
+      <spacer/>
+      <icon name={p.v?"check-circle":"x-circle"} color={p.v?"success":"secondary"}/>
+      <text size="sm">{p.v?"是":"否"}</text>
+    </row>
+  {/each}
+  <divider/>
+  <text size="sm">{current.desc}</text>
+  <caption>这是规则模拟，并非真实浏览器的运行结果。</caption>
+</card>
+
+在实际项目中，我们需要根据业务意图选择隐藏方式，而不是仅根据视觉效果选择。
+
+---
+
+## 3. 如何根据业务场景选择隐藏方式？
+
+### 3.1 display: none 与 hidden
+
+如果一个区域当前完全不需要被用户访问，通常优先选择 `hidden` 或 `display: none`。
+
+例如 Accordion、Tabs、Dropdown 的未展开内容。
+
+```html
+<button
+  id="shipping-toggle"
+  type="button"
+  aria-expanded="false"
+  aria-controls="shipping-content"
+>
+  Shipping & Returns
+</button>
+
+<div id="shipping-content" hidden>
+  <p>Free shipping on orders over $50.</p>
+</div>
+```
+
+```javascript
+const toggle = document.querySelector('#shipping-toggle');
+const content = document.querySelector('#shipping-content');
+
+toggle.addEventListener('click', () => {
+  const expanded =
+    toggle.getAttribute('aria-expanded') === 'true';
+
+  toggle.setAttribute('aria-expanded', String(!expanded));
+
+  content.hidden = expanded;
+});
+```
+
+{@body const [expanded,setExpanded]=DIL.useState(false)}
+<card gap={3}>
+  <pressable onClick={()=>setExpanded(!expanded)} padding={2}>
+    <row align="center">
+      **Shipping & Returns**
+      <spacer/>
+      <icon name={expanded?"chevron-up":"chevron-down"}/>
+    </row>
+  </pressable>
+  {#if expanded}
+    <box padding={2} gap={1}>
+      <text size="sm">Free shipping on orders over $50.</text>
+      <text size="sm">Returns accepted within 30 days.</text>
+    </box>
+  {/if}
+  <divider/>
+  <caption>HTML 状态</caption>
+  <box background="surface-tertiary" radius="md" padding={2} gap={1}>
+    <text size="sm">{`aria-expanded="${expanded}"`}</text>
+    <text size="sm">{expanded?'<div id="shipping-content">':'<div id="shipping-content" hidden>'}</text>
+  </box>
+  **Accessibility Tree 模拟**
+  <text size="sm">{`button "Shipping & Returns" · expanded: ${expanded}`}</text>
+  {#if expanded}
+    <box padding={{left:3}} gap={1}>
+      <text size="sm">paragraph "Free shipping on orders over $50."</text>
+      <text size="sm">paragraph "Returns accepted within 30 days."</text>
+    </box>
+  {:else}
+    <caption>折叠内容不暴露给辅助技术。</caption>
+  {/if}
+</card>
+
+这里有三个状态需要保持一致：
+
+| 状态 | 展开 | 折叠 |
+|---|---|---|
+| 视觉状态 | 显示 | 隐藏 |
+| `aria-expanded` | true | false |
+| 内容的 `hidden` 属性 | 移除 | 存在 |
+
+还有一个值得注意的细节：
+
+```html
+<div class="product-grid" hidden>
+  ...
+</div>
+```
+
+```css
+.product-grid {
+  display: grid;
+}
+```
+
+作者设置的 `display: grid` 可能覆盖浏览器对普通 hidden 属性的默认样式。
+
+因此，可以在项目中增加防御性规则：
+
+```css
+[hidden]:not([hidden="until-found"]) {
+  display: none !important;
+}
+```
+
+这里特意排除了 `hidden="until-found"`，因为它具有不同的浏览器行为，稍后会讲到。<Cite ref="turn792651search16"/>
+
+### 3.2 opacity: 0 与 pointer-events: none
+
+这是一种非常常见的弹窗隐藏写法：
+
+```css
+.drawer {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drawer.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+```
+
+看起来已经处理了视觉隐藏和鼠标交互，但实际上还存在两个问题。
+
+<box border radius="lg" padding={3} gap={2}>
+  **关闭状态的 Drawer**
+  {#each [{n:"视觉显示",v:false},{n:"鼠标点击",v:false},{n:"键盘 Tab 访问",v:true},{n:"屏幕阅读器访问",v:true}] as p}
+    <row align="center">
+      <text size="sm">{p.n}</text>
+      <spacer/>
+      <icon name={p.v?"check-circle":"x-circle"} color={p.v?"warning":"secondary"}/>
+      <text size="sm">{p.v?"仍然可以":"不可以"}</text>
+    </row>
+  {/each}
+  <divider/>
+  <text size="sm" color="danger">用户仍然可能通过 Tab 键进入不可见的购物车，并操作其中的控件。</text>
+</box>
+
+`pointer-events: none` 主要影响指针命中测试，并不会自动禁用键盘操作。
+
+因此，仅仅将 opacity 与 pointer-events 组合使用，并不能实现完整的隐藏逻辑。
+
+### 3.3 aria-hidden
+
+`aria-hidden="true"` 适合隐藏不需要向辅助技术暴露的视觉内容。
+
+例如：
+
+```html
+<button type="button">
+  <svg aria-hidden="true">
+    <!-- Decorative icon -->
+  </svg>
+
+  Add to cart
+</button>
+```
+
+但是不能用于仍然可聚焦的控件：
+
+```html
+<!-- 错误用法 -->
+<div aria-hidden="true">
+  <button>Checkout</button>
+</div>
+```
+
+即使再给按钮添加 `tabindex="-1"`，它仍然可能通过 JavaScript 等方式获得焦点。
+
+对于需要整体禁用交互的区域，通常应该考虑 `inert`，而不是逐个修改后代元素的 tabindex。
+
+### 3.4 inert
+
+`inert` 是原生 HTML 属性，可以让整个区域暂时处于不可交互状态。
+
+```html
+<div id="page-content" inert>
+  <header>...</header>
+  <main>...</main>
+  <footer>...</footer>
+</div>
+```
+
+这个区域通常仍然可见，但其中的控件无法正常获得焦点或响应用户交互，同时也不再向辅助技术暴露。<Cite ref="turn792651search27"/>
+
+例如打开模态购物车时：
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 215" width="100%">
+    <rect x="4" y="4" width="332" height="207" rx="7" fill="none" stroke="currentColor" strokeOpacity=".3"/>
+    <rect x="5" y="5" width="191" height="205" rx="6" fill="#888888" fillOpacity=".16"/>
+    <text x="15" y="25" fontSize="13" fontWeight="600" fill="currentColor" opacity=".65">STYLE STORE</text>
+    <rect x="15" y="42" width="74" height="83" rx="4" fill="#A89C8C" fillOpacity=".35"/>
+    <text x="98" y="54" fontSize="10" fill="currentColor" opacity=".5">Cotton T-shirt</text>
+    <rect x="98" y="66" width="85" height="23" rx="3" fill="#888888" fillOpacity=".35"/>
+    <text x="140" y="81" textAnchor="middle" fontSize="9" fill="currentColor" opacity=".5">Add to cart</text>
+    <rect x="15" y="155" width="168" height="29" rx="4" stroke="#B65E5E" strokeDasharray="4 3" fill="none"/>
+    <text x="99" y="173" fontSize="11" textAnchor="middle" fill="#B65E5E">page-content · inert</text>
+    <rect x="197" y="5" width="138" height="205" rx="5" fill="currentColor" fillOpacity=".035" stroke="#39866B"/>
+    <text x="207" y="26" fontSize="13" fontWeight="600" fill="currentColor">Your cart</text>
+    <path d="M316 16 L325 25 M325 16 L316 25" stroke="currentColor" strokeWidth="1.5"/>
+    <rect x="207" y="43" width="45" height="53" rx="3" fill="#A89C8C" fillOpacity=".5"/>
+    <text x="259" y="54" fontSize="9" fill="currentColor">T-shirt × 1</text>
+    <text x="259" y="69" fontSize="10" fill="currentColor">$29.99</text>
+    <rect x="207" y="145" width="118" height="27" rx="4" fill="#39866B"/>
+    <text x="266" y="162" fontSize="11" textAnchor="middle" fill="white">Checkout</text>
+    <text x="266" y="193" fontSize="10" textAnchor="middle" fill="#39866B">可交互区域</text>
+  </svg>
+  <caption>背景页面保持可见，但暂时不可交互。购物车区域保持正常的无障碍访问能力。</caption>
+</box>
+
+注意不要给包含弹窗本身的普通祖先容器设置 inert，否则自定义弹窗也会一起被禁用。
+
+对于原生 `<dialog>` 使用 `showModal()` 的情况，浏览器会处理模态背景的 inert 行为，并且模态 dialog 可以脱离祖先元素的 inert 状态。
+
+我们会在第 15 课详细研究原生 dialog。
+
+---
+
+## 4. visually-hidden 与 visually-hidden-focusable
+
+这两个工具类非常值得在自己的前端项目中统一维护。
+
+### 4.1 visually-hidden
+
+它的用途是：
+
+**视觉用户看不到内容，但辅助技术仍然可以访问内容。**
+
+推荐实现：
+
+```css
+.visually-hidden {
+  position: absolute !important;
+
+  width: 1px;
+  height: 1px;
+
+  padding: 0;
+  margin: -1px;
+
+  overflow: hidden;
+
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+
+  white-space: nowrap;
+  border: 0;
+}
+```
+
+每个属性分别承担不同作用。
+
+| CSS 属性 | 作用 |
+|---|---|
+| `position: absolute` | 脱离普通文档流 |
+| `width/height: 1px` | 将元素缩小至极小尺寸 |
+| `overflow: hidden` | 隐藏溢出内容 |
+| `clip` | 兼容传统裁切实现 |
+| `clip-path` | 裁切视觉内容 |
+| `white-space: nowrap` | 避免文字在极窄区域中逐字换行 |
+| `padding/border: 0` | 避免产生额外视觉区域 |
+
+常见用途包括图标按钮名称、星级评分说明、商品原价说明，以及屏幕阅读器专用的状态消息。
+
+例如促销价格：
+
+<box border radius="lg" padding={4} gap={2}>
+  **Cotton T-shirt**
+  <row align="center">
+    <title size="xl" color="#B64444">$29.99</title>
+    <text color="secondary" lineThrough={true}>$49.99</text>
+    <box background="#B6444410" radius="sm" padding={1}><text color="#B64444" size="xs">SALE</text></box>
+  </row>
+  <divider/>
+  <row align="center">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟屏幕阅读器播报</caption>
+      <text size="sm">Sale price, 29 dollars and 99 cents. Regular price, 49 dollars and 99 cents.</text>
+    </box>
+  </row>
+</box>
+
+```html
+<div class="price">
+  <span class="visually-hidden">
+    Sale price
+  </span>
+
+  <span class="price-sale">$29.99</span>
+
+  <span class="visually-hidden">
+    Regular price
+  </span>
+
+  <s>$49.99</s>
+</div>
+```
+
+视觉用户可以通过删除线理解哪个是原价，但屏幕阅读器不一定会按我们期望的方式播报删除线语义。
+
+通过辅助文字，可以更加明确地表达价格之间的关系。
+
+### 4.2 visually-hidden-focusable
+
+如果隐藏的元素本身是可交互的，就需要更加谨慎。
+
+例如 Skip Link 默认不可见，但是用户通过 Tab 键访问时，应该立即显示出来。
+
+```html
+<a
+  class="skip-link visually-hidden-focusable"
+  href="#main-content"
+>
+  Skip to main content
+</a>
+
+<main id="main-content" tabindex="-1">
+  ...
+</main>
+```
+
+```css
+.visually-hidden-focusable:not(:focus):not(:focus-within) {
+  position: absolute !important;
+
+  width: 1px;
+  height: 1px;
+
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+```
+
+{@body const [skipFocus,setSkipFocus]=DIL.useState(false)}
+<card gap={3}>
+  **Skip Link 焦点演示**
+  <box border radius="md" padding={2} gap={2}>
+    {#if skipFocus}
+      <box border={{size:2,color:"#5185C5"}} radius="sm" background="#333333" theme="dark" padding={2} align="center">
+        <text color="#FFFFFF" size="sm">Skip to main content</text>
+      </box>
+    {/if}
+    <row align="center" padding={2}>
+      **STYLE STORE**
+      <spacer/>
+      <icon name="search"/>
+      <icon name="shopping-bag"/>
+    </row>
+    <divider/>
+    <row justify="between">
+      {#each ["Home","Women","Men","Sale"] as item}
+        <text size="sm">{item}</text>
+      {/each}
+    </row>
+    <box background="surface-tertiary" padding={4} radius="md" align="center">
+      <title size="lg">New arrivals</title>
+    </box>
+  </box>
+  <button block variant="outline" color="secondary" onClick={()=>setSkipFocus(!skipFocus)}>{skipFocus?"模拟焦点离开":"模拟首次按下 Tab"}</button>
+  <caption>{skipFocus?"获得焦点后，Skip Link 恢复视觉显示。":"默认隐藏，但仍然保留键盘访问能力。"}</caption>
+</card>
+
+这两个工具类的区别是：
+
+| 工具类 | 适用场景 |
+|---|---|
+| `visually-hidden` | 非交互辅助说明、状态信息 |
+| `visually-hidden-focusable` | 需要在获得焦点后显示的交互入口 |
+
+对于采用视觉隐藏技术实现的原生 radio、checkbox，也可以将焦点指示显示在对应的可见 label 或自定义控件上，而不必直接显示原生 input。
+
+---
+
+## 5. content-visibility 与 display: contents
+
+这两个属性同时涉及 CSS 性能优化、布局和无障碍。
+
+### 5.1 content-visibility: auto
+
+在网站性能优化中，我们可能使用：
+
+```css
+.product-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+```
+
+它允许浏览器暂时跳过部分屏幕外内容的渲染工作，从而减少布局和绘制开销。
+
+但是，性能优化不等于隐藏业务内容。
+
+| 属性 | 屏幕外渲染 | 辅助技术访问 |
+|---|---|---|
+| `content-visibility: auto` | 浏览器可以跳过部分工作 | 内容原则上仍然可访问 |
+| `content-visibility: hidden` | 跳过内部内容渲染 | 后代内容通常不可访问 |
+| `display: none` | 不产生对应渲染盒 | 内容通常不可访问 |
+
+所以，如果你想优化 Shopify 长页面、商品详情页下面的大量 Section，可以考虑 `content-visibility: auto`。
+
+但如果你想关闭 Dropdown 或 Drawer，不应该用 auto 来实现真正的隐藏。
+
+另外，屏幕外跳过渲染时，某些后代元素的隐藏样式可能尚未完成相关处理，导致无障碍树出现意外的节点。对于同时使用此属性和复杂隐藏逻辑的区域，需要进行实际浏览器测试。<Cite ref="turn792651search12"/>
+
+### 5.2 display: contents
+
+```html
+<ul class="product-list">
+  <li>Product A</li>
+  <li>Product B</li>
+</ul>
+```
+
+```css
+.product-list {
+  display: contents;
+}
+```
+
+`display: contents` 的主要目的是让元素本身不生成布局盒，使其子元素能够直接参与外层布局。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **普通布局**
+      <box border radius="md" padding={2} gap={2}>
+        <caption>Parent</caption>
+        <box border={{size:1,color:"#5185C5"}} radius="sm" padding={2} gap={2}>
+          <caption>Wrapper</caption>
+          <box background="surface-tertiary" padding={2} radius="sm">Child A</box>
+          <box background="surface-tertiary" padding={2} radius="sm">Child B</box>
+        </box>
+      </box>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **display: contents**
+      <box border radius="md" padding={2} gap={2}>
+        <caption>Parent</caption>
+        <box border={{size:1,color:"#5185C5",style:"dashed"}} radius="sm" padding={2}><caption>Wrapper 不生成布局盒</caption></box>
+        <box background="surface-tertiary" padding={2} radius="sm">Child A</box>
+        <box background="surface-tertiary" padding={2} radius="sm">Child B</box>
+      </box>
+    </box>
+  </grid-item>
+</grid>
+
+按照规范，移除布局盒不应该意味着移除元素本身的语义。
+
+但在部分浏览器的实际实现中，使用 `display: contents` 的元素可能失去自身的无障碍语义，而后代内容仍然存在。<Cite ref="turn792651search10"/>
+
+因此，对于下面这些具有重要语义的元素，不建议未经测试就直接应用 `display: contents`：
+
+`button`、`ul`、`table`、`nav`、`fieldset` 等。
+
+尤其在使用 Grid 布局重构 Shopify 商品列表时，要注意不要为了布局方便而破坏列表结构。
+
+### 5.3 hidden="until-found"
+
+这是 hidden 属性的一种特殊状态。
+
+```html
+<div id="product-specifications" hidden="until-found">
+  Detailed product specifications...
+</div>
+```
+
+普通 hidden 内容无法通过常规页面搜索直接找到，而支持 `until-found` 的浏览器可以在页面查找或锚点导航命中内容时，将其自动显示出来。
+
+相关事件：
+
+```javascript
+const content = document.querySelector(
+  '#product-specifications'
+);
+
+content.addEventListener('beforematch', () => {
+  // 同步自定义 Accordion 的展开状态
+  toggle.setAttribute('aria-expanded', 'true');
+});
+```
+
+它比较适合 FAQ、商品技术规格等需要折叠展示，同时又希望用户能够通过浏览器查找功能定位的内容。
+
+不过，需要考虑浏览器支持情况，并同步组件自己的展开状态。<Cite refs={["turn792651search16","turn792651search22"]}/>
+
+---
+
+## 6. CSS 动画为什么会产生无障碍问题？
+
+动画可以提升网站的视觉体验，但不同用户对动画的感受并不相同。
+
+对于部分前庭功能障碍、偏头痛、注意力障碍或光敏性癫痫用户，某些动态效果可能造成阅读困难、眩晕、恶心甚至更严重的身体反应。
+
+常见的电商网站动画包括：
+
+<grid columns={2} gap={2}>
+  {#each [{i:"move-horizontal",t:"Slide Animation",d:"Drawer 滑入滑出"},{i:"layers",t:"Parallax",d:"滚动视差效果"},{i:"zoom-in",t:"Scale Animation",d:"商品图片缩放"},{i:"gallery-horizontal",t:"Carousel",d:"自动轮播图"},{i:"move-left",t:"Marquee",d:"滚动促销公告"},{i:"loader",t:"Loading",d:"加载动画"},{i:"arrow-up",t:"Scroll Animation",d:"滚动进入视口动画"},{i:"zap",t:"Flashing",d:"快速闪烁促销效果"}] as item}
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <icon name={item.i} size="2xl"/>
+        **{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+这些动画主要涉及三条 WCAG 成功准则。
+
+| WCAG | 等级 | 核心要求 |
+|---|---|---|
+| 2.2.2 Pause, Stop, Hide | A | 用户能够控制适用的自动运动或更新内容 |
+| 2.3.1 Three Flashes or Below Threshold | A | 避免超过闪烁安全阈值 |
+| 2.3.3 Animation from Interactions | AAA | 非必要的交互触发运动动画可以禁用 |
+
+特别注意，2.3.3 属于 AAA 级，而不是 AA 级。但是考虑到真实用户体验，仍然建议在普通电商网站开发中支持减少运动偏好。<Cite ref="turn283392view0"/>
+
+## 7. prefers-reduced-motion 深入解析
+
+`prefers-reduced-motion` 是 CSS Media Query 提供的一种用户偏好检测机制。
+
+它允许网页检测用户是否在系统或浏览器中选择了减少非必要运动效果。
+
+### 7.1 两种取值
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  /* 用户希望减少运动效果 */
+}
+```
+
+```css
+@media (prefers-reduced-motion: no-preference) {
+  /* 用户没有明确表达减少运动的偏好 */
+}
+```
+
+注意，`no-preference` 并不表示用户喜欢动画，只表示用户没有设置减少运动的偏好。
+
+### 7.2 用户在哪里设置？
+
+<box gap={3}>
+  <row align="start">
+    <AsyncImage query="Windows 11 Settings Accessibility Visual effects Animation effects toggle screenshot" aspectRatio="4:3" maxWidth="120px"/>
+    <box flex={1} gap={1}>
+      **Windows**
+
+      设置 → 辅助功能 → 视觉效果 → 动画效果
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="macOS System Settings Accessibility Display Reduce motion toggle screenshot" aspectRatio="4:3" maxWidth="120px"/>
+    <box flex={1} gap={1}>
+      **macOS**
+
+      系统设置 → 辅助功能 → 显示 → 减弱动态效果
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="iPhone accessibility motion reduce motion settings toggle screenshot" aspectRatio="3:4" maxWidth="100px"/>
+    <box flex={1} gap={1}>
+      **iOS**
+
+      设置 → 辅助功能 → 动态效果 → 减弱动态效果
+    </box>
+  </row>
+</box>
+
+浏览器可以将相关系统偏好反映到 CSS Media Query 中。<Cite ref="turn792651search18"/>
+
+### 7.3 基础 CSS 实现
+
+```css
+.product-card {
+  transition: transform 300ms ease;
+}
+
+.product-card:hover {
+  transform: translateY(-8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card {
+    transition: none;
+  }
+
+  .product-card:hover {
+    transform: none;
+  }
+}
+```
+
+这里不仅禁用了 transition，还取消了不必要的位移效果。
+
+如果只禁用 transition，商品卡片仍然会瞬间向上移动 8px，只是不再具有过渡过程。
+
+### 7.4 更推荐的设计方式：默认静态，按需启用动画
+
+```css
+.product-card {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: no-preference)
+  and (hover: hover) {
+
+  .product-card {
+    transition: transform 300ms ease;
+  }
+
+  .product-card:hover {
+    transform: translateY(-8px);
+  }
+}
+```
+
+这种方案类似 Progressive Enhancement（渐进增强）。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **基础功能与静态样式**
+    <caption>所有用户都能正常访问</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2}>
+    <grid-item>
+      <box border radius="md" padding={3} align="center" gap={2}>
+        **no-preference**
+        <icon name="move" size="2xl"/>
+        <text size="sm">启用非必要动画</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} align="center" gap={2}>
+        **reduce**
+        <icon name="square" size="2xl"/>
+        <text size="sm">保留静态交互反馈</text>
+      </box>
+    </grid-item>
+  </grid>
+</box>
+
+这可以避免由于动画代码加载失败、浏览器不支持相关能力等原因，导致商品内容无法正常显示。
+
+### 7.5 交互演示：减少运动前后的区别
+
+{@body const [reduced,setReduced]=DIL.useState(false)}
+{@body const [motionType,setMotionType]=DIL.useState("drawer")}
+{@body const [progress,setProgress]=DIL.useState(35)}
+<card gap={3}>
+  **Motion Preference 实验室**
+  <checkbox checked={reduced} onChange={setReduced}>prefers-reduced-motion: reduce</checkbox>
+  <segmented-control value={motionType} onChange={setMotionType} options={[{label:"Drawer",value:"drawer"},{label:"商品卡片",value:"card"},{label:"滚动出现",value:"scroll"}]}/>
+  <svg viewBox="0 0 320 175" width="100%">
+    <rect x="3" y="3" width="314" height="169" rx="6" stroke="currentColor" strokeOpacity=".25" fill="#888888" fillOpacity=".04"/>
+    {#if motionType==="drawer"}
+      <defs><clipPath id="drawer-motion-9"><rect x="4" y="4" width="312" height="167" rx="5"/></clipPath></defs>
+      <text x="16" y="24" fontSize="12" fontWeight="600" fill="currentColor">STORE</text>
+      <rect x="16" y="39" width="100" height="100" rx="4" fill="#D5C9B8"/>
+      <text x="128" y="52" fontSize="11" fill="currentColor">Cotton T-shirt</text>
+      <rect x="128" y="66" width="90" height="24" rx="3" fill="#555555"/>
+      <text x="173" y="82" fontSize="10" textAnchor="middle" fill="white">Add to cart</text>
+      <g clipPath="url(#drawer-motion-9)">
+        <rect x={reduced?(progress===0?320:180):320-140*progress/100} y="4" width="140" height="167" fill="#F0ECE5" stroke="#999999"/>
+        <text x={(reduced?(progress===0?320:180):320-140*progress/100)+12} y="25" fontSize="12" fontWeight="600" fill="#333333">Your cart</text>
+        <rect x={(reduced?(progress===0?320:180):320-140*progress/100)+12} y="40" width="48" height="60" rx="4" fill="#D5C9B8"/>
+        <rect x={(reduced?(progress===0?320:180):320-140*progress/100)+12} y="130" width="116" height="26" rx="4" fill="#333333"/>
+        <text x={(reduced?(progress===0?320:180):320-140*progress/100)+70} y="147" fontSize="10" textAnchor="middle" fill="white">Checkout</text>
+      </g>
+    {:else if motionType==="card"}
+      <rect x="98" y="22" width="124" height="140" rx="5" fill="none" stroke="currentColor" strokeOpacity=".2" strokeDasharray="4 3"/>
+      <g transform={`translate(0 ${reduced?0:-16*progress/100})`}>
+        <rect x="98" y="22" width="124" height="140" rx="5" fill="#D8D1C6" stroke="#999999"/>
+        <path d="M140 36 L113 52 L126 75 L140 65 V119 H180 V65 L194 75 L207 52 L180 36 L171 43 H149 Z" fill="#827360"/>
+        <text x="160" y="137" fontSize="11" textAnchor="middle" fill="#333333">Cotton T-shirt</text>
+        <text x="160" y="151" fontSize="10" textAnchor="middle" fill="#333333">$29.99</text>
+      </g>
+    {:else}
+      <g transform={`translate(0 ${reduced?0:30*(1-progress/100)})`} opacity={reduced?1:Math.max(.06,progress/100)}>
+        <text x="160" y="49" fontSize="17" textAnchor="middle" fill="currentColor" fontWeight="600">New collection</text>
+        {#each [0,1,2] as i}
+          <rect x={28+i*90} y="65" width="80" height="75" rx="4" fill={["#C4B6A2","#8395A6","#777777"][i]}/>
+        {/each}
+      </g>
+    {/if}
+  </svg>
+  <row align="center">
+    <caption>动画进度</caption>
+    <spacer/>
+    <text tabularNums={true}>{progress}%</text>
+  </row>
+  <slider min={0} max={100} step={5} value={progress} onChange={setProgress}/>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <caption>当前策略</caption>
+    <text size="sm">{reduced?"取消非必要位移与过渡，直接呈现目标状态。":"保留常规的位移、缩放或透明度过渡。"}</text>
+  </box>
+  <caption>手动拖动进度条模拟动画过程，不会自动播放动画。</caption>
+</card>
+
+减少运动不等于删除功能。
+
+例如关闭 Drawer 的滑动动画后，Drawer 仍然应该能够打开和关闭；关闭 Loading Spinner 的旋转后，用户仍然应该知道请求正在进行。
+
+---
+
+## 8. JavaScript 如何处理 prefers-reduced-motion？
+
+有些动画并不是 CSS 实现的，而是由 JavaScript 控制。
+
+例如 GSAP、Swiper、Web Animations API、`requestAnimationFrame`、`scrollTo` 等。
+
+仅使用 CSS Media Query 并不能关闭所有这些动画。
+
+### 8.1 使用 matchMedia
+
+```javascript
+const motionQuery = window.matchMedia(
+  '(prefers-reduced-motion: reduce)'
+);
+
+console.log(motionQuery.matches);
+```
+
+### 8.2 监听用户偏好变化
+
+```javascript
+const motionQuery = window.matchMedia(
+  '(prefers-reduced-motion: reduce)'
+);
+
+function applyMotionPreference(event) {
+  if (event.matches) {
+    stopNonEssentialAnimations();
+  } else {
+    enableOptionalAnimations();
+  }
+}
+
+motionQuery.addEventListener(
+  'change',
+  applyMotionPreference
+);
+
+applyMotionPreference(motionQuery);
+```
+
+这样用户在浏览网站期间修改系统设置时，网站也可以相应调整动画行为。
+
+在 Shopify Section 被销毁、卸载或重新渲染时，还需要注意移除相应的监听器。
+
+### 8.3 Smooth Scroll
+
+一个非常常见的平滑滚动实现：
+
+```javascript
+element.scrollIntoView({
+  behavior: 'smooth'
+});
+```
+
+对于设置了减少运动偏好的用户，可以改为：
+
+```javascript
+const reduceMotion = window.matchMedia(
+  '(prefers-reduced-motion: reduce)'
+).matches;
+
+element.scrollIntoView({
+  behavior: reduceMotion ? 'instant' : 'smooth',
+  block: 'nearest'
+});
+```
+
+CSS 中也可以处理：
+
+```css
+html {
+  scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+```
+
+注意，如果 JavaScript 明确指定了 `behavior: 'smooth'`，不能只依靠 CSS 中的 `scroll-behavior: auto` 来保证关闭平滑滚动。
+
+---
+
+## 9. 一个非常容易踩坑的地方：transitionend
+
+这是本课对于 JavaScript 开发最重要的知识点之一。
+
+假设我们需要在 Drawer 关闭动画结束后，将它从页面中隐藏。
+
+```javascript
+drawer.classList.remove('is-open');
+
+drawer.addEventListener(
+  'transitionend',
+  () => {
+    drawer.hidden = true;
+  },
+  { once: true }
+);
+```
+
+然后我们为了无障碍增加：
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    transition: none;
+  }
+}
+```
+
+问题来了：当 transition 被禁用时，`transitionend` 事件可能根本不会触发。
+
+结果就是 Drawer 永远无法完成关闭逻辑。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      **正常动画模式**
+      {#each ["用户关闭 Drawer","开始 Transition","触发 transitionend","完成关闭逻辑"] as t,i}
+        <box border radius="sm" padding={2} align="center"><text size="xs">{t}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+      <text color="success" size="sm">正常关闭</text>
+    </grid-item>
+    <grid-item>
+      **减少运动模式**
+      {#each ["用户关闭 Drawer","transition: none","没有 transitionend","关闭逻辑未执行"] as t,i}
+        <box border radius="sm" padding={2} align="center"><text size="xs">{t}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+      <text color="danger" size="sm">组件状态异常</text>
+    </grid-item>
+  </grid>
+</box>
+
+同样的问题也可能出现在 `animationend` 上。
+
+### 9.1 更合理的开发方式
+
+业务状态、焦点状态、交互状态不应该完全依赖动画结束事件。
+
+可以使用 CSS 完成视觉过渡，同时立即完成必要的交互状态更新。
+
+例如一个非模态的滑动 Panel：
+
+```css
+.panel {
+  transform: translateX(100%);
+  visibility: hidden;
+
+  transition:
+    transform 250ms ease,
+    visibility 0s linear 250ms;
+}
+
+.panel.is-open {
+  transform: translateX(0);
+  visibility: visible;
+
+  transition:
+    transform 250ms ease,
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
+  }
+}
+```
+
+HTML 初始状态：
+
+```html
+<button
+  id="panel-toggle"
+  aria-expanded="false"
+  aria-controls="panel"
+>
+  Product information
+</button>
+
+<div id="panel" class="panel" inert>
+  <!-- Panel content -->
+</div>
+```
+
+JavaScript：
+
+```javascript
+const panel = document.querySelector('#panel');
+const trigger = document.querySelector('#panel-toggle');
+
+function openPanel() {
+  panel.classList.add('is-open');
+
+  panel.inert = false;
+
+  trigger.setAttribute('aria-expanded', 'true');
+}
+
+function closePanel() {
+  trigger.setAttribute('aria-expanded', 'false');
+
+  if (panel.contains(document.activeElement)) {
+    trigger.focus();
+  }
+
+  panel.inert = true;
+
+  panel.classList.remove('is-open');
+}
+
+trigger.addEventListener('click', () => {
+  panel.classList.contains('is-open')
+    ? closePanel()
+    : openPanel();
+});
+```
+
+关闭时立即处理焦点与 inert，视觉动画则由 CSS 自己完成。
+
+这样即使用户设置了减少运动偏好，组件仍然可以正常工作。
+
+如果真实业务必须等待动画完成，则需要处理零时长、事件取消、多属性 transition、动画被打断等情况，并提供可靠的结束机制。
+
+**动画应该是业务状态的视觉表现，而不应该成为业务状态正确性的唯一依赖。**
+
+---
+
+## 10. 自动轮播与滚动公告栏
+
+Shopify 首页中经常出现以下组件：
+
+<box border radius="lg" padding={3} gap={3}>
+  <box background="#333333" theme="dark" padding={2} radius="sm">
+    <row align="center">
+      <icon name="chevron-left" color="#FFFFFF" size="sm"/>
+      <box flex={1} align="center"><text color="#FFFFFF" size="sm">Free shipping on orders over $50</text></box>
+      <icon name="chevron-right" color="#FFFFFF" size="sm"/>
+    </row>
+  </box>
+  <caption>Announcement Bar · 自动切换促销公告</caption>
+  <box background="#E1D3C0" theme="light" radius="md" padding={5} gap={2}>
+    <caption color="#5B4B39">NEW SEASON</caption>
+    <title size="2xl" color="#352B20">Everyday Essentials</title>
+    <text color="#5B4B39" size="sm">Discover the latest collection.</text>
+    <box background="#352B20" radius="sm" padding={2} width="100px" align="center"><text color="#FFFFFF" size="sm">Shop now</text></box>
+  </box>
+  <row justify="center" align="center">
+    <icon name="chevron-left"/>
+    {#each [0,1,2] as i}
+      <box background={i===0?"#777777":"#AAAAAA50"} size="8px" radius="full"/>
+    {/each}
+    <icon name="chevron-right"/>
+    <icon name="pause"/>
+  </row>
+  <caption>Slideshow · 自动切换首页 Banner</caption>
+</box>
+
+这类组件主要涉及 WCAG 2.2.2。
+
+### 10.1 Pause、Stop、Hide 的适用条件
+
+对于运动、闪烁或滚动信息，当同时满足以下条件时，通常需要提供暂停、停止或隐藏机制：
+
+- 自动开始。
+- 持续超过 5 秒。
+- 与其他页面内容同时展示。
+- 运动不是活动本身不可替代的必要部分。
+
+对于自动更新的信息，同样需要提供适用的控制机制，包括暂停、停止、隐藏或控制更新频率，但**没有 5 秒的豁免条件**。<Cite ref="turn283392view2"/>
+
+例如每隔 3 秒自动替换促销公告，并不意味着因为间隔小于 5 秒就一定符合要求。
+
+### 10.2 是否支持 prefers-reduced-motion 就够了？
+
+通常不够。
+
+用户可能没有开启系统减少运动设置，却仍然希望暂停首页轮播，以便阅读某一张 Banner 上的促销内容。
+
+因此两套机制承担不同职责：
+
+| 机制 | 作用 |
+|---|---|
+| `prefers-reduced-motion` | 根据用户偏好调整默认动画行为 |
+| Pause / Play 按钮 | 用户在当前页面主动控制自动播放 |
+| Hover / Focus 暂停 | 避免在用户阅读和操作组件时自动切换 |
+| Previous / Next | 允许用户主动访问其他内容 |
+
+对于自动轮播，还需要避免用户已经手动暂停后，仅因为鼠标离开轮播区域就自动恢复播放。
+
+### 10.3 实战：实现可控制的 Announcement Bar
+
+```html
+<div id="announcement-bar">
+  <button id="rotation-toggle" type="button">
+    Start automatic rotation
+  </button>
+
+  <button
+    id="previous-announcement"
+    type="button"
+    aria-label="Previous announcement"
+  >
+    ←
+  </button>
+
+  <p id="announcement-message">
+    Free shipping on orders over $50.
+  </p>
+
+  <button
+    id="next-announcement"
+    type="button"
+    aria-label="Next announcement"
+  >
+    →
+  </button>
+</div>
+```
+
+JavaScript：
+
+```javascript
+const bar = document.querySelector('#announcement-bar');
+const message = document.querySelector('#announcement-message');
+const toggle = document.querySelector('#rotation-toggle');
+
+const motionQuery = window.matchMedia(
+  '(prefers-reduced-motion: reduce)'
+);
+
+const announcements = [
+  'Free shipping on orders over $50.',
+  'Get 20% off your first order.',
+  'Discover our new collection.'
+];
+
+let index = 0;
+let timer = null;
+
+function showAnnouncement(nextIndex) {
+  index =
+    (nextIndex + announcements.length) %
+    announcements.length;
+
+  message.textContent = announcements[index];
+}
+
+function stopRotation() {
+  clearInterval(timer);
+  timer = null;
+
+  toggle.textContent = 'Start automatic rotation';
+
+  message.setAttribute('aria-live', 'polite');
+}
+
+function startRotation() {
+  clearInterval(timer);
+
+  // 自动切换期间不持续打断屏幕阅读器
+  message.setAttribute('aria-live', 'off');
+
+  timer = setInterval(() => {
+    showAnnouncement(index + 1);
+  }, 6000);
+
+  toggle.textContent = 'Stop automatic rotation';
+}
+
+toggle.addEventListener('click', () => {
+  timer === null
+    ? startRotation()
+    : stopRotation();
+});
+
+document
+  .querySelector('#previous-announcement')
+  .addEventListener('click', () => {
+    stopRotation();
+    showAnnouncement(index - 1);
+  });
+
+document
+  .querySelector('#next-announcement')
+  .addEventListener('click', () => {
+    stopRotation();
+    showAnnouncement(index + 1);
+  });
+
+bar.addEventListener('focusin', stopRotation);
+bar.addEventListener('pointerenter', stopRotation);
+
+motionQuery.addEventListener('change', event => {
+  if (event.matches) {
+    stopRotation();
+  }
+});
+
+if (!motionQuery.matches) {
+  startRotation();
+} else {
+  stopRotation();
+}
+```
+
+这个教学示例展示了自动播放控制、减少运动偏好、键盘访问与状态同步的基本思路。
+
+生产环境中，还应针对播放控制按钮自身的焦点事件与点击顺序进行处理，避免焦点触发自动暂停后，用户点击原本想按下的停止按钮却重新启动轮播。手动切换的播报也需要使用目标屏幕阅读器验证，必要时使用提前建立的独立 Live Region。
+
+对于完整的 Carousel 组件，我们会在第 18 课深入实现。
+
+---
+
+## 11. Marquee 无限滚动动画
+
+这种效果在跨境电商活动页中非常常见。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box background="#333333" theme="dark" padding={3} radius="sm" clip={true}>
+    <svg viewBox="0 0 320 30" width="100%">
+      <text x="-25" y="20" fontSize="13" fontWeight="600" fill="white">SALE　✦　FREE SHIPPING　✦　20% OFF　✦　SALE</text>
+    </svg>
+  </box>
+  <caption>持续横向滚动的促销文案</caption>
+</box>
+
+通常使用以下 CSS 实现：
+
+```css
+.marquee-track {
+  display: flex;
+  width: max-content;
+
+  animation: marquee 20s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+```
+
+这里假设轨道包含两组等宽的重复内容。
+
+这种实现主要有三个无障碍问题。
+
+### 11.1 无限运动无法停止
+
+可以通过以下属性暂停 CSS 动画：
+
+```css
+.marquee.is-paused .marquee-track {
+  animation-play-state: paused;
+}
+```
+
+并提供真实按钮控制。
+
+仅使用以下代码通常是不够的：
+
+```css
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+```
+
+因为键盘用户和触屏用户不一定能够使用 hover，而且用户移开鼠标后，动画又会自动开始。
+
+### 11.2 重复内容被多次播报
+
+为了实现无缝滚动，开发者通常会复制多份内容。
+
+```html
+<div class="marquee-track">
+  <div>Free shipping</div>
+  <div>20% off</div>
+
+  <div>Free shipping</div>
+  <div>20% off</div>
+</div>
+```
+
+视觉上是连续动画，但是屏幕阅读器可能读取两遍相同内容。
+
+可以将用于循环的纯视觉副本隐藏：
+
+```html
+<div class="marquee-track">
+  <div class="marquee-group">
+    <span>Free shipping</span>
+    <span>20% off</span>
+  </div>
+
+  <div
+    class="marquee-group marquee-clone"
+    aria-hidden="true"
+    inert
+  >
+    <span>Free shipping</span>
+    <span>20% off</span>
+  </div>
+</div>
+```
+
+如果动画中包含真实链接或按钮，则需要更加谨慎地处理复制内容，避免用户看到一个似乎可以点击、实际上无法操作的副本。通常更建议让滚动轨道保持为非交互文字。
+
+### 11.3 减少运动模式下保证内容完整
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    transform: none;
+
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .marquee-clone {
+    display: none;
+  }
+
+  .marquee-group {
+    flex-wrap: wrap;
+  }
+}
+```
+
+不能仅仅取消 animation，而保留一个宽度远远超过视口、且被 `overflow: hidden` 裁切的内容容器。
+
+否则用户虽然不再看到动画，却也无法读取完整的促销信息。
+
+---
+
+## 12. 闪烁动画与光敏性癫痫
+
+WCAG 2.3.1 是 Level A 准则。
+
+它要求网页内容不能超过规定的闪烁频率或一般闪烁、红色闪烁安全阈值。
+
+通常可以采用一个简单的开发原则：避免任何一秒内超过三次的闪烁，不依赖复杂阈值例外来设计促销动画。<Cite ref="turn283392view1"/>
+
+需要特别关注的内容：
+
+| 场景 | 建议 |
+|---|---|
+| 红色促销标签快速闪烁 | 避免 |
+| 大面积黑白背景快速切换 | 避免 |
+| 视频频繁出现强烈闪光 | 进行专业评估 |
+| 普通 Loading Spinner | 通常不属于高风险闪烁，但需考虑运动偏好 |
+| 静态库存、折扣标签 | 推荐 |
+
+<grid columns={2}>
+  <grid-item>
+    <box border radius="lg" padding={3} align="center" gap={2}>
+      <box background="#BD3434" theme="dark" radius="sm" padding={3}>
+        <title size="xl" color="#FFFFFF">SALE!</title>
+      </box>
+      <text color="danger" size="sm">避免快速反复闪烁</text>
+      <caption>静态示意，不播放闪烁效果。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} align="center" gap={2}>
+      <box background="#BD3434" theme="dark" radius="sm" padding={3}>
+        <title size="xl" color="#FFFFFF">SALE!</title>
+      </box>
+      <text color="success" size="sm">保持静态显示</text>
+      <caption>同样能够传达促销信息。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+注意，闪烁风险和普通动画运动风险是两个不同的问题。
+
+即使网站提供关闭动画的按钮，也不能依赖用户先接触危险闪烁内容、然后自己关闭它。
+
+---
+
+## 13. Hover、Focus 与 Tooltip 无障碍
+
+在 CSS 开发中，我们经常通过 `:hover` 显示额外内容。
+
+例如：
+
+```css
+.product-card .quick-add {
+  opacity: 0;
+}
+
+.product-card:hover .quick-add {
+  opacity: 1;
+}
+```
+
+对于鼠标用户，这种设计可能没有问题，但键盘用户、触屏用户可能无法正常发现 Quick Add 按钮。
+
+### 13.1 Hover 不应该是唯一入口
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        <svg viewBox="0 0 140 135" width="100%">
+          <rect width="140" height="135" rx="4" fill="#DED4C7"/>
+          <path d="M47 16 L15 34 L31 59 L47 49 V123 H93 V49 L109 59 L125 34 L93 16 L82 24 H58 Z" fill="#9D8871"/>
+        </svg>
+        <text size="sm">Cotton T-shirt</text>
+        **$29.99**
+        <box border radius="sm" padding={2} align="center"><caption>仅 hover 时显示加购</caption></box>
+      </box>
+      <text size="sm" color="danger">依赖鼠标悬停</text>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        <svg viewBox="0 0 140 135" width="100%">
+          <rect width="140" height="135" rx="4" fill="#DED4C7"/>
+          <path d="M47 16 L15 34 L31 59 L47 49 V123 H93 V49 L109 59 L125 34 L93 16 L82 24 H58 Z" fill="#9D8871"/>
+        </svg>
+        <text size="sm">Cotton T-shirt</text>
+        **$29.99**
+        <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text color="#FFFFFF" size="sm">Quick add</text></box>
+      </box>
+      <text size="sm" color="success">提供明确的操作入口</text>
+    </grid-item>
+  </grid>
+</box>
+
+如果设计要求桌面端悬停时才显示 Quick Add，可以这样实现：
+
+```css
+/* 默认显示，触屏设备也能使用 */
+.quick-add {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .product-card .quick-add {
+    opacity: 0;
+  }
+
+  .product-card:hover .quick-add,
+  .product-card:focus-within .quick-add {
+    opacity: 1;
+  }
+}
+```
+
+这样当商品卡片内部任意元素获得焦点时，Quick Add 就会显示。
+
+不过，对于关键业务操作，默认提供可见入口通常具有更好的可发现性，也可以减少混合输入设备带来的兼容问题。
+
+### 13.2 WCAG 1.4.13 的三个条件
+
+当 Hover 或 Focus 触发额外内容显示，并且移除这些触发条件会导致内容隐藏时，通常需要满足三个条件。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="start">
+    <box background="surface-tertiary" size="42px" radius="md" align="center" justify="center"><icon name="x" size="2xl"/></box>
+    <box flex={1} gap={1}>
+      **Dismissible · 可关闭**
+
+      用户不必移动鼠标或键盘焦点，就能关闭遮挡其他内容的浮层，例如按 Esc 键关闭。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box background="surface-tertiary" size="42px" radius="md" align="center" justify="center"><icon name="mouse-pointer-2" size="2xl"/></box>
+    <box flex={1} gap={1}>
+      **Hoverable · 可悬停**
+
+      如果鼠标悬停可以打开浮层，那么用户也应该能够将鼠标移动到浮层本身，而不会导致浮层立即消失。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box background="surface-tertiary" size="42px" radius="md" align="center" justify="center"><icon name="clock" size="2xl"/></box>
+    <box flex={1} gap={1}>
+      **Persistent · 持续显示**
+
+      内容应保持显示，直到触发条件消失、用户主动关闭，或者信息不再有效。
+    </box>
+  </row>
+</box>
+
+对于不遮挡或替换其他内容的提示、输入错误以及由浏览器控制且未被作者修改的提示，规范存在相应例外。<Cite ref="turn283392view3"/>
+
+### 13.3 为什么 Tooltip 与触发元素之间的间距会导致问题？
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        <svg viewBox="0 0 145 150" width="100%">
+          <rect x="16" y="6" width="112" height="44" rx="5" fill="#333333"/>
+          <text x="72" y="24" fontSize="10" textAnchor="middle" fill="white">Free shipping</text>
+          <text x="72" y="38" fontSize="10" textAnchor="middle" fill="white">over $50</text>
+          <rect x="48" y="51" width="49" height="33" fill="#B65E5E" fillOpacity=".16" stroke="#B65E5E" strokeDasharray="3 2"/>
+          <rect x="40" y="85" width="65" height="30" rx="4" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+          <text x="72" y="104" fontSize="10" textAnchor="middle" fill="currentColor">Shipping</text>
+          <path d="M73 100 V59" stroke="#B65E5E" strokeWidth="1.8" strokeDasharray="4 3"/>
+          <text x="72" y="139" fontSize="10" textAnchor="middle" fill="#B65E5E">存在悬停断层</text>
+        </svg>
+      </box>
+      <caption>鼠标经过间隙时，Tooltip 可能直接关闭。</caption>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={2} gap={2}>
+        <svg viewBox="0 0 145 150" width="100%">
+          <rect x="16" y="6" width="112" height="44" rx="5" fill="#333333"/>
+          <text x="72" y="24" fontSize="10" textAnchor="middle" fill="white">Free shipping</text>
+          <text x="72" y="38" fontSize="10" textAnchor="middle" fill="white">over $50</text>
+          <rect x="40" y="50" width="65" height="35" fill="#39866B" fillOpacity=".13" stroke="#39866B" strokeDasharray="3 2"/>
+          <rect x="40" y="85" width="65" height="30" rx="4" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+          <text x="72" y="104" fontSize="10" textAnchor="middle" fill="currentColor">Shipping</text>
+          <path d="M73 100 V32 M69 38 L73 32 L77 38" stroke="#39866B" strokeWidth="1.8" fill="none"/>
+          <text x="72" y="139" fontSize="10" textAnchor="middle" fill="#39866B">连续悬停区域</text>
+        </svg>
+      </box>
+      <caption>触发元素与提示内容之间具有连续的交互区域。</caption>
+    </grid-item>
+  </grid>
+</box>
+
+可以通过透明的桥接区域、合理的容器结构和鼠标事件逻辑解决这个问题。
+
+但是仅仅使用 CSS 的 hover 和 focus-within 通常难以完整实现 Esc 关闭、关闭后的状态保持等行为，因此复杂 Tooltip 还需要 JavaScript。
+
+如果浮层内部包含链接、按钮等交互控件，它就不适合再当作普通的 `role="tooltip"` 组件处理，而应该根据实际用途选择 Popover、Disclosure 或其他合适的交互模式。
+
+Tooltip 的完整实现会在第 17 课讲解。
+
+---
+
+## 14. Shopify Dawn 源码中的无障碍 CSS
+
+结合前面学习过的 Dawn 源码，我们可以在 `assets/base.css` 中找到许多与本节课相关的工具类。
+
+### 14.1 Dawn 常用工具类
+
+| 工具类 | 作用 |
+|---|---|
+| `.hidden` | 完全隐藏元素 |
+| `.visually-hidden` | 视觉隐藏，保留无障碍访问 |
+| `.visually-hidden--inline` | 适合部分行内辅助文字场景 |
+| `.visibility-hidden` | 隐藏显示，但保留布局空间 |
+| `.overflow-hidden` | 限制内容溢出，常用于滚动控制 |
+| `.motion-reduce` | 用户设置减少运动时取消动画及过渡 |
+| `.skip-to-content-link:focus` | Skip Link 获得焦点时恢复显示 |
+
+这些工具类可以在 Dawn 的实际源码中找到。<Cite refs={["turn497044view0","turn497044view2"]}/>
+
+### 14.2 Dawn 的 motion-reduce 工具类
+
+Dawn 使用了类似以下的策略：
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .motion-reduce {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+```
+
+假设你需要为购物车 Drawer 添加减少运动支持，就可以结合现有工具类进行开发。
+
+```html
+<div class="cart-drawer motion-reduce">
+  ...
+</div>
+```
+
+需要注意，这个类只会取消 CSS 动画和过渡，并不会自动处理 JavaScript 定时器、视频播放、焦点管理等功能。
+
+### 14.3 Dawn 的滚动出现动画
+
+Dawn 的 CSS 中，也可以看到在用户没有设置减少运动偏好时才启用部分滚动动画的设计。
+
+下面是简化后的原理示例：
+
+```css
+@media (prefers-reduced-motion: no-preference) {
+  .scroll-trigger.animate--slide-in {
+    opacity: 0.01;
+    transform: translateY(2rem);
+  }
+
+  .scroll-trigger:not(.scroll-trigger--offscreen)
+    .animated-content {
+    /* 播放进入动画 */
+  }
+}
+```
+
+这种设计能够在减少运动模式下保留普通静态内容。
+
+不过，滚动动画还存在一个值得关注的问题：如果一个可聚焦按钮尚未进入视口、仍然处于透明状态，而用户通过 Tab 键导航到它，就可能出现不可见焦点。
+
+可以考虑在自定义动画组件中增加以下兜底：
+
+```css
+.scroll-trigger:focus-within {
+  opacity: 1;
+  transform: none;
+  animation: none;
+  transition: none;
+}
+```
+
+同时，应保证即使 IntersectionObserver 或动画 JavaScript 初始化失败，核心商品信息仍然可见。
+
+源码参考：[Dawn — assets/base.css](https://github.com/Shopify/dawn/blob/main/assets/base.css)。
+
+---
+
+## 15. 如何进行 CSS 隐藏和动画测试？
+
+### 15.1 Chrome DevTools 模拟减少运动
+
+打开 DevTools，按下 `Ctrl + Shift + P`，搜索 `Show Rendering`。
+
+在 Rendering 面板中找到 `prefers-reduced-motion` 模拟选项。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="settings" color="secondary"/>
+    **Rendering**
+  </row>
+  <divider/>
+  <caption>Emulate CSS media feature prefers-color-scheme</caption>
+  <row border radius="sm" padding={2}>
+    <text size="sm">No emulation</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <caption>Emulate CSS media feature prefers-reduced-motion</caption>
+  <box border={{size:2,color:"#5185C5"}} radius="sm" padding={2} gap={2}>
+    <row>
+      <text size="sm">prefers-reduced-motion: reduce</text>
+      <spacer/><icon name="chevron-down" size="sm"/>
+    </row>
+  </box>
+  <caption>Emulate CSS media feature forced-colors</caption>
+  <row border radius="sm" padding={2}>
+    <text size="sm">No emulation</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <caption>Chrome Rendering 面板简化示意。</caption>
+</box>
+
+开启之后，需要重点测试：
+
+Drawer 能否正常关闭、Dropdown 能否正常展开、Carousel 是否停止默认自动播放、商品卡片是否正常显示，以及 AJAX 请求完成后组件能否正确恢复状态。
+
+### 15.2 监听所有焦点变化
+
+在 Console 中执行：
+
+```javascript
+document.addEventListener('focusin', event => {
+  const element = event.target;
+
+  console.log({
+    element,
+
+    tag: element.tagName,
+
+    ariaHiddenAncestor: element.closest(
+      '[aria-hidden="true"]'
+    ),
+
+    opacity: getComputedStyle(element).opacity,
+
+    visibility: getComputedStyle(element).visibility,
+
+    rect: element.getBoundingClientRect()
+  });
+});
+```
+
+然后不断按 Tab 键访问网站。
+
+这可以帮助你观察焦点是否进入了不可见元素、设置了 aria-hidden 的区域，以及关闭状态的 Drawer。
+
+注意，元素自身的 opacity 为 1，并不代表它的祖先容器没有设置 opacity: 0。因此还需要结合祖先样式与真实视觉表现进行检查。
+
+### 15.3 查找页面中的无限 CSS 动画
+
+```javascript
+const animations = document.getAnimations();
+
+console.table(
+  animations.map(animation => {
+    const effect = animation.effect;
+    const timing = effect?.getTiming();
+
+    return {
+      name: animation.animationName,
+      target: effect?.target,
+      duration: timing?.duration,
+      iterations: timing?.iterations,
+      infinite: timing?.iterations === Infinity,
+      playState: animation.playState
+    };
+  })
+);
+```
+
+可以进一步筛选：
+
+```javascript
+const infiniteAnimations =
+  document.getAnimations().filter(animation => {
+    return (
+      animation.effect?.getTiming().iterations
+      === Infinity
+    );
+  });
+
+console.log(infiniteAnimations);
+```
+
+这个方法可以检查当前文档中相关的 CSS Animation、Transition 和 Web Animations API 动画，但不能覆盖所有通过 Canvas、视频或普通 JavaScript 定时器实现的动态效果。
+
+---
+
+## 16. 本课知识测试
+
+{@body const quiz=[{q:"元素设置 opacity: 0 和 pointer-events: none 后，是否一定无法通过 Tab 键访问？",opts:["是","否"],a:1,why:"透明度与指针事件控制不会自动移除元素的键盘焦点能力。"},{q:"想让整个页面背景保持可见，但暂时禁止键盘、鼠标和辅助技术访问，优先考虑哪个属性？",opts:["aria-hidden","opacity","inert"],a:2,why:"inert 同时处理普通用户交互和无障碍暴露。"},{q:"Skip Link 默认不可见，获得焦点后需要显示，应该采用哪种隐藏策略？",opts:["display: none","visually-hidden-focusable","aria-hidden"],a:1,why:"需要保留焦点能力，并在获得焦点后恢复视觉显示。"},{q:"content-visibility: auto 是否等同于 display: none？",opts:["是","否"],a:1,why:"auto 主要用于优化渲染性能，不应该将业务内容从无障碍访问中完全移除。"},{q:"设置 transition: none 后，transitionend 事件是否一定会触发？",opts:["一定","不一定"],a:1,why:"没有实际 Transition 时，不能依赖 transitionend 完成业务逻辑。"},{q:"支持 prefers-reduced-motion 后，是否就可以取消所有自动轮播的暂停按钮？",opts:["可以","不可以"],a:1,why:"用户偏好与主动控制属于不同机制，仍需满足适用的暂停、停止或隐藏要求。"},{q:"自动更新的促销公告每隔 3 秒切换一次，是否自动享有 WCAG 2.2.2 的五秒豁免？",opts:["是","否"],a:1,why:"自动更新信息没有五秒豁免条件。"},{q:"鼠标移到 Tooltip 本身时立即关闭，主要涉及 1.4.13 中哪个条件？",opts:["Dismissible","Hoverable","Persistent"],a:1,why:"Hoverable 要求用户能够将指针移动到额外显示的内容上。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} radius="full" background="surface-tertiary" clip={true}>
+    <box height={5} radius="full" background="#39866B" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.opts as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 17. 日常开发检查清单
+
+{@body const checks=["关闭状态的弹窗、菜单不会被键盘访问","不存在不可见的键盘焦点","aria-hidden 区域不包含仍可聚焦的控件","模态弹窗正确隔离背景交互","visually-hidden 只用于合适的辅助内容","Skip Link 获得焦点时可以正常显示","支持 prefers-reduced-motion 用户偏好","禁用动画后组件业务逻辑仍然正常","没有完全依赖 transitionend 完成必要逻辑","自动轮播提供适用的暂停或停止机制","滚动公告可以被用户控制","无限滚动副本不会造成重复无障碍内容","避免超过安全阈值的闪烁效果","Hover 功能具有键盘及触屏替代方式","Tooltip 满足适用的三个显示条件","通过 DevTools、键盘及屏幕阅读器进行验证"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **隐藏与动画无障碍检查清单**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as c,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block color="secondary" variant="outline" onClick={()=>GenUI.copy(checks.map((x,i)=>(done[i]?"[x] ":"[ ] ")+x).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 18. 官方参考资料
+
+| 文档 | 主要内容 |
+|---|---|
+| [MDN inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert) | 区域交互隔离 |
+| [MDN hidden](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/hidden) | HTML 隐藏属性 |
+| [MDN content-visibility](https://developer.mozilla.org/en-US/docs/Web/CSS/content-visibility) | 渲染优化与隐藏 |
+| [MDN prefers-reduced-motion](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion) | 减少运动偏好 |
+| [WCAG Pause, Stop, Hide](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html) | 自动运动与更新 |
+| [WCAG Animation from Interactions](https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html) | 交互动画 |
+| [WCAG Three Flashes](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold.html) | 闪烁安全要求 |
+| [WCAG Content on Hover or Focus](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html) | 悬停与焦点内容 |
+| [Dawn base.css](https://github.com/Shopify/dawn/blob/main/assets/base.css) | Theme 实战源码 |
+
+---
+
+## 第二阶段学习总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="check-circle" size="xl" color="success"/>
+    **阶段二：HTML、CSS 无障碍开发**
+    <spacer/>
+    <caption>5 / 5</caption>
+  </row>
+  {#each [{n:5,t:"HTML 语义化与 Landmark",d:"页面结构、原生语义、区域导航"},{n:6,t:"图片、SVG、Icon 与多媒体",d:"文本替代、图标名称、媒体控制"},{n:7,t:"表单、Label 与错误提示",d:"控件语义、验证、错误关联"},{n:8,t:"颜色对比度、字体与响应式布局",d:"视觉可读性、缩放、高对比度模式"},{n:9,t:"元素隐藏、动画与 CSS 无障碍",d:"隐藏机制、运动偏好、动态效果"}] as item}
+    <row align="start">
+      <icon name="check-circle" color="success"/>
+      <box flex={1} gap={1}>
+        <text weight="medium" size="sm">第 {item.n} 课：{item.t}</text>
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+  {/each}
+</box>
+
+至此，我们已经完成了整套课程的前两个阶段。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1}>
+      <caption>课程整体进度</caption>
+      <title size="2xl">34.6%</title>
+    </box>
+    <text color="secondary">9 / 26 课</text>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,done:4},{t:"阶段二：HTML、CSS",n:5,done:5},{t:"阶段三：JavaScript 与 ARIA",n:5,done:0},{t:"阶段四：复杂 UI 组件",n:5,done:0},{t:"阶段五：Shopify 电商实战",n:4,done:0},{t:"阶段六：检测与工程化",n:3,done:0}] as item}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm" weight={item.done===item.n?"medium":"normal"}>{item.t}</text>
+        <spacer/>
+        {#if item.done===item.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{item.n} 课待学习</caption>{/if}
+      </row>
+      <box height={5} background="surface-tertiary" radius="full">
+        <box height={5} background="#39866B" radius="full" width={`${item.done/item.n*100}%`}/>
+      </box>
+    </box>
+  {/each}
+</box>
+
+接下来正式进入第三阶段。这一阶段也是我认为前端开发工程师最值得深入掌握的部分，因为复杂组件中的无障碍问题，很多都来自 JavaScript 交互与 ARIA 状态管理。
+
+**下一课：第 10 课——键盘导航与 tabindex**
+
+我们将系统学习：
+
+- Sequential Focus Navigation 键盘顺序导航机制。
+- Focusable、Tabbable、Interactive 的区别。
+- `tabindex="-1"`、`tabindex="0"`、正数 tabindex 的底层行为。
+- 浏览器默认的 Tab 焦点顺序。
+- `document.activeElement` 与 `element.focus()`。
+- keydown、keyup、click 的事件触发机制。
+- Enter 与 Space 激活原生按钮的区别。
+- Roving Tabindex（游走式 tabindex）。
+- `aria-activedescendant` 虚拟焦点机制。
+- 如何通过 JavaScript 获取所有可聚焦元素。
+- Shopify Dawn 中的 `getFocusableElements()` 源码解析。
+- Radio Group、Tabs、Menu 等组件的键盘导航设计。
+
+理解这一课之后，后续开发 Cart Drawer、Mega Menu、Predictive Search 等复杂组件时，就能够真正掌握键盘交互的底层逻辑，而不是简单地给每个元素添加 `tabindex="0"`。

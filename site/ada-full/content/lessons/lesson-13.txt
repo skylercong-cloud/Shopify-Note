@@ -1,0 +1,2345 @@
+# 第 13 课：Accessible Name 与 Description 计算规则
+
+<row align="center">
+  <caption>阶段三：JavaScript 与 ARIA 深入</caption>
+  <spacer/>
+  <caption>13 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="50%"/>
+</box>
+
+上一课，我们系统学习了 WAI-ARIA 的角色体系、状态、属性、继承关系和使用规则。
+
+这一课，我们将深入浏览器的另一套底层机制：**Accessible Name and Description Computation，简称 AccName。**
+
+在前面的课程中，我们已经知道 `aria-label` 可以为元素提供名称，`aria-labelledby` 可以引用其他元素的文字，图片的 `alt` 可以提供文本替代。
+
+但是，如果一个元素同时拥有这些属性，浏览器究竟会使用哪一个？它们会合并吗？隐藏的元素能够参与名称计算吗？CSS 伪元素生成的文字呢？
+
+这些问题都需要通过 AccName 计算规范来解释。
+
+本课对于 Shopify 商品卡片、纯图标按钮、购物车数量选择器、商品变体、表单以及通用组件库的开发尤其重要。
+
+---
+
+## 1. 什么是 Accessible Name 和 Accessible Description？
+
+在第 3 课学习 Accessibility Tree 时，我们已经接触过一个无障碍节点的基本组成。
+
+例如：
+
+```html
+<label for="quantity">
+  Quantity
+</label>
+
+<input
+  id="quantity"
+  type="number"
+  value="2"
+  min="1"
+  max="10"
+  aria-describedby="quantity-help"
+>
+
+<p id="quantity-help">
+  Maximum 10 items per order.
+</p>
+```
+
+浏览器计算出的无障碍信息大致如下：
+
+<box border radius="lg" padding={3} gap={3}>
+  <box gap={2}>
+    **Quantity**
+    <row border radius="md" padding={3} align="center">
+      <icon name="minus"/>
+      <box flex={1} align="center"><title size="lg">2</title></box>
+      <icon name="plus"/>
+    </row>
+    <caption>Maximum 10 items per order.</caption>
+  </box>
+  <divider/>
+  **Accessibility Node**
+  <table>
+    {#each [["Role","spinbutton"],["Name","Quantity"],["Description","Maximum 10 items per order."],["Value","2"],["Minimum","1"],["Maximum","10"],["Focusable","true"]] as p}
+      <table-row>
+        <table-cell><caption>{p[0]}</caption></table-cell>
+        <table-cell>{p[1]}</table-cell>
+      </table-row>
+    {/each}
+  </table>
+  <divider/>
+  <row align="start">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap={1}>
+      <caption>屏幕阅读器可能的播报</caption>
+      “Quantity, spin button, 2. Maximum 10 items per order.”
+    </box>
+  </row>
+</box>
+
+这几个信息分别承担不同职责。
+
+| 信息 | 回答的问题 |
+|---|---|
+| Role | 这是什么类型的控件？ |
+| Name | 这个控件叫什么？ |
+| Description | 关于这个控件还有什么补充说明？ |
+| Value | 当前的值是什么？ |
+| State | 当前处于什么状态？ |
+
+例如，对于一个商品收藏按钮：
+
+```html
+<button
+  aria-label="Wishlist"
+  aria-pressed="true"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+其 Name 是 `Wishlist`，而不是 `Wishlist, pressed`。
+
+`pressed` 属于状态信息，屏幕阅读器可以根据 Role、Name 和 State 自行组织播报内容。
+
+**不要将名称、角色、状态、数值和说明全部拼接到 aria-label 中。** 浏览器已经提供了不同的语义渠道来表达这些信息。
+
+---
+
+## 2. AccName 在整个无障碍体系中的位置
+
+前面我们接触过几份不同的 W3C 规范，它们之间是相互配合的。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **HTML + CSS + ARIA**
+    <caption>开发人员编写的代码</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={1}>
+        **WAI-ARIA**
+        <caption>角色、状态、属性的语义规则</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={1}>
+        **HTML-AAM**
+        <caption>HTML 元素的无障碍映射规则</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border={{size:2,color:"#5185C5"}} radius="md" padding={3} gap={1}>
+        **AccName**
+        <caption>名称与描述的计算规则</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={1}>
+        **Core-AAM**
+        <caption>ARIA 到平台无障碍 API 的映射</caption>
+      </box>
+    </grid-item>
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    **Accessibility Tree**
+    <caption>Role、Name、Description、State、Value</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Assistive Technology**
+    <caption>屏幕阅读器、语音控制、盲文设备</caption>
+  </box>
+</box>
+
+截至目前，AccName 1.1 是 W3C 正式推荐标准，AccName 1.2 仍然处于 Working Draft 阶段。本课会结合正式规范和 1.2 草案中更加详细的计算规则进行讲解，并区分规范预期和浏览器实际实现。<Cite refs={["turn167316search6","turn408267view1"]}/>
+
+## 3. Name From：名称可以从哪里获取？
+
+并不是所有元素都可以通过相同的方式获得可访问名称。
+
+WAI-ARIA 中定义了三种命名规则：
+
+| Name From | 含义 |
+|---|---|
+| Author | 由开发人员通过标签、属性等提供名称 |
+| Contents | 从元素自身内容计算名称 |
+| Prohibited | 该角色禁止被命名 |
+
+### 3.1 Name From Author
+
+例如：
+
+```html
+<button aria-label="Open shopping cart">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+计算结果：
+
+```text
+Name: Open shopping cart
+```
+
+常见的 Author 名称来源包括 `aria-label`、`aria-labelledby`、HTML label、图片 alt 等。
+
+### 3.2 Name From Contents
+
+例如：
+
+```html
+<button>
+  Add to <strong>cart</strong>
+</button>
+```
+
+浏览器会计算内部内容的文本替代，最终得到：
+
+```text
+Name: Add to cart
+```
+
+这个过程并不等同于简单读取 `textContent`。
+
+因为浏览器还需要考虑图片 alt、子元素语义、隐藏状态、CSS 生成的内容以及其他名称来源。
+
+### 3.3 Name From Prohibited
+
+某些角色禁止开发者通过 ARIA 提供名称。
+
+例如：
+
+```html
+<p aria-label="Product description">
+  Made from premium cotton.
+</p>
+```
+
+```html
+<div aria-label="Product information">
+  ...
+</div>
+```
+
+普通 p 的 paragraph 角色和普通 div 的 generic 角色，都属于禁止命名的角色。
+
+这并不意味着屏幕阅读器无法读取它们的内部文字，而是说它们不应该拥有独立的作者指定名称。
+
+如果确实需要建立一个有名称的内容区域，可以使用：
+
+```html
+<section aria-labelledby="details-title">
+
+  <h2 id="details-title">
+    Product details
+  </h2>
+
+  <p>Made from premium cotton.</p>
+
+</section>
+```
+
+此时，section 可以获得 region 语义及对应的名称。
+
+### 3.4 常见 Role 的命名规则
+
+| Role | Author | Contents |
+|---|:---:|:---:|
+| button | 支持 | 支持 |
+| link | 支持 | 支持 |
+| checkbox | 支持 | 支持 |
+| radio | 支持 | 支持 |
+| switch | 支持 | 支持 |
+| tab | 支持 | 支持 |
+| option | 支持 | 支持 |
+| heading | 支持 | 支持 |
+| textbox | 支持 | — |
+| slider | 支持 | — |
+| img | 支持 | — |
+| dialog | 支持 | — |
+| region | 支持 | — |
+| navigation | 支持 | — |
+| generic | 禁止 | — |
+| paragraph | 禁止 | — |
+| presentation / none | 禁止 | — |
+
+这里的命名规则是针对角色本身而言的。即使普通 span 或 p 不允许拥有独立的作者指定名称，它们内部的文字仍然可以被其他元素引用，参与其他元素的名称计算。<Cite refs={["turn167316search27","turn167316search1"]}/>
+
+---
+
+## 4. Accessible Name 的计算优先级
+
+这是本节课最核心的知识之一。
+
+对于常见、允许命名的 HTML 控件，可以先记住下面的简化优先级。
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{n:1,t:"aria-labelledby",d:"引用其他元素计算名称"},{n:2,t:"aria-label",d:"直接指定名称"},{n:3,t:"HTML 原生命名机制",d:"label、alt 等，具体取决于元素类型"},{n:4,t:"Name From Contents",d:"从元素自身及后代内容计算"},{n:5,t:"后备名称来源",d:"title、部分输入框的 placeholder 等"}] as item,i}
+    <row align="center" gap={3}>
+      <box size="28px" background="surface-tertiary" radius="full" align="center" justify="center">**{item.n}**</box>
+      <box flex={1} border radius="md" padding={3} gap={1}>
+        **{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+    {#if i<4}<box padding={{left:12}}><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+  <caption>从上往下寻找符合条件的名称来源。这是工程化简化模型，完整算法还涉及角色限制、隐藏节点、递归引用及 HTML 特定规则。</caption>
+</box>
+
+注意：这些名称来源通常不是全部拼接起来，而是按照规则进行选择。
+
+### 4.1 aria-label 与自身文字
+
+```html
+<button aria-label="Purchase">
+  Add to cart
+</button>
+```
+
+结果：
+
+```text
+Name: Purchase
+```
+
+不是 `Purchase Add to cart`。
+
+aria-label 覆盖了按钮自身的文字名称来源。
+
+### 4.2 aria-labelledby 与 aria-label
+
+```html
+<span id="product-name">
+  Cotton T-shirt
+</span>
+
+<button
+  aria-label="Purchase"
+  aria-labelledby="product-name"
+>
+  Add to cart
+</button>
+```
+
+结果：
+
+```text
+Name: Cotton T-shirt
+```
+
+在这种正常有效的引用关系下，aria-labelledby 的优先级高于 aria-label。
+
+### 4.3 aria-label 与原生 label
+
+```html
+<label for="email">
+  Email address
+</label>
+
+<input
+  id="email"
+  type="email"
+  aria-label="Contact information"
+>
+```
+
+结果：
+
+```text
+Name: Contact information
+```
+
+虽然原生 label 仍然与 input 建立了关联，但最终可访问名称被 aria-label 覆盖了。
+
+这也是为什么已经存在正确 label 时，不应该再随意添加 aria-label。
+
+### 4.4 title 与自身内容
+
+```html
+<button title="Purchase this product">
+  Add to cart
+</button>
+```
+
+通常计算为：
+
+```text
+Name: Add to cart
+Description: Purchase this product
+```
+
+因为按钮自身文字已经提供了名称，所以 title 可以作为后备描述来源。
+
+如果按钮没有任何其他名称来源：
+
+```html
+<button title="Open cart">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+title 则可能被用于名称计算。
+
+但在真实项目中，不建议将 title 作为图标按钮唯一的命名方式。
+
+---
+
+## 5. 交互实验：名称优先级计算器
+
+现在回到上一课最后留下的问题。
+
+假设一个按钮同时拥有五种潜在名称来源，我们逐个移除这些来源，观察 Accessible Name 如何变化。
+
+{@body const sources=[{key:"labelledby",label:"aria-labelledby",value:"Cotton T-shirt"},{key:"label",label:"aria-label",value:"Buy now"},{key:"alt",label:"子图片 alt",value:"Shopping cart"},{key:"content",label:"按钮内部文字",value:"Add to cart"},{key:"title",label:"title",value:"Purchase product"}]}
+{@body const [enabledSources,setEnabledSources]=DIL.useState([true,true,true,true,true])}
+{@body const computedName=enabledSources[0]?"Cotton T-shirt":enabledSources[1]?"Buy now":[enabledSources[2]?"Shopping cart":"",enabledSources[3]?"Add to cart":""].filter(Boolean).join(" ")||(enabledSources[4]?"Purchase product":"")}
+{@body const computedDescription=enabledSources[4]&&(enabledSources[0]||enabledSources[1]||enabledSources[2]||enabledSources[3])?"Purchase product":""}
+{@body const winningSource=enabledSources[0]?"aria-labelledby":enabledSources[1]?"aria-label":enabledSources[2]||enabledSources[3]?"Name From Contents":enabledSources[4]?"title":"无"}
+<card gap={3}>
+  **AccName 实验室**
+  <caption>勾选或取消下面的名称来源，观察计算结果。</caption>
+  {#each sources as source,i}
+    <checkbox checked={enabledSources[i]} onChange={v=>setEnabledSources(old=>old.map((x,j)=>j===i?v:x))}>
+      <box gap={1}>
+        **{source.label}**
+        <caption>{source.value}</caption>
+      </box>
+    </checkbox>
+  {/each}
+  <box border radius="md" padding={3} gap={2}>
+    <caption>视觉界面</caption>
+    **Cotton T-shirt**
+    <box background="#333333" theme="dark" radius="sm" padding={3} align="center">
+      <row align="center">
+        <icon name="shopping-cart" color="#FFFFFF"/>
+        {#if enabledSources[3]}<text color="#FFFFFF">Add to cart</text>{/if}
+      </row>
+    </box>
+  </box>
+  <box background="surface-tertiary" radius="md" padding={3}>
+    <text size="xs" preserveWhitespace={true}>{`<span id="product-name">Cotton T-shirt</span>\n\n<button${enabledSources[0]?'\n  aria-labelledby="product-name"':""}${enabledSources[1]?'\n  aria-label="Buy now"':""}${enabledSources[4]?'\n  title="Purchase product"':""}\n>\n  <img src="cart.svg" alt="${enabledSources[2]?"Shopping cart":""}">\n${enabledSources[3]?"  Add to cart\n":""}</button>`}</text>
+  </box>
+  <divider/>
+  <caption>Accessible Name</caption>
+  <title size="xl" color={computedName?"default":"danger"}>{computedName||"空名称"}</title>
+  <row>
+    <caption>名称来源</caption>
+    <spacer/>
+    <text size="sm">{winningSource}</text>
+  </row>
+  <row>
+    <caption>Accessible Description</caption>
+    <spacer/>
+    <text size="sm">{computedDescription||"无"}</text>
+  </row>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟播报</caption>
+      <text size="sm">{computedName?`${computedName}, button.${computedDescription?" "+computedDescription:""}`:"Button."}</text>
+    </box>
+  </row>
+  {#if enabledSources[3]&&!computedName.includes("Add to cart")}
+    <row align="start">
+      <icon name="alert-circle" color="danger"/>
+      <box flex={1}><text color="danger" size="sm">当前可访问名称不包含可见按钮文字 Add to cart，存在 Label in Name 问题。</text></box>
+    </row>
+  {/if}
+  <button block variant="outline" color="secondary" onClick={()=>setEnabledSources([true,true,true,true,true])}>重置所有名称来源</button>
+  <caption>此工具针对给定 HTML 模拟名称计算，并非完整的浏览器 AccName 引擎。</caption>
+</card>
+
+现在可以回答上一课的问题了。
+
+当五种名称来源全部存在时：
+
+```text
+Role: button
+Name: Cotton T-shirt
+Description: Purchase product
+```
+
+而不是 Buy now，也不是 Add to cart。
+
+虽然它拥有一个可访问名称，但是这个名称并不能准确表达按钮的操作目的，而且没有包含可见文字。
+
+**有可访问名称，不代表可访问名称就是正确的。**
+
+---
+
+## 6. 不同 HTML 元素的名称计算规则
+
+前面介绍的是通用的简化优先级。
+
+但对于不同类型的 HTML 元素，浏览器还需要遵循 HTML-AAM 中的特定映射规则。<Cite refs={["turn167316search16","turn167316search22"]}/>
+
+| HTML 元素 | 常见名称来源（从高到低，简化） |
+|---|---|
+| button | labelledby → aria-label → label → 内部内容 → title |
+| a[href] | labelledby → aria-label → 内部内容 → title |
+| 文本 input | labelledby → aria-label → label → title → placeholder |
+| textarea | labelledby → aria-label → label → title → placeholder |
+| checkbox / radio | labelledby → aria-label → label → title |
+| img | labelledby → aria-label → alt → 适用的后备来源 |
+| input[type=submit] | ARIA 命名 → label → value → 浏览器默认名称等 |
+| iframe | 通常通过 title 提供名称 |
+
+这里省略了特殊分支及空值处理。
+
+### 6.1 input 的 value 是名称吗？
+
+```html
+<label for="email">Email address</label>
+
+<input
+  id="email"
+  type="email"
+  value="alex@example.com"
+>
+```
+
+结果：
+
+```text
+Name: Email address
+Value: alex@example.com
+```
+
+但对于提交按钮：
+
+```html
+<input type="submit" value="Create account">
+```
+
+结果：
+
+```text
+Role: button
+Name: Create account
+```
+
+同样是 value 属性，在不同元素类型中承担不同的无障碍职责。
+
+### 6.2 placeholder 可以作为名称吗？
+
+```html
+<input
+  type="search"
+  placeholder="Search products"
+>
+```
+
+对于部分文本输入控件，placeholder 可以作为最后的后备名称来源。
+
+但是，浏览器能够计算出名称，不代表这种表单设计已经具有良好的无障碍体验。
+
+更合理的是：
+
+```html
+<label for="search">Search products</label>
+
+<input
+  id="search"
+  type="search"
+  placeholder="Enter a keyword"
+>
+```
+
+此时：
+
+```text
+Name: Search products
+```
+
+placeholder 继续承担输入提示的职责。
+
+### 6.3 多个 label 可以关联同一个 input 吗？
+
+可以。
+
+```html
+<label for="quantity">Quantity</label>
+
+<input id="quantity" type="number" value="1">
+
+<label for="quantity">Items</label>
+```
+
+在没有更高优先级名称来源时，浏览器可以按照文档顺序组合多个原生 label 的文字：
+
+```text
+Name: Quantity Items
+```
+
+不过，常规表单应当尽量使用一个明确的标签，将额外说明交给 aria-describedby。
+
+---
+
+## 7. aria-labelledby 的进阶计算规则
+
+`aria-labelledby` 是整个 AccName 算法中非常值得深入学习的属性，因为它不是简单地获取另一个元素的 innerText。
+
+### 7.1 可以引用多个 ID
+
+```html
+<span id="action">Remove</span>
+
+<span id="product">Cotton T-shirt</span>
+
+<button aria-labelledby="action product">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+最终：
+
+```text
+Name: Remove Cotton T-shirt
+```
+
+如果改变 ID 顺序：
+
+```html
+aria-labelledby="product action"
+```
+
+最终：
+
+```text
+Name: Cotton T-shirt Remove
+```
+
+名称按照 aria-labelledby 中的 ID 顺序计算，而不是这些元素在页面中的 DOM 顺序。
+
+### 7.2 可以引用自己
+
+这是一个非常实用、但很多前端开发者不知道的技巧。
+
+假设购物车中有多个 Remove 按钮：
+
+```html
+<span id="product-title">Cotton T-shirt</span>
+
+<button
+  id="remove-button"
+  aria-labelledby="remove-button product-title"
+>
+  Remove
+</button>
+```
+
+浏览器可以先计算按钮自身的文字，再计算商品名称。
+
+最终：
+
+```text
+Name: Remove Cotton T-shirt
+```
+
+虽然 aria-labelledby 引用了按钮自身，但算法具有防止重复遍历的机制，不会因此发生无限递归。
+
+还可以结合 aria-label：
+
+```html
+<span id="product-title">Cotton T-shirt</span>
+
+<button
+  id="remove-button"
+  aria-label="Remove"
+  aria-labelledby="remove-button product-title"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+结果同样是：
+
+```text
+Name: Remove Cotton T-shirt
+```
+
+这种模式特别适合复用页面上已经存在的动态商品名称。<Cite ref="turn408267view3"/>
+
+### 7.3 aria-labelledby 会无限追踪引用链吗？
+
+不会。
+
+来看以下代码：
+
+```html
+<span id="c">Cotton T-shirt</span>
+
+<span id="b" aria-labelledby="c">
+  Product
+</span>
+
+<button aria-labelledby="b">
+  View details
+</button>
+```
+
+计算按钮的名称时，浏览器访问 b，但不会继续沿着 b 的 aria-labelledby 再追踪到 c。
+
+在这个例子中，b 自身的文字 `Product` 可以参与计算。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 108" width="100%">
+    {#each [{x:5,w:95,t:"button",s:"View details"},{x:122,w:95,t:"#b",s:"Product"},{x:240,w:95,t:"#c",s:"Cotton T-shirt"}] as p}
+      <rect x={p.x} y="20" width={p.w} height="54" rx="5" stroke="currentColor" strokeOpacity=".35" fill="#888888" fillOpacity=".06"/>
+      <text x={p.x+p.w/2} y="40" fontSize="12" fontWeight="600" fill="currentColor" textAnchor="middle">{p.t}</text>
+      <text x={p.x+p.w/2} y="59" fontSize="10" fill="currentColor" textAnchor="middle">{p.s}</text>
+    {/each}
+    <path d="M100 47 H119 M114 42 L119 47 L114 52" stroke="#39866B" strokeWidth="1.8" fill="none"/>
+    <path d="M217 47 H239" stroke="#BC5454" strokeDasharray="3 3" strokeWidth="1.8"/>
+    <path d="M224 41 L234 53 M234 41 L224 53" stroke="#BC5454" strokeWidth="2"/>
+    <text x="170" y="96" fontSize="11" fill="currentColor" textAnchor="middle">Name: Product</text>
+  </svg>
+  <caption>同一次名称引用遍历不会不断沿着后续的 aria-labelledby 引用链执行。</caption>
+</box>
+
+因此，应该直接引用真正提供标签文字的元素，而不要设计多层间接引用关系。
+
+### 7.4 引用不存在的 ID 会发生什么？
+
+```html
+<button
+  aria-labelledby="missing-id"
+  aria-label="Open cart"
+>
+  Cart
+</button>
+```
+
+如果所有被引用的 ID 都不存在，那么 aria-labelledby 不满足有效引用条件，后续的 aria-label 可以提供名称。
+
+```text
+Name: Open cart
+```
+
+但如果引用的元素存在、内容为空，情况就更加复杂，涉及规范版本和具体实现中的回退规则。
+
+工程上不要依赖这种边缘行为，应当保证：
+
+- 被引用的 ID 存在且唯一。
+- 被引用的内容能够提供有效文字。
+- AJAX 更新后引用关系依然正确。
+
+---
+
+## 8. 隐藏元素为什么还能参与名称计算？
+
+第 3 课和第 9 课都提到过一个特殊现象：
+
+一个元素即使不在 Accessibility Tree 中，也不代表它的文字绝对不能参与另一个元素的名称计算。
+
+### 8.1 普通隐藏子元素
+
+```html
+<button>
+  Add to cart
+
+  <span hidden>Cotton T-shirt</span>
+</button>
+```
+
+通常结果：
+
+```text
+Name: Add to cart
+```
+
+隐藏 span 默认不参与按钮的内容名称计算。
+
+### 8.2 被 aria-labelledby 直接引用的隐藏元素
+
+```html
+<span id="cart-label" hidden>
+  Open shopping cart
+</span>
+
+<button aria-labelledby="cart-label">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+结果：
+
+```text
+Name: Open shopping cart
+```
+
+虽然 span 自己被隐藏了，但是它被 aria-labelledby 明确引用，因此仍然可以作为文本替代来源。
+
+### 8.3 两种非常相似但结果不同的结构
+
+**情况 A：引用可见元素，而其后代被隐藏。**
+
+```html
+<span id="label">
+  Add to cart
+  <span hidden>Cotton T-shirt</span>
+</span>
+
+<button aria-labelledby="label"></button>
+```
+
+结果：
+
+```text
+Name: Add to cart
+```
+
+**情况 B：直接引用的元素本身被隐藏。**
+
+```html
+<span id="label" hidden>
+  Add to cart
+  <span hidden>Cotton T-shirt</span>
+</span>
+
+<button aria-labelledby="label"></button>
+```
+
+按照 AccName 1.2 草案的隐藏引用规则，结果为：
+
+```text
+Name: Add to cart Cotton T-shirt
+```
+
+两者的区别是：被直接引用的节点本身是否处于隐藏状态，这会影响其隐藏后代是否被纳入计算。<Cite ref="turn167316search2"/>
+
+### 8.4 不同隐藏方式对名称计算的影响
+
+| 隐藏方式 | 普通内容名称计算 | 被直接有效引用时 |
+|---|---|---|
+| `display: none` | 通常排除 | 可以参与 |
+| `visibility: hidden` | 通常排除 | 可以参与 |
+| `hidden` | 通常排除 | 可以参与 |
+| `aria-hidden="true"` | 通常排除 | 可以参与 |
+| `opacity: 0` | 可以参与 | 可以参与 |
+| `visually-hidden` | 可以参与 | 可以参与 |
+| 移出屏幕 | 可以参与 | 可以参与 |
+
+上述规则针对常见的名称计算情况，具体还要考虑角色和引用关系。
+
+特别注意，`opacity: 0` 在 AccName 算法中不被视为这类语义隐藏。
+
+例如：
+
+```html
+<button>
+  Add to cart
+
+  <span style="opacity: 0">
+    Special offer
+  </span>
+</button>
+```
+
+浏览器仍然可能将 Special offer 纳入名称。
+
+**视觉不可见、无障碍树不可见、不能参与名称计算，是三个不同的概念。**
+
+---
+
+## 9. 图片、SVG、子元素如何参与名称计算？
+
+### 9.1 图片 alt 会参与父级名称
+
+```html
+<a href="/cart">
+  <img src="cart.png" alt="Shopping cart">
+</a>
+```
+
+结果：
+
+```text
+Role: link
+Name: Shopping cart
+```
+
+链接没有文字，但内部图片的 alt 提供了链接名称。
+
+如果这样写：
+
+```html
+<button>
+  <img src="cart.png" alt="Shopping cart">
+  Add to cart
+</button>
+```
+
+结果通常为：
+
+```text
+Name: Shopping cart Add to cart
+```
+
+这就可能出现多余的播报。
+
+当图标只用于装饰，按钮已经具有明确文字时，可以改为：
+
+```html
+<button>
+  <img src="cart.png" alt="">
+  Add to cart
+</button>
+```
+
+结果：
+
+```text
+Name: Add to cart
+```
+
+### 9.2 SVG 的 title
+
+SVG 本身也可以提供可访问名称。
+
+```html
+<svg
+  role="img"
+  aria-labelledby="chart-title"
+  viewBox="0 0 100 100"
+>
+  <title id="chart-title">
+    Size comparison chart
+  </title>
+
+  <!-- Graphic content -->
+</svg>
+```
+
+计算结果：
+
+```text
+Role: img
+Name: Size comparison chart
+```
+
+如果这样的 SVG 位于按钮内部，它的文本替代可能进一步参与按钮名称计算。
+
+对于普通图标按钮，更可控的方案是直接给按钮命名，然后将 SVG 作为装饰内容处理。
+
+```html
+<button
+  type="button"
+  aria-label="Close shopping cart"
+>
+  <svg
+    aria-hidden="true"
+    focusable="false"
+    viewBox="0 0 24 24"
+  >
+    <!-- Close icon -->
+  </svg>
+</button>
+```
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} align="center" gap={2}>
+      <box border radius="full" size="48px" align="center" justify="center"><icon name="x" size="xl"/></box>
+      <text size="sm" color="danger">没有名称</text>
+      <caption>可能只播报 Button</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} align="center" gap={2}>
+      <box border radius="full" size="48px" align="center" justify="center"><icon name="x" size="xl"/></box>
+      <text size="sm" color="success">明确的按钮名称</text>
+      <caption>Close shopping cart, button</caption>
+    </box>
+  </grid-item>
+</grid>
+
+两个按钮的视觉表现完全相同，但无障碍体验可能完全不同。
+
+### 9.3 嵌套元素的递归计算
+
+```html
+<button>
+  <span>Add to</span>
+  <strong>cart</strong>
+  <span aria-hidden="true">→</span>
+</button>
+```
+
+浏览器按照规则递归处理后代内容：
+
+<box border radius="md" padding={3} gap={2}>
+  <text weight="medium" size="sm">button</text>
+  <box padding={{left:3}} gap={2}>
+    <row>
+      <text size="sm">span → Add to</text>
+      <spacer/>
+      <icon name="check-circle" color="success" size="sm"/>
+    </row>
+    <row>
+      <text size="sm">strong → cart</text>
+      <spacer/>
+      <icon name="check-circle" color="success" size="sm"/>
+    </row>
+    <row>
+      <text size="sm">span → →</text>
+      <spacer/>
+      <icon name="x-circle" color="secondary" size="sm"/>
+    </row>
+  </box>
+  <divider/>
+  <caption>计算结果</caption>
+  **Add to cart**
+</box>
+
+因此不能简单地使用 innerText 或 textContent 来获取可访问名称。
+
+例如 textContent 仍然可能包含被 aria-hidden 排除的箭头字符。
+
+---
+
+## 10. CSS ::before 和 ::after 会参与名称计算吗？
+
+答案是：**可以。**
+
+AccName 规范包含对 CSS 生成文本内容的处理规则。<Cite refs={["turn167316search6","turn167316search5"]}/>
+
+来看一个常见的电商促销按钮：
+
+```html
+<button class="buy-button">
+  Buy now
+</button>
+```
+
+```css
+.buy-button::before {
+  content: "Sale!";
+}
+```
+
+视觉上：
+
+<box background="#333333" theme="dark" radius="md" padding={3} align="center">
+  <row align="center">
+    <text color="#FFFFFF" weight="bold">Sale!</text>
+    <text color="#FFFFFF">Buy now</text>
+  </row>
+</box>
+
+在支持相应计算规则的浏览器中，Accessible Name 可能包含：
+
+```text
+Sale! Buy now
+```
+
+### 10.1 Icon Font 的潜在问题
+
+```css
+.icon-cart::before {
+  font-family: "CustomIcons";
+  content: "\e901";
+}
+```
+
+```html
+<button>
+  <i class="icon-cart"></i>
+  Add to cart
+</button>
+```
+
+这里的特殊 Unicode 字符可能被纳入按钮的名称，导致辅助技术出现无意义的字符或不符合预期的播报。
+
+推荐：
+
+```html
+<button>
+  <i class="icon-cart" aria-hidden="true"></i>
+  Add to cart
+</button>
+```
+
+### 10.2 不要将关键业务信息仅放在 CSS content 中
+
+例如：
+
+```css
+.product-price::before {
+  content: "Sale price: ";
+}
+```
+
+虽然一些浏览器和辅助技术能够正确处理生成内容，但是对于商品价格、错误信息、库存状态等关键业务信息，优先使用真实 HTML 文本。
+
+```html
+<span class="visually-hidden">
+  Sale price:
+</span>
+
+<span>$29.99</span>
+```
+
+这样更便于维护、多语言翻译、自动化测试和兼容性验证。
+
+---
+
+## 11. Embedded Control：嵌入控件的值也能参与名称计算
+
+AccName 还有一个比较高级的计算分支：Embedded Control。
+
+假设有一个自动刷新设置，允许用户选择刷新间隔。
+
+```html
+<label>
+  <input type="checkbox">
+  Refresh every
+</label>
+
+<input
+  type="text"
+  id="refresh-interval"
+  value="5"
+  aria-label="Interval"
+>
+```
+
+在合适的复合标签结构中，可以将另一个控件的当前值作为名称的一部分。例如：
+
+```html
+<span id="refresh-text">Refresh every</span>
+
+<input
+  type="text"
+  id="interval"
+  value="5"
+  aria-label="Interval"
+>
+
+<span id="minutes">minutes</span>
+
+<input
+  type="checkbox"
+  aria-labelledby="refresh-text interval minutes"
+>
+```
+
+计算复选框的名称时，被引用的文本输入控件可以贡献它的当前值，而不只是自身的名称 Interval。
+
+{@body const [interval,setInterval]=DIL.useState(5)}
+<card gap={3}>
+  **Embedded Control 实验室**
+  <row align="center">
+    <text size="sm">Refresh every</text>
+    <box width="85px">
+      <select value={String(interval)} onChange={v=>setInterval(Number(v))} options={[1,5,10,15,30].map(v=>({label:String(v),value:String(v)}))}/>
+    </box>
+    <text size="sm">minutes</text>
+  </row>
+  <divider/>
+  <caption>文本输入控件的模拟值</caption>
+  <text size="sm">{interval}</text>
+  <caption>复选框的计算名称</caption>
+  <title size="lg">Refresh every {interval} minutes</title>
+  <row align="center">
+    <icon name="volume-2"/>
+    <text size="sm">Refresh every {interval} minutes, checkbox.</text>
+  </row>
+  <caption>原理模拟：名称计算可以依赖被引用控件的当前值。</caption>
+</card>
+
+不同类型的嵌入控件具有不同的值提取规则。例如文本输入控件的当前文本、适用选择控件的选项文本，以及范围型控件的 aria-valuetext 或数值等。
+
+这不是所有嵌套元素都适用的通用规则，而是 AccName 针对特定标签计算场景的特殊分支。
+
+实际业务中，更推荐尽可能让每个表单控件拥有独立、稳定、容易理解的标签，不要为了使用这种高级机制而增加组件复杂度。
+
+---
+
+## 12. Accessible Description 的完整计算规则
+
+前面我们一直在研究 Name。
+
+现在来看 Description，它具有自己独立的计算优先级。
+
+按照 AccName 1.2 草案，主要有以下来源：
+
+| 优先级 | 来源 | 作用 |
+|---:|---|---|
+| 1 | `aria-describedby` | 引用其他元素的补充说明 |
+| 2 | `aria-description` | 直接指定描述文字 |
+| 3 | HTML / SVG 原生机制 | 适用且尚未用于名称的原生描述信息 |
+| 4 | `title` 等提示机制 | 尚未作为名称使用的提示文字 |
+
+Description 并不是把以上所有来源全部拼接起来，而是按照描述计算规则选择适用的来源。<Cite ref="turn408267view2"/>
+
+### 12.1 aria-describedby
+
+```html
+<label for="password">
+  Password
+</label>
+
+<input
+  id="password"
+  type="password"
+  aria-describedby="password-help password-policy"
+>
+
+<p id="password-help">
+  Use at least 8 characters.
+</p>
+
+<p id="password-policy">
+  Include a number.
+</p>
+```
+
+计算结果：
+
+```text
+Name:
+Password
+
+Description:
+Use at least 8 characters. Include a number.
+```
+
+与 aria-labelledby 类似，aria-describedby 也可以引用多个 ID，并且按照声明顺序组合相关文字。
+
+### 12.2 aria-description
+
+这是一个相对较新的 ARIA 属性，类似 aria-label，但用于提供 Description。
+
+```html
+<button
+  aria-label="Remove Cotton T-shirt"
+  aria-description="Removes this item from your cart."
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+计算结果：
+
+```text
+Name: Remove Cotton T-shirt
+Description: Removes this item from your cart.
+```
+
+对比：
+
+| 属性 | 提供方式 | 计算目标 |
+|---|---|---|
+| `aria-label` | 直接提供文字 | Name |
+| `aria-labelledby` | 引用其他元素 | Name |
+| `aria-description` | 直接提供文字 | Description |
+| `aria-describedby` | 引用其他元素 | Description |
+
+考虑到浏览器和辅助技术的兼容性，以及说明文字对视觉用户同样重要，实际项目中仍然可以优先使用 aria-describedby。
+
+### 12.3 多种 Description 来源同时存在
+
+```html
+<button
+  aria-label="Remove product"
+  aria-describedby="remove-help"
+  aria-description="Remove this item"
+  title="Delete item"
+>
+  Remove
+</button>
+
+<p id="remove-help">
+  This item will be removed from your cart.
+</p>
+```
+
+计算结果：
+
+```text
+Name:
+Remove product
+
+Description:
+This item will be removed from your cart.
+```
+
+aria-describedby 优先于 aria-description 和 title。
+
+### 12.4 aria-details 与 aria-describedby 的区别
+
+假设我们有一份包含多段文字、表格和链接的商品说明。
+
+如果通过 aria-describedby 引用整个区域，其中的内容会按照描述计算规则转换为文本，而不是保留完整的结构化导航体验。
+
+ARIA 还提供了：
+
+```html
+<img
+  src="size-chart.png"
+  alt="Clothing size chart"
+  aria-details="size-details"
+>
+
+<div id="size-details">
+  <h2>Detailed measurements</h2>
+
+  <table>
+    <!-- Size information -->
+  </table>
+</div>
+```
+
+`aria-details` 表达的是与详细信息区域的关联关系，而不是直接将该区域计算为 Accessible Description。
+
+| 属性 | 适用场景 |
+|---|---|
+| `aria-describedby` | 简短的补充说明、输入提示、错误信息 |
+| `aria-description` | 直接提供描述字符串 |
+| `aria-details` | 具有复杂语义结构的详细信息 |
+
+由于 aria-details 的辅助技术支持存在差异，对于重要的长篇说明，仍然应当提供用户可以正常访问的 HTML 内容或明确的跳转入口。
+
+### 12.5 Description 一定会被播报吗？
+
+不一定。
+
+不同屏幕阅读器可能根据用户设置、导航方式、控件角色以及当前上下文决定是否自动播报 Description。
+
+因此，不能把控件最核心的功能信息仅放在 Description 中。
+
+例如：
+
+```html
+<button
+  aria-label="Click here"
+  aria-describedby="checkout-help"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+
+<p id="checkout-help">
+  Proceed to checkout.
+</p>
+```
+
+不如直接使用：
+
+```html
+<button aria-label="Proceed to checkout">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+**Name 应该能够独立表达控件的核心用途，Description 则用于进一步解释。**
+
+---
+
+## 13. WCAG 2.5.3：Label in Name
+
+这是 Accessible Name 计算在实际 ADA 审计中最重要的应用之一。
+
+WCAG 2.5.3 是 Level A 准则。
+
+对于具有可见文字标签的 UI 控件，其可访问名称应包含相应的可见标签文字。<Cite refs={["turn167316search7","turn167316search23"]}/>
+
+为什么会有这条规定？
+
+因为无障碍用户不仅包括屏幕阅读器用户，还包括使用语音控制软件的用户。
+
+### 13.1 语音控制用户的操作场景
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <box background="#333333" theme="dark" radius="sm" padding={3} align="center">
+          <text color="#FFFFFF" size="sm">Add to cart</text>
+        </box>
+        <caption>可访问名称</caption>
+        **Purchase product**
+        <divider/>
+        <row align="start">
+          <icon name="mic"/>
+          <text size="sm">Click Add to cart</text>
+        </row>
+        <row align="center">
+          <icon name="x-circle" color="danger"/>
+          <text size="sm" color="danger">可能无法匹配</text>
+        </row>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <box background="#333333" theme="dark" radius="sm" padding={3} align="center">
+          <text color="#FFFFFF" size="sm">Add to cart</text>
+        </box>
+        <caption>可访问名称</caption>
+        **Add to cart**
+        <divider/>
+        <row align="start">
+          <icon name="mic"/>
+          <text size="sm">Click Add to cart</text>
+        </row>
+        <row align="center">
+          <icon name="check-circle" color="success"/>
+          <text size="sm" color="success">名称一致</text>
+        </row>
+      </box>
+    </grid-item>
+  </grid>
+  <caption>语音控制识别过程示意，实际命令匹配方式取决于具体辅助技术。</caption>
+</box>
+
+如果用户看到 Add to cart，通常就会尝试通过这个文字进行语音操作。
+
+所以，开发者不能仅仅认为两个英文短语表达的意思差不多，就随意使用另一个短语作为 aria-label。
+
+### 13.2 哪些名称可以满足要求？
+
+假设按钮可见文字是 Add to cart。
+
+| Accessible Name | Label in Name |
+|---|---|
+| Add to cart | 通过 |
+| Add to cart: Cotton T-shirt | 通过 |
+| Add to cart, $29.99 | 通过 |
+| Cotton T-shirt — Add to cart | 通过，但可见标签放在开头更好 |
+| Purchase product | 不通过 |
+| Buy now | 不通过 |
+| Cotton T-shirt | 不通过 |
+| Add product to your cart | 不通过 |
+
+这项准则要求名称包含可见标签，而不仅仅是表达相似的意思。将可见标签放在名称开头，是更推荐的实践方式。
+
+### 13.3 Label in Name 交互检测器
+
+{@body const [visibleLabel,setVisibleLabel]=DIL.useState("Add to cart")}
+{@body const [accessibleLabel,setAccessibleLabel]=DIL.useState("Purchase product")}
+{@body const normalize=s=>s.trim().toLowerCase().replace(/\s+/g," ")}
+{@body const hasLabel=normalize(visibleLabel).length>0&&normalize(accessibleLabel).includes(normalize(visibleLabel))}
+{@body const startsLabel=normalize(visibleLabel).length>0&&normalize(accessibleLabel).startsWith(normalize(visibleLabel))}
+<card gap={3}>
+  **Label in Name 实验室**
+  <label>可见标签</label>
+  <input value={visibleLabel} onChange={setVisibleLabel}/>
+  <label>Accessible Name</label>
+  <input value={accessibleLabel} onChange={setAccessibleLabel}/>
+  <box background="#333333" theme="dark" radius="md" padding={3} align="center">
+    <text color="#FFFFFF" weight="medium">{visibleLabel||"无可见文字"}</text>
+  </box>
+  <divider/>
+  <row align="center">
+    <icon name={hasLabel?"check-circle":"x-circle"} color={hasLabel?"success":"danger"} size="xl"/>
+    <box flex={1} gap={1}>
+      **{!visibleLabel.trim()?"请输入可见标签":hasLabel?"包含完整可见标签":"未包含完整可见标签"}**
+      <caption>{hasLabel?(startsLabel?"同时满足可见标签位于名称开头的推荐做法。":"包含可见标签，但建议将其放在名称开头。"):"语音控制用户可能无法通过可见文字准确定位控件。"}</caption>
+    </box>
+  </row>
+  <row wrap="wrap">
+    {#each ["Add to cart","Add to cart: Cotton T-shirt","Cotton T-shirt — Add to cart","Purchase product"] as n}
+      <button size="sm" variant="outline" color="secondary" onClick={()=>{setVisibleLabel("Add to cart");setAccessibleLabel(n)}}>{n}</button>
+    {/each}
+  </row>
+  <caption>仅执行简化字符串检测，不处理全部标点、数学符号、图片文字等规范特殊情况。</caption>
+</card>
+
+---
+
+## 14. Shopify 实战一：商品卡片链接
+
+这是商品列表中非常典型的名称计算问题。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="start">
+    <box width="115px" background="#E5DED3" radius="md" padding={3}>
+      <svg viewBox="0 0 110 130" width="100%">
+        <path d="M37 9 L8 29 L24 52 L37 43 V120 H73 V43 L86 52 L102 29 L73 9 L65 18 H45 Z" fill="#777066"/>
+      </svg>
+    </box>
+    <box flex={1} gap={2}>
+      **Premium Cotton T-shirt**
+      <row align="center">
+        <text color="#A43C3C" weight="medium">$29.99</text>
+        <text color="secondary" lineThrough={true}>$49.99</text>
+      </row>
+      <row align="center">
+        {#each [1,2,3,4,5] as n}<icon name="star" color="#A98138" size="sm"/>{/each}
+        <caption>(128)</caption>
+      </row>
+      <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text size="sm" color="#FFFFFF">Quick add</text></box>
+    </box>
+  </row>
+  <caption>一个商品卡片可能包含商品图片、标题、价格、评分和多个交互控件。</caption>
+</box>
+
+### 14.1 整个商品卡片被一个链接包裹
+
+```html
+<a href="/products/cotton-tshirt">
+
+  <img
+    src="tshirt.jpg"
+    alt="Premium Cotton T-shirt"
+  >
+
+  <h3>Premium Cotton T-shirt</h3>
+
+  <span>$29.99</span>
+  <s>$49.99</s>
+
+</a>
+```
+
+按照内容计算规则，该链接的名称可能包含：
+
+```text
+Premium Cotton T-shirt
+Premium Cotton T-shirt
+$29.99
+$49.99
+```
+
+商品名称重复了，价格也可能被合并进链接名称，导致名称过长。
+
+这不一定自动构成 WCAG 违规，但对于拥有几十个商品的 Collection 页面，阅读效率会明显下降。
+
+### 14.2 使用 aria-labelledby 控制链接名称
+
+```html
+<a
+  href="/products/cotton-tshirt"
+  aria-labelledby="product-title-123"
+>
+  <img
+    src="tshirt.jpg"
+    alt="Beige cotton T-shirt with crew neckline"
+  >
+
+  <h3 id="product-title-123">
+    Premium Cotton T-shirt
+  </h3>
+</a>
+```
+
+链接名称变为：
+
+```text
+Premium Cotton T-shirt
+```
+
+但需要注意，给从内容获取名称的元素添加 ARIA 命名，可能影响辅助技术对内部内容的访问方式。如果商品图片的细节信息很重要，就不能假设它一定会作为独立信息被所有屏幕阅读器读取。
+
+通常更容易维护的结构，是将商品名称作为主要链接，价格和其他商品信息放在链接之外。
+
+### 14.3 商品卡片不应该嵌套交互元素
+
+不推荐：
+
+```html
+<a href="/products/cotton-tshirt">
+  <h3>Cotton T-shirt</h3>
+
+  <button>Quick add</button>
+</a>
+```
+
+链接内部嵌套按钮不仅涉及 HTML 结构错误，还可能导致焦点、激活行为及无障碍树异常。
+
+更合理的是：
+
+```html
+<article class="product-card">
+
+  <h3>
+    <a href="/products/cotton-tshirt">
+      Cotton T-shirt
+    </a>
+  </h3>
+
+  <p>$29.99</p>
+
+  <button type="button">
+    Quick add
+  </button>
+
+</article>
+```
+
+如果设计要求商品卡片整体可点击，可以通过合理的 CSS 点击区域扩展来实现，同时保证 Quick Add 等独立操作不会被链接覆盖。
+
+---
+
+## 15. Shopify 实战二：多个 Quick Add 按钮的命名
+
+假设 Collection 中有四个商品。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={2}>
+    {#each [{n:"Cotton T-shirt",c:"#414141"},{n:"Linen shirt",c:"#B6A18B"},{n:"Classic sweatshirt",c:"#7C91A5"},{n:"Oversized T-shirt",c:"#8D9478"}] as p}
+      <grid-item>
+        <box border radius="md" padding={2} gap={2}>
+          <box background="#E2DCD2" radius="sm">
+            <svg viewBox="0 0 130 85" width="100%">
+              <path d="M44 7 L18 24 L31 43 L44 36 V77 H86 V36 L99 43 L112 24 L86 7 L77 15 H53 Z" fill={p.c}/>
+            </svg>
+          </box>
+          <text size="sm" weight="medium">{p.n}</text>
+          <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text size="sm" color="#FFFFFF">Quick add</text></box>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+对于视觉用户，每个 Quick Add 按钮属于哪个商品非常清晰。
+
+但是屏幕阅读器用户如果打开按钮列表，可能会得到：
+
+<grid columns={2} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <text weight="medium" size="sm">优化前</text>
+      <caption>Buttons</caption>
+      {#each [1,2,3,4] as n}
+        <row align="center"><icon name="square" size="xs"/><text size="sm">Quick add</text></row>
+      {/each}
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <text weight="medium" size="sm">优化后</text>
+      <caption>Buttons</caption>
+      {#each ["Cotton T-shirt","Linen shirt","Classic sweatshirt","Oversized T-shirt"] as n}
+        <row align="start"><icon name="square" size="xs"/><box flex={1}><text size="sm">Quick add: {n}</text></box></row>
+      {/each}
+    </box>
+  </grid-item>
+</grid>
+
+并不是所有重复名称都一定违规，但在这种业务场景中，加入商品名称可以显著提高控件的可区分性。
+
+### 15.1 方案一：aria-label
+
+```liquid
+<button
+  type="button"
+  aria-label="Quick add: {{ card_product.title | escape }}"
+>
+  Quick add
+</button>
+```
+
+优点是实现简单。
+
+但是在多语言网站中，应该将整个命名短语放进 locale 翻译文件，避免可见按钮文字和无障碍名称使用不同的翻译。
+
+### 15.2 方案二：aria-labelledby
+
+利用本课学习的自引用技巧：
+
+```liquid
+{%- assign card_uid = section.id
+  | append: '-'
+  | append: card_product.id
+  | append: '-'
+  | append: card_index
+-%}
+
+<h3 id="ProductTitle-{{ card_uid }}">
+  <a href="{{ card_product.url }}">
+    {{ card_product.title | escape }}
+  </a>
+</h3>
+
+<button
+  type="button"
+  id="QuickAdd-{{ card_uid }}"
+  aria-labelledby="QuickAdd-{{ card_uid }} ProductTitle-{{ card_uid }}"
+>
+  Quick add
+</button>
+```
+
+最终结果：
+
+```text
+Name: Quick add Premium Cotton T-shirt
+```
+
+其中 `card_index` 是示例中由调用方传入的商品卡片实例索引，并不是 Shopify 自带的 Liquid 对象属性。实际项目必须保证组合生成的 ID 在整个页面中唯一。
+
+### 15.3 方案三：visually-hidden
+
+```liquid
+<button type="button">
+  Quick add
+
+  <span class="visually-hidden">
+    {{ card_product.title | escape }}
+  </span>
+</button>
+```
+
+最终结果同样为：
+
+```text
+Name: Quick add Premium Cotton T-shirt
+```
+
+### 15.4 三种方案如何选择？
+
+| 对比项 | aria-label | aria-labelledby | visually-hidden |
+|---|---|---|---|
+| 实现复杂度 | 低 | 中 | 低 |
+| 需要额外 ID | 否 | 是 | 否 |
+| 复用已有商品标题 | 通过 Liquid | 直接引用 DOM | 通过 Liquid |
+| 保留按钮原始文字 | 需要主动保证 | 可以自引用 | 自然保留 |
+| DOM 标题变化后自动反映 | 需同步属性 | 可以 | 需同步内部文字 |
+| 多语言语序控制 | 灵活 | 相对固定 | 相对固定 |
+
+在自己的 Shopify Theme 组件库中，这三种方案都可以使用，没有必要强制所有按钮采用同一种方式。
+
+关键是保证名称准确、可区分、包含可见标签，并在业务状态变化后保持同步。
+
+---
+
+## 16. Shopify 实战三：购物车数量选择器与删除按钮
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{n:"Cotton T-shirt",p:"$29.99",c:"#444444"},{n:"Linen shirt",p:"$49.99",c:"#B2A08B"}] as p}
+    <row align="start">
+      <box width="74px" background="#E4DCD1" radius="md">
+        <svg viewBox="0 0 70 85" width="100%">
+          <path d="M23 7 L5 21 L15 35 L23 29 V77 H47 V29 L55 35 L65 21 L47 7 L40 14 H30 Z" fill={p.c}/>
+        </svg>
+      </box>
+      <box flex={1} gap={2}>
+        **{p.n}**
+        <caption>{p.p}</caption>
+        <row align="center">
+          <row border radius="sm" gap={3} padding={2} align="center">
+            <icon name="minus" size="sm"/>
+            1
+            <icon name="plus" size="sm"/>
+          </row>
+          <spacer/>
+          <icon name="trash-2" size="sm"/>
+        </row>
+      </box>
+    </row>
+    <divider/>
+  {/each}
+  <caption>同一个购物车中可能存在大量视觉外观完全相同的图标按钮。</caption>
+</box>
+
+如果所有数量增加按钮都叫 Increase quantity，用户就很难通过按钮列表直接区分操作对象。
+
+我们可以为每个购物车行提供具体名称。
+
+```liquid
+{% for item in cart.items %}
+
+  <div class="cart-item">
+
+    <h3 id="CartItemTitle-{{ section.id }}-{{ forloop.index }}">
+      {{ item.title | escape }}
+    </h3>
+
+    <button
+      type="button"
+      aria-label="Decrease quantity of {{ item.title | escape }}"
+    >
+      <svg aria-hidden="true"></svg>
+    </button>
+
+    <input
+      type="number"
+      name="updates[]"
+      min="0"
+      value="{{ item.quantity }}"
+      aria-label="Quantity of {{ item.title | escape }}"
+    >
+
+    <button
+      type="button"
+      aria-label="Increase quantity of {{ item.title | escape }}"
+    >
+      <svg aria-hidden="true"></svg>
+    </button>
+
+    <button
+      type="button"
+      aria-label="Remove {{ item.title | escape }}"
+    >
+      <svg aria-hidden="true"></svg>
+    </button>
+
+  </div>
+
+{% endfor %}
+```
+
+对应的无障碍树可以简化为：
+
+```text
+heading "Cotton T-shirt"
+
+button "Decrease quantity of Cotton T-shirt"
+
+spinbutton "Quantity of Cotton T-shirt"
+  Value: 1
+
+button "Increase quantity of Cotton T-shirt"
+
+button "Remove Cotton T-shirt"
+```
+
+这里使用 `item.title`，可以包含适用的商品变体名称，比仅使用 product.title 更有利于区分不同的变体。
+
+如果购物车允许同一变体以不同自定义属性出现，还可能需要补充有意义的行项目区分信息。
+
+以上 Liquid 代码主要展示名称设计，实际数量更新、库存限制、加减按钮交互和本地化文案仍需要接入业务逻辑。
+
+---
+
+## 17. Shopify 实战四：动态名称是否应该包含状态？
+
+这是工程开发中很容易出现的设计问题。
+
+假设 Header 中有一个购物车按钮，并显示当前商品数量。
+
+{@body const [cartCount,setCartCount]=DIL.useState(2)}
+{@body const [nameMode,setNameMode]=DIL.useState("include")}
+<card gap={3}>
+  <row align="center">
+    <title size="lg">STYLE STORE</title>
+    <spacer/>
+    <icon name="search" size="xl"/>
+    <box width="48px" height="45px" justify="center">
+      <svg viewBox="0 0 48 45" width="48px">
+        <path d="M10 13 H34 L36 38 H8 Z M16 14 V10 A6 6 0 0 1 28 10 V14" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinejoin="round"/>
+        {#if cartCount>0}
+          <circle cx="35" cy="11" r="10" fill="#333333"/>
+          <text x="35" y="15" fontSize="11" fill="white" fontWeight="600" textAnchor="middle">{cartCount}</text>
+        {/if}
+      </svg>
+    </box>
+  </row>
+  <divider/>
+  <row align="center">
+    <label>购物车商品数量</label>
+    <spacer/>
+    <button uniform color="secondary" variant="outline" disabled={cartCount===0} onClick={()=>setCartCount(v=>Math.max(0,v-1))}><icon name="minus"/></button>
+    <title size="lg">{cartCount}</title>
+    <button uniform color="secondary" variant="outline" disabled={cartCount===9} onClick={()=>setCartCount(v=>v+1)}><icon name="plus"/></button>
+  </row>
+  <radio-group direction="col" value={nameMode} onChange={setNameMode}>
+    <radio value="include">名称包含购物车数量</radio>
+    <radio value="desc">名称固定，数量放在 Description</radio>
+  </radio-group>
+  <divider/>
+  <caption>Accessible Name</caption>
+  <title size="lg">{nameMode==="include"?`Shopping cart, ${cartCount} ${cartCount===1?"item":"items"}`:"Shopping cart"}</title>
+  <caption>Accessible Description</caption>
+  <text size="sm">{nameMode==="desc"?`${cartCount} ${cartCount===1?"item":"items"} in your cart.`:"无"}</text>
+  <caption>这里演示两种名称与描述设计，并不代表数量变化会自动被屏幕阅读器播报。</caption>
+</card>
+
+### 17.1 方案一：名称包含商品数量
+
+```liquid
+<button
+  type="button"
+  aria-label="Shopping cart, {{ cart.item_count }} items"
+  aria-haspopup="dialog"
+>
+  <svg aria-hidden="true"></svg>
+
+  <span aria-hidden="true">
+    {{ cart.item_count }}
+  </span>
+</button>
+```
+
+这种方式可以让用户在聚焦购物车入口时直接了解商品数量。
+
+### 17.2 方案二：名称固定，数量作为描述
+
+```html
+<button
+  type="button"
+  aria-label="Shopping cart"
+  aria-describedby="cart-count-description"
+  aria-haspopup="dialog"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+
+<span
+  id="cart-count-description"
+  class="visually-hidden"
+>
+  2 items in your cart.
+</span>
+```
+
+两种方式都有适用场景。
+
+但无论采用哪种方式，都必须理解一个非常重要的问题：
+
+```javascript
+cartButton.setAttribute(
+  'aria-label',
+  'Shopping cart, 3 items'
+);
+```
+
+修改 Accessible Name，并不意味着屏幕阅读器一定会立即主动播报数量变化。
+
+Accessible Name 主要负责元素被访问时的信息获取，而主动通知动态业务变化，通常属于 Live Region 的职责。
+
+这也是我们下一课要研究的内容。
+
+---
+
+## 18. 如何获取浏览器实际计算的 Accessible Name？
+
+作为前端工程师，你可能会有一个疑问：
+
+能不能像获取 computedStyle 一样，通过 JavaScript 获取浏览器计算后的 Accessible Name？
+
+### 18.1 ariaLabel 不等于 Accessible Name
+
+```html
+<button id="cart-button">
+  Add to cart
+</button>
+```
+
+执行：
+
+```javascript
+const button = document.querySelector('#cart-button');
+
+console.log(button.ariaLabel);
+// null
+
+console.log(button.getAttribute('aria-label'));
+// null
+
+console.log(button.textContent);
+// Add to cart
+```
+
+但该按钮实际上拥有：
+
+```text
+Accessible Name: Add to cart
+```
+
+因为 ariaLabel 只是 aria-label 属性的 DOM 反射，并不是浏览器最终计算的名称。
+
+以下方法都不能普遍用于获取完整 Accessible Name：
+
+| 方法 | 获取的内容 |
+|---|---|
+| `element.ariaLabel` | aria-label 属性值 |
+| `getAttribute('aria-label')` | HTML 属性值 |
+| `element.innerText` | 与渲染相关的文本 |
+| `element.textContent` | DOM 文本内容 |
+| `element.labels` | 关联的原生 label 元素 |
+
+目前不应依赖一个跨浏览器通用的标准 DOM API，来直接读取任意元素在平台无障碍树中的最终名称。
+
+### 18.2 Chrome DevTools
+
+最简单直接的方式是使用浏览器的 Accessibility 调试面板。
+
+<box border radius="lg" padding={3} gap={2}>
+  <row align="center">
+    <icon name="code" color="secondary"/>
+    **Elements**
+  </row>
+  <box background="surface-tertiary" radius="sm" padding={3}>
+    <text size="xs" preserveWhitespace={true}>{`<button\n  aria-label="Buy now"\n  aria-labelledby="product-title"\n>\n  Add to cart\n</button>`}</text>
+  </box>
+  <row gap={3}>
+    <caption>Styles</caption>
+    <caption>Computed</caption>
+    <text size="sm" weight="medium" color="#5185C5" underline={true}>Accessibility</text>
+  </row>
+  <divider/>
+  **Computed Properties**
+  <row>
+    <caption>Name</caption>
+    <spacer/>
+    <text size="sm">Cotton T-shirt</text>
+  </row>
+  <box padding={{left:3}} gap={2}>
+    <row>
+      <icon name="check" color="success" size="sm"/>
+      <text size="xs">aria-labelledby: product-title</text>
+    </row>
+    <text color="secondary" size="xs" lineThrough={true}>aria-label: Buy now</text>
+    <text color="secondary" size="xs" lineThrough={true}>Contents: Add to cart</text>
+  </box>
+  <divider/>
+  <row><caption>Role</caption><spacer/>button</row>
+  <row><caption>Focusable</caption><spacer/>true</row>
+  <caption>Chrome Accessibility 面板的简化示意。实际名称来源展示方式会随浏览器版本变化。</caption>
+</box>
+
+具体操作：打开 Elements 面板，选中目标元素，在 Accessibility 面板中找到 Computed Properties，查看 Name、Description、Role 以及可用的名称来源信息。
+
+这是日常调试 Shopify Theme 的首选方法。
+
+### 18.3 使用 JavaScript 第三方库计算
+
+可以使用 `dom-accessibility-api`。
+
+```bash
+npm install dom-accessibility-api
+```
+
+```javascript
+import {
+  computeAccessibleName,
+  computeAccessibleDescription
+} from 'dom-accessibility-api';
+
+const button = document.querySelector('#cart-button');
+
+console.log(
+  computeAccessibleName(button)
+);
+
+console.log(
+  computeAccessibleDescription(button)
+);
+```
+
+还可以编写一个辅助检查工具：
+
+```javascript
+import {
+  computeAccessibleName,
+  computeAccessibleDescription
+} from 'dom-accessibility-api';
+
+const controls = document.querySelectorAll(`
+  button,
+  a[href],
+  input:not([type="hidden"]),
+  select,
+  textarea,
+  [role="button"]
+`);
+
+console.table(
+  [...controls].map(element => ({
+    element,
+
+    name: computeAccessibleName(element),
+
+    description:
+      computeAccessibleDescription(element),
+
+    ariaLabel: element.ariaLabel,
+
+    text: element.textContent.trim()
+  }))
+);
+```
+
+这类库基于 DOM 实现名称计算算法，适合单元测试和开发辅助检查。
+
+但是它不是浏览器内部 Accessibility Tree 的直接读取接口，不能保证与所有浏览器、CSS 渲染行为和辅助技术完全一致。
+
+项目地址：[dom-accessibility-api](https://github.com/eps1lon/dom-accessibility-api)。
+
+### 18.4 使用 Chrome DevTools Protocol
+
+如果你需要直接获取 Chromium 浏览器的无障碍节点，可以使用第 3 课学习过的 CDP Accessibility 接口。
+
+例如通过 Puppeteer：
+
+```javascript
+const client = await page.createCDPSession();
+
+const { root } = await client.send(
+  'DOM.getDocument'
+);
+
+const { nodeId } = await client.send(
+  'DOM.querySelector',
+  {
+    nodeId: root.nodeId,
+    selector: '#cart-button'
+  }
+);
+
+const { nodes } = await client.send(
+  'Accessibility.getPartialAXTree',
+  {
+    nodeId,
+    fetchRelatives: false
+  }
+);
+
+console.log(
+  nodes.map(node => ({
+    role: node.role?.value,
+    name: node.name?.value,
+    description: node.description?.value,
+    ignored: node.ignored
+  }))
+);
+```
+
+通过这种方式，可以获取浏览器生成的 AX 节点信息，而不是仅仅分析 HTML 属性。
+
+---
+
+## 19. Accessible Name 与自动化测试
+
+这一课的知识还可以直接应用于前端自动化测试。
+
+例如使用 Playwright。
+
+传统的测试方式：
+
+```javascript
+await page.locator('#add-to-cart').click();
+```
+
+这种方式只能证明找到了对应 ID 的元素并进行了操作。
+
+更具无障碍意义的定位方式：
+
+```javascript
+await page.getByRole('button', {
+  name: 'Add to cart',
+  exact: true
+}).click();
+```
+
+如果开发者不小心将按钮的 aria-label 改成 Purchase product，这个测试就可能失败，从而暴露名称变化问题。
+
+### 19.1 测试 Accessible Name
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('cart button accessible name', async ({ page }) => {
+  await page.goto('/');
+
+  const button = page.locator('#cart-button');
+
+  await expect(button).toHaveAccessibleName(
+    'Shopping cart'
+  );
+});
+```
+
+### 19.2 测试 Accessible Description
+
+```javascript
+await expect(
+  page.locator('#password')
+).toHaveAccessibleDescription(
+  'Use at least 8 characters.'
+);
+```
+
+### 19.3 测试动态购物车名称
+
+```javascript
+const addButton = page.getByRole('button', {
+  name: 'Add to cart',
+  exact: true
+});
+
+await addButton.click();
+
+await expect(
+  page.locator('#cart-button')
+).toHaveAccessibleName(
+  'Shopping cart, 1 item'
+);
+```
+
+这个测试假设初始购物车为空，并且测试商品已经满足加购条件。
+
+Playwright 已经提供了基于 Role 和 Accessible Name 的定位器，以及对应的名称和描述断言能力。<Cite refs={["turn408267search0","turn408267search4"]}/>
+
+这种测试方式非常适合公司的 Shopify Theme 组件库，因为它可以在功能测试的同时，发现一部分无障碍语义回归问题。
+
+不过，测试工具的名称计算与真实屏幕阅读器体验并不完全等价，仍需要配合浏览器检查和人工测试。
+
+第 26 课我们会进一步将这些能力纳入 CI/CD 流程。
+
+---
+
+## 20. 本课知识测试
+
+{@body const quiz=[{q:"按钮同时具有有效的 aria-labelledby、aria-label 和内部文字时，通常哪个名称来源优先？",o:["aria-label","内部文字","aria-labelledby"],a:2,e:"有效的 aria-labelledby 引用通常优先于其他名称来源。"},{q:"普通 div 使用 aria-label，是否一定能够获得有效的可访问名称？",o:["一定可以","不一定，generic 角色禁止命名"],a:1,e:"需要先判断元素的 Role 是否允许被命名。"},{q:"aria-labelledby 引用了两个 ID，名称按照什么顺序组合？",o:["DOM 中的元素顺序","aria-labelledby 中的 ID 顺序"],a:1,e:"按照属性声明中的引用顺序进行计算。"},{q:"display: none 的元素是否绝对无法参与名称计算？",o:["绝对无法参与","被有效直接引用时可以参与"],a:1,e:"隐藏节点作为明确的文本替代引用目标时，可以参与计算。"},{q:"按钮内部的图片 alt 是否可能成为按钮名称的一部分？",o:["可能","不可能"],a:0,e:"图片的文本替代可以参与父级控件的内容名称计算。"},{q:"CSS ::before 生成的文本是否可能参与 Accessible Name？",o:["可能","不可能"],a:0,e:"AccName 包含 CSS 生成文本的计算规则。"},{q:"可见文字是 Add to cart，名称为 Purchase product，是否满足 Label in Name？",o:["满足，意思相似即可","不满足"],a:1,e:"名称应包含可见标签文字，而不是仅表达相似的意思。"},{q:"ariaLabel DOM Property 返回的是浏览器最终计算的 Accessible Name 吗？",o:["是","不是"],a:1,e:"ariaLabel 只是 aria-label 属性的反射。"},{q:"aria-describedby 是否会直接覆盖元素的 Accessible Name？",o:["会","不会"],a:1,e:"它主要参与 Accessible Description 的独立计算。"},{q:"修改购物车按钮的 aria-label 后，屏幕阅读器是否一定会立即主动播报？",o:["一定会","不一定"],a:1,e:"名称变化不等于 Live Region 的主动通知机制。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.e}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 21. 日常开发检查清单
+
+{@body const checks=["所有需要名称的交互控件具有有效名称","名称准确表达控件的真实用途","可访问名称包含完整的可见标签","优先使用原生 HTML 命名机制","避免 aria-label 意外覆盖正确的可见文字","正确区分 Name、Description、Value 和 State","重复商品操作按钮能够区分具体商品","装饰性图片及 SVG 不污染控件名称","aria-labelledby 和 aria-describedby 引用有效","动态 Section 更新后名称和引用关系保持正确","没有为禁止命名的角色随意添加 aria-label","没有将关键业务信息仅放在 CSS content 中","通过 DevTools 检查计算后的名称及描述","自动化测试覆盖重要控件的无障碍名称","使用真实屏幕阅读器及语音控制进行验证"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Accessible Name Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as c,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block color="secondary" variant="outline" onClick={()=>GenUI.copy(checks.map((c,i)=>(done[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 22. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [AccName 1.1](https://www.w3.org/TR/accname-1.1/) | 正式名称计算规范 |
+| [AccName 1.2](https://www.w3.org/TR/accname-1.2/) | 新版名称与描述计算草案 |
+| [HTML-AAM](https://www.w3.org/TR/html-aam-1.0/) | 不同 HTML 元素的具体名称计算 |
+| [APG Names and Descriptions](https://www.w3.org/WAI/ARIA/apg/practices/names-and-descriptions/) | 名称和描述开发实践 |
+| [WCAG Label in Name](https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html) | 可见标签与无障碍名称一致性 |
+| [ARIA in HTML](https://www.w3.org/TR/html-aria/) | HTML 与 ARIA 使用约束 |
+| [Playwright Locators](https://playwright.dev/docs/locators) | 基于 Role 和名称的自动化测试 |
+| [CDP Accessibility](https://chromedevtools.github.io/devtools-protocol/tot/Accessibility/) | 浏览器无障碍树调试 |
+
+本课的代码是用于理解算法的教学实现，未在你的实际 Shopify Theme 中运行。所有屏幕阅读器播报均为示意，具体计算结果和播报行为需要结合目标浏览器、辅助技术及规范版本验证。
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">AccName</title>
+    <caption>Accessible Name and Description Computation</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"tag",t:"命名规则",d:"Author、Contents、Prohibited"},{i:"list-ordered",t:"计算优先级",d:"labelledby、aria-label、原生机制"},{i:"git-branch",t:"递归计算",d:"子元素、ID 引用、自引用"},{i:"eye-off",t:"隐藏内容",d:"隐藏排除、直接引用例外"},{i:"image",t:"内容来源",d:"图片 alt、SVG、CSS content"},{i:"file-text",t:"描述计算",d:"describedby、description、title"},{i:"mic",t:"语音控制",d:"WCAG 2.5.3 Label in Name"},{i:"code",t:"工程实践",d:"Shopify、CDP、Playwright"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+这一课最重要的是理解以下关系：
+
+| 层面 | 职责 |
+|---|---|
+| HTML | 提供原生语义及名称来源 |
+| ARIA | 补充或修改无障碍语义 |
+| AccName | 决定最终名称和描述 |
+| Accessibility Tree | 暴露计算后的无障碍信息 |
+| Assistive Technology | 根据这些信息提供交互体验 |
+
+以后遇到任何 Accessible Name 问题，不要直接通过添加 aria-label 来解决。
+
+应该先检查元素的 Role、原有名称来源、计算优先级以及最终名称是否准确表达真实业务用途。
+
+---
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体学习进度</caption>
+      <title size="2xl">50%</title>
+    </box>
+    <caption>已完成 13 / 26 课</caption>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5},{t:"阶段三：JavaScript 与 ARIA",n:5,d:4},{t:"阶段四：复杂 UI 组件实战",n:5,d:0},{t:"阶段五：Shopify 电商实战",n:4,d:0},{t:"阶段六：检测与工程化",n:3,d:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm" weight={s.d>0&&s.d<s.n?"medium":"normal"}>{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}</caption>{/if}
+      </row>
+      <box height={5} background="surface-tertiary" radius="full">
+        <box height={5} background="#39866B" radius="full" width={`${s.d/s.n*100}%`}/>
+      </box>
+    </box>
+  {/each}
+</box>
+
+**下一课：第 14 课——Live Region 与动态内容更新**
+
+这是第三阶段的最后一课，也是 Shopify AJAX 交互无障碍开发的核心课程。
+
+我们将重点学习：
+
+- Live Region 的底层工作原理。
+- `aria-live="off"`、`polite`、`assertive` 的区别。
+- `role="status"`、`role="alert"`、`role="log"` 的区别。
+- `aria-atomic`、`aria-relevant`、`aria-busy` 的配合机制。
+- 为什么动态更新了 DOM，屏幕阅读器却没有播报。
+- 为什么动态创建 Live Region 可能无法正常播报。
+- 重复消息、连续消息、消息队列与播报冲突。
+- Live Region 与 Focus Management 如何配合。
+- Shopify AJAX 加购成功后的消息通知。
+- Variant Picker 切换后的价格、库存通知。
+- Collection 筛选后的商品数量通知。
+- Predictive Search 搜索结果通知。
+- Dawn 中 Live Region 相关源码解析。
+- 封装可复用的 Accessibility Announcer 工具类。
+
+第 13 课解决的是**用户访问某个元素时，如何获得正确的信息**。
+
+第 14 课解决的是**当页面内容主动发生变化时，如何让用户及时感知这些变化**。

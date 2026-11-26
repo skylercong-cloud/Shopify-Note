@@ -1,0 +1,1956 @@
+# 第 23 课：加购、Cart Drawer、Checkout 与 Dawn 源码
+
+<row align="center">
+  <caption>阶段五：Shopify 电商网站无障碍实战</caption>
+  <spacer/>
+  <caption>23 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="88.46%"/>
+</box>
+
+上一课，我们学习了 Collection 商品筛选、排序、分页以及 Section Rendering 中的状态同步与焦点恢复。
+
+这一课是 Shopify 电商无障碍实战阶段的最后一课，也是整个电商购买流程中非常关键的一课。
+
+我们将按照用户实际购买商品的顺序，学习 Product Form、AJAX 加购、Cart Drawer、购物车数量修改、商品删除、异常处理以及 Checkout，最后结合 Dawn 源码理解完整的组件协作机制。
+
+## 1. Shopify 购买流程的无障碍架构
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{t:"Product Detail Page",d:"选择颜色、尺寸和数量",i:"shirt"},{t:"Product Form",d:"校验 Variant ID、数量及可购买状态",i:"list-checks"},{t:"Add to cart",d:"异步请求、Loading、成功或失败反馈",i:"shopping-bag"},{t:"Cart Drawer / Cart Page",d:"修改数量、删除商品、查看价格",i:"shopping-cart"},{t:"Checkout",d:"地址、配送、支付与订单确认",i:"credit-card"},{t:"Order Confirmation",d:"确认购买结果",i:"check-circle"}] as item,i}
+    <row border radius="md" padding={3} align="center">
+      <icon name={item.i} size="xl"/>
+      <box flex={1} gap={1}>
+        **{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+    {#if i<5}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+</box>
+
+| 业务模块 | 无障碍开发重点 |
+|---|---|
+| Product Form | 表单语义、提交校验 |
+| Add to cart | Loading、防止重复提交 |
+| Cart Notification | Live Region、成功反馈 |
+| Cart Drawer | 模态隔离、焦点限制与恢复 |
+| Quantity Selector | 数值范围、异步更新 |
+| Remove Item | 删除后的焦点管理 |
+| Cart Total | 金额、折扣、动态通知 |
+| Empty Cart | 空状态、后续操作入口 |
+| Checkout | 表单、错误提示、支付确认 |
+
+对于电商网站而言，无障碍不仅仅意味着用户能够浏览商品，还意味着用户能够独立完成整个购买过程。
+
+WCAG 的完整流程（Complete Processes）合规要求也体现了这一思想：如果一个网页属于完成某项活动的连续流程，那么该流程中的相关网页都需要达到所声明的合规级别。
+
+---
+
+## 2. Add to cart、Buy now、Checkout 的区别
+
+在 Shopify Theme 中，这几个按钮虽然都与购买有关，但承担的业务职责不同。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **商品详情页**
+      <caption>Product Detail Page</caption>
+      <text size="sm">Cotton T-shirt</text>
+      <title size="lg">$29.99</title>
+      <box border radius="sm" padding={3} align="center">Add to cart</box>
+      <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF">Buy it now</text></box>
+      <caption>选择加入购物车，或者直接进入购买流程。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **购物车**
+      <caption>Shopping Cart</caption>
+      <row><text size="sm">Estimated total</text><spacer/>**$29.99**</row>
+      <box background="#333333" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF">Checkout</text></box>
+      <box background="#592FF4" theme="dark" radius="sm" padding={3} align="center"><text color="#FFFFFF" weight="bold">shop Pay</text></box>
+      <caption>结算已有购物车商品，或使用快捷支付方式。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+| 按钮 | 业务含义 |
+|---|---|
+| Add to cart | 将选中的 Variant 加入购物车 |
+| Buy it now | 通常跳过购物车页面，直接进入该商品的购买流程 |
+| Checkout | 对当前购物车进行结算 |
+| Accelerated Checkout | Shopify 提供的快捷结账能力，例如 Shop Pay |
+
+### 2.1 Shopify 原生商品表单
+
+```liquid
+{% assign variant = product.selected_or_first_available_variant %}
+
+{% form 'product', product %}
+
+  <input
+    type="hidden"
+    name="id"
+    value="{{ variant.id }}"
+  >
+
+  <label for="Quantity-{{ section.id }}">
+    Quantity
+  </label>
+
+  <input
+    id="Quantity-{{ section.id }}"
+    type="number"
+    name="quantity"
+    value="1"
+    min="1"
+    required
+  >
+
+  <button
+    type="submit"
+    name="add"
+    {% unless variant.available %}
+      disabled
+    {% endunless %}
+  >
+    Add to cart
+  </button>
+
+  {{ form | payment_button }}
+
+{% endform %}
+```
+
+其中：
+
+```liquid
+{{ form | payment_button }}
+```
+
+用于渲染 Shopify 提供的快捷结账按钮。
+
+这部分通常不需要 Theme 开发者自行调用支付接口或编写完整的快捷结账 UI。
+
+Shopify 也提供了专门的 CSS Custom Properties，用于自定义部分快捷结账按钮样式。<Cite ref="turn769519search23"/>
+
+不过，需要确保当前 Variant、数量、可购买状态以及快捷结账入口保持同步。
+
+---
+
+## 3. 加购按钮的完整状态模型
+
+Add to cart 并不是一个只有 enabled 和 disabled 两种状态的按钮。
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{s:"Idle",t:"Add to cart",d:"当前商品可购买",bg:"#333333",fg:"#FFFFFF"},{s:"Loading",t:"Adding to cart…",d:"请求尚未完成，禁止重复提交",bg:"#555555",fg:"#FFFFFF"},{s:"Success",t:"Added to cart ✓",d:"服务器确认加购成功",bg:"#333333",fg:"#FFFFFF"},{s:"Error",t:"Add to cart",d:"显示错误信息，允许适当重试",bg:"#333333",fg:"#FFFFFF"},{s:"Sold out",t:"Sold out",d:"变体存在但不可购买",bg:"#E5E5E5",fg:"#555555"},{s:"Unavailable",t:"Unavailable",d:"当前组合不存在或无法购买",bg:"#E5E5E5",fg:"#555555"}] as p}
+    <row align="center">
+      <box flex={1} gap={1}>
+        **{p.s}**
+        <caption>{p.d}</caption>
+      </box>
+      <box width="148px" background={p.bg} theme="light" radius="sm" padding={3} align="center">
+        <text size="sm" color={p.fg}>{p.t}</text>
+      </box>
+    </row>
+  {/each}
+</box>
+
+### 3.1 disabled 与 aria-disabled 应该如何选择？
+
+| 对比项 | disabled | aria-disabled="true" |
+|---|---|---|
+| 浏览器阻止点击激活 | 是 | 否 |
+| 阻止原生按钮提交 | 是 | 否 |
+| 保留键盘焦点能力 | 通常否 | 是 |
+| 表达不可操作状态 | 是 | 是 |
+| 需要 JS 阻止操作 | 原生交互通常不需要 | 需要 |
+
+在商品售罄时，可以使用原生 `disabled`。
+
+但在用户已经点击 Add to cart、正在等待服务器响应时，可以使用 `aria-disabled="true"` 保留焦点，同时在提交处理器中阻止重复请求。
+
+```javascript
+if (isSubmitting) return;
+
+isSubmitting = true;
+
+button.setAttribute('aria-disabled', 'true');
+```
+
+注意，仅仅添加 aria-disabled 并不会阻止表单提交。
+
+因此，真正的业务保护必须写在 submit 事件中，而不是只写在 button 的 click 事件中。
+
+用户还可能通过 Enter 键提交表单。
+
+### 3.2 Loading Spinner 是否需要被屏幕阅读器读取？
+
+```html
+<button type="submit">
+  <span>Add to cart</span>
+
+  <svg class="spinner" aria-hidden="true">
+    <!-- Loading animation -->
+  </svg>
+</button>
+
+<p role="status" class="visually-hidden"></p>
+```
+
+Spinner 只是视觉上的等待指示，不需要让屏幕阅读器读取 SVG 的路径或图形内容。
+
+真正需要传递的是业务状态：
+
+```javascript
+status.textContent = 'Adding item to your cart.';
+```
+
+请求成功后，可以通知：
+
+```javascript
+status.textContent = 'Cotton T-shirt added to your cart.';
+```
+
+如果成功后直接打开 Cart Drawer，则可以通过弹窗的名称、初始焦点和内部通知传递结果，避免多处重复播报。
+
+---
+
+## 4. AJAX Cart API 与 Section Rendering
+
+这是 Shopify 购物车前端开发的核心技术。
+
+### 4.1 Cart API 的主要接口
+
+| API | 职责 |
+|---|---|
+| `GET /cart.js` | 获取当前购物车数据 |
+| `POST /cart/add.js` | 添加商品 |
+| `POST /cart/change.js` | 修改单条已有购物车商品 |
+| `POST /cart/update.js` | 更新购物车中的多个数量或其他属性 |
+| `POST /cart/clear.js` | 清空购物车 |
+
+这些都是 Shopify Storefront Ajax Cart API，不需要在 Theme 中暴露 Admin API Access Token。
+
+请求地址应该使用当前语言区域对应的路径：
+
+```javascript
+const root = window.Shopify.routes.root;
+
+fetch(`${root}cart.js`);
+```
+
+### 4.2 Bundled Section Rendering
+
+传统加购需要分别执行：
+
+<box border radius="md" padding={3} gap={1}>
+  **传统方案**
+  {#each ["POST cart/add.js","GET cart.js","请求 Cart Drawer HTML","请求 Header 购物车数量 HTML","更新 UI"] as t,i}
+    <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{t}</text></box>
+    {#if i<4}<box align="center"><icon name="arrow-down" size="xs" color="secondary"/></box>{/if}
+  {/each}
+  <divider/>
+  **Bundled Section Rendering**
+  <box border radius="sm" padding={3} gap={1}>
+    <text size="sm">POST cart/add.js</text>
+    <caption>同时传入 sections 与 sections_url</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    <grid-item><box border radius="sm" padding={2}><text size="sm">加购结果 JSON</text></box></grid-item>
+    <grid-item><box border radius="sm" padding={2}><text size="sm">Section HTML</text></box></grid-item>
+  </grid>
+</box>
+
+例如：
+
+```javascript
+const response = await fetch(
+  `${Shopify.routes.root}cart/add.js`,
+  {
+    method: 'POST',
+
+    headers: {
+      'Content-Type': 'application/json'
+    },
+
+    body: JSON.stringify({
+      items: [
+        {
+          id: variantId,
+          quantity: 1
+        }
+      ],
+
+      sections: [
+        'cart-drawer',
+        'cart-icon-bubble'
+      ],
+
+      sections_url: window.location.pathname
+    })
+  }
+);
+
+const data = await response.json();
+```
+
+返回的数据结构可以简化理解为：
+
+```javascript
+{
+  items: [
+    {
+      id: 123456789,
+      quantity: 1
+      // ...
+    }
+  ],
+
+  sections: {
+    "cart-drawer": "<div>...</div>",
+    "cart-icon-bubble": "<div>...</div>"
+  }
+}
+```
+
+Shopify 支持在 Cart API 请求中同时获取最多五个 Section 的渲染结果。如果某个 Section 渲染失败，对应值可能为 null，而购物车操作本身仍然可能已经成功。<Cite refs={["turn769519search2","turn769519search14"]}/>
+
+这意味着需要将两个结果分开处理：
+
+- 商品是否成功加入购物车。
+- 加购之后，购物车 UI 是否成功更新。
+
+不能因为 Cart Drawer 渲染失败，就直接重新执行一次加购。
+
+---
+
+## 5. 实战：无障碍 AJAX 加购
+
+### 5.1 HTML 与 Liquid
+
+```liquid
+{% form 'product', product, id: 'AccessibleProductForm' %}
+
+  <input
+    type="hidden"
+    name="id"
+    value="{{ variant.id }}"
+  >
+
+  <label for="ProductQuantity">Quantity</label>
+
+  <input
+    id="ProductQuantity"
+    name="quantity"
+    type="number"
+    min="1"
+    value="1"
+    required
+  >
+
+  <button
+    type="submit"
+    data-add-button
+    {% unless variant.available %}disabled{% endunless %}
+  >
+    Add to cart
+  </button>
+
+  <p data-cart-status role="status"></p>
+
+  <p data-cart-error role="alert"></p>
+
+{% endform %}
+```
+
+这里的两个 Live Region 提前存在于 DOM 中，并分别承担普通状态通知和错误通知。
+
+### 5.2 JavaScript
+
+以下示例采用加购成功后保留用户焦点、不自动打开 Drawer 的策略。
+
+```javascript
+const form = document.querySelector(
+  '#AccessibleProductForm'
+);
+
+const button = form.querySelector('[data-add-button]');
+const status = form.querySelector('[data-cart-status]');
+const error = form.querySelector('[data-cart-error]');
+
+let submitting = false;
+let needsRefresh = false;
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  if (submitting || needsRefresh || button.disabled) {
+    return;
+  }
+
+  const body = new FormData(form);
+
+  if (!body.get('id')) {
+    error.textContent = 'Please select an available product.';
+    return;
+  }
+
+  submitting = true;
+
+  button.setAttribute('aria-disabled', 'true');
+  button.classList.add('is-loading');
+
+  error.textContent = '';
+  status.textContent = 'Adding item to your cart.';
+
+  body.set(
+    'sections',
+    'cart-drawer,cart-icon-bubble'
+  );
+
+  body.set('sections_url', location.pathname);
+
+  try {
+    const response = await fetch(
+      `${Shopify.routes.root}cart/add.js`,
+      {
+        method: 'POST',
+        body
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data.status) {
+      throw new Error(
+        data.description ||
+        data.message ||
+        'Unable to add item.'
+      );
+    }
+
+    status.textContent = 'Item added to your cart.';
+
+    // 单独处理 UI 渲染失败
+    try {
+      renderCartSections(data.sections);
+    } catch {
+      needsRefresh = true;
+
+      error.textContent =
+        'Item added, but the cart display could not be updated. Please view your cart.';
+    }
+
+  } catch (err) {
+    // 加购请求异常时不能假定购物车未变化
+    needsRefresh = true;
+
+    status.textContent = '';
+
+    error.textContent =
+      `${err.message} Please check your cart before trying again.`;
+
+  } finally {
+    submitting = false;
+
+    button.classList.remove('is-loading');
+
+    if (!needsRefresh) {
+      button.removeAttribute('aria-disabled');
+    }
+  }
+});
+```
+
+其中 `renderCartSections()` 需要根据你的 Theme 中实际存在的 Section 和 DOM 结构实现。
+
+生产环境中，应进一步提供重新读取购物车、刷新 Section 和恢复提交能力的入口。上面的教学代码采用了保守策略：出现不确定结果时暂时锁定加购，直到用户检查购物车。
+
+### 5.3 交互实验
+
+{@body const [cartPhase23,setCartPhase23]=DIL.useState("idle")}
+{@body const [cartCount23,setCartCount23]=DIL.useState(0)}
+{@body const [cartQty23,setCartQty23]=DIL.useState(1)}
+<card gap={3}>
+  **AJAX Add to Cart 实验室**
+  <row align="center">
+    <box width="88px" background="#E6DFD5" radius="md" padding={2}>
+      <svg viewBox="0 0 80 95" width="100%">
+        <path d="M26 7 L5 22 L17 39 L26 33 V88 H54 V33 L63 39 L75 22 L54 7 L40 15 Z" fill="#535353"/>
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Cotton T-shirt**
+      <title size="lg">$29.99</title>
+      <caption>Black / M</caption>
+    </box>
+    <box align="center"><icon name="shopping-bag" size="xl"/><caption>{cartCount23} items</caption></box>
+  </row>
+  <row align="center">
+    <text size="sm">Quantity</text><spacer/>
+    <button uniform variant="outline" color="secondary" disabled={cartQty23===1||cartPhase23==="loading"} onClick={()=>setCartQty23(n=>n-1)}><icon name="minus" size="sm"/></button>
+    **{cartQty23}**
+    <button uniform variant="outline" color="secondary" disabled={cartPhase23==="loading"} onClick={()=>setCartQty23(n=>n+1)}><icon name="plus" size="sm"/></button>
+  </row>
+  <button block disabled={cartPhase23==="loading"||cartPhase23==="unknown"} onClick={()=>setCartPhase23("loading")}>{cartPhase23==="loading"?"Adding to cart…":cartPhase23==="unknown"?"Please check your cart":"Add to cart"}</button>
+  {#if cartPhase23==="loading"}
+    <caption>模拟服务器返回结果：</caption>
+    <button block variant="outline" color="secondary" onClick={()=>{setCartCount23(n=>n+cartQty23);setCartPhase23("success")}}>返回成功</button>
+    <button block variant="outline" color="secondary" onClick={()=>setCartPhase23("error")}>返回库存不足</button>
+    <button block variant="outline" color="secondary" onClick={()=>setCartPhase23("unknown")}>模拟网络断开，结果未知</button>
+  {/if}
+  {#if cartPhase23==="unknown"}
+    <button block variant="outline" color="secondary" onClick={()=>setCartPhase23("idle")}>模拟检查购物车后解除锁定</button>
+  {/if}
+  <divider/>
+  <row><caption>isSubmitting</caption><spacer/>{String(cartPhase23==="loading")}</row>
+  <row><caption>aria-disabled</caption><spacer/>{String(["loading","unknown"].includes(cartPhase23))}</row>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟状态通知</caption>
+      <text size="sm" color={["error","unknown"].includes(cartPhase23)?"danger":"default"}>{({idle:"等待操作",loading:"Adding item to your cart.",success:`Added ${cartQty23} item(s).`,error:"The requested quantity is unavailable.",unknown:"Unable to confirm the result. Check your cart before retrying."})[cartPhase23]}</text>
+    </box>
+  </row>
+  <button block color="secondary" variant="ghost" onClick={()=>{setCartCount23(0);setCartQty23(1);setCartPhase23("idle")}}>重置实验</button>
+  <caption>所有请求及商品数据均为模拟，不会产生真实订单或修改购物车。</caption>
+</card>
+
+### 5.4 为什么不能像商品筛选一样直接取消旧请求？
+
+Collection 筛选通常是 GET 请求，旧请求取消后，可以直接使用最新请求结果。
+
+但是加购属于服务器状态修改操作。
+
+即使客户端调用：
+
+```javascript
+controller.abort();
+```
+
+也不能保证服务器没有完成加购。
+
+如果网络中断，实际情况可能是：
+
+```text
+服务器已添加商品
+        ↓
+响应未成功到达浏览器
+        ↓
+前端认为请求失败
+        ↓
+再次执行加购
+        ↓
+商品数量重复增加
+```
+
+**读取操作可以采用最新请求优先，购物车写入操作则需要考虑服务器是否已经执行。**
+
+这是 Collection Controller 与 Cart Controller 非常重要的架构区别。
+
+---
+
+## 6. Cart Drawer 的完整无障碍结构
+
+购物车抽屉通常属于模态组件，可以复用第 15 课学习的 Dialog Pattern。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <title size="xl">Your cart (3)</title>
+    <spacer/><icon name="x" size="lg"/>
+  </row>
+  <divider/>
+  {#each [{n:"Cotton T-shirt",v:"Black / M",q:2,p:"$59.98",c:"#444444"},{n:"Linen shirt",v:"Beige / L",q:1,p:"$49.99",c:"#B3A38A"}] as p}
+    <row align="start">
+      <box width="85px" background="#E5DED3" radius="sm" padding={2}>
+        <svg viewBox="0 0 80 90" width="100%">
+          <path d="M26 7 L5 22 L17 39 L26 33 V83 H54 V33 L63 39 L75 22 L54 7 L40 15 Z" fill={p.c}/>
+        </svg>
+      </box>
+      <box flex={1} gap={2}>
+        **{p.n}**
+        <caption>{p.v}</caption>
+        <row align="center">
+          <box border radius="sm" padding={2}>
+            <row gap={3} align="center"><icon name="minus" size="xs"/>{p.q}<icon name="plus" size="xs"/></row>
+          </box>
+          <icon name="trash-2" size="sm"/>
+          <spacer/>
+          **{p.p}**
+        </row>
+      </box>
+    </row>
+    <divider/>
+  {/each}
+  <row><text size="sm">Estimated total</text><spacer/><title size="xl">$109.97</title></row>
+  <caption>Shipping and applicable taxes calculated at checkout.</caption>
+  <box background="#333333" theme="dark" radius="sm" padding={4} align="center"><text color="#FFFFFF" weight="medium">Checkout</text></box>
+  <text size="sm" textAlign="center" underline={true}>Continue shopping</text>
+  <caption>Cart Drawer 的视觉与交互区域示意。</caption>
+</box>
+
+### 6.1 HTML 结构
+
+```html
+<dialog
+  id="CartDrawer"
+  aria-labelledby="CartDrawerTitle"
+>
+  <header>
+
+    <h2
+      id="CartDrawerTitle"
+      tabindex="-1"
+      autofocus
+    >
+      Your cart
+    </h2>
+
+    <button
+      type="button"
+      data-close
+      aria-label="Close shopping cart"
+    >
+      ×
+    </button>
+
+  </header>
+
+  <div id="CartItems" aria-busy="false">
+    <!-- Cart item list -->
+  </div>
+
+  <div id="CartTotals">
+    <!-- Total, discounts, shipping information -->
+  </div>
+
+  <p id="CartStatus" role="status"
+     class="visually-hidden"></p>
+
+  <p id="CartError" role="alert"></p>
+
+  <footer>
+    <!-- Checkout button -->
+  </footer>
+
+</dialog>
+```
+
+特别注意三个区域的位置：
+
+| 区域 | 更新策略 |
+|---|---|
+| Dialog 外壳 | 尽量保持稳定 |
+| CartItems、CartTotals | 可以通过 Section Rendering 更新 |
+| CartStatus、CartError | 尽量保留原 DOM 节点 |
+
+如果每次修改商品数量都替换整个 dialog，会导致模态状态、初始焦点、关闭事件和 Live Region 全部受到影响。
+
+### 6.2 Cart Drawer 的焦点生命周期
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"用户点击 Add to cart",d:"记录合理的原始触发控件"},{t:"服务器返回加购成功",d:"更新购物车数据及 HTML"},{t:"打开 Cart Drawer",d:"进入模态状态，焦点移至标题或关闭按钮"},{t:"用户修改购物车",d:"保留数量、删除等当前操作位置"},{t:"关闭 Cart Drawer",d:"恢复到加购按钮或购物车入口"}] as p,i}
+    <box border radius="md" padding={3} gap={1}>**{p.t}**<caption>{p.d}</caption></box>
+    {#if i<4}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+</box>
+
+如果加购请求耗时较长，而用户已经主动开始操作页面上的其他区域，需要考虑是否仍然应该自动打开 Drawer。
+
+对于用户已离开的操作上下文，更温和的方式是保留当前焦点并通过状态消息通知加购结果。
+
+---
+
+## 7. 购物车数据模型：Variant ID、Line Item Key、Line Index
+
+这一节非常重要。理解错误不仅会造成无障碍问题，还可能修改错误的购物车商品。
+
+假设用户购买了同一个 Variant，但是分别填写了不同的定制文字。
+
+| 商品 | Variant ID | Line Item Key | Line Index |
+|---|---|---|---:|
+| T-shirt，定制 Alice | 10001 | 10001:abc | 1 |
+| T-shirt，定制 Bob | 10001 | 10001:def | 2 |
+| Linen shirt | 10002 | 10002:xyz | 3 |
+
+这里的两件 T-shirt 拥有相同的 Variant ID，却属于不同的购物车行。
+
+### 7.1 三种标识的区别
+
+| 标识 | 含义 | 局限 |
+|---|---|---|
+| Variant ID | 商品变体 ID | 购物车中可能重复 |
+| Line Item Key | 当前购物车行的标识 | 某些属性或折扣变化后可能改变 |
+| Line Index | 当前购物车行的位置，从 1 开始 | 删除或重新排序后可能变化 |
+
+Shopify 官方明确说明，Line Item Key 并非永久不变的标识。修改指定购物车行时，应该结合当前购物车状态选择合适的标识。<Cite ref="turn769519search2"/>
+
+因此：
+
+- 不要仅凭 Variant ID 恢复某一行的焦点。
+- 不要长期缓存 Line Index。
+- 不要将 Line Item Key 当成永久业务 ID。
+
+### 7.2 删除第一件商品后会发生什么？
+
+<box border radius="lg" padding={3} gap={2}>
+  <caption>删除之前</caption>
+  {#each ["Cotton T-shirt · Alice","Cotton T-shirt · Bob","Linen shirt"] as p,i}
+    <row border radius="sm" padding={2}><caption>Line {i+1}</caption><text size="sm">{p}</text></row>
+  {/each}
+  <box align="center"><icon name="arrow-down"/><caption>删除 Line 1</caption></box>
+  {#each ["Cotton T-shirt · Bob","Linen shirt"] as p,i}
+    <row border radius="sm" padding={2}><caption>Line {i+1}</caption><text size="sm">{p}</text></row>
+  {/each}
+  <caption>原来的 Line 2 变成 Line 1。之前记录的位置已经发生变化。</caption>
+</box>
+
+这也是购物车异步请求需要谨慎处理并发的原因。
+
+---
+
+## 8. Cart Item 的无障碍实现
+
+### 8.1 Liquid 商品行
+
+```liquid
+{% for item in cart.items %}
+
+  <article
+    data-cart-line
+    data-line-key="{{ item.key | escape }}"
+    data-line-index="{{ forloop.index }}"
+  >
+
+    <h3>
+      <a href="{{ item.url }}">
+        {{ item.product.title | escape }}
+      </a>
+    </h3>
+
+    <p>{{ item.variant.title | escape }}</p>
+
+    <label for="CartQuantity-{{ forloop.index }}">
+      Quantity for {{ item.product.title | escape }},
+      {{ item.variant.title | escape }}
+    </label>
+
+    <input
+      id="CartQuantity-{{ forloop.index }}"
+      type="number"
+      name="updates[]"
+      value="{{ item.quantity }}"
+      min="0"
+      step="1"
+      data-action="quantity"
+    >
+
+    <a
+      href="{{ item.url_to_remove }}"
+      aria-label="Remove {{ item.product.title | escape }}, {{ item.variant.title | escape }}"
+      data-action="remove"
+    >
+      Remove
+    </a>
+
+    <p>
+      {{ item.final_line_price | money_with_currency }}
+    </p>
+
+  </article>
+
+{% endfor %}
+```
+
+这里使用 Shopify 提供的 `item.url_to_remove`，从而在 JavaScript 不可用时也保留删除能力。
+
+本例假设只有一个购物车实例，商品采用普通数量规则。实际项目需要处理 Drawer 与 Cart Page 的 ID 前缀、最小购买数量、购买步长和定制属性等。
+
+### 8.2 为什么数量按钮和删除按钮必须包含商品名称？
+
+假设购物车中存在三条商品。
+
+如果所有按钮的名称都一样：
+
+```text
+Decrease quantity
+Increase quantity
+Remove
+```
+
+用户通过屏幕阅读器的按钮列表访问控件时，就很难区分商品。
+
+更合理的名称是：
+
+```text
+Decrease quantity for Cotton T-shirt, Black, M
+Increase quantity for Cotton T-shirt, Black, M
+Remove Cotton T-shirt, Black, M
+```
+
+必要时还应加入能够区分同一 Variant 不同购物车行的定制信息。
+
+---
+
+## 9. 购物车数量更新与并发请求
+
+修改购物车中已有商品数量，可以使用 `cart/change.js`。
+
+```javascript
+async function changeCartLine(key, quantity) {
+  const response = await fetch(
+    `${Shopify.routes.root}cart/change.js`,
+    {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      body: JSON.stringify({
+        id: key,
+        quantity,
+        sections: [
+          'cart-drawer',
+          'cart-icon-bubble'
+        ],
+        sections_url: location.pathname
+      })
+    }
+  );
+
+  const cart = await response.json();
+
+  if (!response.ok || cart.errors || cart.status) {
+    throw new Error(
+      cart.description || 'Unable to update cart.'
+    );
+  }
+
+  return cart;
+}
+```
+
+当 quantity 为 0 时，可以移除对应购物车行。
+
+### 9.1 为什么不推荐多个写入请求随意并发？
+
+例如当前数量为 1，用户连续点击三次加号。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 152" width="100%">
+    {#each [{t:"Request A",v:"quantity = 2",x:100,y:10,w:235,c:"#999999"},{t:"Request B",v:"quantity = 3",x:122,y:57,w:163,c:"#999999"},{t:"Request C",v:"quantity = 4",x:144,y:104,w:95,c:"#39866B"}] as p}
+      <text x="2" y={p.y+15} fontSize="10" fill="currentColor">{p.t}</text>
+      <text x="2" y={p.y+28} fontSize="9" fill="currentColor">{p.v}</text>
+      <rect x={p.x} y={p.y} width={p.w} height="28" rx="4" stroke={p.c} fill={p.c} fillOpacity=".17"/>
+    {/each}
+  </svg>
+  <caption>最新请求可能最先返回。更重要的是，客户端响应顺序并不能保证服务器状态修改顺序。</caption>
+</box>
+
+如果只使用 Request Version 忽略旧响应，可以避免部分 UI 覆盖问题，却不一定能保证服务器最终保存的是最新数量。
+
+推荐采用以下策略：
+
+| 策略 | 作用 |
+|---|---|
+| Debounce | 合并短时间连续修改 |
+| Serialize | 按顺序执行购物车写入 |
+| Coalesce | 合并尚未发送的重复数量修改 |
+| Reconcile | 请求结束后与服务器真实购物车同步 |
+| Checkout Guard | 等待购物车更新完成后再结账 |
+
+### 9.2 简单的串行任务队列
+
+```javascript
+class CartMutationQueue {
+  constructor() {
+    this.tail = Promise.resolve();
+    this.pending = 0;
+  }
+
+  enqueue(task) {
+    this.pending++;
+
+    const run = this.tail.then(task);
+
+    const settled = run.finally(() => {
+      this.pending--;
+    });
+
+    this.tail = settled.catch(() => {});
+
+    return settled;
+  }
+
+  async idle() {
+    while (this.pending > 0) {
+      await this.tail;
+    }
+  }
+}
+
+const cartQueue = new CartMutationQueue();
+```
+
+使用方式：
+
+```javascript
+await cartQueue.enqueue(async () => {
+  // 在真正执行任务时，获取最新的购物车行标识
+  const line = resolveCurrentCartLine();
+
+  const cart = await changeCartLine(
+    line.key,
+    desiredQuantity
+  );
+
+  applyCartState(cart);
+});
+```
+
+这里的 `resolveCurrentCartLine()` 和 `applyCartState()` 是业务层需要实现的方法。
+
+这个队列负责串行执行任务，但没有自行实现失败恢复、标识映射、合并任务或跨浏览器标签页同步。对于结果未知的网络错误，应在执行后续相关写入前重新核对购物车，而不是假设失败操作没有产生任何影响。
+
+---
+
+## 10. 删除商品之后的焦点管理
+
+这是购物车组件中最容易被忽略的无障碍问题之一。
+
+{@body const original23=[{id:"shirt",name:"Cotton T-shirt",variant:"Black / M",price:29.99,c:"#444444"},{id:"linen",name:"Linen shirt",variant:"Beige / L",price:49.99,c:"#B2A18A"},{id:"jacket",name:"Classic jacket",variant:"Blue / M",price:89.99,c:"#74889B"}]}
+{@body const [lines23,setLines23]=DIL.useState(original23)}
+{@body const [focus23,setFocus23]=DIL.useState("linen")}
+{@body const [message23,setMessage23]=DIL.useState("")}
+<card gap={3}>
+  <row align="center">
+    **Cart Drawer 焦点实验室**
+    <spacer/><caption>{lines23.length} items</caption>
+  </row>
+  {#each lines23 as p,i}
+    <row align="center">
+      <box width="48px" background="#E5DED3" radius="sm" padding={1}>
+        <svg viewBox="0 0 50 58" width="100%"><path d="M17 5 L4 15 L11 25 L17 21 V54 H33 V21 L39 25 L46 15 L33 5 L25 12 Z" fill={p.c}/></svg>
+      </box>
+      <box flex={1} gap={1}>
+        <text weight="medium" size="sm">{p.name}</text>
+        <caption>{p.variant} · ${p.price.toFixed(2)}</caption>
+      </box>
+      <box border={{size:focus23===p.id?2:1,color:focus23===p.id?"#3978BC":"transparent"}} radius="sm" padding={1}>
+        <button uniform variant="outline" color="secondary" onClick={()=>{const next=lines23[i+1]||lines23[i-1];setLines23(old=>old.filter(x=>x.id!==p.id));setFocus23(next?next.id:"empty");setMessage23(`${p.name} removed. ${lines23.length-1} item(s) remaining.`)}}><icon name="trash-2"/></button>
+      </box>
+    </row>
+    <divider/>
+  {/each}
+  {#if lines23.length===0}
+    <box align="center" padding={4} gap={3}>
+      <icon name="shopping-bag" size="3xl" color="secondary"/>
+      <title size="lg">Your cart is empty</title>
+      <box border={{size:2,color:"#3978BC"}} radius="sm" padding={2}>Continue shopping</box>
+    </box>
+  {:else}
+    <row align="center"><caption>Estimated total</caption><spacer/><title size="lg">${lines23.reduce((a,p)=>a+p.price,0).toFixed(2)}</title></row>
+  {/if}
+  <divider/>
+  <caption>当前模拟焦点</caption>
+  <text size="sm" weight="medium">{focus23==="empty"?"Continue shopping":`Remove ${lines23.find(p=>p.id===focus23)?.name||""}`}</text>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟 Live Region</caption>
+      <text size="sm">{message23||"等待删除操作。"}</text>
+    </box>
+  </row>
+  <button block variant="ghost" color="secondary" onClick={()=>{setLines23(original23);setFocus23("linen");setMessage23("")}}>重置购物车</button>
+  <caption>蓝框表示模拟焦点。尝试删除第二项、最后一项以及全部商品。</caption>
+</card>
+
+### 10.1 推荐焦点策略
+
+| 删除场景 | 推荐焦点目标 |
+|---|---|
+| 删除中间商品 | 下一商品的同类操作控件 |
+| 删除最后一项，但仍有商品 | 上一商品的同类操作控件 |
+| 删除唯一商品 | Continue shopping 或空购物车标题 |
+| 请求失败，商品未删除 | 保留原控件焦点，通知错误 |
+| 请求期间用户已转移焦点 | 尽量尊重新的焦点位置 |
+
+### 10.2 焦点恢复算法
+
+在真正更新 DOM 之前记录当前操作位置：
+
+```javascript
+function captureCartFocus(container) {
+  const active = document.activeElement;
+
+  if (!container.contains(active)) {
+    return null;
+  }
+
+  const row = active.closest('[data-cart-line]');
+
+  if (!row) return null;
+
+  const rows = [
+    ...container.querySelectorAll('[data-cart-line]')
+  ];
+
+  return {
+    key: row.dataset.lineKey,
+    index: rows.indexOf(row),
+    action: active.dataset.action
+  };
+}
+```
+
+更新购物车 HTML 后：
+
+```javascript
+function restoreCartFocus(container, snapshot) {
+  if (!snapshot) return;
+
+  const rows = [
+    ...container.querySelectorAll('[data-cart-line]')
+  ];
+
+  const sameLine = rows.find(row =>
+    row.dataset.lineKey === snapshot.key
+  );
+
+  const targetRow =
+    sameLine ||
+    rows[snapshot.index] ||
+    rows[snapshot.index - 1];
+
+  const control = targetRow
+    ? [...targetRow.querySelectorAll('[data-action]')]
+        .find(el => el.dataset.action === snapshot.action)
+    : null;
+
+  const candidates = [
+    control,
+    targetRow?.querySelector('a[href]'),
+    container.querySelector('[data-empty-action]'),
+    container.querySelector('[data-close]')
+  ];
+
+  for (const element of candidates) {
+    if (!element?.isConnected) continue;
+    if (element.matches(':disabled')) continue;
+    if (element.closest('[hidden], [inert]')) continue;
+
+    element.focus();
+
+    if (document.activeElement === element) {
+      break;
+    }
+  }
+}
+```
+
+使用顺序：
+
+```javascript
+const snapshot = captureCartFocus(drawer);
+
+renderUpdatedCartItems();
+
+if (drawer.open) {
+  restoreCartFocus(drawer, snapshot);
+}
+```
+
+这里假设购物车行没有发生无法识别的合并或重排。若 Line Item Key 变化，还应结合商品属性和本次修改结果匹配对应商品。
+
+同时，`drawer.open` 在这里指的是原生 dialog 的状态；如果使用 Dawn 自定义 Cart Drawer，则需要根据其实际打开状态判断。
+
+### 10.3 为什么更新购物车后不能直接聚焦标题？
+
+因为用户可能正在连续修改某一件商品的数量。
+
+如果每次点击加号都将焦点移动到 Your cart 标题，那么键盘用户每次都必须重新找到原来的加号。
+
+**打开购物车时可以移动焦点，购物车内部更新时则通常应该保留焦点。**
+
+---
+
+## 11. 购物车价格、折扣与总价
+
+Shopify Cart 中有几个非常容易混淆的价格属性。
+
+| Liquid 属性 | 含义 |
+|---|---|
+| `item.original_price` | 单件商品折扣前价格 |
+| `item.final_price` | 单件商品应用行级折扣后的价格 |
+| `item.original_line_price` | 当前商品行折扣前总价 |
+| `item.final_line_price` | 当前商品行应用行级折扣后的总价 |
+| `cart.original_total_price` | 购物车折扣前商品总价 |
+| `cart.items_subtotal_price` | 商品行小计之和，不包含购物车级折扣 |
+| `cart.total_price` | 应用折扣后的购物车商品总价 |
+| `cart.total_discount` | 购物车总折扣金额 |
+
+注意，Cart Total 不一定等于用户最终需要支付的金额，还可能涉及运费、税费等。
+
+### 11.1 折扣价格的正确表达
+
+<box border radius="md" padding={3} gap={2}>
+  **Cotton T-shirt × 2**
+  <row align="center">
+    <text lineThrough={true} color="secondary">$79.98</text>
+    <title size="xl">$59.98</title>
+  </row>
+  <row><icon name="tag" size="sm"/><text size="sm">Summer promotion −$20.00</text></row>
+  <divider/>
+  <caption>屏幕阅读器获取的信息示意</caption>
+  <text size="sm">Original total: $79.98. Discounted total: $59.98. Summer promotion: $20 discount.</text>
+</box>
+
+对应 Liquid：
+
+```liquid
+{% if item.original_line_price > item.final_line_price %}
+
+  <span class="visually-hidden">
+    Original total:
+  </span>
+
+  <s>
+    {{ item.original_line_price | money_with_currency }}
+  </s>
+
+  <span class="visually-hidden">
+    Discounted total:
+  </span>
+
+  <span>
+    {{ item.final_line_price | money_with_currency }}
+  </span>
+
+{% else %}
+
+  <span>
+    {{ item.final_line_price | money_with_currency }}
+  </span>
+
+{% endif %}
+```
+
+不要仅依赖删除线、颜色或折扣图标来表达价格含义。
+
+### 11.2 动态总价如何通知？
+
+用户将商品数量从 1 修改为 2 后，可以通过统一 Live Region 通知：
+
+```text
+Cotton T-shirt quantity updated to 2.
+Cart total: $59.98.
+```
+
+不推荐同时让以下区域全部独立播报：
+
+- 商品数量。
+- 单件价格。
+- 商品行总价。
+- 购物车总价。
+- Header 购物车数量。
+
+否则一次简单的数量修改可能产生多次重复通知。
+
+更合理的做法是由 Cart Controller 汇总必要信息，生成一条清晰的状态消息。
+
+---
+
+## 12. Free Shipping Progress Bar 免运费进度条
+
+这是 Shopify 跨境电商网站中很常见的营销组件，也是 `progressbar` 语义的实际应用场景。
+
+{@body const [subtotal23,setSubtotal23]=DIL.useState(35)}
+{@body const shippingThreshold23=50}
+{@body const shippingRemaining23=Math.max(0,shippingThreshold23-subtotal23)}
+<card gap={3}>
+  <row align="center">
+    <icon name="truck" size="xl"/>
+    **Free shipping**
+    <spacer/>
+    <caption>{shippingRemaining23===0?"Unlocked":`${Math.round(subtotal23/shippingThreshold23*100)}%`}</caption>
+  </row>
+  <text weight="medium">{shippingRemaining23>0?`You're $${shippingRemaining23.toFixed(2)} away from free shipping!`:"You've unlocked free shipping!"}</text>
+  <box background="surface-tertiary" height={8} radius="full" clip={true}>
+    <box background="#39866B" height={8} width={`${Math.min(100,subtotal23/shippingThreshold23*100)}%`} radius="full"/>
+  </box>
+  <row><caption>Cart subtotal: ${subtotal23}</caption><spacer/><caption>Goal: $50</caption></row>
+  <slider min={0} max={100} step={5} value={subtotal23} onChange={setSubtotal23}/>
+  <divider/>
+  <row><caption>aria-valuemin</caption><spacer/>0</row>
+  <row><caption>aria-valuemax</caption><spacer/>50</row>
+  <row><caption>aria-valuenow</caption><spacer/>{Math.min(subtotal23,50)}</row>
+  <caption>aria-valuetext</caption>
+  <text size="sm">{shippingRemaining23>0?`$${shippingRemaining23.toFixed(2)} remaining for free shipping`:"Free shipping goal reached"}</text>
+  <caption>假设满 $50 免运费，仅模拟营销组件，不代表实际配送规则。</caption>
+</card>
+
+### 12.1 自定义 Progressbar
+
+```html
+<p id="ShippingGoal">
+  Spend $15 more for free shipping.
+</p>
+
+<div
+  role="progressbar"
+  aria-label="Free shipping progress"
+  aria-valuemin="0"
+  aria-valuemax="50"
+  aria-valuenow="35"
+  aria-valuetext="15 dollars remaining for free shipping"
+>
+  <div class="progress-fill"
+       aria-hidden="true"
+       style="width: 70%">
+  </div>
+</div>
+```
+
+### 12.2 progressbar 与 slider 的区别
+
+| 对比项 | progressbar | slider |
+|---|---|---|
+| 用户能否修改数值 | 否 | 是 |
+| 是否需要方向键操作 | 否 | 是 |
+| 是否通常需要 tabindex | 否 | 是 |
+| 主要用途 | 展示进度 | 调整数值 |
+
+也可以直接考虑原生 `<progress>` 元素。
+
+注意，progressbar 数值变化并不保证屏幕阅读器主动播报。用户达到免运费门槛时，可以将这条重要变化加入统一的购物车状态通知。
+
+另外，免运费进度的计算必须符合真实配送政策。如果免运费取决于配送国家、配送地址、商品类型或 Shopify Function 规则，就不能仅凭商品总价保证用户一定可以免运费。
+
+---
+
+## 13. AJAX Cart API 错误处理
+
+购物车中的错误通常比普通表单错误更复杂。
+
+| 错误类型 | 推荐处理 |
+|---|---|
+| 商品库存不足 | 显示可购买数量或服务端限制 |
+| Variant 已售罄 | 更新商品可购买状态 |
+| 数量低于最小值 | 提示最低购买数量 |
+| 不符合数量步长 | 提示允许的购买增量 |
+| 网络请求失败 | 提示错误并核对实际购物车 |
+| Section 渲染失败 | 保留已确认的购物车结果，重新获取 UI |
+| 商品已经被删除 | 刷新购物车行及对应焦点 |
+
+### 13.1 数量错误与输入框关联
+
+```html
+<label for="CartQuantity">
+  Quantity for Cotton T-shirt
+</label>
+
+<input
+  id="CartQuantity"
+  type="number"
+  value="10"
+  aria-invalid="true"
+  aria-describedby="QuantityError"
+>
+
+<p id="QuantityError">
+  Only 3 items are available.
+</p>
+
+<p id="CartAlert" role="alert"></p>
+```
+
+JavaScript：
+
+```javascript
+function showQuantityError(input, message) {
+  input.setAttribute('aria-invalid', 'true');
+
+  document.querySelector(
+    '#QuantityError'
+  ).textContent = message;
+
+  document.querySelector(
+    '#CartAlert'
+  ).textContent = message;
+}
+```
+
+`aria-describedby` 负责让输入框与错误说明建立关系，`role="alert"` 则用于通知刚刚发生的重要错误。
+
+真实项目中应根据播报效果避免重复通知，并在错误解决后清除 `aria-invalid` 和旧错误消息。
+
+### 13.2 服务器修改了用户请求的数量怎么办？
+
+例如用户希望购买 10 件，但 Shopify 只接受了 3 件。
+
+<box border radius="md" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <box align="center">
+        <caption>用户请求数量</caption>
+        <title size="2xl">10</title>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box align="center">
+        <caption>实际购物车数量</caption>
+        <title size="2xl">3</title>
+      </box>
+    </grid-item>
+  </grid>
+  <divider/>
+  <row align="start">
+    <icon name="alert-circle" color="danger"/>
+    <box flex={1}>
+      <text size="sm">Only 3 items are available. Your cart quantity is 3.</text>
+    </box>
+  </row>
+</box>
+
+不能只是悄悄将输入框从 10 改回 3。
+
+需要让用户明确知道实际购买数量已经发生变化，并同步价格、总价和相关表单状态。
+
+服务器返回的实际购物车状态才是最终依据，而不是用户之前在浏览器中输入的值。
+
+---
+
+## 14. Empty Cart 空购物车状态
+
+<box border radius="lg" padding={5} gap={3}>
+  <row align="center">
+    **Your cart**
+    <spacer/><icon name="x"/>
+  </row>
+  <divider/>
+  <box align="center" padding={5} gap={3}>
+    <icon name="shopping-bag" size="3xl" color="secondary"/>
+    <title size="xl">Your cart is empty</title>
+    <text size="sm" color="secondary" textAlign="center">Discover something you'll love.</text>
+    <box background="#333333" theme="dark" radius="sm" padding={3} width="100%" align="center">
+      <text color="#FFFFFF">Continue shopping</text>
+    </box>
+  </box>
+</box>
+
+空购物车不应该只是：
+
+```javascript
+cartItems.innerHTML = '';
+```
+
+需要完整处理空状态，包括标题、商品数量、结算入口、焦点位置以及后续操作。
+
+```liquid
+{% if cart.item_count == 0 %}
+
+  <h2 tabindex="-1" id="EmptyCartTitle">
+    Your cart is empty
+  </h2>
+
+  <a
+    href="{{ routes.all_products_collection_url }}"
+    data-empty-action
+  >
+    Continue shopping
+  </a>
+
+{% endif %}
+```
+
+如果 Continue shopping 的实际功能是关闭当前 Cart Drawer、继续浏览原页面，则更适合使用 button。
+
+如果它会跳转商品集合页，则应该使用链接。
+
+---
+
+## 15. Checkout：Theme 开发者的职责边界
+
+这是 Shopify 与普通自建电商系统非常不同的地方。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} gap={2}>
+    **Shopify Theme**
+    <caption>主要由 Theme 开发者负责</caption>
+    <grid columns={2} gap={2}>
+      {#each ["商品详情页","Collection","Cart Drawer","Cart Page"] as p}
+        <grid-item><box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="sm">{p}</text></box></grid-item>
+      {/each}
+    </grid>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>Checkout</caption></box>
+  <box border radius="md" padding={3} gap={2}>
+    **Shopify 托管 Checkout**
+    <caption>由 Shopify 提供核心结账能力</caption>
+    <grid columns={2} gap={2}>
+      {#each ["Contact","Shipping address","Delivery options","Payment","Order review","Confirmation"] as p}
+        <grid-item><box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="sm">{p}</text></box></grid-item>
+      {/each}
+    </grid>
+  </box>
+  <box border radius="md" padding={3} gap={1}>
+    **Checkout Extensions / Shopify Functions**
+    <caption>通过受支持的扩展机制增加 UI 或定制业务规则。</caption>
+  </box>
+</box>
+
+普通 Shopify Theme 无法像修改 `main-product.liquid` 一样任意修改托管 Checkout 的 HTML 和 JavaScript。
+
+| 开发方式 | 主要职责 |
+|---|---|
+| Theme Liquid / JS | Storefront 商品浏览、加购、购物车 |
+| Checkout UI Extensions | 在受支持的位置添加结账 UI |
+| Shopify Functions | 配送、折扣、支付等业务规则的定制 |
+| Checkout Branding | 受支持的结账视觉定制 |
+| Shopify Checkout | 核心结账流程 |
+
+Checkout UI Extensions 采用 Shopify 提供的组件及 API，具体能力取决于扩展 Target、API 版本和店铺套餐。<Cite refs={["turn769519search16","turn769519search17"]}/>
+
+例如，你使用 Delivery Customization Function 隐藏或重新排序某些配送方式，这属于业务规则的修改，而不是直接编写配送选项的 HTML 和 ARIA 属性。
+
+但依然需要测试：
+
+- 配送方式变化后的选项名称是否易于理解。
+- 不同地址及购物车条件下是否存在有效配送方式。
+- 配送限制是否具有明确的用户反馈。
+- 用户是否能够继续完成整个购买流程。
+
+Shopify 托管结账不意味着商家安装的扩展、自定义业务规则和完整购买流程自动符合所有无障碍要求。
+
+---
+
+## 16. Checkout 前必须处理未完成的购物车更新
+
+这是一个非常具有实战价值的场景。
+
+用户刚刚将购买数量从 1 改为 5，紧接着点击 Checkout。
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box gap={2}>
+        <text weight="medium" color="danger">错误流程</text>
+        {#each ["Quantity = 5","AJAX 请求尚未完成","立即进入 Checkout","可能仍按旧数量结算"] as t,i}
+          <box border radius="sm" padding={2}><text size="xs">{t}</text></box>
+          {#if i<3}<box align="center"><icon name="arrow-down" size="xs"/></box>{/if}
+        {/each}
+      </box>
+    </grid-item>
+    <grid-item>
+      <box gap={2}>
+        <text weight="medium" color="success">推荐流程</text>
+        {#each ["Quantity = 5","用户点击 Checkout","确认数量保存成功","使用最新购物车结算"] as t,i}
+          <box border radius="sm" padding={2}><text size="xs">{t}</text></box>
+          {#if i<3}<box align="center"><icon name="arrow-down" size="xs"/></box>{/if}
+        {/each}
+      </box>
+    </grid-item>
+  </grid>
+</box>
+
+### 16.1 Shopify 原生 Checkout 表单
+
+```liquid
+<form
+  id="CartForm"
+  action="{{ routes.cart_url }}"
+  method="post"
+>
+
+  <!-- Cart items -->
+
+  <button type="submit" name="checkout">
+    Checkout
+  </button>
+
+</form>
+```
+
+### 16.2 等待购物车更新
+
+可以在表单的 submit 处理器中协调未完成的购物车操作。
+
+下面是设计伪代码：
+
+```javascript
+async function handleCheckout(event) {
+  if (checkoutResuming) return;
+
+  flushDebouncedQuantityChanges();
+
+  if (!cartHasPendingChanges()) return;
+
+  event.preventDefault();
+
+  if (checkoutWaiting) return;
+
+  checkoutWaiting = true;
+
+  announce('Updating your cart before checkout.');
+
+  try {
+    await waitForAllCartChanges();
+
+    if (cartHasErrors()) {
+      throw new Error('Cart update failed');
+    }
+
+    checkoutResuming = true;
+
+    // 如果原按钮已被替换，需要获取最新节点
+    const button = getCurrentCheckoutButton();
+
+    button.form.requestSubmit(button);
+
+  } catch {
+    announceError(
+      'Please resolve the cart errors before checking out.'
+    );
+
+  } finally {
+    checkoutWaiting = false;
+    checkoutResuming = false;
+  }
+}
+```
+
+这里还有几个工程细节：
+
+- 需要先执行尚未触发的防抖任务。
+- 需要检查所有保存是否真正成功，而不仅仅是 Promise 已完成。
+- 重新提交时应避免无限递归。
+- 如果 Section Rendering 替换了 Checkout 按钮，应获取新的 DOM 节点。
+- 快捷支付入口也需要结合平台支持的方式进行协调。
+
+这正好体现了 WCAG 3.3.4 Error Prevention（Level AA）的设计思想。对于涉及金融交易的提交过程，需要提供可撤销、错误检查或确认等至少一种适用机制，帮助用户避免严重错误。<Cite ref="turn769519search0"/>
+
+等待购物车保存完成是重要的工程保护，但它本身不能代替完整的订单错误预防机制。
+
+---
+
+## 17. Shopify Dawn 源码深入解析
+
+本次实际查阅了 Dawn 公开 main 分支中的 `product-form.js`、`cart.js`、`cart-drawer.js`。
+
+这几个文件共同组成了 Dawn 购物车体系。
+
+### 17.1 文件结构
+
+<box border radius="lg" padding={3} gap={2}>
+  <row><icon name="folder"/> **Dawn**</row>
+  <box padding={{left:3}} gap={3}>
+    <row><icon name="folder" color="secondary"/> **assets**</row>
+    <box padding={{left:4}} gap={1}>
+      {#each ["product-form.js","cart.js","cart-drawer.js","cart-notification.js","global.js","pubsub.js","quantity-input.js"] as f}
+        <row><icon name="file-code" size="xs" color="secondary"/><text size="sm">{f}</text></row>
+      {/each}
+    </box>
+    <row><icon name="folder" color="secondary"/> **snippets**</row>
+    <box padding={{left:4}} gap={1}>
+      {#each ["buy-buttons.liquid","cart-drawer.liquid","cart-notification.liquid","price.liquid"] as f}
+        <row><icon name="file-code" size="xs" color="secondary"/><text size="sm">{f}</text></row>
+      {/each}
+    </box>
+    <row><icon name="folder" color="secondary"/> **sections**</row>
+    <box padding={{left:4}} gap={1}>
+      {#each ["main-cart-items.liquid","main-cart-footer.liquid","cart-icon-bubble.liquid","cart-live-region-text.liquid"] as f}
+        <row><icon name="file-code" size="xs" color="secondary"/><text size="sm">{f}</text></row>
+      {/each}
+    </box>
+  </box>
+</box>
+
+### 17.2 product-form.js
+
+ProductForm 主要承担加购表单的职责。
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"onSubmitHandler()",d:"拦截原生表单提交"},{t:"提交状态保护",d:"检查 aria-disabled，显示 Loading"},{t:"FormData",d:"收集 Variant、Quantity、Properties 等数据"},{t:"Cart API",d:"请求加购及需要更新的 Section"},{t:"响应处理",d:"处理错误或进入成功流程"},{t:"renderContents()",d:"交给 Cart Drawer / Notification 更新"},{t:"finally",d:"清理 Loading 及相关状态"}] as p,i}
+    <box border radius="md" padding={2} gap={1}>**{p.t}**<caption>{p.d}</caption></box>
+    {#if i<6}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+值得重点理解的是，Dawn 使用 `aria-disabled` 作为提交保护的一部分，并在事件处理器入口进行检查。这使得加载过程中无需仅依靠原生 disabled 阻止重复操作。<Cite ref="turn985261view0"/>
+
+另外，源码还会在 Quick Add Modal 场景下协调弹窗关闭与购物车内容渲染。
+
+原因就是我们第 15 课讨论过的模态组件冲突：不能让 Quick Add 和 Cart Drawer 无条件同时争夺焦点。
+
+### 17.3 cart-drawer.js
+
+| 方法 | 职责 |
+|---|---|
+| `setHeaderCartIconAccessibility()` | 将购物车入口增强为弹窗触发控件 |
+| `open()` | 打开抽屉、建立焦点管理 |
+| `close()` | 关闭抽屉、恢复焦点 |
+| `renderContents()` | 渲染购物车相关 Section |
+| `getSectionsToRender()` | 定义需要更新的 Section |
+| `setActiveElement()` | 记录原来的触发元素 |
+
+Dawn 会为 Header 购物车链接增加按钮角色、弹窗提示以及 Space 键激活逻辑。
+
+打开 Drawer 后，通过动画结束事件建立 Focus Trap；关闭时解除焦点限制并尝试恢复原触发元素。<Cite ref="turn985261view2"/>
+
+这种架构属于传统自定义 Modal 实现，不是原生 dialog。
+
+因此，自定义扩展时仍应检查动画被禁用、快速关闭、后台焦点隔离以及触发元素被替换等情况。
+
+### 17.4 cart.js
+
+`cart.js` 负责购物车行级操作，包括数量修改、删除、错误提示和重新渲染。
+
+其组件关系为：
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **CartItems**
+    <caption>通用购物车行更新逻辑</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" size="sm" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} align="center">
+    **CartDrawerItems**
+    <caption>复用 CartItems，并提供 Drawer 专用 Section 配置</caption>
+  </box>
+  <divider/>
+  <box border radius="md" padding={3} align="center">
+    **CartRemoveButton**
+    <caption>将对应购物车行数量更新为 0</caption>
+  </box>
+</box>
+
+重点方法：
+
+| 方法 | 职责 |
+|---|---|
+| `validateQuantity()` | 数量规则验证 |
+| `updateQuantity()` | 请求更新购物车行 |
+| `updateLiveRegions()` | 更新行错误和状态通知 |
+| `enableLoading()` | 启用加载状态 |
+| `disableLoading()` | 解除加载状态 |
+| `onCartUpdate()` | 响应购物车数据更新 |
+| `waitForQuantitySave()` | 协调数量保存与结账提交 |
+
+### 17.5 一个特别值得学习的新源码细节
+
+本次查阅的 Dawn `cart.js` 已经包含 `waitForQuantitySave()` 方法。
+
+它会协调防抖任务、待完成的数量保存、结账表单提交以及保存失败后的处理，还考虑了 Section Rendering 可能导致原提交按钮被替换的情况。<Cite ref="turn985261view1"/>
+
+也就是第 16 节我们刚刚讨论的问题。
+
+这说明购物车更新与结账之间的竞态并不是一个纯理论问题，而是实际 Theme 工程中需要解决的场景。
+
+### 17.6 Dawn 源码审查重点
+
+| 实现机制 | 自定义开发时值得测试的场景 |
+|---|---|
+| aria-disabled 提交保护 | 重复点击、Enter 提交 |
+| transitionend 建立 Focus Trap | 减少运动、动画取消 |
+| 保存原触发元素 | 原节点已被替换 |
+| Line Index 修改数量 | 删除后索引变化 |
+| Section Rendering | 返回 null 或缺少目标节点 |
+| updateLiveRegions | 播报遗漏、重复通知 |
+| Checkout 保存等待 | 快速连续修改数量后结账 |
+| Quick Add Modal | 多层弹窗焦点冲突 |
+
+这些属于基于源码提出的审查点，并不是已经通过测试确认的 Dawn 缺陷。
+
+源码阅读：[product-form.js](https://github.com/Shopify/dawn/blob/main/assets/product-form.js) · [cart.js](https://github.com/Shopify/dawn/blob/main/assets/cart.js) · [cart-drawer.js](https://github.com/Shopify/dawn/blob/main/assets/cart-drawer.js) · [buy-buttons.liquid](https://github.com/Shopify/dawn/blob/main/snippets/buy-buttons.liquid)
+
+---
+
+## 18. 封装统一 Cart Controller 的工程架构
+
+如果你正在开发自己的 Shopify Theme 基础组件库，我建议将购物车体系拆分为以下模块，而不是把所有逻辑写在 Cart Drawer 中。
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={3} gap={1}>
+    {#each ["Product Form","Quick Add","Cart Page"] as p}
+      <grid-item><box border radius="sm" padding={2} align="center"><text size="xs">{p}</text></box></grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border={{size:2,color:"#3978BC"}} radius="md" padding={3} gap={1} align="center">
+    <title size="lg">CartController</title>
+    <caption>购物车统一业务状态与写入管理</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    {#each [{t:"CartAPI",d:"Shopify 接口封装"},{t:"MutationQueue",d:"写入顺序及并发管理"},{t:"CartStore",d:"服务端确认的数据"},{t:"SectionRenderer",d:"局部 HTML 更新"},{t:"FocusManager",d:"焦点保存及恢复"},{t:"Announcer",d:"无障碍动态通知"}] as p}
+      <grid-item><box border radius="md" padding={3} gap={1}>**{p.t}**<caption>{p.d}</caption></box></grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={3} gap={1}>
+    {#each ["Cart Drawer","Cart Bubble","Checkout Guard"] as p}
+      <grid-item><box background="surface-tertiary" radius="sm" padding={2} align="center"><text size="xs">{p}</text></box></grid-item>
+    {/each}
+  </grid>
+</box>
+
+其中 CartController 不应该依赖 Cart Drawer 必然存在。
+
+因为商家可能在 Theme Editor 中将购物车类型设置为购物车页面、抽屉或者加购通知。
+
+业务 API 与视觉组件解耦之后，同一套购物车逻辑就可以服务不同的购物车布局。
+
+---
+
+## 19. 完整购买流程的无障碍测试
+
+### 19.1 Playwright：加购与焦点恢复
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('accessible add to cart flow', async ({ page }) => {
+  await page.goto('/products/cotton-tshirt');
+
+  const addButton = page.getByRole('button', {
+    name: 'Add to cart',
+    exact: true
+  });
+
+  await addButton.focus();
+
+  await page.keyboard.press('Enter');
+
+  const drawer = page.getByRole('dialog', {
+    name: 'Your cart'
+  });
+
+  await expect(drawer).toBeVisible();
+
+  await expect(
+    drawer.getByRole('heading', {
+      name: 'Your cart',
+      exact: true
+    })
+  ).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(drawer).toBeHidden();
+
+  await expect(addButton).toBeFocused();
+});
+```
+
+该测试假设店铺配置为加购后自动打开模态 Drawer，并且初始焦点位于标题。
+
+### 19.2 Playwright：防止重复加购
+
+```javascript
+let requestCount = 0;
+
+await page.route('**/cart/add.js', async route => {
+  requestCount++;
+
+  // 模拟较慢的网络响应
+  await new Promise(resolve =>
+    setTimeout(resolve, 500)
+  );
+
+  await route.continue();
+});
+
+await addButton.focus();
+
+await page.keyboard.press('Enter');
+await page.keyboard.press('Enter');
+await page.keyboard.press('Enter');
+
+await expect(drawer).toBeVisible();
+
+expect(requestCount).toBe(1);
+```
+
+正式测试应该使用固定购物车初始状态和 API Mock，避免反复修改实际店铺购物车。
+
+### 19.3 完整业务测试矩阵
+
+| 测试场景 | 预期结果 |
+|---|---|
+| 键盘选择 Variant | 正确提交对应 Variant ID |
+| 连续点击 Add to cart | 不产生意外重复请求 |
+| 加购成功 | 明确反馈结果 |
+| 加购失败 | 错误可见且可被辅助技术感知 |
+| 打开 Cart Drawer | 焦点进入合理位置 |
+| Tab / Shift + Tab | 不进入模态背景 |
+| 连续修改数量 | 最终数量正确 |
+| 修改数量后立即结账 | 等待有效保存完成 |
+| 删除中间商品 | 焦点恢复到合理控件 |
+| 删除全部商品 | 空购物车状态正确 |
+| 关闭购物车 | 恢复原始触发位置 |
+| 网络中断 | 不盲目重复执行写入操作 |
+| Section 返回 null | 不重复加购，恢复 UI |
+| 200% 字体缩放 | 仍可访问 Checkout |
+| 配送方式发生变化 | 用户可以理解并继续结算 |
+
+---
+
+## 20. 常见问题与 WCAG 准则对照
+
+| 问题 | 可能涉及的准则 |
+|---|---|
+| 无法通过键盘加购 | 2.1.1 Keyboard |
+| Cart Drawer 无法键盘退出 | 2.1.2 No Keyboard Trap |
+| 删除商品后焦点丢失 | 2.4.3 Focus Order |
+| 加减按钮没有名称 | 4.1.2 Name, Role, Value |
+| 加购成功无法被感知 | 4.1.3 Status Messages |
+| 价格仅依靠颜色区分 | 1.4.1 Use of Color |
+| 数量输入框缺少标签 | 3.3.2 Labels or Instructions |
+| 数量错误未被明确指出 | 3.3.1 Error Identification |
+| 支付过程缺少适当错误预防 | 3.3.4 Error Prevention |
+| 固定 Checkout 区域遮挡焦点 | 2.4.11 Focus Not Obscured |
+| 小型删除图标不满足目标尺寸要求 | 2.5.8 Target Size |
+
+具体是否构成 WCAG 违规，需要结合准则的适用条件与页面真实行为判断。
+
+## 21. 本课知识测试
+
+{@body const qs23=[{q:"加购 Loading 时，只设置 aria-disabled=true 是否足以阻止重复提交？",o:["足够","不够，还需要在业务逻辑中阻止提交"],a:1,e:"ARIA 属性不会自动改变原生提交行为。"},{q:"同一个 Variant ID 是否可能对应多条购物车行？",o:["可能","不可能"],a:0,e:"不同的 Line Item Properties 等条件可能产生不同购物车行。"},{q:"Line Item Key 是否永久不变？",o:["是","否"],a:1,e:"商品行属性、折扣等变化可能导致 Key 变化。"},{q:"加购成功但 Section 渲染失败，应该立即重新调用 add.js 吗？",o:["应该","不应该，应先恢复购物车 UI"],a:1,e:"购物车写入可能已经成功，重复请求可能重复添加商品。"},{q:"修改购物车数量时，每次响应后是否应该将焦点移到 Drawer 标题？",o:["应该","不应该，通常保留当前操作焦点"],a:1,e:"频繁移动焦点会中断用户连续修改数量的操作。"},{q:"用户删除购物车最后一件商品后，焦点可以移到哪里？",o:["已被删除的按钮","Continue shopping 或空状态标题"],a:1,e:"需要选择仍然存在并符合业务上下文的焦点目标。"},{q:"购物车写入请求调用 abort() 后，是否保证服务器未执行修改？",o:["保证","不保证"],a:1,e:"取消客户端请求不等于撤销服务器业务操作。"},{q:"Theme 开发者能否直接任意修改 Shopify 托管 Checkout 的 HTML？",o:["可以","不可以，应通过受支持的扩展机制"],a:1,e:"托管 Checkout 与 Storefront Theme 具有不同的开发边界。"}]}
+{@body const [ans23,setAns23]=DIL.useState(Array(qs23.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {ans23.filter((a,i)=>a===qs23[i].a).length} / {qs23.length}</caption>
+  </row>
+  {#each qs23 as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(ans23[i])} onChange={v=>setAns23(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if ans23[i]>=0}
+        <text size="sm" color={ans23[i]===q.a?"success":"danger"}>{ans23[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<qs23.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAns23(Array(qs23.length).fill(-1))}>重新测试</button>
+</card>
+
+## 22. 日常开发检查清单
+
+{@body const checks23=["Product Form 提交正确 Variant ID","Loading 状态具有可感知反馈","防止重复加购和重复结账","加购成功与失败均有明确通知","Cart Drawer 具有正确模态语义","打开和关闭时焦点管理正确","数量控件名称包含商品信息","数量限制与服务器规则一致","购物车行标识处理正确","购物车写入请求具有合理的并发控制","Section Rendering 失败不会导致重复加购","删除商品后合理恢复焦点","Empty Cart 具有明确操作入口","折扣前后价格具有文字说明","购物车总价动态变化可感知","免运费提示符合真实配送条件","Checkout 等待未完成的数量更新","结账扩展具有正确的语义和错误反馈","全部购买流程经过键盘测试","全部购买流程经过真实屏幕阅读器测试"]}
+{@body const [done23,setDone23]=DIL.useState(Array(checks23.length).fill(false))}
+<card gap={2}>
+  <row align="center">
+    **Cart & Checkout Accessibility Checklist**
+    <spacer/>
+    <caption>{done23.filter(Boolean).length} / {checks23.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full">
+    <box background="#39866B" radius="full" height={5} width={`${done23.filter(Boolean).length/checks23.length*100}%`}/>
+  </box>
+  {#each checks23 as c,i}
+    <checkbox checked={done23[i]} onChange={v=>setDone23(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done23[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks23.map((c,i)=>(done23[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 23. 官方参考资料
+
+| 文档 | 学习重点 |
+|---|---|
+| [Shopify Ajax Cart API](https://shopify.dev/docs/api/ajax/reference/cart) | 购物车接口 |
+| [Section Rendering API](https://shopify.dev/docs/api/ajax/section-rendering) | 局部 HTML 渲染 |
+| [Liquid cart 对象](https://shopify.dev/docs/api/liquid/objects/cart) | 购物车数据模型 |
+| [Liquid line_item 对象](https://shopify.dev/docs/api/liquid/objects/line_item) | 商品行数据 |
+| [Accelerated Checkout](https://shopify.dev/docs/storefronts/themes/pricing-payments/accelerated-checkout) | 快捷结账按钮 |
+| [Checkout UI Extensions](https://shopify.dev/docs/api/checkout-ui-extensions/latest) | 结账扩展开发 |
+| [WAI-ARIA Modal Dialog](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) | Cart Drawer |
+| [WCAG 4.1.3 Status Messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html) | 动态通知 |
+| [WCAG 3.3.4 Error Prevention](https://www.w3.org/WAI/WCAG22/Understanding/error-prevention-legal-financial-data.html) | 交易错误预防 |
+
+本课选择了原生 dialog、串行购物车写入、Bundled Section Rendering 和统一状态通知作为教学方案。代码尚未在你的实际 Theme 中运行验证，部分业务方法需要结合项目实现，英文文案需要接入 locale，Dawn 源码分析则基于本次查阅的公开 main 分支。
+
+---
+
+## 本课总结
+
+购物车无障碍开发最核心的是六个方面。
+
+<grid columns={2} gap={2}>
+  {#each [{i:"database",t:"Data Integrity",d:"确保实际购买的数据正确"},{i:"shield-check",t:"Mutation Safety",d:"防止重复提交与写入冲突"},{i:"panel-right",t:"Modal Management",d:"模态隔离及弹窗生命周期"},{i:"focus",t:"Focus Management",d:"保留和恢复操作位置"},{i:"volume-2",t:"Live Region",d:"准确通知成功、失败和变化"},{i:"credit-card",t:"Checkout",d:"保证完整购买流程"}] as p}
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        <icon name={p.i} size="xl"/>
+        **{p.t}**
+        <caption>{p.d}</caption>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+**对于电商网站，无障碍不仅是 UI 的质量要求，也是交易准确性和业务可靠性的一部分。**
+
+至此，第五阶段「Shopify 电商网站无障碍实战」已经全部完成。
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体课程位置</caption>
+      <title size="2xl">88.5%</title>
+    </box>
+    <box gap={1}>
+      <caption>已学习 22 课</caption>
+      <caption>已跳过 1 课</caption>
+      <caption>剩余 3 课</caption>
+    </box>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4,s:0},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5,s:0},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5,s:0},{t:"阶段四：复杂 UI 组件实战",n:5,d:4,s:1},{t:"阶段五：Shopify 电商实战",n:4,d:4,s:0},{t:"阶段六：检测与工程化",n:3,d:0,s:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm">{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}{s.s?" · 跳过1课":""}</caption>{/if}
+      </row>
+      <row background="surface-tertiary" height={5} radius="full" gap={0} clip={true}>
+        <box background="#39866B" height={5} width={`${s.d/s.n*100}%`}/>
+        {#if s.s}<box background="#A0A0A0" height={5} width={`${s.s/s.n*100}%`}/>{/if}
+      </row>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 24 课——Lighthouse、axe、WAVE 与浏览器调试**
+
+我们将正式进入最后一个阶段：无障碍检测、修复与工程化。
+
+主要学习：
+
+- Lighthouse Accessibility Score 的计算机制。
+- 为什么 Lighthouse 无障碍评分 100 分不代表符合 WCAG AA。
+- axe-core 的底层检测机制。
+- axe DevTools、WAVE、Accessibility Insights 的区别。
+- Chrome DevTools Accessibility Tree 调试。
+- 如何通过工具定位具体 DOM 节点及违规原因。
+- 常见 axe Rule 的详细解释与修复。
+- Violations、Incomplete、Passes、Inapplicable 的区别。
+- 如何检测 Modal、Drawer 等动态组件。
+- 如何使用 JavaScript 调用 axe-core。
+- Shopify 网站完整无障碍审计实战。
+- 如何整理 ADA 无障碍问题报告。
+
+下一课将重点解决：**面对一个已经开发完成的 Shopify 网站，如何系统地找出无障碍问题、判断问题的严重程度，并准确修复，而不只是盲目追求 Lighthouse 100 分。**

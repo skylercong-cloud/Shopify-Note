@@ -1,0 +1,1914 @@
+# 第 8 课：颜色对比度、字体与响应式布局无障碍
+
+<row align="center">
+  <caption>阶段二：HTML、CSS 无障碍开发</caption>
+  <spacer/>
+  <caption>8 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="30.77%" radius="full"/>
+</box>
+
+前面几节课，我们主要学习了 HTML 语义化、图片、SVG 和表单无障碍。
+
+从这一课开始，我们将重点研究 CSS。
+
+很多前端开发人员认为 ADA 无障碍主要是 HTML 和 ARIA 的问题，但实际上，即使 HTML 结构和 Accessibility Tree 完全正确，不合理的 CSS 仍然可能导致用户无法正常使用网站。
+
+例如文字对比度不足、字体无法正常放大、固定高度导致内容裁切、焦点被 Sticky Header 遮挡、选中状态仅依靠颜色表达等。
+
+本节课的目标是建立一套完整的 **CSS Accessibility 开发思维**，让你在还原设计稿、封装组件和制定 UI 规范时，就能够识别并避免这些问题。
+
+---
+
+## 1. CSS 无障碍涉及哪些 WCAG 准则？
+
+| WCAG 编号 | 等级 | 主要内容 |
+|---|---|---|
+| 1.3.4 | AA | 屏幕方向 |
+| 1.4.1 | A | 颜色使用 |
+| 1.4.3 | AA | 最低文字对比度 |
+| 1.4.4 | AA | 文字缩放 |
+| 1.4.5 | AA | 文字图片 |
+| 1.4.10 | AA | 内容重排 |
+| 1.4.11 | AA | 非文本对比度 |
+| 1.4.12 | AA | 文字间距 |
+| 1.4.13 | AA | 悬停或焦点时出现的内容 |
+| 2.4.7 | AA | 焦点可见 |
+| 2.4.11 | AA | 焦点不被完全遮挡 |
+| 2.5.8 | AA | 最小点击目标尺寸 |
+
+其中，我们本课重点学习颜色对比度、文字缩放、内容重排、文字间距和高对比度模式。
+
+## 2. 为什么颜色对比度如此重要？
+
+对于视力正常的用户来说，浅灰色文字可能看起来更加精致、轻盈。
+
+但是对于低视力用户，或者在光线较强的环境下使用手机的用户，这些文字可能很难辨认。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box background="#FFFFFF" theme="light" border radius="md" padding={3} gap={2}>
+        <svg viewBox="0 0 140 120" width="100%">
+          <rect width="140" height="120" rx="5" fill="#E8E3DA"/>
+          <path d="M48 14 L18 32 L34 58 L48 48 V106 H92 V48 L106 58 L122 32 L92 14 L82 22 H58 Z" fill="#B3A18B"/>
+        </svg>
+        <text color="#AAAAAA" weight="medium">Cotton T-shirt</text>
+        <title color="#AAAAAA" size="lg">$29.99</title>
+        <text color="#BBBBBB" size="xs">Free shipping over $50</text>
+        <box background="#DDDDDD" radius="sm" padding={2} align="center">
+          <text color="#FFFFFF" size="sm">Add to cart</text>
+        </box>
+      </box>
+      <text color="danger" weight="medium" size="sm">低对比度设计</text>
+      <caption>价格、配送说明、按钮文字难以识别。</caption>
+    </grid-item>
+    <grid-item>
+      <box background="#FFFFFF" theme="light" border radius="md" padding={3} gap={2}>
+        <svg viewBox="0 0 140 120" width="100%">
+          <rect width="140" height="120" rx="5" fill="#E8E3DA"/>
+          <path d="M48 14 L18 32 L34 58 L48 48 V106 H92 V48 L106 58 L122 32 L92 14 L82 22 H58 Z" fill="#B3A18B"/>
+        </svg>
+        <text color="#333333" weight="medium">Cotton T-shirt</text>
+        <title color="#222222" size="lg">$29.99</title>
+        <text color="#595959" size="xs">Free shipping over $50</text>
+        <box background="#333333" radius="sm" padding={2} align="center">
+          <text color="#FFFFFF" size="sm">Add to cart</text>
+        </box>
+      </box>
+      <text color="success" weight="medium" size="sm">高对比度设计</text>
+      <caption>保留相同布局和风格，同时提高可读性。</caption>
+    </grid-item>
+  </grid>
+</box>
+
+无障碍设计并不要求网站只能使用黑白两种颜色，而是要求承担信息传递功能的颜色组合具有足够的对比度。
+
+## 3. WCAG 颜色对比度的计算原理
+
+### 3.1 Relative Luminance（相对亮度）
+
+颜色对比度并不是简单计算两个 RGB 值之间的距离，也不是直接比较 HSL 中的 Lightness。
+
+WCAG 使用 Relative Luminance，即相对亮度。
+
+它的取值范围是 0～1，其中：
+
+- 纯黑色的相对亮度为 0。
+- 纯白色的相对亮度为 1。
+- 其他颜色根据 RGB 分量计算。
+
+人眼对不同颜色的亮度感知并不相同。
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{n:"Red",c:"#FF0000",v:.2126},{n:"Green",c:"#00FF00",v:.7152},{n:"Blue",c:"#0000FF",v:.0722}] as item}
+    <row align="center">
+      <box size="34px" radius="sm" background={item.c}/>
+      <box width="48px"><text size="sm">{item.n}</text></box>
+      <box flex={1} height="13px" background="surface-tertiary" radius="sm" clip={true}>
+        <box width={`${item.v*100}%`} height="13px" background={item.c} radius="sm"/>
+      </box>
+      <text size="sm" tabularNums={true}>{item.v.toFixed(4)}</text>
+    </row>
+  {/each}
+  <caption>纯红、纯绿、纯蓝的相对亮度不同。绿色分量对相对亮度的贡献最大。</caption>
+</box>
+
+计算公式为：
+
+\[
+L=0.2126R+0.7152G+0.0722B
+\]
+
+需要注意，这里的 R、G、B 并不是直接使用 0～255 的 RGB 数值，而是经过归一化及线性化处理后的数值。
+
+### 3.2 Contrast Ratio（对比度）
+
+获得两个颜色的相对亮度后，可以通过以下公式计算对比度：
+
+\[
+Contrast=\frac{L_1+0.05}{L_2+0.05}
+\]
+
+其中：
+
+\(L_1\) 为较亮颜色的相对亮度，\(L_2\) 为较暗颜色的相对亮度。
+
+对比度范围为 **1:1～21:1**。
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{fg:"#000000",r:"21:1"},{fg:"#333333",r:"12.63:1"},{fg:"#595959",r:"7:1"},{fg:"#767676",r:"4.54:1"},{fg:"#949494",r:"3.03:1"},{fg:"#BBBBBB",r:"1.92:1"},{fg:"#FFFFFF",r:"1:1"}] as p}
+    <row align="center">
+      <box flex={1} background="#FFFFFF" theme="light" border radius="sm" padding={2}>
+        <text color={p.fg} weight="medium">Add to cart</text>
+      </box>
+      <box width="65px"><text size="xs">{p.fg}</text></box>
+      <box width="70px" align="end"><text size="sm" tabularNums={true}>{p.r}</text></box>
+    </row>
+  {/each}
+  <caption>不同灰度文字与纯白背景的对比度，数值为近似值。</caption>
+</box>
+
+### 3.3 使用 JavaScript 实现 WCAG 对比度计算
+
+作为前端开发工程师，你可以自己实现一个颜色对比度检测工具。
+
+```javascript
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16)
+  ];
+}
+
+function toLinear(value) {
+  const channel = value / 255;
+
+  return channel <= 0.04045
+    ? channel / 12.92
+    : Math.pow((channel + 0.055) / 1.055, 2.4);
+}
+
+function getLuminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map(toLinear);
+
+  return (
+    0.2126 * r +
+    0.7152 * g +
+    0.0722 * b
+  );
+}
+
+function getContrastRatio(color1, color2) {
+  const l1 = getLuminance(color1);
+  const l2 = getLuminance(color2);
+
+  return (
+    (Math.max(l1, l2) + 0.05) /
+    (Math.min(l1, l2) + 0.05)
+  );
+}
+
+console.log(
+  getContrastRatio('#767676', '#FFFFFF')
+);
+
+// 约 4.54
+```
+
+这里的代码仅处理六位 HEX 不透明颜色。如果要开发完整的颜色检测工具，还需要支持 RGBA、透明度、颜色空间转换以及背景颜色合成等情况。
+
+## 4. 4.5:1、3:1、7:1 分别适用于什么场景？
+
+这是实际 ADA 审计中必须熟悉的几个数值。
+
+| 内容类型 | AA | AAA |
+|---|---:|---:|
+| 普通文字 | 4.5:1 | 7:1 |
+| 大号文字 | 3:1 | 4.5:1 |
+| 必要的非文本 UI 信息 | 3:1 | — |
+
+WCAG 对大号文字（Large Text）的定义通常是：
+
+- 普通字重：至少 18pt，即 24 CSS px。
+- 粗体文字：至少 14pt，即约 18.67 CSS px。
+
+这些是文字对比度的判断标准，而不是网站必须使用的最小字体大小。<Cite ref="turn851316search5"/>
+
+### 4.1 交互式颜色对比度检测工具
+
+{@body const [foreground,setForeground]=DIL.useState("#999999")}
+{@body const [background,setBackground]=DIL.useState("#FFFFFF")}
+{@body const [fontSize,setFontSize]=DIL.useState(16)}
+{@body const [isBold,setIsBold]=DIL.useState(false)}
+{@body const valid=c=>/^#[0-9a-fA-F]{6}$/.test(c)}
+{@body const fg=valid(foreground)?foreground:"#999999"}
+{@body const bg=valid(background)?background:"#FFFFFF"}
+{@body const lum=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255).map(v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4)).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0)}
+{@body const ratio=(Math.max(lum(fg),lum(bg))+.05)/(Math.min(lum(fg),lum(bg))+.05)}
+{@body const large=fontSize>=24||(isBold&&fontSize>=18.6666666667)}
+<card gap={3}>
+  **WCAG 文字对比度实验室**
+  <grid columns={2}>
+    <grid-item>
+      <label>文字颜色</label>
+      <row align="center">
+        <box size="26px" background={fg} radius="sm" border/>
+        <box flex={1}><input value={foreground} onChange={setForeground} invalid={!valid(foreground)}/></box>
+      </row>
+    </grid-item>
+    <grid-item>
+      <label>背景颜色</label>
+      <row align="center">
+        <box size="26px" background={bg} radius="sm" border/>
+        <box flex={1}><input value={background} onChange={setBackground} invalid={!valid(background)}/></box>
+      </row>
+    </grid-item>
+  </grid>
+  <row align="center">
+    <label>字体大小</label>
+    <spacer/>
+    **{fontSize}px**
+  </row>
+  <slider min={12} max={36} step={1} value={fontSize} onChange={setFontSize} marks={[{value:12,label:"12"},{value:19,label:"19"},{value:24,label:"24"},{value:36,label:"36"}]}/>
+  <checkbox checked={isBold} onChange={setIsBold}>粗体文字（700）</checkbox>
+  <box background={bg} radius="md" border padding={3}>
+    <svg viewBox="0 0 300 105" width="100%">
+      <text x="10" y="41" fontSize={fontSize} fontWeight={isBold?700:400} fill={fg}>New arrivals</text>
+      <text x="10" y="85" fontSize={fontSize} fontWeight={isBold?700:400} fill={fg}>Add to cart</text>
+    </svg>
+  </box>
+  <caption>当前颜色对比度</caption>
+  <title size="2xl" tabularNums={true}>{ratio.toFixed(3)} : 1</title>
+  <caption>当前文字分类：{large?"大号文字":"普通文字"}</caption>
+  {#if !valid(foreground)||!valid(background)}
+    <text color="danger" size="sm">请输入有效的六位 HEX 颜色，当前使用默认颜色计算。</text>
+  {/if}
+  <divider/>
+  {#each [{n:"WCAG AA",min:large?3:4.5},{n:"WCAG AAA",min:large?4.5:7}] as r}
+    <row align="center">
+      **{r.n}**
+      <spacer/>
+      <caption>要求 {r.min}:1</caption>
+      <icon name={ratio>=r.min?"check-circle":"x-circle"} color={ratio>=r.min?"success":"danger"}/>
+      <text size="sm" color={ratio>=r.min?"success":"danger"}>{ratio>=r.min?"通过":"未通过"}</text>
+    </row>
+  {/each}
+  <caption>常见颜色组合</caption>
+  <row wrap="wrap">
+    {#each [{f:"#999999",b:"#FFFFFF",n:"浅灰文字"},{f:"#767676",b:"#FFFFFF",n:"AA 临界灰"},{f:"#333333",b:"#FFFFFF",n:"深灰文字"},{f:"#FFFFFF",b:"#333333",n:"深色按钮"}] as p}
+      <button size="sm" color="secondary" variant="outline" onClick={()=>{setForeground(p.f);setBackground(p.b)}}>{p.n}</button>
+    {/each}
+  </row>
+  <caption>适用于纯色、不透明的 sRGB 颜色。实际判定使用未经四舍五入的对比度。</caption>
+</card>
+
+你可以尝试将文字颜色设置为 `#949494`，背景设置为 `#FFFFFF`，然后分别切换 16px 和 24px 的字体大小。
+
+你会发现，同一个颜色组合可能不满足普通文字的 AA 要求，却满足大号文字的 AA 要求。
+
+### 4.2 哪些文字存在对比度例外？
+
+WCAG 1.4.3 中规定了一些例外，例如：
+
+| 内容 | 是否具有最低文字对比度要求 |
+|---|---|
+| 普通商品名称 | 有 |
+| 商品价格与原价 | 有 |
+| Placeholder 输入提示 | 有 |
+| 正常可用的按钮文字 | 有 |
+| 真正处于不可用状态的控件文字 | 该准则存在例外 |
+| 纯装饰性文字 | 无 |
+| 品牌 Logo 中的文字 | 无 |
+
+例如，一个售罄商品的禁用加购按钮可能适用非活动控件例外，但旁边用于传递库存信息的普通 `Sold out` 文字仍然需要满足适用的对比度要求。
+
+不能为了规避对比度要求，就将普通信息性文字定义为装饰内容。
+
+---
+
+## 5. 透明度、渐变色和背景图片的对比度
+
+前面的计算方法适用于两个不透明纯色。但实际项目中的颜色往往更加复杂。
+
+### 5.1 opacity 对对比度的影响
+
+假设设计稿要求辅助文字使用：
+
+```css
+.product-caption {
+  color: #000000;
+  opacity: 0.4;
+}
+```
+
+虽然文字的 color 是纯黑色，但最终视觉颜色并不是黑色。
+
+在纯白背景上，40% 不透明度的黑色会被合成为 `#999999`，对比度只有约 2.85:1。
+
+{@body const [alpha,setAlpha]=DIL.useState(40)}
+{@body const gray=(1-alpha/100)*255}
+{@body const channel=gray/255}
+{@body const linear=channel<=.04045?channel/12.92:Math.pow((channel+.055)/1.055,2.4)}
+{@body const alphaRatio=1.05/(linear+.05)}
+{@body const hexGray=Math.round(gray).toString(16).padStart(2,"0")}
+<card gap={3}>
+  <row align="center">
+    **黑色文字不透明度**
+    <spacer/>
+    <title size="lg">{alpha}%</title>
+  </row>
+  <slider min={0} max={100} step={1} value={alpha} onChange={setAlpha} marks={[{value:0,label:"0%"},{value:40,label:"40%"},{value:54,label:"54%"},{value:100,label:"100%"}]}/>
+  <box background="#FFFFFF" theme="light" border radius="md" padding={4} gap={2}>
+    <text color={`#${hexGray.repeat(3)}`}>Free shipping on orders over $50.</text>
+    <text color={`#${hexGray.repeat(3)}`} weight="medium">Cotton T-shirt · $29.99</text>
+  </box>
+  <grid columns={2}>
+    <grid-item>
+      <caption>合成颜色（近似）</caption>
+      <row align="center"><box size="24px" background={`#${hexGray.repeat(3)}`} border radius="sm"/><text weight="medium">#{hexGray.repeat(3).toUpperCase()}</text></row>
+    </grid-item>
+    <grid-item>
+      <caption>实际对比度</caption>
+      <title size="xl" color={alphaRatio>=4.5?"success":"danger"}>{alphaRatio.toFixed(2)}:1</title>
+    </grid-item>
+  </grid>
+  <row align="center">
+    <icon name={alphaRatio>=4.5?"check-circle":"x-circle"} color={alphaRatio>=4.5?"success":"danger"}/>
+    <text size="sm">{alphaRatio>=4.5?"满足普通文字 AA 要求":"不满足普通文字 AA 要求"}</text>
+  </row>
+</card>
+
+对于简单的 sRGB 前景和不透明背景，可以使用以下公式理解颜色合成：
+
+\[
+C_{result}=\alpha C_{foreground}+(1-\alpha)C_{background}
+\]
+
+因此，在做颜色审计时，不能只检查 `getComputedStyle(element).color`，还需要考虑透明度、祖先元素 opacity 以及实际背景。
+
+### 5.2 Shopify Dawn 中值得关注的颜色写法
+
+在 Dawn 风格的主题代码中，经常可以看到类似下面的 CSS：
+
+```css
+.caption {
+  color: rgba(var(--color-foreground), 0.75);
+}
+```
+
+这种写法可以根据不同 Color Scheme 自动生成辅助文字颜色。
+
+但是 `0.75` 并不保证任何配色方案都能达到 4.5:1。
+
+例如纯黑前景搭配纯白背景时可能完全达标，而当商家将前景颜色改成浅灰色时，再叠加透明度，就可能出现对比度不足的问题。
+
+因此，**设计系统中不应该只验证基础颜色，还应该验证经过透明度计算后的实际颜色组合。**
+
+### 5.3 渐变色与背景图片
+
+电商首页经常在商品场景图上直接覆盖白色活动文字。
+
+<box border radius="lg" padding={3} gap={3}>
+  <box clip={true} radius="md">
+    <svg viewBox="0 0 340 155" width="100%">
+      <defs>
+        <linearGradient id="hero-bg8">
+          <stop offset="0%" stopColor="#3D3934"/>
+          <stop offset="100%" stopColor="#DED4C3"/>
+        </linearGradient>
+      </defs>
+      <rect width="340" height="155" fill="url(#hero-bg8)"/>
+      <circle cx="270" cy="58" r="50" fill="#E8DDCC" fillOpacity=".7"/>
+      <path d="M0 155 L130 55 L205 155 Z" fill="#A59A88" fillOpacity=".6"/>
+      <text x="170" y="65" fill="white" textAnchor="middle" fontSize="23" fontWeight="bold">WINTER COLLECTION</text>
+      <text x="170" y="93" fill="white" textAnchor="middle" fontSize="13">Discover your everyday essentials</text>
+    </svg>
+  </box>
+  <caption>没有遮罩：左侧文字较清晰，右侧文字可能无法辨认。</caption>
+  <box clip={true} radius="md">
+    <svg viewBox="0 0 340 155" width="100%">
+      <defs>
+        <linearGradient id="hero-bg8b">
+          <stop offset="0%" stopColor="#3D3934"/>
+          <stop offset="100%" stopColor="#DED4C3"/>
+        </linearGradient>
+      </defs>
+      <rect width="340" height="155" fill="url(#hero-bg8b)"/>
+      <circle cx="270" cy="58" r="50" fill="#E8DDCC" fillOpacity=".7"/>
+      <path d="M0 155 L130 55 L205 155 Z" fill="#A59A88" fillOpacity=".6"/>
+      <rect width="340" height="155" fill="#000000" fillOpacity=".58"/>
+      <text x="170" y="65" fill="white" textAnchor="middle" fontSize="23" fontWeight="bold">WINTER COLLECTION</text>
+      <text x="170" y="93" fill="white" textAnchor="middle" fontSize="13">Discover your everyday essentials</text>
+    </svg>
+  </box>
+  <caption>增加遮罩：降低背景亮度，使文字更容易辨认。</caption>
+</box>
+
+常见实现方式：
+
+```css
+.hero {
+  position: relative;
+  isolation: isolate;
+  background: url('banner.jpg') center / cover;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: -1;
+}
+
+.hero__content {
+  color: #fff;
+}
+```
+
+不过，不能只凭经验设置一个遮罩透明度就认为一定达标。还需要考虑不同设备上的图片裁切、轮播图片变化以及商家上传的新图片。
+
+必要时，可以直接为文字区域提供不透明背景。
+
+---
+
+## 6. 非文本对比度（Non-text Contrast）
+
+很多开发人员只检查文字的对比度，却忽略了 UI 控件和图形。
+
+WCAG 1.4.11 AA 要求，用于识别控件、控件状态以及理解图形内容的必要视觉信息，通常需要与相邻颜色达到至少 3:1 的对比度。<Cite ref="turn851316search2"/>
+
+### 6.1 常见电商组件对比
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item><text weight="medium" color="danger">低对比度</text></grid-item>
+    <grid-item><text weight="medium" color="success">改进后</text></grid-item>
+    {#each [{n:"搜索框",kind:0},{n:"复选框",kind:1},{n:"轮播控制",kind:2},{n:"选中状态",kind:3}] as item}
+      {#each [false,true] as good}
+        <grid-item>
+          <box background="#FFFFFF" theme="light" border radius="md" padding={3} gap={2}>
+            {#if item.kind===0}
+              <row border={{size:1,color:good?"#767676":"#DDDDDD"}} radius="sm" padding={2}><icon name="search" color={good?"#595959":"#CCCCCC"}/><text size="xs" color="#595959">Search</text></row>
+            {:else if item.kind===1}
+              <row><box size="18px" border={{size:1,color:good?"#767676":"#DDDDDD"}} radius="sm"/><text color="#333333" size="sm">In stock</text></row>
+            {:else if item.kind===2}
+              <row justify="center">
+                <icon name="chevron-left" color={good?"#595959":"#CCCCCC"} size="xl"/>
+                {#each [0,1,2] as n}
+                  <box size="10px" radius="full" background={n===0?(good?"#333333":"#BBBBBB"):"#EEEEEE"} border={{size:1,color:good?"#767676":"#DDDDDD"}}/>
+                {/each}
+                <icon name="chevron-right" color={good?"#595959":"#CCCCCC"} size="xl"/>
+              </row>
+            {:else}
+              <row align="center" justify="center">
+                <box size="37px" border={{size:2,color:good?"#333333":"#EEEEEE"}} radius="full" align="center" justify="center">
+                  <box background="#DBCAAE" size="26px" radius="full" align="center" justify="center">
+                    {#if good}<icon name="check" color="#333333" size="sm"/>{/if}
+                  </box>
+                </box>
+                <box size="26px" background="#8795A4" radius="full"/>
+              </row>
+            {/if}
+          </box>
+          <caption>{item.n}</caption>
+        </grid-item>
+      {/each}
+    {/each}
+  </grid>
+</box>
+
+注意，并不是所有边框、阴影和装饰线都必须满足 3:1。
+
+例如一个具有清晰文字的按钮，即使没有边框，用户仍然能够识别它时，边框本身可能不是必要的识别信息。
+
+但是如果一个输入框完全依赖浅灰色边框来表达其位置和范围，那么这个边框就非常重要。
+
+### 6.2 Focus、Hover、Selected 状态
+
+以下状态都需要纳入设计审查：
+
+| 状态 | 关注点 |
+|---|---|
+| Default | 控件能否被识别 |
+| Hover | 悬停后必要内容是否仍然清晰 |
+| Focus | 用户能否判断当前焦点位置 |
+| Selected | 用户能否辨别当前选项 |
+| Error | 用户能否识别错误状态 |
+| Disabled | 用户能否理解控件不可用 |
+
+WCAG 1.4.11 并没有要求任意两个状态之间都必须达到 3:1。
+
+例如，按钮默认背景与 hover 背景之间不一定要达到 3:1。需要检查的是必要的视觉指示与相邻颜色之间的对比度，以及其他适用准则。
+
+---
+
+## 7. 不要仅依靠颜色传递信息
+
+这是 WCAG 1.4.1 Level A 的要求。
+
+一个 UI 即使所有颜色都满足对比度要求，也可能存在颜色使用方面的无障碍问题。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      **仅颜色表达**
+      <box border radius="md" padding={3} gap={2}>
+        {#each ["S","M","L","XL"] as s,i}
+          <row><text color={i===2?"#BC3535":"#277B4D"}>{s}</text><spacer/><box size="12px" radius="full" background={i===2?"#BC3535":"#277B4D"}/></row>
+        {/each}
+      </box>
+      <caption>必须区分红色和绿色才能了解库存。</caption>
+    </grid-item>
+    <grid-item>
+      **颜色 + 文字**
+      <box border radius="md" padding={3} gap={2}>
+        {#each ["S","M","L","XL"] as s,i}
+          <row align="center">
+            **{s}**
+            <spacer/>
+            <icon name={i===2?"x-circle":"check-circle"} color={i===2?"danger":"success"} size="sm"/>
+            <text size="sm">{i===2?"Sold out":"In stock"}</text>
+          </row>
+        {/each}
+      </box>
+      <caption>无需判断具体颜色，也能了解库存状态。</caption>
+    </grid-item>
+  </grid>
+</box>
+
+实际项目中，可以通过文字、图标、下划线、不同形状、边框变化等方式提供额外的视觉信息。
+
+特别是正文中的链接，最简单可靠的方案是提供下划线：
+
+```css
+.rte a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+```
+
+如果采用没有下划线的彩色正文链接，需要额外评估它与周围文字之间的区分度以及焦点、悬停等非颜色提示。
+
+并不是所有链接都必须带下划线。例如独立的导航菜单，通常已经具有明确的导航上下文。
+
+---
+
+## 8. px、rem、em 与无障碍之间的关系
+
+这是前端开发中一个很常见的问题：
+
+**使用 px 是否违反 ADA？使用 rem 是否就一定符合 ADA？**
+
+答案都是：否。
+
+WCAG 并没有禁止使用 px，也没有强制要求使用 rem。它关注的是用户放大文字之后，是否仍然能够获取完整信息和使用网站功能。
+
+### 8.1 CSS 单位的区别
+
+| 单位 | 计算依据 |
+|---|---|
+| `px` | CSS 像素 |
+| `rem` | 根元素的字体大小 |
+| `em` | 当前元素或父元素字体大小，取决于具体属性 |
+| `%` | 相应属性的百分比参考值 |
+| `vw` | 视口宽度 |
+| `vh` | 视口高度 |
+| `ch` | 当前字体中数字 0 的字形宽度 |
+
+假设浏览器默认字体大小为 16px：
+
+```css
+html {
+  font-size: 100%;
+}
+
+.title {
+  font-size: 1.5rem;
+}
+
+.description {
+  font-size: 16px;
+}
+```
+
+此时 title 为 24px，description 为 16px。
+
+如果用户在浏览器设置中，将默认字体大小调整为 20px：
+
+- title 变为 30px。
+- description 仍然是 16 CSS px。
+
+这就是 rem 在尊重用户默认字体偏好方面的优势。
+
+### 8.2 字体单位交互实验
+
+{@body const [rootFont,setRootFont]=DIL.useState(16)}
+<card gap={3}>
+  <row align="center">
+    **浏览器默认字体大小**
+    <spacer/>
+    <title size="lg">{rootFont}px</title>
+  </row>
+  <slider min={12} max={32} step={1} value={rootFont} onChange={setRootFont} marks={[{value:12,label:"12"},{value:16,label:"16 默认"},{value:24,label:"24"},{value:32,label:"32"}]}/>
+  {#each [{name:"font-size: 16px",v:16},{name:"font-size: 1rem",v:rootFont},{name:"font-size: 1.5rem",v:rootFont*1.5}] as f}
+    <box border radius="md" padding={3} gap={2}>
+      <row align="center">
+        <caption>{f.name}</caption>
+        <spacer/>
+        **{f.v}px**
+      </row>
+      <svg viewBox="0 0 310 65" width="100%">
+        <text x="4" y={Math.max(35,f.v)} fontSize={f.v} fill="currentColor">New arrivals</text>
+      </svg>
+    </box>
+  {/each}
+  <caption>模拟修改浏览器默认字体大小，而不是浏览器页面缩放。两者是不同的机制。</caption>
+</card>
+
+### 8.3 浏览器 Zoom 与修改根字体大小的区别
+
+假设 CSS 如下：
+
+```css
+html {
+  font-size: 16px;
+}
+
+.title {
+  font-size: 24px;
+}
+
+.button {
+  font-size: 1rem;
+}
+```
+
+如果用户通过 `Ctrl + +` 将浏览器页面放大到 200%，那么通常 px 和 rem 对应的视觉尺寸都会放大。
+
+因此，不能认为使用 px 的文字在浏览器中无法缩放。
+
+| 用户操作 | px 文字 | rem 文字 |
+|---|---|---|
+| 浏览器页面 Zoom | 视觉上放大 | 视觉上放大 |
+| 浏览器默认字体调整 | 通常不变 | 根字号采用相对值时会变化 |
+| 修改根元素 font-size | 不变 | 随根字号变化 |
+
+我的建议是：
+
+在 Theme 开发中优先使用 rem 控制文字和需要随文字变化的布局尺寸，而边框、细线等适合使用 px 的属性可以继续使用 px。
+
+不要为了无障碍而机械地将所有 CSS 单位转换成 rem。
+
+### 8.4 使用 vw 实现响应式字体的风险
+
+例如：
+
+```css
+.hero-title {
+  font-size: 4vw;
+}
+```
+
+这种写法存在一个潜在问题：当用户进行浏览器缩放时，CSS 视口宽度可能同时缩小，导致字体计算值下降，抵消部分缩放效果。
+
+更合理的响应式字体方案：
+
+```css
+.hero-title {
+  font-size: clamp(
+    1.5rem,
+    1rem + 2vw,
+    3rem
+  );
+}
+```
+
+使用相对字体单位与视口单位结合，能够提供更灵活的缩放能力。
+
+不过，使用 clamp 也不代表一定达标，仍然需要实际进行 200% 缩放测试。
+
+---
+
+## 9. WCAG 1.4.4：200% 文字缩放
+
+Resize Text，Level AA。
+
+除了字幕和文字图片等规定例外，文字需要能够放大至 200%，同时不丢失内容或功能。<Cite ref="turn851316search8"/>
+
+### 9.1 最常见的问题：固定高度
+
+例如：
+
+```css
+.product-title {
+  font-size: 16px;
+  line-height: 24px;
+  height: 24px;
+  overflow: hidden;
+}
+```
+
+在默认字号下没有问题，但当用户将字体放大时，文字可能被裁切。
+
+{@body const [zoom,setZoom]=DIL.useState(100)}
+<card gap={3}>
+  <row align="center">
+    **模拟文字缩放**
+    <spacer/>
+    <title size="xl">{zoom}%</title>
+  </row>
+  <slider min={100} max={200} step={10} value={zoom} onChange={setZoom} marks={[{value:100,label:"100%"},{value:150,label:"150%"},{value:200,label:"200%"}]}/>
+  <box border radius="md" padding={3} gap={2}>
+    **固定高度 height: 24px**
+    <svg viewBox="0 0 300 72" width="100%">
+      <defs><clipPath id="fixedtext8"><rect x="8" y="16" width="284" height="24"/></clipPath></defs>
+      <rect x="8" y="16" width="284" height="24" rx="2" stroke="#BA5555" strokeDasharray="3 2" fill="#BA5555" fillOpacity=".06"/>
+      <text x="12" y={16+16*zoom/100} fontSize={16*zoom/100} fill="currentColor" clipPath="url(#fixedtext8)">Cotton T-shirt</text>
+      <text x="12" y="58" fontSize="10" fill="#BA5555">height: 24px; overflow: hidden</text>
+    </svg>
+    <caption>高度不随字体变化，放大后可能丢失文字。</caption>
+  </box>
+  <box border radius="md" padding={3} gap={2}>
+    **自适应高度 min-height: 24px**
+    <svg viewBox="0 0 300 88" width="100%">
+      <rect x="8" y="8" width="284" height={24*zoom/100+8} rx="2" stroke="#39866B" strokeDasharray="3 2" fill="#39866B" fillOpacity=".06"/>
+      <text x="12" y={12+16*zoom/100} fontSize={16*zoom/100} fill="currentColor">Cotton T-shirt</text>
+      <text x="12" y="80" fontSize="10" fill="#39866B">min-height: 24px; height: auto</text>
+    </svg>
+    <caption>容器根据文字内容自动增长。</caption>
+  </box>
+</card>
+
+推荐改为：
+
+```css
+.product-title {
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}
+```
+
+其中 `line-height: 1.5` 是无单位的行高，可以随字体大小变化。
+
+### 9.2 按钮高度也需要注意
+
+不推荐：
+
+```css
+.button {
+  height: 44px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+```
+
+推荐：
+
+```css
+.button {
+  min-height: 44px;
+  height: auto;
+
+  padding: 0.75em 1.25em;
+  line-height: 1.5;
+
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+```
+
+这样当用户放大字体，或者网站从英文切换到文字更长的德语时，按钮可以根据内容自动调整高度。
+
+### 9.3 text-overflow: ellipsis 可以使用吗？
+
+可以，但必须考虑完整信息是否仍然可获得。
+
+```css
+.product-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+```
+
+例如下面的商品标题：
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="start">
+    <box size="75px" background="#D8CCBA" radius="md" align="center" justify="center">
+      <svg viewBox="0 0 70 70" width="65px">
+        <path d="M23 8 L5 21 L15 35 L23 29 V62 H47 V29 L55 35 L65 21 L47 8 L40 14 H30 Z" fill="#89745D"/>
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      <text weight="medium" maxLines={1} truncate={true}>Premium Organic Cotton Oversized Crew Neck T-shirt</text>
+      **$29.99**
+      <caption>单行省略效果</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box size="75px" background="#D8CCBA" radius="md" align="center" justify="center">
+      <svg viewBox="0 0 70 70" width="65px">
+        <path d="M23 8 L5 21 L15 35 L23 29 V62 H47 V29 L55 35 L65 21 L47 8 L40 14 H30 Z" fill="#89745D"/>
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Premium Organic Cotton Oversized Crew Neck T-shirt**
+      **$29.99**
+      <caption>允许标题自然换行</caption>
+    </box>
+  </row>
+</box>
+
+如果商品标题在放大后被截断，且用户没有方便的方式获取完整名称，就可能存在问题。
+
+也不建议仅仅依靠 `title` 属性补充完整内容，因为原生 title 提示在键盘、触摸设备以及辅助技术中的可用性存在局限。
+
+---
+
+## 10. WCAG 1.4.10：Reflow 内容重排
+
+Reflow 是响应式开发中最重要的无障碍准则之一。
+
+它要求，对于常规横向书写、纵向滚动的网页，在相当于 **320 CSS px 宽度**的情况下，用户应当能够获取完整内容和使用功能，而不需要同时进行横向与纵向滚动。
+
+对于横向滚动的内容，规范还有相应的高度要求。地图、数据表格等确实需要二维布局的内容存在例外。<Cite ref="turn851316search6"/>
+
+### 10.1 为什么是 320 CSS px？
+
+假设浏览器视口初始宽度为 1280 CSS px。
+
+随着页面缩放比例增加，可用的 CSS 视口宽度通常会相应减少。
+
+{@body const [pageZoom,setPageZoom]=DIL.useState(100)}
+{@body const viewport=Math.round(1280/(pageZoom/100))}
+<card gap={3}>
+  <caption>初始浏览器视口宽度：1280 CSS px</caption>
+  <row align="center">
+    <text weight="medium">浏览器缩放比例</text>
+    <spacer/>
+    <title size="xl">{pageZoom}%</title>
+  </row>
+  <slider min={100} max={400} step={25} value={pageZoom} onChange={setPageZoom} marks={[{value:100,label:"100%"},{value:200,label:"200%"},{value:300,label:"300%"},{value:400,label:"400%"}]}/>
+  <caption>理论可用 CSS 视口宽度</caption>
+  <title size="2xl" tabularNums={true}>{viewport} px</title>
+  <box border radius="md" padding={3} align="center">
+    <box width={`${viewport/1280*100}%`} minWidth="70px" border radius="sm" clip={true} gap={1}>
+      <box background="surface-tertiary" padding={1}>
+        <text size="xs">STORE</text>
+      </box>
+      <grid columns={viewport>=900?4:viewport>=600?3:viewport>=400?2:1} gap={1}>
+        {#each [0,1,2,3] as n}
+          <grid-item>
+            <box padding={1} gap={1}>
+              <svg viewBox="0 0 75 52" width="100%">
+                <rect width="75" height="52" rx="2" fill="#DFD6C8"/>
+                <path d="M25 5 L10 15 L18 28 L25 23 V47 H50 V23 L57 28 L65 15 L50 5 L44 10 H31 Z" fill={["#484848","#9F8B72","#788A9A","#AFAFAF"][n]}/>
+              </svg>
+              <box height="5px" width="85%" background="surface-tertiary" radius="sm"/>
+              <box height="4px" width="45%" background="surface-tertiary" radius="sm"/>
+            </box>
+          </grid-item>
+        {/each}
+      </grid>
+    </box>
+  </box>
+  <caption>示意响应式布局如何随着 CSS 视口缩小而重新排列，不代表真实浏览器的物理显示尺寸。</caption>
+  <button block variant="outline" color="secondary" onClick={()=>setPageZoom(400)}>模拟 400% 缩放测试</button>
+</card>
+
+在初始宽度为 1280 CSS px 时，400% 页面缩放对应 320 CSS px。
+
+这也是为什么无障碍测试中经常出现两个不同的缩放比例。
+
+| 准则 | 测试重点 |
+|---|---|
+| 1.4.4 Resize Text | 200% 文字放大后不丢失内容与功能 |
+| 1.4.10 Reflow | 相当于 320 CSS px 宽度时不需要双向滚动 |
+
+两条准则需要分别理解和验证。
+
+### 10.2 Shopify 商品详情页的 Reflow
+
+<box border radius="lg" padding={3} gap={3}>
+  <caption>宽屏布局</caption>
+  <box border radius="md" padding={2}>
+    <row align="start">
+      <box flex={1} background="#E2D9CB" radius="sm" padding={3}>
+        <svg viewBox="0 0 130 125" width="100%">
+          <path d="M44 10 L12 28 L28 52 L44 42 V115 H86 V42 L102 52 L118 28 L86 10 L76 18 H54 Z" fill="#867461"/>
+        </svg>
+      </box>
+      <box flex={1} gap={2}>
+        **Cotton T-shirt**
+        $29.99
+        <caption>Color: Beige</caption>
+        <row>
+          {#each ["#A58D72","#333333","#72869D"] as c}
+            <box size="15px" background={c} radius="full"/>
+          {/each}
+        </row>
+        <caption>Size</caption>
+        <row gap={1}>
+          {#each ["S","M","L"] as s}
+            <box flex={1} border radius="sm" padding={1} align="center"><text size="xs">{s}</text></box>
+          {/each}
+        </row>
+        <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text color="#FFFFFF" size="xs">Add to cart</text></box>
+      </box>
+    </row>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>缩小 CSS 视口宽度</caption></box>
+  <box align="center">
+    <box width="180px" border radius="md" padding={2} gap={2}>
+      <box background="#E2D9CB" radius="sm" padding={3}>
+        <svg viewBox="0 0 130 100" width="100%">
+          <path d="M44 5 L12 22 L28 46 L44 36 V95 H86 V36 L102 46 L118 22 L86 5 L76 13 H54 Z" fill="#867461"/>
+        </svg>
+      </box>
+      **Cotton T-shirt**
+      $29.99
+      <caption>Color: Beige</caption>
+      <row>
+        {#each ["#A58D72","#333333","#72869D"] as c}
+          <box size="19px" background={c} radius="full"/>
+        {/each}
+      </row>
+      <caption>Size</caption>
+      <row gap={1}>
+        {#each ["S","M","L"] as s}
+          <box border flex={1} radius="sm" padding={1} align="center">{s}</box>
+        {/each}
+      </row>
+      <box background="#333333" theme="dark" radius="sm" padding={2} align="center"><text color="#FFFFFF" size="sm">Add to cart</text></box>
+    </box>
+    <caption>窄屏布局：图片、信息和操作区域纵向排列</caption>
+  </box>
+</box>
+
+推荐使用 CSS Grid 实现：
+
+```css
+.product {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+
+  gap: 2rem;
+}
+
+@media (max-width: 750px) {
+  .product {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.product__media img {
+  max-width: 100%;
+  height: auto;
+}
+```
+
+### 10.3 Flex 和 Grid 布局的一个常见陷阱
+
+即使已经使用 Flex 或 Grid，也可能发生横向溢出。
+
+```css
+.product {
+  display: flex;
+}
+
+.product__media {
+  flex: 1;
+}
+
+.product__info {
+  flex: 1;
+}
+```
+
+如果 `.product__info` 中包含非常长的商品名称、URL 或其他不可断开的内容，默认的自动最小尺寸可能导致 Flex 子元素无法正常缩小。
+
+可以考虑：
+
+```css
+.product__info {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+```
+
+Grid 布局中也有类似的问题。
+
+```css
+/* 可能受内容最小尺寸影响 */
+grid-template-columns: 1fr 1fr;
+
+/* 允许轨道进一步缩小 */
+grid-template-columns:
+  minmax(0, 1fr)
+  minmax(0, 1fr);
+```
+
+这是响应式开发和 CSS 无障碍中非常实用的技巧。
+
+### 10.4 不要用 overflow-x: hidden 掩盖布局问题
+
+很多开发人员发现移动端出现横向滚动后，会直接添加：
+
+```css
+body {
+  overflow-x: hidden;
+}
+```
+
+这可能只是隐藏了溢出内容，并没有解决布局问题。
+
+例如 Checkout 按钮的一部分已经超出屏幕，使用 overflow-x: hidden 后，用户甚至无法滚动到被裁切的按钮区域。
+
+应该先找到产生溢出的具体元素，再修复其宽度、最小尺寸、定位或文字换行规则。
+
+---
+
+## 11. WCAG 1.4.12：Text Spacing 文字间距
+
+这一条准则经常被前端开发人员忽略。
+
+某些低视力、阅读障碍用户会通过浏览器扩展、辅助技术或者自定义样式，增加文字之间的间距，从而改善阅读体验。
+
+WCAG 1.4.12 AA 要求，当用户同时将适用的文字间距调整到以下数值时，内容和功能不应丢失。
+
+| 属性 | 测试值 |
+|---|---:|
+| 行高 line-height | 至少字体大小的 1.5 倍 |
+| 段落间距 | 至少字体大小的 2 倍 |
+| 字符间距 letter-spacing | 至少字体大小的 0.12 倍 |
+| 单词间距 word-spacing | 至少字体大小的 0.16 倍 |
+
+需要特别注意：**这不是要求所有网站默认使用这些文字间距，而是要求网站能够适应用户进行这样的调整。** 对于不使用某些间距形式的语言或书写系统，也有相应例外。
+
+### 11.1 文字间距效果对比
+
+{@body const [spacing,setSpacing]=DIL.useState(false)}
+<card gap={3}>
+  <checkbox checked={spacing} onChange={setSpacing}>应用 WCAG Text Spacing 测试样式</checkbox>
+  <box border radius="md" padding={3}>
+    <svg viewBox="0 0 310 210" width="100%">
+      <text x="5" y="22" fontWeight="600" fontSize="19" fill="currentColor">Product details</text>
+      {#each (spacing?["Made from soft cotton.","Designed for comfort","and everyday wear."]:["Made from soft cotton. Designed","for comfort and everyday wear."]) as line,i}
+        <text x="5" y={50+i*(spacing?24:20)} fontSize="15" fill="currentColor" letterSpacing={spacing?1.8:0} wordSpacing={spacing?2.4:0}>{line}</text>
+      {/each}
+      <text x="5" y={spacing?147:106} fontSize="15" fill="currentColor" letterSpacing={spacing?1.8:0} wordSpacing={spacing?2.4:0}>Machine wash cold.</text>
+      <rect x="5" y={spacing?169:128} width="300" height="36" rx="5" fill="#333333"/>
+      <text x="155" y={spacing?191:150} fontSize="15" fill="white" textAnchor="middle" letterSpacing={spacing?1.8:0} wordSpacing={spacing?2.4:0}>Add to cart</text>
+    </svg>
+  </box>
+  {#each [{n:"line-height",v:spacing?"1.5":"默认"},{n:"paragraph spacing",v:spacing?"2em":"默认"},{n:"letter-spacing",v:spacing?"0.12em":"默认"},{n:"word-spacing",v:spacing?"0.16em":"默认"}] as p}
+    <row><caption>{p.n}</caption><spacer/><text size="sm">{p.v}</text></row>
+  {/each}
+  <caption>模拟文字间距变化对布局的影响。</caption>
+</card>
+
+### 11.2 在 Chrome 中测试文字间距
+
+可以通过 DevTools Console 临时注入以下测试样式：
+
+```javascript
+const style = document.createElement('style');
+
+style.id = 'wcag-text-spacing-test';
+
+style.textContent = `
+  * {
+    line-height: 1.5 !important;
+    letter-spacing: 0.12em !important;
+    word-spacing: 0.16em !important;
+  }
+
+  p {
+    margin-bottom: 2em !important;
+  }
+`;
+
+document.head.appendChild(style);
+```
+
+然后检查整个网站，尤其是：
+
+- 商品标题、价格和促销标签。
+- Header 导航菜单和 Mega Menu。
+- 商品颜色、尺寸选择器。
+- Cart Drawer、Modal 和 Tooltip。
+- 表单按钮和错误提示。
+
+测试完成后，可以移除样式：
+
+```javascript
+document
+  .getElementById('wcag-text-spacing-test')
+  ?.remove();
+```
+
+这是一种快速人工测试方法，并不代表自动完成 WCAG 合规检测。
+
+---
+
+## 12. Focus Visible：焦点样式设计
+
+在 CSS 开发中，以下代码非常常见：
+
+```css
+button:focus {
+  outline: none;
+}
+```
+
+很多设计师不喜欢点击按钮后出现浏览器默认的焦点边框，于是开发人员直接移除了 outline。
+
+但是，这会影响键盘用户识别当前焦点位置。
+
+### 12.1 :focus、:focus-visible、:focus-within 的区别
+
+| 选择器 | 触发条件 |
+|---|---|
+| `:focus` | 元素当前获得焦点 |
+| `:focus-visible` | 元素获得焦点，且浏览器判断需要显示焦点指示 |
+| `:focus-within` | 元素自身或其后代获得焦点 |
+
+`:focus-visible` 并不简单等于键盘焦点。例如鼠标点击文本输入框时，也可能匹配 `:focus-visible`。
+
+{@body const [activeFocus,setActiveFocus]=DIL.useState(1)}
+{@body const [showOutline,setShowOutline]=DIL.useState(true)}
+<card gap={3}>
+  **键盘焦点样式模拟**
+  <checkbox checked={showOutline} onChange={setShowOutline}>启用自定义 focus-visible 样式</checkbox>
+  <box background="#FFFFFF" theme="light" border radius="md" padding={4} gap={3}>
+    {#each ["View product","Add to cart","Continue shopping"] as label,i}
+      <box border={{size:3,color:activeFocus===i&&showOutline?"#005FCC":"transparent"}} radius="md" padding={1}>
+        <box background="#333333" radius="sm" padding={3} align="center">
+          <text color="#FFFFFF">{label}</text>
+        </box>
+      </box>
+    {/each}
+  </box>
+  <grid columns={2}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>setActiveFocus(v=>(v+2)%3)}>Shift + Tab</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>setActiveFocus(v=>(v+1)%3)}>Tab</button></grid-item>
+  </grid>
+  <caption>尝试关闭焦点样式，再点击模拟 Tab，观察是否还能从视觉上识别当前操作位置。</caption>
+</card>
+
+### 12.2 推荐的全局焦点样式
+
+```css
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+```
+
+对于输入框外层的焦点反馈，可以使用：
+
+```css
+.field:focus-within {
+  border-color: var(--color-focus);
+}
+```
+
+但 `:focus-within` 不一定能够替代内部交互控件的焦点指示。例如一个搜索框同时包含输入框、清空按钮和搜索按钮时，用户仍然需要知道焦点具体位于哪个元素。
+
+### 12.3 outline、border、box-shadow 有什么区别？
+
+| 实现方式 | 特点 |
+|---|---|
+| outline | 通常不影响布局尺寸 |
+| border | 可能影响布局或内容区域 |
+| box-shadow | 灵活，但高对比度模式下可能被移除 |
+
+一般推荐以 outline 作为基础焦点样式，再根据组件设计进行调整。
+
+另外，需要区分三个不同的 WCAG 准则：
+
+| 准则 | 等级 | 关注点 |
+|---|---|---|
+| 2.4.7 | AA | 焦点是否可见 |
+| 2.4.11 | AA | 焦点组件是否被完全遮挡 |
+| 2.4.13 | AAA | 焦点指示的面积与对比度变化 |
+
+并不是 WCAG AA 强制所有组件必须拥有 2px 的焦点边框。
+
+---
+
+## 13. Forced Colors 高对比度模式
+
+这是 CSS 无障碍中一个比较高级、却非常实用的知识点。
+
+Windows 用户可以通过系统设置启用 Contrast Themes（对比度主题）。
+
+在支持的浏览器中，这可能激活 CSS 的 Forced Colors Mode。
+
+它会使用用户指定的系统颜色替换网页中的部分颜色。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <caption>普通网页模式</caption>
+      <box background="#F5F2EC" theme="light" radius="md" padding={3} gap={2}>
+        <title color="#333333" size="lg">Your cart</title>
+        <text color="#595959" size="sm">Cotton T-shirt</text>
+        <text color="#333333">$29.99</text>
+        <box background="#9B8063" radius="sm" padding={2} align="center"><text color="#FFFFFF" size="sm">Checkout</text></box>
+        <text color="#705B44" underline={true} size="sm">Continue shopping</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <caption>Forced Colors 模式示意</caption>
+      <box background="#000000" theme="dark" radius="md" padding={3} gap={2}>
+        <title color="#FFFFFF" size="lg">Your cart</title>
+        <text color="#FFFFFF" size="sm">Cotton T-shirt</text>
+        <text color="#FFFFFF">$29.99</text>
+        <box background="#000000" border={{size:1,color:"#FFFFFF"}} radius="sm" padding={2} align="center"><text color="#FFFFFF" size="sm">Checkout</text></box>
+        <text color="#FFFF00" underline={true} size="sm">Continue shopping</text>
+      </box>
+    </grid-item>
+  </grid>
+  <caption>实际颜色取决于用户所选择的系统对比度主题，并不固定为黑底黄字。</caption>
+</box>
+
+### 13.1 检测 Forced Colors
+
+```css
+@media (forced-colors: active) {
+  /* 高对比度模式下的样式 */
+}
+```
+
+JavaScript 也可以检测：
+
+```javascript
+const forcedColors = window.matchMedia(
+  '(forced-colors: active)'
+);
+
+console.log(forcedColors.matches);
+```
+
+### 13.2 为什么 box-shadow 可能失效？
+
+在 Forced Colors 模式中，浏览器可能强制将 `box-shadow` 设置为 none。<Cite ref="turn851316search0"/>
+
+例如：
+
+```css
+.button {
+  border: none;
+  box-shadow: 0 0 0 1px #999;
+}
+```
+
+如果按钮完全依赖阴影来表示边界，那么开启高对比度模式后，边界可能消失。
+
+推荐提供必要的系统颜色边框：
+
+```css
+@media (forced-colors: active) {
+  .button {
+    border: 1px solid ButtonText;
+  }
+
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 3px;
+  }
+}
+```
+
+### 13.3 CSS System Colors
+
+CSS 提供了一系列能够适应用户系统颜色配置的关键字。
+
+| 系统颜色 | 用途 |
+|---|---|
+| `Canvas` | 页面背景 |
+| `CanvasText` | 页面文字 |
+| `ButtonFace` | 按钮背景 |
+| `ButtonText` | 按钮文字 |
+| `LinkText` | 链接文字 |
+| `Highlight` | 高亮区域 |
+| `HighlightText` | 高亮区域文字 |
+| `GrayText` | 禁用状态文字 |
+| `Field` | 表单控件背景 |
+| `FieldText` | 表单控件文字 |
+
+使用这些颜色，可以更好地适配用户选择的高对比度主题。<Cite ref="turn851316search12"/>
+
+### 13.4 SVG 图标使用 currentColor
+
+推荐：
+
+```html
+<svg
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  aria-hidden="true"
+>
+  <path d="..."></path>
+</svg>
+```
+
+```css
+.icon-button {
+  color: var(--color-foreground);
+}
+```
+
+这样 SVG 可以跟随父元素的文字颜色，包括系统颜色调整。
+
+相比之下，将图标颜色全部硬编码为固定色值，可能降低组件在不同配色方案中的适应能力。
+
+### 13.5 商品颜色 Swatch 的特殊处理
+
+Forced Colors 可能替换颜色选择器的背景色，导致不同商品颜色看起来完全一样。
+
+这种场景下，可以有针对性地保留商品本身的颜色信息：
+
+```css
+@media (forced-colors: active) {
+  .swatch-color {
+    forced-color-adjust: none;
+  }
+
+  .swatch input:checked + .swatch-color {
+    outline: 2px solid Highlight;
+    outline-offset: 3px;
+  }
+
+  .swatch input:focus-visible + .swatch-color {
+    outline: 2px dashed ButtonText;
+    outline-offset: 5px;
+  }
+}
+```
+
+同时保留可访问名称、可见颜色文字及明确的选中状态。
+
+不要给整个网站设置：
+
+```css
+* {
+  forced-color-adjust: none;
+}
+```
+
+这样可能破坏用户主动选择的高对比度显示方式。
+
+### 13.6 如何使用 Chrome DevTools 测试？
+
+打开 DevTools，通过命令菜单搜索 `Show Rendering`，在 Rendering 面板中寻找 Forced Colors 媒体特性的模拟选项。
+
+<box border radius="lg" padding={3} gap={2}>
+  <row align="center">
+    <icon name="settings" color="secondary"/>
+    **Rendering**
+  </row>
+  <divider/>
+  <caption>Emulate CSS media feature prefers-color-scheme</caption>
+  <row border radius="sm" padding={2}>
+    <text size="sm">No emulation</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <caption>Emulate CSS media feature prefers-reduced-motion</caption>
+  <row border radius="sm" padding={2}>
+    <text size="sm">No emulation</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <caption>Emulate CSS media feature forced-colors</caption>
+  <row border={{size:2,color:"#5185C5"}} radius="sm" padding={2}>
+    <text size="sm">forced-colors: active</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <caption>DevTools 面板示意，具体界面随浏览器版本变化。</caption>
+</box>
+
+最终还应该在真实的 Windows 对比度主题环境中进行测试。
+
+---
+
+## 14. 移动端缩放与屏幕方向
+
+### 14.1 不要禁止用户缩放
+
+以下 viewport 配置不推荐：
+
+```html
+<meta
+  name="viewport"
+  content="
+    width=device-width,
+    initial-scale=1,
+    maximum-scale=1,
+    user-scalable=no
+  "
+>
+```
+
+它可能阻止部分浏览器中的用户缩放功能。
+
+推荐：
+
+```html
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
+```
+
+一些现代移动浏览器会忽略限制用户缩放的配置，但开发人员不应该依赖这种行为来实现无障碍。
+
+### 14.2 Orientation 屏幕方向
+
+WCAG 1.3.4 AA 要求，除非某个方向对于功能具有不可替代的必要性，否则不应该将内容的查看和操作限制在横屏或竖屏。
+
+<grid columns={2}>
+  <grid-item>
+    <box align="center" padding={3} gap={2}>
+      <svg viewBox="0 0 120 140" width="120px">
+        <rect x="24" y="4" width="72" height="132" rx="10" fill="none" stroke="currentColor" strokeWidth="2"/>
+        <rect x="30" y="15" width="60" height="109" rx="3" fill="#888888" fillOpacity=".12"/>
+        <rect x="36" y="26" width="48" height="42" rx="2" fill="#B9AB96"/>
+        <path d="M37 79 H83 M37 88 H68 M37 97 H79" stroke="currentColor" strokeOpacity=".5" strokeWidth="3"/>
+        <rect x="36" y="106" width="48" height="10" rx="2" fill="#39866B"/>
+      </svg>
+      **Portrait**
+      <caption>竖屏</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box align="center" padding={3} gap={2}>
+      <svg viewBox="0 0 120 140" width="120px">
+        <rect x="3" y="35" width="114" height="69" rx="9" fill="none" stroke="currentColor" strokeWidth="2"/>
+        <rect x="11" y="40" width="98" height="59" rx="3" fill="#888888" fillOpacity=".12"/>
+        <rect x="17" y="47" width="39" height="46" rx="2" fill="#B9AB96"/>
+        <path d="M62 51 H101 M62 60 H90 M62 69 H98" stroke="currentColor" strokeOpacity=".5" strokeWidth="3"/>
+        <rect x="62" y="81" width="40" height="12" rx="2" fill="#39866B"/>
+      </svg>
+      **Landscape**
+      <caption>横屏</caption>
+    </box>
+  </grid-item>
+</grid>
+
+对于 Shopify 电商网站，一般没有理由强制用户只能在竖屏下购物。
+
+---
+
+## 15. Shopify 实战：建立无障碍 Color Scheme 与 Design Token
+
+前面学习的内容最终应该落实到整个 Theme 的设计体系，而不是逐个组件修复。
+
+假设我们正在开发一个支持多套 Color Scheme 的 Shopify Theme。
+
+Shopify 的主题设置可以向商家提供颜色、颜色方案等可配置项。支持的具体设置类型取决于主题实现。<Cite refs={["turn851316search25","turn851316search31"]}/>
+
+### 15.1 不推荐的颜色管理方式
+
+```css
+.product-title {
+  color: #333;
+}
+
+.product-price {
+  color: #666;
+}
+
+.product-description {
+  color: #999;
+}
+
+.cart-button {
+  background: #c9b8a4;
+  color: #fff;
+}
+```
+
+这种写法的问题在于：
+
+颜色分散在不同组件中，难以统一维护。商家切换深色 Color Scheme 后，还可能出现深色文字配深色背景的问题。
+
+### 15.2 推荐的语义化 Design Token
+
+```css
+:root {
+  --color-background: #ffffff;
+
+  --color-text-primary: #222222;
+  --color-text-secondary: #595959;
+  --color-text-muted: #767676;
+
+  --color-border: #767676;
+
+  --color-button-background: #222222;
+  --color-button-text: #ffffff;
+
+  --color-link: #005fcc;
+  --color-focus: #005fcc;
+
+  --color-error: #b00020;
+  --color-success: #176b3a;
+}
+```
+
+深色方案：
+
+```css
+.color-scheme-dark {
+  --color-background: #171717;
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #cccccc;
+  --color-text-muted: #aaaaaa;
+
+  --color-border: #888888;
+
+  --color-button-background: #ffffff;
+  --color-button-text: #171717;
+
+  --color-link: #8fc5ff;
+  --color-focus: #8fc5ff;
+
+  --color-error: #ff9b9b;
+  --color-success: #83d6a1;
+}
+```
+
+### 15.3 Theme Color Scheme 演示
+
+{@body const [scheme,setScheme]=DIL.useState("light")}
+{@body const palettes={light:{bg:"#FFFFFF",fg:"#222222",secondary:"#595959",muted:"#767676",border:"#767676",button:"#222222",buttonText:"#FFFFFF",focus:"#005FCC",error:"#B00020",success:"#176B3A"},dark:{bg:"#171717",fg:"#FFFFFF",secondary:"#CCCCCC",muted:"#AAAAAA",border:"#888888",button:"#FFFFFF",buttonText:"#171717",focus:"#8FC5FF",error:"#FF9B9B",success:"#83D6A1"}}}
+{@body const p=palettes[scheme]}
+{@body const L=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0)}
+{@body const CR=(a,b)=>(Math.max(L(a),L(b))+.05)/(Math.min(L(a),L(b))+.05)}
+<card gap={3}>
+  **Shopify Color Scheme 实验室**
+  <segmented-control value={scheme} onChange={setScheme} options={[{label:"Light Scheme",value:"light"},{label:"Dark Scheme",value:"dark"}]}/>
+  <box background={p.bg} theme={scheme} radius="md" border padding={4} gap={3}>
+    <row align="center">
+      <title size="lg" color={p.fg}>STYLE STORE</title>
+      <spacer/>
+      <icon name="search" color={p.fg}/>
+      <icon name="shopping-bag" color={p.fg}/>
+    </row>
+    <divider/>
+    <row align="start">
+      <box width="100px" background="#D6C9B7" radius="md" padding={2}>
+        <svg viewBox="0 0 90 110" width="100%">
+          <path d="M30 10 L7 27 L19 45 L30 38 V100 H60 V38 L71 45 L83 27 L60 10 L53 17 H37 Z" fill="#8B7963"/>
+        </svg>
+      </box>
+      <box flex={1} gap={2}>
+        <title size="lg" color={p.fg}>Cotton T-shirt</title>
+        <title size="md" color={p.fg}>$29.99</title>
+        <text size="sm" color={p.secondary}>100% premium cotton</text>
+        <text size="xs" color={p.muted}>Free shipping over $50</text>
+        <row><icon name="check-circle" size="sm" color={p.success}/><text size="sm" color={p.success}>In stock</text></row>
+      </box>
+    </row>
+    <box border={{size:1,color:p.border}} radius="sm" padding={3}>
+      <text color={p.secondary} size="sm">Quantity: 1</text>
+    </box>
+    <box background={p.button} padding={3} radius="sm" align="center">
+      <text color={p.buttonText} weight="medium">Add to cart</text>
+    </box>
+    <text size="sm" color={p.focus} underline={true}>View shipping policy</text>
+    <row align="center">
+      <icon name="alert-circle" color={p.error} size="sm"/>
+      <text color={p.error} size="sm">Please select a size.</text>
+    </row>
+  </box>
+  **颜色组合验证**
+  {#each [{n:"主要文字",f:p.fg,b:p.bg,min:4.5},{n:"次要文字",f:p.secondary,b:p.bg,min:4.5},{n:"辅助文字",f:p.muted,b:p.bg,min:4.5},{n:"按钮文字",f:p.buttonText,b:p.button,min:4.5},{n:"必要控件边框",f:p.border,b:p.bg,min:3},{n:"链接文字",f:p.focus,b:p.bg,min:4.5},{n:"错误文字",f:p.error,b:p.bg,min:4.5},{n:"成功文字",f:p.success,b:p.bg,min:4.5}] as c}
+    <row align="center">
+      <box size="18px" background={c.f} border radius="sm"/>
+      <box flex={1}><text size="sm">{c.n}</text></box>
+      <text size="sm" tabularNums={true}>{CR(c.f,c.b).toFixed(2)}:1</text>
+      <icon name={CR(c.f,c.b)>=c.min?"check-circle":"x-circle"} color={CR(c.f,c.b)>=c.min?"success":"danger"}/>
+    </row>
+  {/each}
+  <caption>仅验证示例中的纯色组合，不代表整个主题已经达到 WCAG AA。</caption>
+</card>
+
+### 15.4 组件使用语义化 Token
+
+```css
+.product-title {
+  color: var(--color-text-primary);
+}
+
+.product-description {
+  color: var(--color-text-secondary);
+}
+
+.product-shipping-note {
+  color: var(--color-text-muted);
+}
+
+.button--primary {
+  color: var(--color-button-text);
+  background: var(--color-button-background);
+}
+
+.field {
+  border: 1px solid var(--color-border);
+}
+
+.field-error {
+  color: var(--color-error);
+}
+```
+
+这种方式能够使组件与具体颜色解耦。
+
+如果公司统一设计规范，就可以维护一张颜色组合验证表，每次修改 Color Scheme 时进行统一检测，而不是重新检查每个组件的硬编码颜色。
+
+但 Shopify 还有一个特殊问题：商家能够通过 Theme Editor 自定义颜色。
+
+因此，即使 Theme 默认颜色全部达标，也不能保证商家修改后的颜色继续达标。
+
+可以考虑提供预设的高质量配色方案、明确的配色说明，以及在自定义主题编辑工具中增加对比度检测。
+
+---
+
+## 16. Shopify Sticky Header 与 Sticky Add to Cart
+
+这是非常典型的电商 CSS 无障碍问题。
+
+<grid columns={2} gap={3}>
+  {#each [false,true] as good}
+    <grid-item>
+      <box border radius="lg" padding={2} gap={2}>
+        <svg viewBox="0 0 150 230" width="100%">
+          <rect x="5" y="3" width="140" height="224" rx="7" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+          <rect x="7" y="5" width="136" height="32" rx="5" fill="#888888" fillOpacity=".18"/>
+          <text x="75" y="24" fontSize="11" textAnchor="middle" fill="currentColor">STORE</text>
+          <rect x="16" y="47" width="118" height="60" rx="3" fill="#D5C7B4"/>
+          <text x="17" y="122" fontSize="10" fill="currentColor">Cotton T-shirt</text>
+          <text x="17" y="137" fontSize="10" fill="currentColor">$29.99</text>
+          <rect x="16" y={good?151:192} width="118" height="27" rx="3" stroke="#5185C5" strokeWidth="2" fill="none"/>
+          <text x="75" y={good?168:209} fontSize="10" textAnchor="middle" fill="currentColor">Select size</text>
+          <rect x="7" y="187" width="136" height="38" rx="3" fill="#333333"/>
+          <text x="75" y="210" fontSize="11" textAnchor="middle" fill="#FFFFFF">Add to cart</text>
+          {#if !good}
+            <rect x="16" y="192" width="118" height="27" rx="3" stroke="#E58D8D" strokeDasharray="4 3" fill="none"/>
+          {/if}
+        </svg>
+        <text size="sm" color={good?"success":"danger"}>{good?"焦点保持可见":"焦点被 Sticky 栏遮挡"}</text>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+可以通过以下 CSS 改善：
+
+```css
+html {
+  scroll-padding-top: var(--sticky-header-height);
+  scroll-padding-bottom: var(--sticky-cart-height);
+}
+
+:focus-visible {
+  scroll-margin-block: 12px;
+}
+```
+
+如果 Header 或 Cart Bar 的高度会随语言、字体大小以及视口尺寸变化，可以通过 ResizeObserver 动态维护对应的 CSS 变量。
+
+```javascript
+const stickyCart = document.querySelector(
+  '.sticky-cart'
+);
+
+if (stickyCart) {
+  const updateHeight = () => {
+    const height =
+      stickyCart.getBoundingClientRect().height;
+
+    document.documentElement.style.setProperty(
+      '--sticky-cart-height',
+      `${height}px`
+    );
+  };
+
+  const observer = new ResizeObserver(updateHeight);
+
+  observer.observe(stickyCart);
+  updateHeight();
+}
+```
+
+对于独立滚动的 Drawer 或 Modal，则需要将 scroll-padding 设置在对应的滚动容器上，而不是只设置 html。
+
+这些 CSS 能够改善滚动定位，但仍然需要实际通过 Tab 键验证焦点不会被覆盖。
+
+---
+
+## 17. 如何排查 CSS 无障碍问题？
+
+### 17.1 检查页面是否存在横向溢出
+
+在 Chrome DevTools Console 中执行：
+
+```javascript
+const viewportWidth =
+  document.documentElement.clientWidth;
+
+const overflowElements =
+  [...document.querySelectorAll('body *')]
+    .filter(el => {
+      const rect = el.getBoundingClientRect();
+
+      return (
+        rect.right > viewportWidth + 1 ||
+        rect.left < -1
+      );
+    });
+
+console.table(
+  overflowElements.map(el => ({
+    tag: el.tagName,
+    class: el.className,
+    width: el.getBoundingClientRect().width,
+    element: el
+  }))
+);
+```
+
+这段代码适合快速定位可能产生横向溢出的元素。
+
+不过，轮播图、关闭状态的 Drawer、故意裁切的装饰元素等也可能被检测出来，因此只能作为候选问题列表。
+
+### 17.2 常用测试工具
+
+| 工具 | 用途 |
+|---|---|
+| Chrome DevTools Color Picker | 检查部分文字对比度 |
+| WebAIM Contrast Checker | 验证纯色颜色组合 |
+| axe DevTools | 自动检测部分 CSS 无障碍问题 |
+| Lighthouse | 页面无障碍初步评估 |
+| Chrome Rendering | 模拟 Forced Colors 等媒体特性 |
+| Firefox Zoom Text Only | 测试仅文字放大的效果 |
+| Windows Contrast Themes | 验证真实高对比度环境 |
+
+特别注意，复杂背景、渐变、图片上的文字、部分控件状态等对比度问题，自动化工具可能无法准确判断，需要人工验证。
+
+---
+
+## 18. 本课知识测试
+
+{@body const quiz=[{q:"普通文字的 WCAG AA 最低对比度是多少？",opts:["3:1","4.5:1","7:1"],a:1,why:"普通文字 AA 为 4.5:1，大号文字 AA 为 3:1。"},{q:"使用 px 设置字体大小，是否必然违反 WCAG？",opts:["是","否"],a:1,why:"WCAG 关注实际缩放效果，而不是强制使用某种 CSS 单位。"},{q:"黑色文字设置 opacity: 0.4，是否仍然可以按照纯黑与白色计算对比度？",opts:["可以","不可以"],a:1,why:"应该考虑透明度与实际背景合成后的颜色。"},{q:"1280 CSS px 宽度的视口放大至 400%，理论上对应多少 CSS px？",opts:["640","480","320"],a:2,why:"1280 除以 4 等于 320，这是常见的 Reflow 测试条件。"},{q:"WCAG 1.4.12 是否要求网站默认设置 letter-spacing: 0.12em？",opts:["要求","不要求"],a:1,why:"要求网站能够适应用户进行规定的文字间距调整，而不是强制默认样式。"},{q:"发现页面横向溢出，直接使用 overflow-x: hidden 是否一定能解决 Reflow 问题？",opts:["能","不能"],a:1,why:"隐藏溢出可能造成信息和功能丢失，需要修复根本布局问题。"},{q:"Forced Colors 模式下，box-shadow 是否可能被浏览器移除？",opts:["可能","不可能"],a:0,why:"Forced Colors 可能将 box-shadow 强制设为 none，因此不能只依赖阴影表示必要边界或焦点。"},{q:"默认 Color Scheme 达标后，商家自定义的所有配色是否一定达标？",opts:["是","否"],a:1,why:"每一套实际使用的颜色组合都需要进行适当验证。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.opts as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 19. 日常 CSS 无障碍检查清单
+
+{@body const checks=["普通文字对比度至少达到 4.5:1","大号文字对比度至少达到 3:1","必要的非文本控件信息达到 3:1","检查透明度合成后的实际颜色","检查图片及渐变背景上的文字","错误、库存和选中状态不只依赖颜色","所有键盘焦点具有明确的视觉提示","200% 文字放大后内容和功能完整","320 CSS px 宽度下页面可以正常重排","400% 页面缩放下检查完整购买流程","修改文字间距后内容不会被裁切","移动端没有禁止用户缩放","横屏和竖屏均可使用","Forced Colors 模式下控件仍可识别","Sticky Header 和底部栏不遮挡键盘焦点","所有实际使用的 Color Scheme 均经过验证"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **CSS Accessibility Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box background="#39866B" height={5} radius="full" width={`${done.filter(Boolean).length/checks.length*100}%`}/>
+  </box>
+  {#each checks as item,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{item}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks.map((x,i)=>(done[i]?"[x] ":"[ ] ")+x).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 20. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [WCAG Contrast Minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) | 文字对比度 |
+| [WCAG Non-text Contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html) | 非文本对比度 |
+| [WCAG Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html) | 文字缩放 |
+| [WCAG Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html) | 内容重排 |
+| [WCAG Text Spacing](https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html) | 文字间距 |
+| [WCAG Focus Appearance](https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance.html) | 焦点外观 |
+| [MDN Forced Colors](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/forced-colors) | 高对比度模式 |
+| [WebAIM Contrast Checker](https://webaim.org/resources/contrastchecker/) | 在线颜色对比度检测 |
+| [Shopify Theme Settings](https://shopify.dev/docs/storefronts/themes/architecture/settings) | Theme 配置体系 |
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">CSS Accessibility</title>
+    <caption>CSS 无障碍开发知识体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"palette",t:"颜色对比度",d:"相对亮度、4.5:1、3:1、透明度"},{i:"type",t:"文字可读性",d:"px、rem、em、文字间距"},{i:"zoom-in",t:"内容缩放",d:"200% Resize Text"},{i:"layout-grid",t:"响应式布局",d:"400% Zoom、320px Reflow"},{i:"scan",t:"焦点样式",d:"focus-visible、焦点遮挡"},{i:"contrast",t:"系统适配",d:"Forced Colors、System Colors"},{i:"smartphone",t:"移动端适配",d:"Viewport、Orientation"},{i:"layers",t:"设计体系",d:"Color Scheme、Design Token"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+这一课最重要的开发思想是：
+
+**CSS 不应该只负责还原设计稿，还应该允许用户根据自身需求改变网站的视觉表现，并保证改变之后仍然能够正常使用网站。**
+
+在实际 Shopify Theme 开发中，一个优秀的组件不应该只在默认字体、默认配色、默认视口和默认缩放比例下正常工作。
+
+---
+
+**下一课：第 9 课——元素隐藏、动画与 CSS 无障碍**
+
+这是第二阶段的最后一课，我们将重点学习：
+
+- `display: none`、`visibility: hidden`、`opacity: 0` 的实际开发场景。
+- `hidden`、`aria-hidden`、`inert` 的正确使用。
+- `visually-hidden` 与 `visually-hidden-focusable`。
+- `content-visibility`、`display: contents` 与无障碍。
+- CSS 动画、Transition 和用户运动偏好。
+- `prefers-reduced-motion` 的完整使用方案。
+- 自动轮播、滚动公告栏、Marquee 动画。
+- 闪烁动画与 WCAG 癫痫风险规范。
+- Hover、Focus、Tooltip 内容的无障碍要求。
+- Shopify Dawn 中常用的无障碍 CSS 工具类。
+
+学完第 9 课，我们就会正式进入第三阶段，也是整个课程技术含量非常高的部分：**JavaScript、键盘交互、焦点管理与 ARIA 深入开发。**

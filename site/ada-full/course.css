@@ -1,0 +1,12 @@
+.full-lesson {
+  display: block;
+  width: 100%;
+  height: 240px;
+  border: 0;
+}
+
+.full-lesson-source {
+  display: inline-block;
+  margin-top: 1.4rem;
+  font-size: .85rem;
+}

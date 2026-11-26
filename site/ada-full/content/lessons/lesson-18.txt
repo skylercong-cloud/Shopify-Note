@@ -1,0 +1,1806 @@
+# 第 18 课：Carousel、Slider 轮播组件
+
+<row align="center">
+  <caption>阶段四：复杂 UI 组件无障碍实战</caption>
+  <spacer/>
+  <caption>18 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="69.23%"/>
+</box>
+
+上一课，我们学习了 Tabs、Accordion 和 Tooltip 组件。这一课，我们继续学习 Shopify 网站中使用频率非常高、同时也容易出现无障碍问题的组件：**Carousel（轮播组件）**。
+
+本课将结合原生 JavaScript、CSS Scroll Snap、Swiper 和 Shopify Dawn 源码进行讲解，重点解决自动播放、隐藏 Slide、焦点管理、拖拽替代操作以及无限循环等问题。
+
+## 1. 认识不同类型的轮播组件
+
+<box border radius="lg" padding={3} gap={3}>
+  **首页 Slideshow**
+  <box clip radius="md">
+    <AsyncImage query="minimalist fashion ecommerce homepage campaign banner beige linen clothing summer collection editorial landscape" aspectRatio="16:9"/>
+  </box>
+  <row align="center" justify="center" gap={3}>
+    <icon name="chevron-left"/>
+    <icon name="pause" size="sm"/>
+    <box size="8px" radius="full" background="surface-inverted"/>
+    <box size="8px" radius="full" background="surface-tertiary"/>
+    <box size="8px" radius="full" background="surface-tertiary"/>
+    <icon name="chevron-right"/>
+  </row>
+  <caption>通常每次展示一个营销 Banner，可能具有自动播放功能。</caption>
+  <divider/>
+  **商品图片 Gallery**
+  <AsyncImage query="white cotton crew neck tshirt isolated beige studio product photography front view" aspectRatio="16:9" fit="contain"/>
+  <grid columns={4} gap={2}>
+    <grid-item><box border={{size:2,color:"#5185C5"}} radius="sm" padding={1}><AsyncImage query="white cotton crew neck t shirt product front view" aspectRatio="1:1"/></box></grid-item>
+    <grid-item><AsyncImage query="white cotton t shirt back view product studio" aspectRatio="1:1"/></grid-item>
+    <grid-item><AsyncImage query="white cotton t shirt fabric neckline detail close up" aspectRatio="1:1"/></grid-item>
+    <grid-item><AsyncImage query="model wearing plain white cotton t shirt fashion product photography" aspectRatio="1:1"/></grid-item>
+  </grid>
+  <caption>主图与缩略图联动，通常由用户主动切换。</caption>
+  <divider/>
+  **Product Carousel**
+  <grid columns={3} gap={2}>
+    <grid-item>
+      <AsyncImage query="black basic cotton t shirt ecommerce product photography beige background" aspectRatio="3:4"/>
+      <text size="sm">Cotton T-shirt</text>
+      <caption>$29.99</caption>
+    </grid-item>
+    <grid-item>
+      <AsyncImage query="beige linen button up shirt ecommerce product photography" aspectRatio="3:4"/>
+      <text size="sm">Linen shirt</text>
+      <caption>$49.99</caption>
+    </grid-item>
+    <grid-item>
+      <AsyncImage query="navy casual jacket ecommerce studio product photography" aspectRatio="3:4"/>
+      <text size="sm">Classic jacket</text>
+      <caption>$89.99</caption>
+    </grid-item>
+  </grid>
+  <row align="center" justify="center"><icon name="chevron-left"/><caption>1 / 3</caption><icon name="chevron-right"/></row>
+  <caption>一次展示多个商品，每张卡片可能包含链接、收藏和加购按钮。以上商品及价格仅为教学示意。</caption>
+</box>
+
+| 类型 | 通常自动播放 | 可见 Slide 数量 | 主要无障碍难点 |
+|---|---|---|---|
+| Slideshow | 可能 | 1 | 自动播放、隐藏内容 |
+| Product Gallery | 否 | 1 或多个 | 主图与缩略图联动 |
+| Product Carousel | 否 | 多个 | 商品链接、滚动与焦点 |
+| Testimonial Carousel | 可能 | 1 或多个 | 阅读时间、暂停机制 |
+| Logo Carousel / Marquee | 可能 | 多个 | 持续运动、重复节点 |
+
+首先要区分一个概念：虽然前端开发中经常使用 Slider 来称呼轮播组件，但是 ARIA 中的 `role="slider"` 指的是**数值滑块控件**，例如价格范围选择器，而不是图片轮播。
+
+因此，图片 Carousel 不应该使用 `role="slider"`。
+
+---
+
+## 2. Carousel 的标准无障碍结构
+
+W3C APG 提供了专门的 Carousel Pattern，其中包含三种常见实现方式：Basic Carousel、Tabbed Carousel 和 Grouped Carousel。<Cite ref="turn684004search0"/>
+
+先来看最基础的 Basic Carousel。
+
+```html
+<section
+  aria-label="Featured collections"
+  aria-roledescription="carousel"
+>
+  <button type="button" data-autoplay>
+    Stop slide rotation
+  </button>
+
+  <button type="button" data-prev>
+    Previous slide
+  </button>
+
+  <button type="button" data-next>
+    Next slide
+  </button>
+
+  <div class="carousel-slides" aria-live="off">
+
+    <div
+      role="group"
+      aria-roledescription="slide"
+      aria-label="1 of 3"
+    >
+      <h2>Summer collection</h2>
+      <a href="/collections/summer">Shop now</a>
+    </div>
+
+    <div
+      role="group"
+      aria-roledescription="slide"
+      aria-label="2 of 3"
+      hidden
+    >
+      <h2>New arrivals</h2>
+      <a href="/collections/new">Shop now</a>
+    </div>
+
+    <div
+      role="group"
+      aria-roledescription="slide"
+      aria-label="3 of 3"
+      hidden
+    >
+      <h2>Winter sale</h2>
+      <a href="/collections/sale">Shop now</a>
+    </div>
+
+  </div>
+</section>
+```
+
+简化后的 Accessibility Tree：
+
+<box border radius="lg" padding={3} gap={2}>
+  **region "Featured collections"**
+  <caption>Role description: carousel</caption>
+  <box padding={{left:4}} gap={2}>
+    <text size="sm">button "Stop slide rotation"</text>
+    <text size="sm">button "Previous slide"</text>
+    <text size="sm">button "Next slide"</text>
+    <box border radius="md" padding={3} gap={2}>
+      **group "1 of 3"**
+      <caption>Role description: slide</caption>
+      <box padding={{left:3}} gap={1}>
+        <text size="sm">heading "Summer collection"</text>
+        <text size="sm">link "Shop now"</text>
+      </box>
+    </box>
+    <text color="secondary" size="sm">Slide 2 · 已从无障碍树中排除</text>
+    <text color="secondary" size="sm">Slide 3 · 已从无障碍树中排除</text>
+  </box>
+</box>
+
+Carousel 容器也可以使用 `role="group"`，不一定要成为 region 地标。例如首页有十几个小型商品轮播时，没有必要将每个轮播都建立成独立 Landmark。
+
+### 2.1 aria-roledescription 到底有什么作用？
+
+这是一个之前没有重点介绍过的 ARIA 属性。
+
+```html
+<div
+  role="group"
+  aria-roledescription="slide"
+  aria-label="2 of 5"
+>
+  ...
+</div>
+```
+
+普通情况下，屏幕阅读器可能播报：
+
+> 2 of 5, group.
+
+添加 aria-roledescription 后，可能播报：
+
+> 2 of 5, slide.
+
+它允许开发者提供更符合业务场景的、可读的角色描述。
+
+但它不会真正改变 Role。
+
+| 属性 | 计算结果 |
+|---|---|
+| `role="group"` | 实际语义角色为 group |
+| `aria-roledescription="slide"` | 提供角色的自定义描述 |
+| `aria-label="2 of 5"` | 提供可访问名称 |
+
+不能通过下面的方式创造一个新的 ARIA 角色：
+
+```html
+<!-- 错误 -->
+<div role="carousel"></div>
+
+<div role="slide"></div>
+```
+
+另外，aria-roledescription 是面向用户的文字，跨境电商网站应当根据当前语言进行翻译。
+
+---
+
+## 3. Carousel 的三种控制模式
+
+<grid columns={1} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Basic Carousel**
+      <row align="center" justify="center" gap={4}>
+        <box border radius="sm" padding={2}><icon name="pause"/></box>
+        <box border radius="sm" padding={2}><icon name="chevron-left"/></box>
+        <caption>2 / 5</caption>
+        <box border radius="sm" padding={2}><icon name="chevron-right"/></box>
+      </row>
+      <caption>使用播放控制、上一张和下一张按钮。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Grouped Carousel**
+      <row justify="center" align="center" gap={3}>
+        {#each [1,2,3,4,5] as n}
+          <box size="28px" border radius="full" align="center" justify="center" background={n===2?"surface-tertiary":"surface"}>
+            <box size={n===2?"12px":"8px"} background={n===2?"surface-inverted":"#888888"} radius="full"/>
+          </box>
+        {/each}
+      </row>
+      <caption>分页圆点是独立按钮，可以直接跳转到指定 Slide。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Tabbed Carousel**
+      <row gap={2}>
+        {#each ["Front","Back","Detail"] as n,i}
+          <box flex={1} border={{size:i===0?2:1,color:i===0?"#5185C5":"#88888850"}} radius="sm" padding={3} align="center">
+            <icon name="image" size="lg"/>
+            <text size="xs">{n}</text>
+          </box>
+        {/each}
+      </row>
+      <caption>使用上一课学习的 tablist、tab、tabpanel 模式控制 Slide。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+| 对比项 | Basic | Grouped | Tabbed |
+|---|---|---|---|
+| 上一张 / 下一张 | 支持 | 支持 | 可支持 |
+| 直接选择 Slide | 无独立选择器 | 普通按钮 | Tab |
+| 选择器状态 | — | `aria-disabled` 等 | `aria-selected` |
+| 选择器 Tab 入口 | — | 每个按钮 | 通常一个 |
+| 方向键导航 | 不强制 | 不强制 | 需要 |
+
+如果只有三张首页 Banner，普通分页按钮就足够了。
+
+但如果商品 Gallery 有十五张缩略图，使用 Tabs 模式可以减少键盘用户连续按 Tab 的次数。
+
+需要注意，只有真正实现完整 Tabs 交互模型时，才应该使用 `role="tab"`。
+
+---
+
+## 4. 自动轮播与 WCAG 2.2.2
+
+这是轮播组件最重要的合规要求之一。
+
+**WCAG 2.2.2 Pause, Stop, Hide，属于 Level A。**
+
+对于自动开始、持续超过五秒、同时与其他内容一起呈现的非必要运动、闪动或滚动信息，网站需要提供暂停、停止或隐藏机制。自动更新的信息也有相应的控制要求，并不适用同样的五秒豁免。<Cite ref="turn684004search11"/>
+
+### 4.1 一个非常常见的错误
+
+```javascript
+setInterval(() => {
+  nextSlide();
+}, 3000);
+```
+
+有些开发者认为：
+
+每张图片只展示三秒，不超过五秒，所以不需要暂停按钮。
+
+这是错误的理解。
+
+需要考虑的是**整个自动运动过程的持续时间**，而不是单张图片的停留时间。
+
+| 轮播配置 | 是否需要提供控制机制 |
+|---|---|
+| 每三秒切换，持续无限循环 | 需要 |
+| 每五秒切换，持续无限循环 | 需要 |
+| 自动滚动的品牌 Logo | 通常需要 |
+| 用户点击按钮切换图片 | 不因该行为触发自动播放要求 |
+| 纯手动商品图片 Gallery | 通常不需要播放控制 |
+
+### 4.2 Hover 暂停能否代替暂停按钮？
+
+不能仅依靠下面的配置：
+
+```javascript
+autoplay: {
+  delay: 5000,
+  pauseOnMouseEnter: true
+}
+```
+
+原因是键盘用户、触屏用户以及部分辅助技术用户无法可靠地使用鼠标 Hover。
+
+应当提供一个可见、可操作、具有明确名称的播放控制按钮。
+
+```html
+<button type="button">
+  Stop slide rotation
+</button>
+```
+
+暂停之后：
+
+```html
+<button type="button">
+  Start slide rotation
+</button>
+```
+
+这里采用的是**动态操作名称模式**，因此不需要再额外使用 `aria-pressed`。
+
+### 4.3 用户焦点进入轮播时应该发生什么？
+
+APG 推荐自动轮播在键盘焦点进入后停止，并且不要在用户离开时擅自重新启动；鼠标悬停时也应暂停自动轮播。
+
+播放控制按钮应当位于轮播内容的前面，方便用户优先关闭自动播放。
+
+这是 APG 推荐的交互设计，应与 WCAG 的正式合规要求区分理解。
+
+---
+
+## 5. 自动轮播的状态管理
+
+一个生产项目中的自动轮播，不应该只有一个 `isPlaying` 变量。
+
+例如用户主动暂停后，再将鼠标移出轮播区域，不应该导致自动播放重新启动。
+
+可以把状态拆分为：
+
+```javascript
+const state = {
+  autoplayRequested: true,
+  hovered: false,
+  focusStopped: false,
+  reducedMotion: false,
+  pageHidden: false
+};
+```
+
+最终播放状态由这些条件共同决定。
+
+{@body const [requested,setRequested]=DIL.useState(true)}
+{@body const [hover,setHover]=DIL.useState(false)}
+{@body const [focusStop,setFocusStop]=DIL.useState(false)}
+{@body const [reduce,setReduce]=DIL.useState(false)}
+{@body const [pageHidden,setPageHidden]=DIL.useState(false)}
+{@body const playing=requested&&!hover&&!focusStop&&!reduce&&!pageHidden}
+<card gap={3}>
+  **自动轮播状态实验室**
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>当前有效状态</caption>
+      <title size="xl">{playing?"Playing":"Paused"}</title>
+    </box>
+    <icon name={playing?"play-circle":"pause-circle"} size="3xl" color={playing?"success":"secondary"}/>
+  </row>
+  <divider/>
+  <checkbox checked={requested} onChange={v=>{setRequested(v);if(v)setFocusStop(false)}}>用户允许自动播放</checkbox>
+  <checkbox checked={hover} onChange={setHover}>鼠标悬停在轮播区域</checkbox>
+  <checkbox checked={focusStop} onChange={setFocusStop}>键盘焦点进入后停止播放</checkbox>
+  <checkbox checked={reduce} onChange={setReduce}>启用减少运动偏好</checkbox>
+  <checkbox checked={pageHidden} onChange={setPageHidden}>浏览器标签页不可见</checkbox>
+  <divider/>
+  <row><caption>有效播放状态</caption><spacer/>{String(playing)}</row>
+  <row><caption>Slide 的通知策略</caption><spacer/>{playing?'aria-live="off"':'aria-live="polite"'}</row>
+  <button block variant="outline" color="secondary" onClick={()=>{setRequested(true);setHover(false);setFocusStop(false);setReduce(false);setPageHidden(false)}}>重置状态</button>
+  <caption>这是采用较保守播放策略的状态模拟，不会实际启动定时轮播。</caption>
+</card>
+
+其中需要特别区分：
+
+- **用户主动暂停**：应持续保留用户意图。
+- **鼠标悬停暂停**：鼠标离开后，可以根据其他状态决定是否恢复。
+- **焦点进入暂停**：不应仅因为焦点离开就自动恢复。
+- **页面不可见暂停**：减少无意义的后台播放。
+- **减少运动偏好**：建议默认不自动播放。
+
+最后两项是推荐的工程增强策略，并不是说 WCAG AA 一律禁止具有这些特征的动画。
+
+---
+
+## 6. 为什么没有显示的 Slide 仍然可以被访问？
+
+这是本节课最值得深入理解的问题。
+
+假设轮播组件有三张 Slide，通过 CSS transform 控制显示位置。
+
+```html
+<div class="carousel-viewport">
+  <div class="carousel-track">
+    <div class="slide">
+      <a href="/collections/summer">Summer collection</a>
+    </div>
+
+    <div class="slide">
+      <a href="/collections/new">New arrivals</a>
+    </div>
+
+    <div class="slide">
+      <a href="/collections/sale">Winter sale</a>
+    </div>
+  </div>
+</div>
+```
+
+```css
+.carousel-viewport {
+  overflow: hidden;
+}
+
+.carousel-track {
+  display: flex;
+  transform: translateX(-100%);
+}
+
+.slide {
+  flex: 0 0 100%;
+}
+```
+
+视觉上，用户只能看到第二张 Slide。
+
+但对于浏览器而言，三张 Slide 都存在于 DOM 中，内部链接也都可能进入 Tab 顺序及 Accessibility Tree。
+
+<box border radius="lg" padding={3} gap={3}>
+  <svg viewBox="0 0 340 165" width="100%">
+    <rect x="4" y="28" width="106" height="92" rx="4" fill="#888888" fillOpacity=".09" stroke="currentColor" strokeOpacity=".3" strokeDasharray="4 3"/>
+    <rect x="117" y="28" width="106" height="92" rx="4" fill="#39866B" fillOpacity=".1" stroke="#39866B"/>
+    <rect x="230" y="28" width="106" height="92" rx="4" fill="#888888" fillOpacity=".09" stroke="currentColor" strokeOpacity=".3" strokeDasharray="4 3"/>
+    {#each [0,1,2] as i}
+      <text x={57+i*113} y="49" fontSize="11" textAnchor="middle" fill="currentColor">Slide {i+1}</text>
+      <rect x={15+i*113} y="63" width="84" height="30" rx="4" fill="#888888" fillOpacity=".18"/>
+      <text x={57+i*113} y="82" fontSize="10" textAnchor="middle" fill="currentColor">Shop now</text>
+      <text x={57+i*113} y="110" fontSize="10" textAnchor="middle" fill={i===1?"#39866B":"currentColor"}>{i===1?"可见":"被裁切"}</text>
+    {/each}
+    <rect x="114" y="17" width="112" height="114" rx="5" stroke="#5185C5" strokeWidth="2" fill="none"/>
+    <text x="170" y="11" fontSize="10" textAnchor="middle" fill="#5185C5">Viewport</text>
+    <path d="M57 136 V145 H283 V136 M170 136 V145" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <text x="170" y="160" fontSize="11" textAnchor="middle" fill="currentColor">三个链接仍可能获得键盘焦点</text>
+  </svg>
+  <divider/>
+  **Accessibility Tree**
+  <text size="sm">Slide 1 → link "Summer collection"</text>
+  <text size="sm">Slide 2 → link "New arrivals"</text>
+  <text size="sm">Slide 3 → link "Winter sale"</text>
+  <caption>overflow:hidden 和 transform 只是改变视觉呈现，并不会自动隐藏无障碍语义。</caption>
+</box>
+
+### 6.1 不同隐藏方案对比
+
+| 隐藏方式 | 保留布局 | 可被辅助技术访问 | 可正常聚焦 |
+|---|:---:|:---:|:---:|
+| `transform` 移出视口 | 是 | 是 | 是 |
+| `overflow: hidden` 裁切 | 是 | 是 | 是 |
+| `opacity: 0` | 是 | 是 | 是 |
+| `aria-hidden="true"` | 是 | 否 | 是 |
+| `inert` | 是 | 否 | 否 |
+| `visibility: hidden` | 是 | 通常否 | 通常否 |
+| `hidden` / `display: none` | 否 | 否 | 否 |
+
+对于需要保留 Slide 布局位置的单页轮播，`inert` 是非常值得考虑的方案。
+
+```javascript
+slides.forEach((slide, index) => {
+  slide.inert = index !== activeIndex;
+});
+```
+
+它不会破坏 Flex Track 的宽度计算，但能够阻止非活动 Slide 内部的鼠标、键盘及辅助技术交互。
+
+### 6.2 为什么不推荐只使用 aria-hidden？
+
+```html
+<div class="slide" aria-hidden="true">
+  <a href="/products/shirt">View product</a>
+  <button>Add to cart</button>
+</div>
+```
+
+用户仍然可能通过 Tab 聚焦内部链接和按钮，但屏幕阅读器却无法正常获取这些控件的信息。
+
+这也是 axe 中 `aria-hidden-focus` 规则经常检测出的错误。
+
+如果使用传统方案，就必须同时管理所有内部可聚焦元素的 tabindex，并且在恢复时保存它们原来的状态。
+
+相比之下，现代浏览器中的 `inert` 可以显著简化这类处理。
+
+### 6.3 切换 Slide 时如何处理内部焦点？
+
+在隐藏旧 Slide 之前，需要检查焦点是否位于其中。
+
+```javascript
+function showSlide(nextIndex) {
+  const oldSlide = slides[currentIndex];
+
+  if (
+    nextIndex !== currentIndex &&
+    oldSlide.contains(document.activeElement)
+  ) {
+    nextButton.focus();
+  }
+
+  slides.forEach((slide, index) => {
+    slide.inert = index !== nextIndex;
+  });
+
+  currentIndex = nextIndex;
+}
+```
+
+一般情况下，用户点击 Next 按钮后，焦点应该继续停留在 Next 按钮上，而不是每切换一次就移动到新 Slide 的标题或链接。
+
+如果用户正在访问 Slide 内部内容，自动轮播更不应该突然切换并隐藏该区域。
+
+这正是前面所讲的自动播放焦点暂停机制存在的原因。
+
+### 6.4 多商品 Carousel 是一个例外
+
+不能把所有非 activeIndex 的商品卡片都设置为 inert。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 150" width="100%">
+    {#each [0,1,2,3,4] as i}
+      <g opacity={i<3?1:.42}>
+        <rect x={4+i*67} y="15" width="62" height="113" rx="4" stroke={i<3?"#39866B":"currentColor"} strokeOpacity=".65" fill="#888888" fillOpacity=".05"/>
+        <rect x={10+i*67} y="22" width="50" height="60" rx="3" fill="#DDD5C8"/>
+        <path d={`M${28+i*67} 28 l-15 10 8 11 7 -5 v31 h15 v-31 l7 5 8 -11 -15 -10 z`} fill={["#535353","#B19C83","#72859C","#8D967D","#5C646B"][i]}/>
+        <text x={35+i*67} y="96" fontSize="9" textAnchor="middle" fill="currentColor">Product {i+1}</text>
+        <text x={35+i*67} y="115" fontSize="9" textAnchor="middle" fill="currentColor">$29.99</text>
+      </g>
+    {/each}
+    <rect x="1" y="7" width="203" height="127" rx="5" stroke="#5185C5" strokeWidth="2" fill="none"/>
+    <text x="102" y="147" fontSize="10" textAnchor="middle" fill="#5185C5">当前可见三个商品</text>
+  </svg>
+  <caption>Product Carousel 中可能同时存在多个可见且可操作的 Slide。</caption>
+</box>
+
+对于原生可滚动商品列表，甚至可以保留所有商品的正常无障碍语义，让浏览器在用户通过 Tab 聚焦后续商品链接时，将它们滚动到可视区域。
+
+因此需要先区分两种模型：
+
+| 轮播模型 | 推荐处理 |
+|---|---|
+| 每次只允许访问一张 Slide | 隔离非当前 Slide |
+| 可自由滚动的商品列表 | 保留列表语义和正常焦点访问 |
+| 每次显示一组独立商品页面 | 根据实际可见组管理交互状态 |
+
+**不是所有位于视口之外的元素都应该设置 aria-hidden 或 inert。**
+
+普通可滚动页面中，大量内容也位于视口之外，但它们仍然是用户需要访问的内容。
+
+---
+
+## 7. 分页圆点与缩略图的无障碍设计
+
+很多轮播组件的分页圆点是这样实现的：
+
+```html
+<div class="pagination">
+  <span class="dot active"></span>
+  <span class="dot"></span>
+  <span class="dot"></span>
+</div>
+```
+
+这几个 span 即使绑定了 click 事件，也缺少原生按钮语义及键盘激活能力。
+
+### 7.1 使用原生 button
+
+```html
+<div role="group" aria-label="Choose a slide">
+
+  <button
+    type="button"
+    aria-label="Show summer collection"
+    aria-disabled="true"
+  >
+    <span class="dot" aria-hidden="true"></span>
+  </button>
+
+  <button
+    type="button"
+    aria-label="Show new arrivals"
+  >
+    <span class="dot" aria-hidden="true"></span>
+  </button>
+
+  <button
+    type="button"
+    aria-label="Show winter sale"
+  >
+    <span class="dot" aria-hidden="true"></span>
+  </button>
+
+</div>
+```
+
+这里采用 APG Grouped Carousel 的状态设计：当前 Slide 对应按钮设置 `aria-disabled="true"`，表示不需要再次执行相同操作，同时保留键盘焦点能力。
+
+实际 JavaScript 需要阻止该按钮重复执行操作。
+
+另一种常见方案是通过 `aria-current="true"` 表达当前位置，Dawn 就采用了这一方式。
+
+不要在普通 button 上随意添加 `aria-selected`，除非它确实属于支持该状态的组件角色，例如 tab。
+
+### 7.2 分页圆点很小，是否违反 WCAG？
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} align="center" gap={3}>
+      <svg viewBox="0 0 140 65" width="100%">
+        {#each [0,1,2] as i}
+          <rect x={32+i*34} y="26" width="8" height="8" rx="4" fill="#888888"/>
+        {/each}
+        <path d="M32 20 V16 H40 V20" stroke="#BC5454" fill="none"/>
+        <text x="36" y="11" fontSize="9" textAnchor="middle" fill="#BC5454">8px</text>
+      </svg>
+      **8px 点击区域**
+      <caption>需要额外评估目标间距及准则例外。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} align="center" gap={3}>
+      <svg viewBox="0 0 140 65" width="100%">
+        {#each [0,1,2] as i}
+          <rect x={7+i*43} y="8" width="40" height="40" rx="4" stroke="#39866B" strokeDasharray="3 2" fill="#39866B" fillOpacity=".07"/>
+          <circle cx={27+i*43} cy="28" r="4" fill="#888888"/>
+        {/each}
+        <text x="70" y="62" fontSize="10" textAnchor="middle" fill="currentColor">扩展实际点击区域</text>
+      </svg>
+      **40px 点击区域**
+      <caption>保留小圆点视觉样式，扩大操作范围。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+可以让实际按钮尺寸为 44px，但内部圆点仍然只有 8px。
+
+```css
+.pagination button {
+  display: inline-grid;
+  place-items: center;
+
+  width: 44px;
+  height: 44px;
+
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pagination .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pagination button[aria-current="true"] .dot {
+  transform: scale(1.5);
+}
+```
+
+WCAG 2.2 的 2.5.8 AA 准则通常要求目标至少为 24 × 24 CSS px，或者满足适用的间距等例外。44 × 44 CSS px 则是更友好的设计目标，也是另一项 AAA 准则的尺寸要求之一。
+
+---
+
+## 8. Carousel 与 Live Region
+
+在轮播中，Live Region 的使用需要特别谨慎。
+
+如果每隔三秒自动切换，并且轮播内容设置为：
+
+```html
+<div aria-live="polite">
+  <!-- Slides -->
+</div>
+```
+
+屏幕阅读器用户可能不断收到营销 Banner 更新，正常阅读页面的过程会受到干扰。
+
+APG 建议可根据自动播放状态调整轮播内容区域的通知策略。<Cite ref="turn684004search5"/>
+
+| 状态 | 推荐通知策略 |
+|---|---|
+| 自动播放 | 不主动播报每张 Slide |
+| 用户手动切换 | 通知当前 Slide |
+| 用户暂停播放 | 可以通知后续手动切换 |
+| 用户访问 Slide 内容 | 通过正常阅读获取内容 |
+
+实际开发有两种实现方式。
+
+**方案一：动态调整内容区域的 aria-live。**
+
+```javascript
+function play() {
+  slideWrapper.setAttribute('aria-live', 'off');
+
+  startTimer();
+}
+
+function pause() {
+  stopTimer();
+
+  slideWrapper.setAttribute('aria-live', 'polite');
+}
+```
+
+**方案二：使用独立的状态通知区域。**
+
+```html
+<p role="status" class="visually-hidden"
+   data-carousel-status></p>
+```
+
+用户手动切换时：
+
+```javascript
+status.textContent =
+  'Slide 2 of 3: New arrivals.';
+```
+
+第二种方案通常更容易控制播报内容，尤其是 Slide 内部包含大量文字、价格和商品链接时。
+
+两种方案应避免同时播报相同信息。
+
+---
+
+## 9. 实战：封装 Accessible Carousel Web Component
+
+现在实现一个可以集成到 Shopify Theme 中的基础轮播组件。
+
+本次采用以下技术方案：单张 Slide 显示、原生 button、hidden 隔离、首尾循环、可选自动播放、独立 Live Region，以及减少运动偏好支持。
+
+### 9.1 HTML
+
+```html
+<accessible-carousel
+  role="region"
+  aria-roledescription="carousel"
+  aria-label="Featured collections"
+  interval="5000"
+>
+
+  <div class="carousel-controls" data-controls hidden>
+
+    <button type="button" data-play>
+      Start slide rotation
+    </button>
+
+    <button type="button" data-pause>
+      Stop slide rotation
+    </button>
+
+    <button type="button" data-prev>
+      Previous slide
+    </button>
+
+    <span data-counter aria-hidden="true">1 / 3</span>
+
+    <button type="button" data-next>
+      Next slide
+    </button>
+
+  </div>
+
+  <div class="carousel-slides">
+
+    <div
+      data-slide
+      data-title="Summer collection"
+      role="group"
+      aria-roledescription="slide"
+      aria-label="1 of 3"
+    >
+      <h2>Summer collection</h2>
+      <a href="/collections/summer">Shop summer collection</a>
+    </div>
+
+    <div
+      data-slide
+      data-title="New arrivals"
+      role="group"
+      aria-roledescription="slide"
+      aria-label="2 of 3"
+    >
+      <h2>New arrivals</h2>
+      <a href="/collections/new">Shop new arrivals</a>
+    </div>
+
+    <div
+      data-slide
+      data-title="Winter sale"
+      role="group"
+      aria-roledescription="slide"
+      aria-label="3 of 3"
+    >
+      <h2>Winter sale</h2>
+      <a href="/collections/sale">Shop winter sale</a>
+    </div>
+
+  </div>
+
+  <p
+    data-status
+    role="status"
+    class="visually-hidden"
+  ></p>
+
+</accessible-carousel>
+```
+
+这里初始没有隐藏任何 Slide，而是先隐藏控制按钮。
+
+这样即使 JavaScript 加载失败，用户仍然可以阅读全部内容，而不会只看到第一张 Banner。
+
+组件默认手动播放。如果业务确实要求自动播放，可以添加 `autoplay` 属性。
+
+### 9.2 JavaScript
+
+创建 `assets/accessible-carousel.js`：
+
+```javascript
+class AccessibleCarousel extends HTMLElement {
+  connectedCallback() {
+    if (this.controller) return;
+
+    this.slides = [...this.querySelectorAll('[data-slide]')];
+
+    if (!this.slides.length) return;
+
+    this.controls = this.querySelector('[data-controls]');
+    this.prevButton = this.querySelector('[data-prev]');
+    this.nextButton = this.querySelector('[data-next]');
+    this.playButton = this.querySelector('[data-play]');
+    this.pauseButton = this.querySelector('[data-pause]');
+    this.counter = this.querySelector('[data-counter]');
+    this.status = this.querySelector('[data-status]');
+
+    this.controller = new AbortController();
+
+    const signal = this.controller.signal;
+
+    this.index = 0;
+    this.timer = null;
+
+    const interval = Number(this.getAttribute('interval'));
+
+    this.interval = Number.isFinite(interval)
+      && interval >= 1000
+        ? interval
+        : 5000;
+
+    this.motion = matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    );
+
+    this.prevButton.addEventListener('click', () => {
+      this.pause();
+      this.show(this.index - 1, true);
+    }, { signal });
+
+    this.nextButton.addEventListener('click', () => {
+      this.pause();
+      this.show(this.index + 1, true);
+    }, { signal });
+
+    this.playButton.addEventListener('click', () => {
+      this.play();
+    }, { signal });
+
+    this.pauseButton.addEventListener('click', () => {
+      this.pause();
+    }, { signal });
+
+    // 焦点进入时停止自动播放
+    this.addEventListener('focusin', () => {
+      this.pause();
+    }, { signal });
+
+    // 用户开始查看轮播时停止播放
+    this.addEventListener('pointerenter', event => {
+      if (event.pointerType !== 'touch') {
+        this.pause();
+      }
+    }, { signal });
+
+    // 页面不可见时停止播放
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.pause();
+      }
+    }, { signal });
+
+    // 系统开启减少运动偏好时停止播放
+    this.motion.addEventListener('change', event => {
+      if (event.matches) {
+        this.pause();
+      }
+    }, { signal });
+
+    this.controls.hidden = this.slides.length < 2;
+
+    this.show(0);
+    this.pause();
+
+    if (
+      this.hasAttribute('autoplay') &&
+      !this.motion.matches &&
+      !document.hidden &&
+      !this.matches(':hover') &&
+      !this.contains(document.activeElement)
+    ) {
+      this.play();
+    }
+  }
+
+  show(index, announce = false) {
+    const length = this.slides.length;
+
+    const nextIndex = (index % length + length) % length;
+
+    const oldSlide = this.slides[this.index];
+
+    // 避免将当前焦点直接隐藏
+    if (
+      nextIndex !== this.index &&
+      oldSlide?.contains(document.activeElement)
+    ) {
+      if (this.controls.hidden) return;
+
+      this.nextButton.focus();
+    }
+
+    this.index = nextIndex;
+
+    this.slides.forEach((slide, i) => {
+      slide.hidden = i !== this.index;
+    });
+
+    this.counter.textContent =
+      `${this.index + 1} / ${length}`;
+
+    if (announce) {
+      const title =
+        this.slides[this.index].dataset.title || '';
+
+      this.status.textContent =
+        `Slide ${this.index + 1} of ${length}: ${title}`;
+    }
+  }
+
+  play() {
+    if (
+      this.timer !== null ||
+      this.slides.length < 2 ||
+      document.hidden ||
+      this.slides[this.index].contains(document.activeElement)
+    ) return;
+
+    this.timer = setInterval(() => {
+      this.show(this.index + 1);
+    }, this.interval);
+
+    this.updatePlaybackControls();
+  }
+
+  pause() {
+    clearInterval(this.timer);
+
+    this.timer = null;
+
+    this.updatePlaybackControls();
+  }
+
+  updatePlaybackControls() {
+    const playing = this.timer !== null;
+
+    this.playButton.setAttribute(
+      'aria-disabled',
+      String(playing)
+    );
+
+    this.pauseButton.setAttribute(
+      'aria-disabled',
+      String(!playing)
+    );
+  }
+
+  disconnectedCallback() {
+    this.pause();
+
+    this.controller?.abort();
+    this.controller = null;
+  }
+}
+
+if (!customElements.get('accessible-carousel')) {
+  customElements.define(
+    'accessible-carousel',
+    AccessibleCarousel
+  );
+}
+```
+
+### 9.3 为什么这里采用两个播放控制按钮？
+
+常见 Carousel 使用一个动态切换的 Play / Pause 按钮即可。
+
+本示例选择了两个固定名称的按钮，是为了简化焦点进入导致播放暂停、用户主动启动播放以及按钮名称同步之间的关系。
+
+同时采用了更保守的播放策略：Hover、Focus 或页面隐藏导致暂停后，不自动恢复，必须由用户主动启动。
+
+用户在减少运动模式下仍然可以明确选择启动播放；本示例没有额外的位移动画，也不会默认自动播放。
+
+### 9.4 CSS
+
+```css
+accessible-carousel {
+  display: block;
+}
+
+accessible-carousel [hidden] {
+  display: none !important;
+}
+
+.carousel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.carousel-controls button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.carousel-controls [aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+accessible-carousel :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  accessible-carousel [data-slide] {
+    animation: none;
+    transition: none;
+  }
+}
+```
+
+### 9.5 交互状态演示
+
+{@body const slidesDemo=[{title:"Summer collection",desc:"Lightweight essentials for warmer days.",bg:"#E4D5BD",shirt:"#817A62"},{title:"New arrivals",desc:"Discover our latest everyday essentials.",bg:"#D6DFDF",shirt:"#617D85"},{title:"Winter sale",desc:"Explore selected seasonal styles.",bg:"#E5D6D3",shirt:"#956C64"}]}
+{@body const [slideIndex,setSlideIndex]=DIL.useState(0)}
+{@body const [slideMessage,setSlideMessage]=DIL.useState("")}
+<card gap={3}>
+  <box background={slidesDemo[slideIndex].bg} theme="light" radius="md" padding={4} gap={3}>
+    <row align="center">
+      <box flex={1} gap={2}>
+        <caption>STYLE STORE</caption>
+        <title size="2xl">{slidesDemo[slideIndex].title}</title>
+        <text size="sm">{slidesDemo[slideIndex].desc}</text>
+      </box>
+      <svg viewBox="0 0 110 125" width="105px">
+        <path d="M37 8 L7 29 L23 50 L37 42 V118 H73 V42 L87 50 L103 29 L73 8 L62 18 H48 Z" fill={slidesDemo[slideIndex].shirt}/>
+      </svg>
+    </row>
+  </box>
+  <row align="center" justify="center" gap={3}>
+    <button uniform color="secondary" variant="outline" onClick={()=>{const n=(slideIndex+2)%3;setSlideIndex(n);setSlideMessage(`Slide ${n+1} of 3: ${slidesDemo[n].title}.`)}}><icon name="chevron-left"/></button>
+    {#each slidesDemo as s,i}
+      <button uniform color="secondary" variant={slideIndex===i?"solid":"ghost"} onClick={()=>{setSlideIndex(i);setSlideMessage(`Slide ${i+1} of 3: ${s.title}.`)}}>{i+1}</button>
+    {/each}
+    <button uniform color="secondary" variant="outline" onClick={()=>{const n=(slideIndex+1)%3;setSlideIndex(n);setSlideMessage(`Slide ${n+1} of 3: ${slidesDemo[n].title}.`)}}><icon name="chevron-right"/></button>
+  </row>
+  <divider/>
+  <row><caption>currentIndex</caption><spacer/>{slideIndex}</row>
+  {#each slidesDemo as s,i}
+    <row align="center">
+      <text size="sm">{s.title}</text>
+      <spacer/>
+      <caption>{i===slideIndex?"hidden = false":"hidden = true"}</caption>
+    </row>
+  {/each}
+  <divider/>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>Live Region 消息</caption>
+      <text size="sm">{slideMessage||"等待手动切换..."}</text>
+    </box>
+  </row>
+  <caption>点击上一张、下一张或分页按钮，观察隐藏状态和通知内容。此处模拟手动切换，不实际执行定时播放。</caption>
+</card>
+
+该 Web Component 是针对固定 DOM、单张显示的基础实现，不包含滑动动画、拖拽、动态增删 Slide、嵌套轮播等功能。它假设 HTML 结构完整，并在 HTML 解析完成后加载脚本。
+
+---
+
+## 10. CSS Scroll Snap：更适合商品列表的实现
+
+对于 Shopify 首页中的 Featured Collection、Related Products 等多商品轮播，并不一定需要复杂的第三方轮播库。
+
+浏览器本身就提供了 CSS Scroll Snap。
+
+### 10.1 HTML
+
+```html
+<section aria-labelledby="featured-heading">
+
+  <h2 id="featured-heading">Featured products</h2>
+
+  <button type="button" id="previous-products">
+    Previous products
+  </button>
+
+  <button type="button" id="next-products">
+    Next products
+  </button>
+
+  <ul id="product-track" class="product-track">
+    <li>
+      <a href="/products/shirt">Cotton T-shirt</a>
+    </li>
+
+    <li>
+      <a href="/products/jacket">Classic jacket</a>
+    </li>
+
+    <li>
+      <a href="/products/pants">Linen pants</a>
+    </li>
+
+    <!-- More products -->
+  </ul>
+
+</section>
+```
+
+### 10.2 CSS
+
+```css
+.product-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 32px) / 3);
+
+  gap: 16px;
+
+  overflow-x: auto;
+
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 8px;
+  padding: 8px;
+}
+
+.product-track > li {
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+@media (max-width: 749px) {
+  .product-track {
+    grid-auto-columns: 80%;
+  }
+}
+```
+
+### 10.3 上一组和下一组
+
+```javascript
+const track = document.querySelector('#product-track');
+
+const motion = matchMedia(
+  '(prefers-reduced-motion: reduce)'
+);
+
+function scrollProducts(direction) {
+  track.scrollBy({
+    left: direction * track.clientWidth,
+    behavior: motion.matches ? 'instant' : 'smooth'
+  });
+}
+
+document.querySelector('#previous-products')
+  .addEventListener('click', () => scrollProducts(-1));
+
+document.querySelector('#next-products')
+  .addEventListener('click', () => scrollProducts(1));
+```
+
+这个示例针对从左到右的横向布局。RTL 网站需要相应处理滚动方向和边界计算。
+
+CSS Scroll Snap 方案具有几个天然优势：支持原生触屏滚动、保留普通商品列表语义、无需克隆节点，也可以让浏览器在键盘聚焦后续商品时执行滚动。
+
+如果需要计数器、首尾按钮禁用状态，可以通过 scroll 事件、元素尺寸及 ResizeObserver 进一步实现。
+
+---
+
+## 11. 无限循环轮播的克隆节点问题
+
+传统轮播库经常通过克隆首尾 Slide 实现无缝循环。
+
+<box border radius="lg" padding={3} gap={3}>
+  <caption>真实 DOM 顺序</caption>
+  <row gap={1}>
+    {#each [{t:"C",clone:true},{t:"A",clone:false},{t:"B",clone:false},{t:"C",clone:false},{t:"A",clone:true}] as s}
+      <box flex={1} border={{size:1,color:s.clone?"#B05B50":"#88888860"}} background={s.clone?"#B05B5010":"surface-tertiary"} radius="sm" padding={2} align="center">
+        <title size="lg">{s.t}</title>
+        <text size="xs" color={s.clone?"danger":"secondary"}>{s.clone?"Clone":"Original"}</text>
+      </box>
+    {/each}
+  </row>
+  <svg viewBox="0 0 320 48" width="100%">
+    <path d="M29 4 V24 H224 V4" stroke="#B05B50" strokeWidth="1.4" strokeDasharray="4 3" fill="none"/>
+    <text x="126" y="40" textAnchor="middle" fontSize="10" fill="currentColor">克隆 C 与真实 C 可能包含相同内容</text>
+  </svg>
+  <caption>视觉上只有三个业务 Slide，但 DOM 可能拥有五个节点。</caption>
+</box>
+
+例如：
+
+```html
+<div class="slide">
+  <button id="QuickAdd-123">Quick add</button>
+</div>
+
+<div class="slide clone">
+  <button id="QuickAdd-123">Quick add</button>
+</div>
+```
+
+克隆节点可能造成：
+
+- 同一个商品被屏幕阅读器重复读取。
+- Tab 顺序中出现重复链接和按钮。
+- 重复 ID，导致 aria-labelledby、aria-controls 等引用产生歧义。
+- 表单和 Quick Add 组件被重复初始化。
+- 当前 Slide 数量与真实商品数量不一致。
+
+对于仅承担视觉过渡的克隆节点，可以设置：
+
+```javascript
+clone.inert = true;
+```
+
+并在克隆节点插入前，妥善处理重复 ID 及内部引用。
+
+但如果克隆节点在动画结束后仍然是当前可见、应当可以交互的内容，就不能始终将其设置为 inert，需要进行真实节点与视觉节点的交互状态切换。
+
+还需要注意，并不是所有现代轮播库都通过克隆实现 loop。部分版本使用重新排列真实节点的方式，可能产生另外一种问题：DOM 顺序与焦点顺序发生变化。
+
+对于带有复杂交互的商品卡片，我更推荐普通 Scroll Snap 或非克隆的首尾循环方案。
+
+---
+
+## 12. Swiper 的无障碍配置
+
+Swiper 是电商开发中比较常见的第三方轮播库。
+
+它已经提供了 A11y、Keyboard、Navigation、Pagination、Autoplay 等模块。
+
+一个基于现代模块化 API 的配置示例：
+
+```javascript
+import Swiper from 'swiper';
+
+import {
+  Navigation,
+  Pagination,
+  A11y
+} from 'swiper/modules';
+
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+
+const swiper = new Swiper('.swiper', {
+  modules: [
+    Navigation,
+    Pagination,
+    A11y
+  ],
+
+  loop: false,
+  autoplay: false,
+
+  slidesPerView: 1,
+  spaceBetween: 16,
+
+  navigation: {
+    nextEl: '.swiper-button-next',
+    prevEl: '.swiper-button-prev'
+  },
+
+  pagination: {
+    el: '.swiper-pagination',
+    clickable: true
+  },
+
+  a11y: {
+    enabled: true,
+
+    containerRole: 'region',
+
+    containerMessage: 'Featured collections',
+
+    containerRoleDescriptionMessage: 'carousel',
+
+    itemRoleDescriptionMessage: 'slide',
+
+    slideRole: 'group',
+
+    prevSlideMessage: 'Previous slide',
+
+    nextSlideMessage: 'Next slide',
+
+    paginationBulletMessage:
+      'Go to slide {{index}}',
+
+    slideLabelMessage:
+      '{{index}} of {{slidesLength}}'
+  }
+});
+```
+
+Swiper 官方 A11y 模块支持轮播容器、Slide 角色及名称、分页按钮名称和 Live Region 等配置。具体可用选项取决于安装版本。<Cite ref="turn684004search3"/>
+
+### 12.1 开启 A11y 就满足 WCAG AA 了吗？
+
+不一定。
+
+| 检查内容 | 仍需验证 |
+|---|---|
+| 导航按钮名称 | 是否准确且已本地化 |
+| 非当前 Slide | 内部控件是否意外获得焦点 |
+| 自动播放 | 是否具有持续有效的暂停机制 |
+| Loop | 是否产生重复语义或焦点异常 |
+| Keyboard 模块 | 是否拦截了用户其他区域的按键 |
+| 分页按钮 | 点击目标、焦点样式是否合理 |
+| Live Region | 是否存在重复播报 |
+| 响应式断点 | 当前可见 Slide 计算是否正确 |
+| Reduced Motion | 是否真正减少了动画 |
+
+尤其不要为了让轮播能够响应方向键，就在整个 document 上无条件拦截 ArrowLeft 和 ArrowRight。
+
+开启 Keyboard 模块也不代表必须使用它来处理所有键盘操作。对于普通轮播，原生 Previous / Next 按钮已经可以提供基本键盘访问能力。
+
+Swiper 的模块解决的是一部分组件基础设施，最终无障碍表现仍取决于业务 HTML、CSS 和 JavaScript。
+
+---
+
+## 13. Shopify Dawn 轮播源码深入解析
+
+结合我们之前学习过的 Dawn 源码，这次重点研究以下文件。
+
+| 文件 | 职责 |
+|---|---|
+| `assets/global.js` | SliderComponent、SlideshowComponent |
+| `sections/slideshow.liquid` | 首页轮播 HTML |
+| `assets/component-slider.css` | 滚动及 Slide 布局 |
+| `assets/component-slideshow.css` | Slideshow 样式 |
+| `assets/media-gallery.js` | 商品图片 Gallery |
+| `snippets/product-media-gallery.liquid` | 商品媒体结构 |
+
+我查阅了 Dawn 公开 main 分支的相关实现。
+
+### 13.1 组件继承体系
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={2} align="center">
+    **HTMLElement**
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} gap={2}>
+    <title size="lg" textAlign="center">SliderComponent</title>
+    <divider/>
+    <text size="sm">计算 Slide 尺寸和可见数量</text>
+    <text size="sm">根据 scrollLeft 计算当前位置</text>
+    <text size="sm">上一页 / 下一页滚动</text>
+    <text size="sm">触发 slideChanged 事件</text>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} gap={2}>
+    <title size="lg" textAlign="center">SlideshowComponent</title>
+    <divider/>
+    <text size="sm">自动播放及暂停</text>
+    <text size="sm">首尾循环</text>
+    <text size="sm">Slide 无障碍可见性</text>
+    <text size="sm">分页状态与 Live Region</text>
+  </box>
+</box>
+
+Dawn 没有将整个 Slider 建立在复杂的 transform 动画体系上，而是使用原生横向滚动作为重要基础。
+
+`SliderComponent` 中的核心方法包括：
+
+| 方法 | 职责 |
+|---|---|
+| `initPages()` | 计算 Slide 间距和每页数量 |
+| `resetPages()` | DOM 更新后重新计算 |
+| `update()` | 更新当前页、计数器及导航状态 |
+| `onButtonClick()` | 计算目标滚动位置 |
+| `setSlidePosition()` | 调用 scrollTo |
+
+Dawn 还通过 ResizeObserver 监听 Slider 尺寸变化。<Cite ref="turn276857view2"/>
+
+### 13.2 SlideshowComponent 如何隐藏非当前 Slide？
+
+其中有一个非常重要的方法：
+
+```javascript
+setSlideVisibility()
+```
+
+Dawn 的实际处理思路是遍历 Slide，并根据当前页判断可访问状态：
+
+| 当前 Slide | 非当前 Slide |
+|---|---|
+| aria-hidden=false | aria-hidden=true |
+| 移除 Slide 的 tabindex | Slide tabindex=-1 |
+| 移除内部链接的 tabindex | 内部链接 tabindex=-1 |
+
+该方法在轮播初始化和滚动时执行。<Cite ref="turn276857view1"/>
+
+这里值得进一步思考：Dawn 当前这部分源码主要针对 Slide 内部的 a 元素管理 tabindex。
+
+如果你扩展首页 Banner，在其中加入 Quick Add 按钮、邮箱输入框、视频播放器等控件，仅仅处理 a 元素可能就不够了。
+
+另外，直接移除 tabindex 也可能覆盖业务组件原本的焦点配置。
+
+所以，如果自定义 Slide 中包含复杂交互，可以研究使用 inert 对整个非当前 Slide 进行统一隔离。
+
+这是根据源码提出的扩展审查点，不代表 Dawn 的默认 Slideshow 一定存在对应缺陷。
+
+### 13.3 Dawn 如何处理自动播放？
+
+Dawn 的 `play()` 和 `pause()` 主要负责两件事情：
+
+```text
+play()
+  → 关闭轮播内容的动态通知
+  → 建立自动播放定时器
+
+pause()
+  → 开启 polite 动态通知
+  → 清除自动播放定时器
+```
+
+另外，`autoPlayToggle()` 管理用户播放意图，`togglePlayButtonState()` 更新播放按钮的可访问名称和视觉状态。
+
+分页按钮则使用 `aria-current` 标记当前位置。<Cite ref="turn276857view3"/>
+
+Dawn 的部分 Focus Out 处理会根据播放按钮状态恢复播放，与我们前面采用的「焦点进入后持续停止，等待用户主动重新播放」策略有所不同。
+
+对于新开发的组件，可以优先采用更加保守的自动播放策略，而不是完全照搬现有源码。
+
+### 13.4 商品图片 Gallery 与 Slider 的关系
+
+Dawn 的 `media-gallery.js` 负责将商品媒体展示、缩略图及 Variant Picker 联系起来。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **Variant Picker / Thumbnail**
+    <caption>选择商品变体或媒体缩略图</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **MediaGallery.setActiveMedia()**
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2} gap={2}>
+    {#each ["更新活动媒体","滚动至目标位置","同步当前缩略图","处理媒体播放及通知"] as s}
+      <grid-item><box background="surface-tertiary" radius="sm" padding={3} align="center"><text size="sm">{s}</text></box></grid-item>
+    {/each}
+  </grid>
+</box>
+
+MediaGallery 可以根据媒体 ID 找到对应商品媒体，更新活动状态，并在适用场景下调整媒体顺序及滚动位置。<Cite ref="turn276857view0"/>
+
+这体现了一个值得借鉴的组件架构：
+
+| 模块 | 职责 |
+|---|---|
+| SliderComponent | 底层滚动能力 |
+| SlideshowComponent | 首页轮播业务 |
+| MediaGallery | 商品媒体业务 |
+| Variant Picker | 商品变体选择 |
+
+不需要把所有业务都写进一个万能 Slider 类中。
+
+源码阅读地址：[global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) · [slideshow.liquid](https://github.com/Shopify/dawn/blob/main/sections/slideshow.liquid) · [media-gallery.js](https://github.com/Shopify/dawn/blob/main/assets/media-gallery.js)
+
+---
+
+## 14. 拖拽操作与 WCAG 2.5.7
+
+WCAG 2.2 新增了 **2.5.7 Dragging Movements（Level AA）**。
+
+对于适用的自定义拖拽操作，需要提供无需拖拽即可完成相同功能的单指针操作方式。<Cite ref="turn950013search0"/>
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <text weight="medium" size="sm">仅支持拖拽</text>
+      <svg viewBox="0 0 140 85" width="100%">
+        {#each [0,1,2] as i}
+          <rect x={5+i*45} y="5" width="40" height="54" rx="4" fill="#888888" fillOpacity=".18"/>
+        {/each}
+        <path d="M115 72 H25 M34 65 L25 72 L34 79" stroke="#BC5454" strokeWidth="2" fill="none"/>
+      </svg>
+      <caption>用户必须按住鼠标或手指移动。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <text weight="medium" size="sm">提供替代操作</text>
+      <svg viewBox="0 0 140 85" width="100%">
+        {#each [0,1,2] as i}
+          <rect x={5+i*45} y="5" width="40" height="54" rx="4" fill="#888888" fillOpacity=".18"/>
+        {/each}
+        <rect x="38" y="65" width="25" height="18" rx="3" stroke="#39866B" fill="none"/>
+        <rect x="77" y="65" width="25" height="18" rx="3" stroke="#39866B" fill="none"/>
+        <path d="M54 69 L49 74 L54 79 M86 69 L91 74 L86 79" stroke="#39866B" strokeWidth="1.5" fill="none"/>
+      </svg>
+      <caption>点击上一张、下一张即可完成相同操作。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+需要区分三个准则。
+
+| WCAG 准则 | 核心要求 |
+|---|---|
+| 2.1.1 Keyboard | 功能可以通过键盘操作 |
+| 2.5.1 Pointer Gestures | 适用的复杂或路径型手势具有简单指针替代方式 |
+| 2.5.7 Dragging Movements | 适用的拖拽操作具有无需拖拽的指针替代方式 |
+
+仅仅提供键盘方向键，不代表满足 2.5.7。
+
+而浏览器自身提供、没有被作者修改的原生滚动操作，则存在相应例外。
+
+对于电商轮播，提供清晰的 Previous / Next 按钮是非常实用的解决方案。
+
+---
+
+## 15. 如何测试 Carousel？
+
+### 15.1 使用 Playwright 验证隐藏 Slide
+
+以下测试针对第 9 节实现的 Web Component。
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('carousel hides inactive slides', async ({ page }) => {
+  await page.goto('/');
+
+  const carousel = page.locator('accessible-carousel');
+
+  const next = carousel.getByRole('button', {
+    name: 'Next slide'
+  });
+
+  await next.focus();
+  await next.press('Enter');
+
+  const slides = carousel.locator('[data-slide]');
+
+  await expect(slides.nth(0)).toBeHidden();
+  await expect(slides.nth(1)).toBeVisible();
+  await expect(slides.nth(2)).toBeHidden();
+
+  await expect(next).toBeFocused();
+
+  await expect(
+    carousel.getByRole('status')
+  ).toHaveText(
+    'Slide 2 of 3: New arrivals'
+  );
+});
+```
+
+这可以验证切换结果、焦点保留以及状态消息更新。
+
+### 15.2 自动播放暂停测试
+
+```javascript
+test('focus stops automatic rotation', async ({ page }) => {
+  await page.goto('/');
+
+  const carousel = page.locator('accessible-carousel');
+
+  const next = carousel.getByRole('button', {
+    name: 'Next slide'
+  });
+
+  await next.focus();
+
+  const counter = carousel.locator('[data-counter]');
+
+  const value = await counter.textContent();
+
+  // 本示例的轮播间隔为 5000ms
+  await page.waitForTimeout(5500);
+
+  await expect(counter).toHaveText(value);
+});
+```
+
+该测试应当配合自动播放确实已经启动的前置验证。正式 CI 中也可以使用 Playwright Clock 等能力模拟时间，避免依赖真实等待。
+
+### 15.3 检测轮播中的重复 ID
+
+在浏览器 Console 中执行：
+
+```javascript
+const ids = new Map();
+
+document.querySelectorAll('[id]').forEach(element => {
+  const group = ids.get(element.id) || [];
+
+  group.push(element);
+
+  ids.set(element.id, group);
+});
+
+console.log(
+  [...ids.entries()]
+    .filter(([id, elements]) => elements.length > 1)
+);
+```
+
+特别适合检查第三方轮播库初始化前后是否产生重复节点。
+
+---
+
+## 16. 常见问题与 WCAG 对照
+
+| 问题 | 可能涉及的 WCAG 准则 |
+|---|---|
+| 自动轮播无法暂停 | 2.2.2 Pause, Stop, Hide |
+| 上一张、下一张无法键盘操作 | 2.1.1 Keyboard |
+| 只能通过拖拽切换 | 2.5.7 Dragging Movements |
+| 非可见 Slide 中的按钮仍可聚焦 | 2.4.3 Focus Order |
+| 纯图标导航按钮没有名称 | 4.1.2 Name, Role, Value |
+| 分页圆点目标尺寸过小 | 2.5.8 Target Size |
+| 当前分页仅通过颜色表达 | 1.4.1 Use of Color |
+| 焦点样式不可见 | 2.4.7 Focus Visible |
+| 用户阅读时内容突然被替换 | 可能涉及 2.2.2 等 |
+| 动态状态提示没有对应语义 | 适用时涉及 4.1.3 Status Messages |
+
+这些是审计时需要检查的对应关系，具体违规判断仍然取决于实际行为及准则的适用条件。
+
+## 17. 本课知识测试
+
+{@body const quiz18=[{q:"图片轮播组件应该使用 role=\"slider\" 吗？",opts:["应该","不应该"],a:1,e:"ARIA slider 表示数值滑块，而不是图片轮播。"},{q:"每张 Banner 播放三秒并无限循环，是否可以因此省略暂停机制？",opts:["可以","不可以"],a:1,e:"需要考虑整个自动运动过程，而非单张图片停留时间。"},{q:"overflow:hidden 是否自动将不可见 Slide 从 Accessibility Tree 中移除？",opts:["是","否"],a:1,e:"视觉裁切不会自动隐藏无障碍语义。"},{q:"哪个属性可以保留布局，同时隔离整个 Slide 的交互能力？",opts:["aria-hidden","inert","opacity"],a:1,e:"inert 同时限制内部交互及无障碍访问。"},{q:"自动轮播时，是否应该持续主动播报每张 Banner？",opts:["应该","通常不应该"],a:1,e:"频繁主动通知可能干扰用户正常阅读。"},{q:"只有键盘方向键，没有点击切换按钮，是否必然满足 2.5.7？",opts:["满足","不一定满足"],a:1,e:"2.5.7 要求适用拖拽功能具有无需拖拽的指针替代方式。"},{q:"可滚动商品列表应该将所有视口外的商品设置为 inert 吗？",opts:["应该","不应该一概而论"],a:1,e:"原生滚动列表可以保留完整语义，并允许键盘访问后续商品。"},{q:"开启 Swiper A11y 模块是否意味着网站自动符合 WCAG AA？",opts:["是","否"],a:1,e:"第三方库只能提供部分无障碍能力，仍需要结合业务实现测试。"}]}
+{@body const [answers18,setAnswers18]=DIL.useState(Array(quiz18.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers18.filter((a,i)=>a===quiz18[i].a).length} / {quiz18.length}</caption>
+  </row>
+  {#each quiz18 as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers18[i])} onChange={v=>setAnswers18(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.opts as option,j}
+          <radio value={String(j)}>{option}</radio>
+        {/each}
+      </radio-group>
+      {#if answers18[i]>=0}
+        <text size="sm" color={answers18[i]===q.a?"success":"danger"}>{answers18[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<quiz18.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers18(Array(quiz18.length).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 日常开发检查清单
+
+{@body const checks18=["轮播容器具有明确的可访问名称","没有误用 role=\"slider\"","上一张和下一张按钮可以通过键盘操作","纯图标按钮具有正确名称","自动播放具有可见暂停机制","用户主动暂停后不会擅自恢复","焦点进入时停止自动播放","支持减少运动偏好","非活动 Slide 的语义和交互状态正确","隐藏 Slide 前妥善处理内部焦点","手动切换后保留合理的焦点","自动播放不会持续产生干扰性播报","分页按钮具有明确名称及当前状态","拖拽具有简单点击替代方式","克隆节点没有重复 ID 和重复交互","多商品轮播保留合理的列表访问能力","响应式布局变化后导航状态正确","通过真实屏幕阅读器验证"]}
+{@body const [done18,setDone18]=DIL.useState(Array(checks18.length).fill(false))}
+<card gap={2}>
+  <row align="center">
+    **Carousel Accessibility Checklist**
+    <spacer/>
+    <caption>{done18.filter(Boolean).length} / {checks18.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full">
+    <box height={5} background="#39866B" radius="full" width={`${done18.filter(Boolean).length/checks18.length*100}%`}/>
+  </box>
+  {#each checks18 as c,i}
+    <checkbox checked={done18[i]} onChange={v=>setDone18(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done18[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks18.map((c,i)=>(done18[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [WAI-ARIA Carousel Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/) | Carousel 语义及交互模式 |
+| [W3C Carousel Tutorial](https://www.w3.org/WAI/tutorials/carousels/) | 完整轮播无障碍指南 |
+| [WCAG 2.2.2](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html) | 自动播放控制 |
+| [WCAG 2.5.7](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) | 拖拽替代操作 |
+| [MDN inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert) | 交互隔离 |
+| [MDN CSS Scroll Snap](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_scroll_snap) | 原生滚动吸附 |
+| [Swiper API](https://swiperjs.com/swiper-api) | 第三方轮播配置 |
+| [Shopify Dawn](https://github.com/Shopify/dawn) | Theme 源码 |
+
+本课代码采用原生 JavaScript、Light DOM Web Component 和默认手动播放策略，尚未在你的实际 Shopify Theme 及辅助技术环境中运行验证。Dawn 分析基于公开 main 分支，Swiper 配置需要结合项目安装版本使用。
+
+---
+
+## 本课总结
+
+对于 Shopify Theme，我建议根据不同业务选择不同的轮播技术方案。
+
+| 业务组件 | 推荐方案 |
+|---|---|
+| 首页 Banner | 单张 Carousel，具有播放控制 |
+| Featured Collection | CSS Scroll Snap |
+| Related Products | 原生可滚动列表 |
+| 商品 Gallery | Slider + Thumbnail 控制 |
+| 客户评价轮播 | 手动 Carousel 优先 |
+| 滚动促销公告 | 优先静态内容或可暂停轮播 |
+| 复杂动画轮播 | Swiper + 额外无障碍验证 |
+
+本节课最重要的开发思想是：
+
+**轮播组件的无障碍，本质上是视觉可见性、语义可见性、交互状态、焦点和时间控制之间的同步。**
+
+不能仅仅通过 active class 来决定一张 Slide 的全部状态。
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体学习进度</caption>
+      <title size="2xl">69.2%</title>
+    </box>
+    <caption>已完成 18 / 26 课</caption>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5},{t:"阶段四：复杂 UI 组件实战",n:5,d:4},{t:"阶段五：Shopify 电商实战",n:4,d:0},{t:"阶段六：检测与工程化",n:3,d:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm">{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}</caption>{/if}
+      </row>
+      <box height={5} background="surface-tertiary" radius="full">
+        <box height={5} background="#39866B" radius="full" width={`${s.d/s.n*100}%`}/>
+      </box>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 19 课——SPA 路由、异步请求与动态页面**
+
+这是第四阶段的最后一课，主要学习：
+
+- 传统 MPA 与 SPA 的无障碍区别。
+- 为什么 SPA 路由切换后屏幕阅读器可能没有任何感知。
+- History API 与客户端路由。
+- 页面 title、H1 与 Landmark 的动态更新。
+- Route Change Announcer。
+- 路由切换后的焦点管理。
+- 浏览器前进、后退与滚动恢复。
+- Skeleton、Loading、Infinite Scroll 无障碍。
+- AJAX 分页与动态加载更多商品。
+- Shopify Section Rendering 的完整无障碍更新策略。
+- React、Vue 等前端框架中的无障碍设计。
+- 封装统一的动态页面无障碍管理器。
+
+学完第 19 课，我们就会正式进入第五阶段：**Shopify 电商网站无障碍实战**，针对 Header、商品详情页、Collection、购物车和结算流程进行完整的业务级分析。

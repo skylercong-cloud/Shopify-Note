@@ -1,0 +1,1466 @@
+# 第 5 课：HTML 语义化与 Landmark 地标
+
+<row align="center">
+  <caption>阶段二：HTML、CSS 无障碍开发</caption>
+  <spacer/>
+  <caption>5 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="19.23%" radius="full"/>
+</box>
+
+前四节课，我们已经完成了无障碍基础理论的学习。从这一课开始，我们正式进入代码开发阶段。
+
+HTML 语义化是前端开发中一个经常被提及，却很容易被低估的知识点。很多开发人员认为语义化主要是为了 SEO，但实际上，**HTML 语义化是整个 Web 无障碍体系的基础。**
+
+正确选择 HTML 标签，可以让浏览器自动提供大量无障碍能力，从而减少 ARIA 属性和 JavaScript 代码的使用。
+
+本课主要学习 HTML 语义映射、Landmark 地标、标题层级、原生交互元素，以及 Shopify Theme 的整体页面结构。
+
+---
+
+## 1. 重新认识 HTML 语义化
+
+假设我们需要开发一个简单的商品卡片。
+
+### 1.1 非语义化实现
+
+```html
+<div class="product-card">
+  <div class="product-image">
+    <img src="shirt.jpg">
+  </div>
+
+  <div class="product-title">
+    Cotton T-shirt
+  </div>
+
+  <div class="product-price">
+    $29.99
+  </div>
+
+  <div class="product-button" onclick="addToCart()">
+    Add to cart
+  </div>
+</div>
+```
+
+### 1.2 语义化实现
+
+```html
+<article class="product-card">
+  <img
+    src="shirt.jpg"
+    alt="Black cotton T-shirt, front view"
+  >
+
+  <h2 class="product-title">
+    <a href="/products/cotton-shirt">
+      Cotton T-shirt
+    </a>
+  </h2>
+
+  <p class="product-price">
+    $29.99
+  </p>
+
+  <button type="button" onclick="addToCart()">
+    Add to cart
+  </button>
+</article>
+```
+
+通过 CSS，我们完全可以让这两种代码具有相同的视觉表现。
+
+但在无障碍层面，它们有很大的区别。
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center">
+    <box width="180px" border radius="md" padding={2} gap={2}>
+      <AsyncImage query="black plain cotton crew neck t shirt front view isolated light grey background ecommerce product" aspectRatio="4:3"/>
+      **Cotton T-shirt**
+      $29.99
+      <box background="#292929" theme="dark" padding={2} radius="sm" align="center"><text color="#FFFFFF" size="sm">Add to cart</text></box>
+    </box>
+    <caption>两种代码可以实现相同的视觉界面</caption>
+  </box>
+  <divider/>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      **非语义化结构**
+      <box background="surface-tertiary" radius="md" padding={2} gap={2}>
+        <text size="sm">generic</text>
+        <box padding={{left:2}} gap={2}>
+          <text size="sm">image（缺少名称）</text>
+          <text size="sm">text "Cotton T-shirt"</text>
+          <text size="sm">text "$29.99"</text>
+          <text size="sm">text "Add to cart"</text>
+        </box>
+      </box>
+      <caption>缺少标题、链接和原生按钮语义。</caption>
+    </grid-item>
+    <grid-item>
+      **语义化结构**
+      <box background="surface-tertiary" radius="md" padding={2} gap={2}>
+        <text size="sm" color="success">article</text>
+        <box padding={{left:2}} gap={2}>
+          <text size="sm">image "Black cotton T-shirt, front view"</text>
+          <text size="sm" color="success">heading · level 2</text>
+          <text size="sm" color="success">link "Cotton T-shirt"</text>
+          <text size="sm">paragraph "$29.99"</text>
+          <text size="sm" color="success">button "Add to cart"</text>
+        </box>
+      </box>
+      <caption>具有明确的内容结构和交互语义。</caption>
+    </grid-item>
+  </grid>
+  <caption>Accessibility Tree 简化示意。</caption>
+</box>
+
+使用语义化 HTML 后，屏幕阅读器用户可以通过 H 键寻找商品标题、K 键寻找商品链接、B 键寻找加购按钮，也可以通过键盘直接激活原生交互控件。
+
+HTML 语义化主要提供了四类能力：
+
+| 能力 | 示例 |
+|---|---|
+| 结构语义 | 标题、段落、列表、表格 |
+| 区域语义 | 导航区域、主内容区域、页脚 |
+| 交互语义 | 按钮、链接、输入框 |
+| 状态与行为 | checked、disabled、键盘激活 |
+
+需要注意，`div` 和 `span` 并不是错误的标签。对于没有特殊语义的布局容器，使用它们完全合理。
+
+**语义化的本质不是消灭 div，而是为具有实际含义的内容选择恰当的标签。**
+
+---
+
+## 2. Landmark（地标）是什么？
+
+Landmark 是辅助技术用于识别网页主要功能区域的一种语义。
+
+可以将它理解为网页的区域导航系统。
+
+对于视觉用户来说，打开一个电商网站，通常能够很快区分 Header、导航菜单、商品区域、侧边栏和 Footer。
+
+但屏幕阅读器用户并不能直接感知这些视觉布局。因此，需要通过 HTML 语义或 ARIA Role 来表达这些区域的用途。
+
+<box border radius="lg" padding={3} gap={3}>
+  <svg viewBox="0 0 340 370" width="100%">
+    <rect x="3" y="3" width="334" height="364" rx="8" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+    <rect x="10" y="10" width="320" height="78" rx="5" fill="#5185C5" fillOpacity=".12" stroke="#5185C5"/>
+    <text x="20" y="26" fontSize="10" fill="#5185C5" fontWeight="600">banner · header</text>
+    <text x="20" y="47" fontSize="14" fontWeight="bold" fill="currentColor">STYLE STORE</text>
+    <rect x="216" y="31" width="104" height="22" rx="4" fill="none" stroke="#9673C5"/>
+    <text x="268" y="45" fontSize="10" fill="#9673C5" textAnchor="middle">search</text>
+    <rect x="19" y="59" width="302" height="21" rx="3" fill="#5185C5" fillOpacity=".12" stroke="#5185C5" strokeDasharray="3 2"/>
+    <text x="27" y="73" fontSize="10" fill="currentColor">Home　 Women　 Men　 Sale</text>
+    <text x="315" y="73" fontSize="9" fill="#5185C5" textAnchor="end">nav</text>
+    <rect x="10" y="96" width="320" height="211" rx="5" fill="#39866B" fillOpacity=".06" stroke="#39866B"/>
+    <text x="20" y="113" fontSize="11" fill="#39866B" fontWeight="600">main · 主内容</text>
+    <text x="20" y="135" fontSize="15" fill="currentColor" fontWeight="600">New arrivals</text>
+    <rect x="18" y="145" width="88" height="153" rx="4" fill="#9673C5" fillOpacity=".09" stroke="#9673C5" strokeDasharray="4 3"/>
+    <text x="25" y="159" fontSize="9" fill="#9673C5">aside</text>
+    <text x="25" y="178" fontSize="11" fontWeight="600" fill="currentColor">Filters</text>
+    {#each ["Color","Size","Price"] as v,i}
+      <text x="25" y={200+i*32} fontSize="10" fill="currentColor">{v}</text>
+      <rect x="25" y={205+i*32} width="8" height="8" rx="1" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      <path d={`M38 ${209+i*32} H79`} stroke="currentColor" strokeOpacity=".25" strokeWidth="2"/>
+    {/each}
+    {#each [0,1] as i}
+      <rect x={115+i*105} y="145" width="96" height="153" rx="4" stroke="currentColor" strokeOpacity=".18" fill="none"/>
+      <rect x={120+i*105} y="150" width="86" height="102" rx="3" fill="#B8AB99" fillOpacity=".35"/>
+      <path d={`M${146+i*105} 166 L${129+i*105} 181 L${139+i*105} 200 L${146+i*105} 193 V237 H${180+i*105} V193 L${187+i*105} 200 L${197+i*105} 181 L${180+i*105} 166 L${171+i*105} 173 H${155+i*105} Z`} fill={i===0?"#454545":"#9F8970"}/>
+      <text x={123+i*105} y="269" fontSize="10" fill="currentColor">Cotton T-shirt</text>
+      <text x={123+i*105} y="285" fontSize="10" fill="currentColor">$29.99</text>
+    {/each}
+    <rect x="10" y="315" width="320" height="44" rx="5" fill="#C6914A" fillOpacity=".12" stroke="#C6914A"/>
+    <text x="20" y="332" fontSize="10" fontWeight="600" fill="#C6914A">contentinfo · footer</text>
+    <text x="20" y="348" fontSize="10" fill="currentColor">About us　 Contact　 Privacy　 Returns</text>
+  </svg>
+  <caption textAlign="center">一个 Collection 页面的 Landmark 区域划分示意</caption>
+</box>
+
+在 NVDA 的浏览模式下，用户可以使用 `D` 键快速跳转到下一个 Landmark，也可以通过 `NVDA + F7` 打开地标列表。
+
+例如，一个用户想直接进入商品列表，就不需要逐个访问 Header 中的导航链接，而可以直接导航至 main 地标。
+
+### 2.1 八种主要的 Landmark Role
+
+| HTML 标签 | Landmark Role | 用途 |
+|---|---|---|
+| `header` | banner | 网站级页头 |
+| `nav` | navigation | 导航区域 |
+| `main` | main | 页面主要内容 |
+| `aside` | complementary | 补充性内容 |
+| `footer` | contentinfo | 网站级页脚 |
+| `section`（有名称） | region | 重要的独立内容区域 |
+| `form`（有名称） | form | 表单区域 |
+| `search` | search | 搜索区域 |
+
+这是 WAI-ARIA 中定义的八种地标角色。其中 `header`、`footer` 的映射取决于其所在位置，而 `section` 和 `form` 需要满足可访问名称等条件。<Cite refs={["turn341713search0","turn341713search18"]}/>
+
+特别注意，以下元素虽然具有语义，但并不属于 Landmark：
+
+`article`、`h1`、`ul`、`table`、`dialog`。
+
+因此，**语义化元素不等于 Landmark 元素。Landmark 只是无障碍角色体系中的一个分类。**
+
+---
+
+## 3. header 和 footer 的特殊性
+
+这是 HTML 无障碍开发中一个比较容易被忽略的知识点。
+
+同样是 `header` 标签，放在不同位置，其 Accessibility Role 可能完全不同。
+
+### 3.1 网站级 header
+
+```html
+<body>
+  <header>
+    <a href="/">STYLE STORE</a>
+
+    <nav>
+      <!-- Navigation -->
+    </nav>
+  </header>
+
+  <main>
+    <!-- Main content -->
+  </main>
+</body>
+```
+
+这里的 `header` 具有隐式的 `banner` 角色。
+
+### 3.2 文章内部的 header
+
+```html
+<article>
+  <header>
+    <h2>How to choose a T-shirt</h2>
+    <p>Published on November 24</p>
+  </header>
+
+  <p>Article content...</p>
+</article>
+```
+
+这里的 `header` 表示文章自身的头部，并不是整个网站的 Header，因此不会被映射成 banner 地标。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **网站级 Header**
+      <box border radius="md" padding={2} gap={2}>
+        <caption>body</caption>
+        <box border={{size:1,color:"#5185C5"}} background="#5185C512" radius="sm" padding={2}>
+          <text size="sm">header</text>
+          <text size="sm" color="#5185C5">role: banner</text>
+        </box>
+        <box border radius="sm" padding={2}><text size="sm">main</text></box>
+        <box border radius="sm" padding={2}><text size="sm">footer</text></box>
+      </box>
+      <caption>作为网站级地标提供给辅助技术。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      **文章内部 Header**
+      <box border radius="md" padding={2} gap={2}>
+        <caption>article</caption>
+        <box background="surface-tertiary" radius="sm" padding={2}>
+          <text size="sm">header</text>
+          <text size="sm" color="secondary">role: generic</text>
+        </box>
+        <box border radius="sm" padding={2}><text size="sm">Article content</text></box>
+        <box border radius="sm" padding={2}><text size="sm">footer</text></box>
+      </box>
+      <caption>仅表示文章内部结构，不形成 banner 地标。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+当 `header` 位于 `article`、`aside`、`main`、`nav`、`section` 等元素内部时，通常不会具有 banner 角色。
+
+`footer` 也有类似的规则。网站级 footer 具有 contentinfo 角色，文章内部的 footer 通常没有这个地标角色。<Cite refs={["turn341713search4","turn341713search13"]}/>
+
+这也说明：浏览器在计算 HTML 元素的无障碍语义时，不仅会判断标签名称，还会判断它所在的上下文。
+
+---
+
+## 4. nav 导航区域的正确使用
+
+一个电商网站通常存在多种导航区域，例如：
+
+- Header 主导航。
+- Breadcrumb 面包屑导航。
+- Footer 导航。
+- Pagination 分页导航。
+- Customer Account 用户中心导航。
+
+这些都可以使用 `nav`。
+
+但是，当页面中出现多个 `nav` 时，需要让屏幕阅读器用户能够区分它们。
+
+### 4.1 错误示例
+
+```html
+<nav>
+  <!-- Header navigation -->
+</nav>
+
+<nav>
+  <!-- Breadcrumb -->
+</nav>
+
+<nav>
+  <!-- Footer navigation -->
+</nav>
+
+<nav>
+  <!-- Pagination -->
+</nav>
+```
+
+屏幕阅读器的地标列表可能会显示四个没有名称的 navigation。
+
+### 4.2 改进示例
+
+```html
+<nav aria-label="Main">
+  <!-- Header navigation -->
+</nav>
+
+<nav aria-label="Breadcrumb">
+  <!-- Breadcrumb -->
+</nav>
+
+<nav aria-label="Footer">
+  <!-- Footer navigation -->
+</nav>
+
+<nav aria-label="Pagination">
+  <!-- Pagination -->
+</nav>
+```
+
+{@body const [namedNav,setNamedNav]=DIL.useState(true)}
+<card gap={3}>
+  **Landmark 地标列表模拟器**
+  <segmented-control options={[{label:"未命名的 nav",value:"unnamed"},{label:"已命名的 nav",value:"named"}]} value={namedNav?"named":"unnamed"} onChange={v=>setNamedNav(v==="named")}/>
+  <box border radius="md" padding={3} gap={3}>
+    <row><icon name="flag" color="secondary"/><text size="sm">Banner</text></row>
+    <row><icon name="compass" color="secondary"/><text size="sm">{namedNav?"Main navigation":"Navigation"}</text></row>
+    <row><icon name="compass" color="secondary"/><text size="sm">{namedNav?"Breadcrumb navigation":"Navigation"}</text></row>
+    <row><icon name="file-text" color="secondary"/><text size="sm">Main</text></row>
+    <row><icon name="compass" color="secondary"/><text size="sm">{namedNav?"Pagination navigation":"Navigation"}</text></row>
+    <row><icon name="flag" color="secondary"/><text size="sm">Content information</text></row>
+    <row><icon name="compass" color="secondary"/><text size="sm">{namedNav?"Footer navigation":"Navigation"}</text></row>
+  </box>
+  <caption>{namedNav?"用户可以直接识别每个导航区域的用途。":"用户很难仅通过角色判断每个导航区域的用途。"}</caption>
+</card>
+
+这里还有一个细节：
+
+通常不建议将名称写成 `aria-label="Main navigation"`，因为 navigation 角色本身可能已经被屏幕阅读器播报，最终可能产生重复的 navigation。
+
+使用 `aria-label="Main"` 通常就足够了。
+
+多个同类地标应当按用途命名；如果两处导航包含完全相同的链接，也可以使用相同名称。
+
+### 4.3 面包屑导航实战
+
+<box border radius="lg" padding={3} gap={2}>
+  <row align="center" wrap="wrap" gap={1}>
+    <text underline={true} size="sm" color="secondary">Home</text>
+    <icon name="chevron-right" size="xs" color="secondary"/>
+    <text underline={true} size="sm" color="secondary">Clothing</text>
+    <icon name="chevron-right" size="xs" color="secondary"/>
+    <text weight="medium" size="sm">T-shirts</text>
+  </row>
+  <title size="xl">T-shirts</title>
+  <caption>128 products</caption>
+</box>
+
+推荐实现：
+
+```html
+<nav aria-label="Breadcrumb">
+  <ol class="breadcrumb">
+    <li>
+      <a href="/">Home</a>
+    </li>
+
+    <li>
+      <a href="/collections/clothing">
+        Clothing
+      </a>
+    </li>
+
+    <li>
+      <span aria-current="page">
+        T-shirts
+      </span>
+    </li>
+  </ol>
+</nav>
+```
+
+这里使用了三层语义：
+
+| 实现 | 作用 |
+|---|---|
+| `nav` | 表示这是一个导航区域 |
+| `ol` + `li` | 表示具有顺序关系的导航路径 |
+| `aria-current="page"` | 表示当前位置对应的页面 |
+
+其中 `aria-current` 也适用于分页导航和普通菜单中当前页面的标识。<Cite refs={["turn869746search3","turn869746search16"]}/>
+
+面包屑中的分隔符可以使用 CSS 边框等装饰方式实现，或者使用设置了 `aria-hidden="true"` 的装饰性元素，避免屏幕阅读器重复播报无意义的分隔符。
+
+---
+
+## 5. main、section、article 和 aside 的区别
+
+这四个标签在日常业务开发中很容易混淆。
+
+### 5.1 main：页面主要内容
+
+`main` 表示当前页面最核心的内容。
+
+例如：
+
+| 页面 | main 中的主要内容 |
+|---|---|
+| Homepage | 首页 Banner、推荐商品、活动 |
+| Collection | 集合标题、筛选、商品列表 |
+| Product | 商品图片、详情、价格、购买控件 |
+| Cart | 购物车商品及订单金额 |
+| Blog | 文章列表 |
+| Article | 文章正文 |
+
+通常每个页面只应有一个处于显示状态的 `main`。
+
+不要在每一个 Shopify Section 中都使用 main，因为 Shopify 的 Section 是主题模块概念，并不是页面主要内容区域的概念。
+
+### 5.2 section：具有主题的内容区域
+
+```html
+<section>
+  <h2>Customer reviews</h2>
+  <!-- Reviews -->
+</section>
+```
+
+这是具有明确主题的内容区域。
+
+但是，上面的 `section` 通常不会自动成为 region 地标。
+
+如果希望它成为可供屏幕阅读器快速导航的 Landmark，可以提供可访问名称。
+
+```html
+<section aria-labelledby="reviews-title">
+  <h2 id="reviews-title">
+    Customer reviews
+  </h2>
+
+  <!-- Reviews -->
+</section>
+```
+
+{@body const [sectionLabel,setSectionLabel]=DIL.useState(false)}
+<card gap={3}>
+  **Section 语义映射演示**
+  <checkbox checked={sectionLabel} onChange={setSectionLabel}>添加 aria-labelledby="reviews-title"</checkbox>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <text size="sm">{sectionLabel?'<section aria-labelledby="reviews-title">':'<section>'}</text>
+    <text size="sm">{'  <h2 id="reviews-title">'}</text>
+    <text size="sm">    Customer reviews</text>
+    <text size="sm">{'  </h2>'}</text>
+    <text size="sm">{'</section>'}</text>
+  </box>
+  <icon name="arrow-down" color="secondary"/>
+  <box border radius="md" padding={3} gap={2}>
+    <row><caption>Role</caption><spacer/><text color={sectionLabel?"success":"secondary"}>{sectionLabel?"region":"generic（或被省略）"}</text></row>
+    <row><caption>Accessible Name</caption><spacer/><text size="sm">{sectionLabel?"Customer reviews":"无"}</text></row>
+    <row><caption>Landmark</caption><spacer/><icon name={sectionLabel?"check-circle":"x-circle"} color={sectionLabel?"success":"secondary"}/></row>
+  </box>
+  <caption>即使 section 中存在 h2，也不代表 h2 会自动成为 section 的可访问名称。</caption>
+</card>
+
+这个机制非常重要：`section` 具有可访问名称时才映射为 region 地标。<Cite refs={["turn341713search8","turn341713search15"]}/>
+
+但也不要给所有 Section 都添加 `aria-labelledby`，否则一个首页可能出现几十个 Landmark，反而降低导航效率。
+
+### 5.3 article：相对独立、可复用的内容
+
+`article` 适合可以独立理解、分发或者复用的内容，例如博客文章、新闻、用户评论，以及适合独立表达的商品卡片。
+
+```html
+<article>
+  <h2>Cotton T-shirt</h2>
+  <p>$29.99</p>
+  <a href="/products/cotton-shirt">
+    View product
+  </a>
+</article>
+```
+
+商品卡片并不是必须使用 article。如果卡片只是商品列表中的普通项目，使用 `li` 配合标题、链接等元素同样合理。
+
+### 5.4 aside：补充性内容
+
+`aside` 表示与周围内容有关联，但相对独立的补充内容。
+
+例如文章页中的推荐文章：
+
+```html
+<aside aria-labelledby="related-title">
+  <h2 id="related-title">
+    Related articles
+  </h2>
+
+  <!-- Related articles -->
+</aside>
+```
+
+需要注意，aside 并不等于视觉上的 Sidebar。
+
+例如 Collection 页面左侧的筛选区域，虽然视觉上是侧边栏，但它可能是商品浏览流程的核心功能，因此使用具有名称的 `form` 或普通内容区域也可能更加合适。
+
+**不要根据元素在页面上的位置来选择 HTML 标签，而应该根据内容的实际用途来选择。**
+
+---
+
+## 6. Heading 标题层级
+
+标题层级是 HTML 语义化中同时影响 ADA、SEO 和内容组织的一个知识点。
+
+屏幕阅读器用户可以通过 `H` 键在标题之间跳转，也可以通过数字键 1～6 查找特定等级的标题。
+
+因此，标题实际上承担着类似文章目录的作用。
+
+### 6.1 一个合理的商品详情页标题结构
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="start">
+    <AsyncImage query="black cotton t shirt isolated beige background premium ecommerce product photograph front view" aspectRatio="3:4" maxWidth="43%"/>
+    <box flex={1} gap={2}>
+      <row><text color="#5185C5" size="xs">H1</text><title size="lg">Cotton T-shirt</title></row>
+      **$29.99**
+      <caption>Color: Black</caption>
+      <row>
+        {#each ["#252525","#C9B9A4","#7B8FA5"] as c}
+          <box size="22px" background={c} radius="full"/>
+        {/each}
+      </row>
+      <caption>Size</caption>
+      <row>
+        {#each ["S","M","L"] as s}
+          <box flex={1} border radius="sm" padding={1} align="center">{s}</box>
+        {/each}
+      </row>
+      <box background="#292929" theme="dark" radius="sm" padding={2} align="center"><text color="#FFFFFF">Add to cart</text></box>
+    </box>
+  </row>
+  <divider/>
+  <row><text color="#5185C5" size="xs">H2</text> **Product details**</row>
+  <text size="sm">Made from 100% premium cotton.</text>
+  <box padding={{left:3}} gap={2}>
+    <row><text color="#39866B" size="xs">H3</text> **Material**</row>
+    <caption>100% cotton</caption>
+    <row><text color="#39866B" size="xs">H3</text> **Care instructions**</row>
+    <caption>Machine wash cold.</caption>
+  </box>
+  <divider/>
+  <row><text color="#5185C5" size="xs">H2</text> **Shipping & Returns**</row>
+  <divider/>
+  <row><text color="#5185C5" size="xs">H2</text> **Customer reviews**</row>
+  <row><text color="#C6914A">★★★★★</text><caption>4.8 · 128 reviews</caption></row>
+  <divider/>
+  <row><text color="#5185C5" size="xs">H2</text> **Related products**</row>
+  <grid columns={3} gap={2}>
+    <grid-item>
+      <AsyncImage query="white crew neck cotton t shirt isolated ecommerce neutral background" aspectRatio="3:4"/>
+      <text color="#39866B" size="xs">H3</text>
+      <text size="sm">White T-shirt</text>
+    </grid-item>
+    <grid-item>
+      <AsyncImage query="beige cotton polo shirt isolated neutral background ecommerce product" aspectRatio="3:4"/>
+      <text color="#39866B" size="xs">H3</text>
+      <text size="sm">Cotton polo</text>
+    </grid-item>
+    <grid-item>
+      <AsyncImage query="grey casual pullover sweatshirt isolated neutral background ecommerce product" aspectRatio="3:4"/>
+      <text color="#39866B" size="xs">H3</text>
+      <text size="sm">Sweatshirt</text>
+    </grid-item>
+  </grid>
+  <caption>蓝色和绿色标注表示对应的 HTML 标题等级，而不是实际网站需要显示的内容。</caption>
+</box>
+
+它对应的标题树如下：
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 252" width="100%">
+    <g stroke="currentColor" strokeOpacity=".25" fill="none">
+      <path d="M15 20 V171 M15 46 H34 M15 121 H34 M15 146 H34 M15 171 H34"/>
+      <path d="M39 49 V96 M39 71 H57 M39 96 H57"/>
+      <path d="M39 174 V239 M39 189 H57 M39 214 H57 M39 239 H57"/>
+    </g>
+    {#each [{x:3,y:17,l:"H1",n:"Cotton T-shirt"},{x:34,y:47,l:"H2",n:"Product details"},{x:57,y:72,l:"H3",n:"Material"},{x:57,y:97,l:"H3",n:"Care instructions"},{x:34,y:122,l:"H2",n:"Shipping & Returns"},{x:34,y:147,l:"H2",n:"Customer reviews"},{x:34,y:172,l:"H2",n:"Related products"},{x:57,y:190,l:"H3",n:"White T-shirt"},{x:57,y:215,l:"H3",n:"Cotton polo"},{x:57,y:240,l:"H3",n:"Sweatshirt"}] as n}
+      <rect x={n.x} y={n.y-12} width="25" height="17" rx="3" fill={n.l==="H3"?"#39866B":"#5185C5"} fillOpacity=".15"/>
+      <text x={n.x+12.5} y={n.y} textAnchor="middle" fontSize="10" fontWeight="600" fill={n.l==="H3"?"#39866B":"#5185C5"}>{n.l}</text>
+      <text x={n.x+33} y={n.y} fontSize="12" fill="currentColor">{n.n}</text>
+    {/each}
+  </svg>
+</box>
+
+即使用户完全看不到商品页面，也能够通过标题快速了解页面结构。
+
+### 6.2 可以跳过标题等级吗？
+
+例如：
+
+```html
+<h1>Product details</h1>
+
+<h4>Material</h4>
+
+<h2>Customer reviews</h2>
+```
+
+不推荐这样做。
+
+从 H1 直接进入 H4，会使标题的逻辑层级难以理解。
+
+但从 H3 返回 H2 是完全合理的，因为这意味着结束上一个子章节，开始新的章节。
+
+```html
+<h1>Product details</h1>
+
+<h2>Specifications</h2>
+<h3>Material</h3>
+<h3>Dimensions</h3>
+
+<h2>Customer reviews</h2>
+```
+
+跳过标题等级本身并不必然构成 WCAG AA 违规，仍然需要根据实际结构和信息关系判断，但应尽可能保持逻辑连续。<Cite refs={["turn341713search19","turn869746search15"]}/>
+
+### 6.3 一个页面可以有多个 h1 吗？
+
+从 HTML 语法角度，并不是绝对禁止。
+
+从 WCAG 合规角度，也没有一条成功准则直接要求每个页面必须且只能拥有一个 h1。
+
+但是对于普通电商网站，建议遵循一个清晰的工程规范：
+
+| 页面 | H1 内容 |
+|---|---|
+| 首页 | 网站核心主题或页面主标题 |
+| 商品详情页 | 商品名称 |
+| Collection 页 | 集合名称 |
+| 搜索结果页 | 搜索结果标题 |
+| 购物车页 | Shopping cart |
+| 博客文章页 | 文章标题 |
+
+通常保持一个明确的 H1，能够使页面结构更加容易理解。
+
+### 6.4 section 和 article 会自动改变标题等级吗？
+
+这是一个非常值得注意的问题。
+
+```html
+<h1>Products</h1>
+
+<section>
+  <h1>New arrivals</h1>
+
+  <article>
+    <h1>Cotton T-shirt</h1>
+  </article>
+</section>
+```
+
+有些开发人员认为，随着 section 和 article 的嵌套，内部的 h1 会自动变成 H2 和 H3。
+
+但实际上，不能依赖这种方式建立无障碍标题层级。
+
+辅助技术通常仍然会将它们识别为一级标题。
+
+应该明确指定等级：
+
+```html
+<h1>Products</h1>
+
+<section>
+  <h2>New arrivals</h2>
+
+  <article>
+    <h3>Cotton T-shirt</h3>
+  </article>
+</section>
+```
+
+### 6.5 Shopify 可复用组件的标题等级怎么处理？
+
+假设有一个 `card-product.liquid` 商品卡片组件。
+
+在 Collection 页面中，商品名称可能应该使用 H2，而在商品详情页的 Related products 区域中，商品名称可能应该使用 H3。
+
+如果直接写死：
+
+```liquid
+<h3>{{ card_product.title | escape }}</h3>
+```
+
+那么复用组件时就可能出现不合理的标题层级。
+
+可以考虑通过参数控制。
+
+```liquid
+{% render 'card-product',
+  card_product: product,
+  heading_level: 2
+%}
+```
+
+在推荐商品区域中：
+
+```liquid
+{% render 'card-product',
+  card_product: product,
+  heading_level: 3
+%}
+```
+
+组件内部：
+
+```liquid
+{%- liquid
+  assign level = heading_level | default: 3 | plus: 0
+  assign level = level | at_least: 2 | at_most: 6
+-%}
+
+<h{{ level }} class="card__heading">
+  <a href="{{ card_product.url }}">
+    {{ card_product.title | escape }}
+  </a>
+</h{{ level }}>
+```
+
+这是一种自定义组件设计方案，并不是 Dawn 原生组件一定提供的参数。
+
+它的核心思想是：**将组件的视觉样式与标题语义解耦。**
+
+无论外部传入 H2 还是 H3，都可以通过 `card__heading` 保持完全相同的字号和样式。
+
+---
+
+## 7. Link 与 Button 的本质区别
+
+这是日常开发中出现频率非常高的无障碍问题。
+
+我们不能仅根据 UI 设计稿中的视觉样式，判断一个元素应该使用 `a` 还是 `button`。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="link" size="3xl"/>
+      **Link**
+
+      导航到一个目标位置或资源。
+
+      <divider/>
+      <text size="sm">跳转商品详情页</text>
+      <text size="sm">跳转 Collection 页</text>
+      <text size="sm">下载文件</text>
+      <text size="sm">跳转页面锚点</text>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="mouse-pointer-click" size="3xl"/>
+      **Button**
+
+      执行一个操作或命令。
+
+      <divider/>
+      <text size="sm">添加到购物车</text>
+      <text size="sm">打开购物车弹窗</text>
+      <text size="sm">展开商品描述</text>
+      <text size="sm">切换收藏状态</text>
+    </box>
+  </grid-item>
+</grid>
+
+### 7.1 两者的原生能力
+
+| 能力 | `a`（有 href） | `button` |
+|---|---|---|
+| 隐式 Role | link | button |
+| Tab 键聚焦 | 支持 | 支持 |
+| Enter 激活 | 支持 | 支持 |
+| Space 激活 | 默认不支持 | 支持 |
+| 在新标签页打开目标 | 支持 | 不提供链接行为 |
+| 复制链接地址 | 支持 | 不支持 |
+| 原生 disabled | 不支持 | 支持 |
+| 原生提交表单 | 不支持 | 支持 |
+
+W3C 的组件设计指南也明确区分了按钮的操作语义与链接的导航语义。<Cite refs={["turn869746search0","turn869746search1"]}/>
+
+### 7.2 视觉表现不能决定元素类型
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      **View product**
+      <caption>看起来像按钮，实际是导航链接。</caption>
+    </box>
+    <box background="#292929" theme="dark" radius="sm" padding={3}>
+      <text color="#FFFFFF" size="sm">View product</text>
+    </box>
+  </row>
+  <divider/>
+  <row align="center">
+    <box flex={1} gap={1}>
+      **Remove product**
+      <caption>看起来像文字链接，实际是执行操作的按钮。</caption>
+    </box>
+    <text underline={true} size="sm">Remove</text>
+  </row>
+</box>
+
+对应代码：
+
+```html
+<a class="button" href="/products/cotton-shirt">
+  View product
+</a>
+
+<button class="text-link" type="button">
+  Remove
+</button>
+```
+
+CSS 的 class 名称是 `button` 还是 `text-link` 并不重要，真正重要的是 HTML 元素所表达的用途。
+
+### 7.3 Shopify 购物车图标应该使用 a 还是 button？
+
+这取决于具体功能。
+
+如果点击后跳转购物车页面：
+
+```liquid
+<a href="{{ routes.cart_url }}">
+  <svg aria-hidden="true"></svg>
+  <span class="visually-hidden">Cart</span>
+</a>
+```
+
+如果点击后打开 Cart Drawer：
+
+```html
+<button
+  type="button"
+  aria-label="Open shopping cart"
+  aria-haspopup="dialog"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+如果链接本身有真实的购物车页面地址，但 JavaScript 在支持的情况下拦截导航并打开 Drawer，则属于渐进增强方案。此时需要额外考虑增强后的角色、键盘行为和用户预期是否一致。
+
+### 7.4 不推荐使用空链接模拟按钮
+
+```html
+<a href="javascript:void(0)" onclick="openCart()">
+  Open cart
+</a>
+```
+
+或者：
+
+```html
+<a href="#" onclick="openCart()">
+  Open cart
+</a>
+```
+
+这些写法虽然可以执行 JavaScript，但会让辅助技术获得不准确的链接语义，而且可能存在页面滚动、键盘操作不一致等问题。
+
+纯操作型控件通常应直接使用 `button`。
+
+---
+
+## 8. List、Table 与其他内容语义
+
+除了 Landmark 和 Heading，普通内容的结构同样重要。
+
+### 8.1 商品列表
+
+对于 Shopify Collection 商品列表，可以使用 `ul` 和 `li` 表示一组商品。
+
+```liquid
+<ul class="product-grid">
+  {% for product in collection.products %}
+    <li class="grid__item">
+      {% render 'card-product',
+        card_product: product
+      %}
+    </li>
+  {% endfor %}
+</ul>
+```
+
+```css
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  list-style: none;
+  padding: 0;
+}
+```
+
+视觉上仍然是普通商品网格，但辅助技术可以获取列表结构、列表项目以及相关数量信息。
+
+这里有一个浏览器兼容性细节：在 Safari 中，`list-style: none` 可能导致某些列表不再被识别为列表。需要针对目标环境测试，必要时可以为列表补充 `role="list"`。
+
+```html
+<ul class="product-grid" role="list">
+  <!-- Product items -->
+</ul>
+```
+
+### 8.2 商品尺寸表
+
+对于 Size Chart，不建议使用一堆 div 来模拟数据表格。
+
+<box border radius="lg" padding={3} gap={2}>
+  **Size guide**
+  <caption>Measurements in centimeters</caption>
+  | Size | Chest | Length |
+  |---|---:|---:|
+  | S | 96 | 66 |
+  | M | 100 | 68 |
+  | L | 104 | 70 |
+  | XL | 108 | 72 |
+</box>
+
+推荐使用原生 table：
+
+```html
+<table>
+  <caption>
+    Size guide (cm)
+  </caption>
+
+  <thead>
+    <tr>
+      <th scope="col">Size</th>
+      <th scope="col">Chest</th>
+      <th scope="col">Length</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <th scope="row">S</th>
+      <td>96</td>
+      <td>66</td>
+    </tr>
+
+    <tr>
+      <th scope="row">M</th>
+      <td>100</td>
+      <td>68</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+通过 `th` 和 `scope`，辅助技术可以识别数据单元格与相应行、列表头之间的关系。<Cite ref="turn869746search14"/>
+
+例如用户导航到数值 100 时，屏幕阅读器可以结合相关表头告知用户，这是 M 码的胸围。
+
+### 8.3 商品规格
+
+对于名称与值之间的对应关系，可以使用 `dl`、`dt` 和 `dd`。
+
+```html
+<dl class="product-specifications">
+  <dt>Material</dt>
+  <dd>100% cotton</dd>
+
+  <dt>Weight</dt>
+  <dd>220 g</dd>
+
+  <dt>Country of origin</dt>
+  <dd>China</dd>
+</dl>
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  **Specifications**
+  {#each [["Material","100% cotton"],["Weight","220 g"],["Country of origin","China"]] as p,i}
+    {#if i>0}<divider/>{/if}
+    <row>
+      <text size="sm" color="secondary">{p[0]}</text>
+      <spacer/>
+      <text size="sm">{p[1]}</text>
+    </row>
+  {/each}
+</box>
+
+它比普通的 div 更能够表达商品属性名称与属性值之间的关系。
+
+### 8.4 原生 details 和 summary
+
+对于简单的商品详情折叠面板，可以使用 HTML 原生元素。
+
+```html
+<details>
+  <summary>Shipping & Returns</summary>
+
+  <p>Free shipping on orders over $50.</p>
+  <p>Returns accepted within 30 days.</p>
+</details>
+```
+
+{@body const [expandedItems,setExpandedItems]=DIL.useState([false,false,false])}
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{title:"Product details",content:"Made from 100% premium cotton."},{title:"Shipping & Returns",content:"Free shipping on orders over $50. Returns accepted within 30 days."},{title:"Care instructions",content:"Machine wash cold. Do not bleach."}] as item,i}
+    <pressable onClick={()=>setExpandedItems(old=>old.map((v,j)=>i===j?!v:v))} padding={{y:2}}>
+      <row align="center">
+        **{item.title}**
+        <spacer/>
+        <icon name={expandedItems[i]?"chevron-up":"chevron-down"}/>
+      </row>
+    </pressable>
+    {#if expandedItems[i]}
+      <box padding={{bottom:2}}>
+        <text size="sm">{item.content}</text>
+        <caption>模拟状态：expanded = true</caption>
+      </box>
+    {/if}
+    {#if i<2}<divider/>{/if}
+  {/each}
+</box>
+
+原生 `details` 和 `summary` 已经提供了基础的展开、折叠、键盘操作以及对应的无障碍状态。
+
+对于简单的 Disclosure 组件，通常不需要再自己实现 `aria-expanded` 的同步逻辑。
+
+---
+
+## 9. Shopify Dawn 源码中的 HTML 语义化
+
+现在我们结合 Dawn 的真实源码来理解整体页面结构。
+
+### 9.1 layout/theme.liquid
+
+Dawn 的 [layout/theme.liquid](https://github.com/Shopify/dawn/blob/main/layout/theme.liquid) 中包含以下核心结构。这里省略了样式、脚本和其他非关键代码。<Cite ref="turn869746view0"/>
+
+```liquid
+<body>
+  <a
+    class="skip-to-content-link button visually-hidden"
+    href="#MainContent"
+  >
+    {{ 'accessibility.skip_to_text' | t }}
+  </a>
+
+  {% if settings.cart_type == 'drawer' %}
+    {% render 'cart-drawer' %}
+  {% endif %}
+
+  {% sections 'header-group' %}
+
+  <main
+    id="MainContent"
+    class="content-for-layout focus-none"
+    role="main"
+    tabindex="-1"
+    data-template="{{ template.name }}"
+  >
+    {{ content_for_layout }}
+  </main>
+
+  {% sections 'footer-group' %}
+</body>
+```
+
+<box border radius="lg" padding={3} gap={2}>
+  <caption>theme.liquid</caption>
+  <box border={{size:1,color:"#9673C5"}} radius="md" padding={2} gap=1>
+    **Skip to content**
+    <caption>跳过重复导航的入口</caption>
+  </box>
+  <box border radius="md" padding={2} gap=1>
+    **Cart Drawer**
+    <caption>根据配置渲染购物车弹窗</caption>
+  </box>
+  <box background="#5185C512" border={{size:1,color:"#5185C5"}} radius="md" padding={3} gap=1>
+    **header-group**
+    <caption>Header、Announcement bar 等模块</caption>
+  </box>
+  <box background="#39866B09" border={{size:1,color:"#39866B"}} radius="md" padding={3} gap={2}>
+    <row>
+      **MainContent**
+      <spacer/>
+      <caption>role="main"</caption>
+    </row>
+    <box border radius="sm" padding={2} gap=2>
+      <text size="sm" weight="medium"><escape>{{ content_for_layout }}</escape></text>
+      {#each ["Section 1","Section 2","Section 3"] as s}
+        <box background="surface-tertiary" radius="sm" padding={2}><text size="sm">{s}</text></box>
+      {/each}
+    </box>
+    <caption>根据当前 Template 渲染相应页面内容</caption>
+  </box>
+  <box background="#C6914A12" border={{size:1,color:"#C6914A"}} radius="md" padding={3} gap=1>
+    **footer-group**
+    <caption>Footer 及其他底部模块</caption>
+  </box>
+</box>
+
+### 9.2 为什么 main 已经有隐式 Role，还要写 role="main"？
+
+```html
+<main role="main">
+```
+
+在现代浏览器中，main 本身就具有 main 角色，因此这里的显式 Role 通常是冗余的。
+
+这种写法可能出于兼容性或历史代码考虑。
+
+在自己的现代项目中，一般直接使用：
+
+```html
+<main id="MainContent">
+```
+
+就能够提供相应的 Landmark 语义。
+
+### 9.3 为什么 main 设置了 tabindex="-1"？
+
+```html
+<main id="MainContent" tabindex="-1">
+```
+
+因为 main 默认不是一个可聚焦的交互元素。
+
+`tabindex="-1"` 允许它成为程序化焦点或适当的页面锚点导航目标，但不会将其加入正常的 Tab 导航顺序。
+
+例如：
+
+```javascript
+document.querySelector('#MainContent').focus();
+```
+
+这样可以配合 Skip Link 实现跳过导航的功能。
+
+后面学习 Focus Management 时，我们还会遇到类似写法。
+
+### 9.4 Shopify Section 是否应该使用 HTML section？
+
+这是 Shopify Theme 开发中一个非常典型的问题。
+
+Shopify 的 Section schema 支持设置包装元素的标签，例如：
+
+```liquid
+{% schema %}
+{
+  "name": "Featured collection",
+  "tag": "section",
+  "class": "featured-collection-section",
+  "settings": []
+}
+{% endschema %}
+```
+
+Shopify Section 与 HTML section 是两个不同层面的概念。
+
+| 概念 | 作用 |
+|---|---|
+| Shopify Section | 可配置、可复用的主题模块 |
+| HTML section | 具有主题的文档内容区域 |
+| ARIA region | 具有可访问名称的地标区域 |
+
+三者没有必然的一一对应关系。
+
+一个 Shopify Section 可以使用 div 包装，也可以使用 section、article 等合适的语义元素。是否形成 Landmark，要进一步看最终渲染的 HTML 及其可访问名称。
+
+不要认为设置了 `"tag": "section"` 就已经完成了该模块的无障碍处理。
+
+---
+
+## 10. ARIA Role 是否可以完全替代 HTML 语义？
+
+理论上，很多 HTML 语义可以通过 ARIA Role 表达。
+
+```html
+<div role="navigation">
+  <!-- Navigation -->
+</div>
+
+<div role="main">
+  <!-- Main content -->
+</div>
+
+<div role="heading" aria-level="2">
+  Product details
+</div>
+```
+
+从部分无障碍语义上看，它们分别对应：
+
+```html
+<nav>
+  <!-- Navigation -->
+</nav>
+
+<main>
+  <!-- Main content -->
+</main>
+
+<h2>Product details</h2>
+```
+
+但是，对于能够使用原生标签的场景，我们应该优先选择后者。
+
+因为原生 HTML 往往不仅提供语义，还提供相应的原生行为、浏览器兼容性以及其他 API 能力。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 230" width="100%">
+    <rect x="55" y="5" width="230" height="37" rx="6" fill="#888888" fillOpacity=".09" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="170" y="28" textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor">开始开发一个 HTML 元素</text>
+    <path d="M170 42 V59" stroke="currentColor" strokeOpacity=".5"/>
+    <path d="M170 60 L303 100 L170 140 L37 100 Z" stroke="#5185C5" fill="#5185C5" fillOpacity=".08"/>
+    <text x="170" y="96" fontSize="11" textAnchor="middle" fill="currentColor">是否有满足需求的</text>
+    <text x="170" y="112" fontSize="11" textAnchor="middle" fill="currentColor">原生 HTML 元素？</text>
+    <path d="M37 100 H20 V165 H85 V179 M303 100 H320 V165 H255 V179" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <text x="23" y="151" fontSize="11" fill="#39866B">是</text>
+    <text x="305" y="151" fontSize="11" fill="currentColor">否</text>
+    <rect x="5" y="180" width="160" height="44" rx="6" stroke="#39866B" fill="#39866B" fillOpacity=".1"/>
+    <text x="85" y="197" fontSize="11" textAnchor="middle" fontWeight="600" fill="currentColor">优先使用原生 HTML</text>
+    <text x="85" y="213" fontSize="10" textAnchor="middle" fill="currentColor">button、nav、details 等</text>
+    <rect x="175" y="180" width="160" height="44" rx="6" stroke="currentColor" strokeOpacity=".3" fill="#888888" fillOpacity=".06"/>
+    <text x="255" y="197" fontSize="11" textAnchor="middle" fontWeight="600" fill="currentColor">考虑 ARIA + JavaScript</text>
+    <text x="255" y="213" fontSize="10" textAnchor="middle" fill="currentColor">补充语义、状态和交互</text>
+  </svg>
+</box>
+
+另外，也不要随意添加与原生语义冲突的 Role：
+
+```html
+<!-- 不合理 -->
+<h2 role="button">Product details</h2>
+
+<button role="heading">Add to cart</button>
+```
+
+这些写法可能破坏元素原有语义，而且不一定是规范允许的角色覆盖方式。
+
+---
+
+## 11. 实战：检查 Shopify 网站的语义化问题
+
+你可以打开自己正在开发的 Shopify 网站，在 Chrome DevTools 的 Console 中执行下面的代码。
+
+### 11.1 检查所有标题及其等级
+
+```javascript
+const headings = document.querySelectorAll(
+  'h1, h2, h3, h4, h5, h6, [role="heading"]'
+);
+
+console.table(
+  [...headings].map(el => ({
+    tag: el.tagName,
+
+    level: el.getAttribute('aria-level')
+      || (/^H[1-6]$/.test(el.tagName)
+        ? el.tagName.slice(1)
+        : null),
+
+    text: el.textContent.trim(),
+
+    element: el
+  }))
+);
+```
+
+模拟输出：
+
+| tag | level | text |
+|---|---:|---|
+| H1 | 1 | Cotton T-shirt |
+| H2 | 2 | Product details |
+| H3 | 3 | Material |
+| H3 | 3 | Care instructions |
+| H2 | 2 | Shipping & Returns |
+| H2 | 2 | Customer reviews |
+| H2 | 2 | Related products |
+| H3 | 3 | Cotton polo |
+
+这样可以快速发现多个 H1、标题层级异常、空标题等潜在问题。
+
+### 11.2 检查潜在的 Landmark 元素
+
+```javascript
+const selector = [
+  'header',
+  'footer',
+  'main',
+  'nav',
+  'aside',
+  'section',
+  'form',
+  'search',
+  '[role="banner"]',
+  '[role="main"]',
+  '[role="navigation"]',
+  '[role="contentinfo"]',
+  '[role="complementary"]',
+  '[role="region"]',
+  '[role="form"]',
+  '[role="search"]'
+].join(',');
+
+console.table(
+  [...document.querySelectorAll(selector)]
+    .map(el => ({
+      tag: el.tagName,
+      id: el.id,
+      role: el.getAttribute('role'),
+      label: el.getAttribute('aria-label'),
+      labelledby:
+        el.getAttribute('aria-labelledby'),
+      element: el
+    }))
+);
+```
+
+注意，这段代码检查的是 DOM 层面的候选元素，并不是真正计算浏览器的 Accessibility Tree。
+
+例如它会找到所有 section，即使其中很多没有 region 地标语义。
+
+最终仍然需要通过 Chrome DevTools 的 Accessibility 面板或者屏幕阅读器进行确认。
+
+---
+
+## 12. 本课知识测试
+
+{@body const quiz=[{q:"article 内部的 header 是否一定具有 banner 地标角色？",opts:["是","否"],a:1,why:"header 的无障碍角色取决于上下文，article 内部的 header 通常不是 banner。"},{q:"一个普通 section 内包含 h2，是否自动成为 region 地标？",opts:["是","否"],a:1,why:"section 通常需要通过 aria-labelledby、aria-label 等机制获得可访问名称，才成为 region 地标。"},{q:"点击购物车图标后打开 Drawer，应该优先使用哪个元素？",opts:["button","a href=\"#\"","div onclick"],a:0,why:"打开弹窗是执行操作，而不是导航，应优先使用原生 button。"},{q:"section 内部的 h1 是否会自动变成 h2？",opts:["会","不会"],a:1,why:"不能依赖 section 的嵌套自动建立标题等级，应明确使用 h1～h6。"},{q:"页面中有四个用途不同的 nav，应该怎么处理？",opts:["全部删除 nav","为不同导航区域提供明确名称","全部设置 role=\"menu\""],a:1,why:"提供可访问名称可以让辅助技术用户区分不同导航区域。"},{q:"一个 24px 大小的普通价格文字，是否应该因为字号较大而使用 h2？",opts:["应该","不应该"],a:1,why:"标题标签用于表达内容结构，而不是控制字体大小。"},{q:"Shopify Section 设置 tag 为 section 后，是否一定具有 Landmark 语义？",opts:["是","否"],a:1,why:"Shopify Section 是模块概念，最终是否成为 region 取决于渲染后的 HTML 和可访问名称。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(7).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((v,i)=>v===quiz[i].a).length} / 7</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${answers.filter((v,i)=>v===quiz[i].a).length/7*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((x,j)=>i===j?Number(v):x))}>
+        {#each q.opts as opt,j}
+          <radio value={String(j)}>{opt}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap=1>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<6}<divider/>{/if}
+  {/each}
+  <button block color="secondary" variant="ghost" onClick={()=>setAnswers(Array(7).fill(-1))}>重新测试</button>
+</card>
+
+## 13. 日常开发检查清单
+
+{@body const checks=["页面存在清晰的 main 主内容区域","网站级 Header 和 Footer 使用合理的地标语义","不同用途的 nav 具有明确名称","存在可操作的 Skip to content 入口","Heading 等级反映实际内容层级","没有使用 Heading 单纯控制字号","链接用于导航，按钮用于操作","商品列表具有合理的列表语义","数据表格具有正确的表头和数据关系","没有添加不必要或冲突的 ARIA Role","通过 Accessibility Tree 验证最终语义"]}
+{@body const [checked,setChecked]=DIL.useState(Array(11).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **HTML 语义化检查清单**
+    <spacer/>
+    <caption>{checked.filter(Boolean).length} / 11</caption>
+  </row>
+  {#each checks as c,i}
+    <checkbox checked={checked[i]} onChange={v=>setChecked(old=>old.map((x,j)=>i===j?v:x))} lineThrough={checked[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks.map((c,i)=>(checked[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 14. 官方参考资料
+
+| 文档 | 主要内容 |
+|---|---|
+| [W3C Page Structure](https://www.w3.org/WAI/tutorials/page-structure/) | 页面语义化结构 |
+| [WAI-ARIA Landmark Regions](https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/) | 地标角色与使用规范 |
+| [HTML-AAM](https://www.w3.org/TR/html-aam-1.0/) | HTML 无障碍语义映射 |
+| [W3C Headings](https://www.w3.org/WAI/tutorials/page-structure/headings/) | 标题层级 |
+| [W3C Tables](https://www.w3.org/WAI/tutorials/tables/) | 表格无障碍 |
+| [Shopify Accessibility](https://shopify.dev/docs/storefronts/themes/best-practices/accessibility) | Theme 无障碍开发 |
+| [Dawn 源码](https://github.com/Shopify/dawn) | 实际主题参考 |
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">HTML 语义化</title>
+    <caption>Native HTML First</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{title:"页面区域",items:"header · main · nav · footer",desc:"Landmark 快速导航"},{title:"内容层级",items:"h1 ～ h6 · section · article",desc:"建立清晰的文档结构"},{title:"交互元素",items:"a · button · input · details",desc:"原生语义与交互能力"},{title:"信息关系",items:"ul · ol · dl · table",desc:"表达列表及数据关系"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          **{item.title}**
+          <text size="sm">{item.items}</text>
+          <caption>{item.desc}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+这一课最重要的开发思想是：
+
+**HTML 负责描述内容是什么，CSS 负责描述内容长什么样，JavaScript 负责描述内容如何交互，ARIA 则在必要时补充无障碍语义。**
+
+如果一开始就选择了正确的 HTML 元素，很多无障碍问题根本不会产生。
+
+---
+
+**下一课：第 6 课——图片、SVG、Icon 与多媒体无障碍**
+
+我们将重点学习：
+
+- 图片 alt 的完整使用规范与常见误区。
+- 信息性图片、装饰性图片、功能性图片的区别。
+- 商品图片与商品链接的 alt 如何设计。
+- CSS background-image 的无障碍问题。
+- Inline SVG、外部 SVG、SVG Sprite 的无障碍实现。
+- SVG 的 title、desc、role="img"。
+- 纯图标按钮的正确实现方式。
+- Icon Font 的无障碍问题。
+- 视频字幕、音频文字稿及自动播放。
+- Shopify 商品图片、商品图库、星级评分和促销 Banner 的实战处理。
+
+这也是跨境电商网站 ADA 审计中非常容易发现问题的一部分。

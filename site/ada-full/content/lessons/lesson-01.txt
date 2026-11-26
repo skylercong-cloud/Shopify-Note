@@ -1,0 +1,761 @@
+# 第 1 课：认识 ADA 网站无障碍
+
+<caption>阶段一 · 第 1 / 26 课</caption>
+<box background="surface-tertiary" height={5} radius="full">
+  <box background="#39866B" width="3.85%" height={5} radius="full"/>
+</box>
+
+## 1. 什么是网站无障碍？
+
+网站无障碍（Web Accessibility），简单来说，就是让具有不同身体条件、感知能力和操作能力的用户，都能够获取网站信息并使用网站功能。
+
+对于一个电商网站，普通用户的操作流程可能是：
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each ["浏览商品","查看商品详情","选择颜色、尺寸","添加到购物车","完成结算"] as step,i}
+    <box background="surface" border radius="md" padding={2} align="center">
+      **{step}**
+    </box>
+    {#if i<4}
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+    {/if}
+  {/each}
+</box>
+
+对于一位看不见屏幕、无法使用鼠标的用户，我们需要确保他同样能够独立完成上述流程，而不是只能访问其中某几个页面。
+
+这就是无障碍开发的核心目标：**提供等价的信息和操作能力，而不是要求所有用户使用完全相同的交互方式。**
+
+## 2. 无障碍主要服务于哪些用户？
+
+<box gap={3}>
+  <row align="start">
+    <box background="surface-tertiary" radius="lg" size="48px" align="center" justify="center"><icon name="eye-off" size="3xl"/></box>
+    <box flex={1} gap=1>
+      **视觉障碍用户**
+
+      全盲、低视力、色觉障碍用户。
+
+      <caption>需要屏幕阅读器、文字放大、高对比度、图片替代文本等能力。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box background="surface-tertiary" radius="lg" size="48px" align="center" justify="center"><icon name="ear-off" size="3xl"/></box>
+    <box flex={1} gap=1>
+      **听觉障碍用户**
+
+      全聋、听力下降用户。
+
+      <caption>需要视频字幕、音频文字稿，以及非声音形式的提示。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box background="surface-tertiary" radius="lg" size="48px" align="center" justify="center"><icon name="hand" size="3xl"/></box>
+    <box flex={1} gap=1>
+      **运动障碍用户**
+
+      无法精准操作鼠标、手指或肢体活动受限的用户。
+
+      <caption>需要键盘导航、语音控制、合理的点击区域及替代操作方式。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box background="surface-tertiary" radius="lg" size="48px" align="center" justify="center"><icon name="brain" size="3xl"/></box>
+    <box flex={1} gap=1>
+      **认知障碍用户**
+
+      阅读障碍、注意力障碍、记忆与理解能力受限的用户。
+
+      <caption>需要清晰的页面结构、统一的交互逻辑、容易理解的错误提示。</caption>
+    </box>
+  </row>
+</box>
+
+实际上，无障碍设计不仅服务于永久性残障用户，也服务于暂时性和情境性受限的用户。
+
+| 永久性障碍 | 暂时性障碍 | 情境性障碍 |
+|---|---|---|
+| 单臂残障 | 手臂骨折 | 一只手抱着宝宝 |
+| 低视力 | 眼部术后 | 阳光下看手机 |
+| 听力障碍 | 耳部感染 | 嘈杂的公共场所 |
+| 运动障碍 | 手部受伤 | 鼠标损坏 |
+
+因此，无障碍并不是一个针对少数用户的额外功能，而是网站基础体验的一部分。
+
+## 3. ADA、A11y、WCAG、ARIA 分别是什么？
+
+这四个概念在工作中经常被混用，但实际上属于不同的层面。
+
+<box border radius="lg" padding={4} gap={2}>
+  <box background="#E6EDF8" radius="md" padding={3} align="center" theme="light">
+    <caption>法律层面</caption>
+    <title size="lg">ADA</title>
+    美国残疾人法案
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>法律义务与合规需求</caption></box>
+  <box background="#E2F0E6" radius="md" padding={3} align="center" theme="light">
+    <caption>技术标准层面</caption>
+    <title size="lg">WCAG</title>
+    Web 内容无障碍指南
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>指导开发实现</caption></box>
+  <grid columns={3} gap={2}>
+    {#each ["HTML","CSS","JavaScript"] as tech}
+      <grid-item>
+        <box background="surface-tertiary" radius="md" padding={3} align="center">
+          **{tech}**
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+  <box background="#EEE6F8" radius="md" padding={3} align="center" theme="light">
+    **WAI-ARIA**
+
+    补充元素的无障碍语义、状态和关系
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **Accessibility（A11y）**
+
+    最终实现的网站无障碍体验
+  </box>
+</box>
+
+### 3.1 ADA
+
+全称：Americans with Disabilities Act。
+
+即《美国残疾人法案》，于 1990 年颁布。
+
+**ADA 是法律，而不是前端技术规范。**
+
+它要求适用范围内的组织不得歧视残障人士，应当提供平等获取商品、服务和信息的机会。
+
+对于网站开发，我们主要关注：
+
+| 分类 | 适用对象 |
+|---|---|
+| ADA Title I | 就业领域 |
+| ADA Title II | 州和地方政府及公共服务 |
+| ADA Title III | 面向公众提供服务的适用商业机构 |
+
+跨境电商网站主要关注 Title III。
+
+美国司法部认为 ADA 适用于相关机构的网站内容。但对于私人商业网站，具体法律适用范围还涉及司法辖区、经营模式等因素，不能简单理解为所有网站都被法律统一强制要求达到 WCAG 2.2 AA。
+
+目前，美国司法部针对州和地方政府的 Title II 网站规则明确采用 WCAG 2.1 AA 作为技术标准，而 Title III 并没有一项同样普遍适用的具体网站技术标准规则。<Cite refs={["turn717238search2","turn717238search16"]}/>
+
+因此，我们在实际开发中通常将 WCAG AA 作为重要的技术合规目标，但技术达标不等于获得法律免责。
+
+### 3.2 A11y
+
+A11y 是 Accessibility 的缩写。
+
+<box border radius="lg" padding={3} align="center" gap={2}>
+  <svg viewBox="0 0 320 100" width="100%">
+    <rect x="13" y="8" width="294" height="39" rx="7" fill="#888888" fillOpacity="0.08"/>
+    <text x="33" y="35" fontSize="23" fontWeight="bold" fill="#39866B" textAnchor="middle">A</text>
+    <text x="160" y="35" fontSize="23" fill="currentColor" letterSpacing="2" textAnchor="middle">ccessibilit</text>
+    <text x="287" y="35" fontSize="23" fontWeight="bold" fill="#39866B" textAnchor="middle">y</text>
+    <path d="M52 45 V54 H268 V45 M160 54 V62" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <text x="160" y="76" fontSize="12" fill="currentColor" textAnchor="middle">中间省略 11 个字母</text>
+    <text x="160" y="96" fontSize="19" fontWeight="bold" fill="#39866B" textAnchor="middle">A11y</text>
+  </svg>
+</box>
+
+类似于前端开发中的：
+
+| 缩写 | 全称 | 含义 |
+|---|---|---|
+| A11y | Accessibility | 无障碍 |
+| I18n | Internationalization | 国际化 |
+| L10n | Localization | 本地化 |
+
+以后你在 Dawn 源码中看到 `a11y` 相关变量、方法或者 CSS 类名，就应该知道它们与无障碍功能有关。
+
+### 3.3 WCAG
+
+全称：Web Content Accessibility Guidelines。
+
+由 W3C 制定，是网站无障碍开发最重要的技术标准之一。
+
+主要版本如下：
+
+| 版本 | 发布时间 | 主要特点 |
+|---|---|---|
+| WCAG 1.0 | 1999 年 | 早期网页无障碍规范 |
+| WCAG 2.0 | 2008 年 | 建立四大核心原则 |
+| WCAG 2.1 | 2018 年 | 加强移动端、低视力及认知障碍支持 |
+| WCAG 2.2 | 2023 年 | 加强焦点、点击区域、拖拽及身份验证等要求 |
+
+WCAG 将成功准则分为三个级别。<Cite refs={["turn717238search3","turn717238search4"]}/>
+
+<box border radius="lg" padding={3} gap={3}>
+  <svg viewBox="0 0 340 165" width="100%">
+    <path d="M125 5 H215 L248 52 H92 Z" fill="#639A83" fillOpacity=".88"/>
+    <path d="M89 57 H251 L284 104 H56 Z" fill="#639A83" fillOpacity=".58"/>
+    <path d="M53 109 H287 L320 156 H20 Z" fill="#639A83" fillOpacity=".25"/>
+    <text x="170" y="27" fontSize="17" fontWeight="bold" fill="white" textAnchor="middle">AAA</text>
+    <text x="170" y="43" fontSize="11" fill="white" textAnchor="middle">更高无障碍要求</text>
+    <text x="170" y="77" fontSize="17" fontWeight="bold" fill="currentColor" textAnchor="middle">AA</text>
+    <text x="170" y="94" fontSize="12" fill="currentColor" textAnchor="middle">常见商业网站目标</text>
+    <text x="170" y="131" fontSize="17" fontWeight="bold" fill="currentColor" textAnchor="middle">A</text>
+    <text x="170" y="147" fontSize="12" fill="currentColor" textAnchor="middle">基础无障碍要求</text>
+  </svg>
+  <divider/>
+  <row align="center">
+    <text weight="medium">Level A</text>
+    <spacer/>
+    <caption>满足全部 A 级准则</caption>
+  </row>
+  <row align="center">
+    <text weight="medium">Level AA</text>
+    <spacer/>
+    <caption>满足全部 A + AA 级准则</caption>
+  </row>
+  <row align="center">
+    <text weight="medium">Level AAA</text>
+    <spacer/>
+    <caption>满足全部 A + AA + AAA 级准则</caption>
+  </row>
+</box>
+
+举几个具体的 WCAG 2.2 准则：
+
+| 要求 | 编号 | 级别 |
+|---|---|---|
+| 非文本内容提供替代信息 | 1.1.1 | A |
+| 支持键盘操作 | 2.1.1 | A |
+| 不仅依靠颜色传递信息 | 1.4.1 | A |
+| 普通文字对比度至少 4.5:1 | 1.4.3 | AA |
+| 支持文字放大至 200% | 1.4.4 | AA |
+| 键盘焦点可见 | 2.4.7 | AA |
+| 焦点元素不被完全遮挡 | 2.4.11 | AA |
+| 点击目标至少 24×24 CSS px，允许规定的例外 | 2.5.8 | AA |
+| 普通文字对比度至少 7:1 | 1.4.6 | AAA |
+
+以后我们收到一份 ADA 审计报告时，通常就可以根据这些编号找到对应的规范、失败原因和修复方案。
+
+### 3.4 WAI-ARIA
+
+全称：Web Accessibility Initiative – Accessible Rich Internet Applications。
+
+它是一套补充 Web 元素无障碍语义的技术规范。
+
+例如：
+
+```html
+<button
+  aria-expanded="false"
+  aria-controls="cart-drawer"
+>
+  Shopping Cart
+</button>
+```
+
+其中：
+
+`aria-expanded` 告诉辅助技术这个按钮控制的内容是否处于展开状态。
+
+`aria-controls` 表示这个按钮与哪个元素存在控制关系。
+
+ARIA 主要解决三个问题：
+
+| 类型 | 作用 | 示例 |
+|---|---|---|
+| Role | 元素是什么 | `role="dialog"` |
+| State | 元素当前是什么状态 | `aria-expanded` |
+| Property | 元素具有什么属性或关系 | `aria-label` |
+
+但是请从现在开始牢记一个非常重要的原则：
+
+**ARIA 主要负责描述语义，而不是实现功能。**
+
+例如 `aria-expanded="true"` 不会自动展开弹窗，`role="button"` 不会自动实现按钮的键盘交互。这些功能仍然需要原生 HTML 或 JavaScript 实现。
+
+W3C 也强调，错误地使用 ARIA 比不使用 ARIA 更糟糕。<Cite ref="turn717238search0"/>
+
+---
+
+## 4. 无障碍开发究竟在开发什么？
+
+假设我们现在要开发一个电商网站的购物车按钮。
+
+### 4.1 普通开发方式
+
+```html
+<div class="cart-icon" onclick="openCart()">
+  <svg>
+    <!-- 购物车图标 -->
+  </svg>
+</div>
+```
+
+从普通用户的角度看，这段代码似乎没有任何问题。
+
+用户可以看到购物车图标，点击之后也能够打开购物车。
+
+但是从无障碍角度来看，就存在很多问题。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} align="center">
+      <caption>普通用户看到的</caption>
+      <svg viewBox="0 0 140 110" width="100%">
+        <rect x="35" y="10" width="70" height="70" rx="12" stroke="currentColor" strokeOpacity=".2" fill="none"/>
+        <path d="M49 31 H56 L62 55 H85 L92 37 H58 M63 62 H85" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="66" cy="68" r="3" fill="currentColor"/>
+        <circle cx="82" cy="68" r="3" fill="currentColor"/>
+        <text x="70" y="102" fontSize="12" textAnchor="middle" fill="currentColor">购物车按钮</text>
+      </svg>
+      <text color="success" size="sm">可以点击操作</text>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} align="center">
+      <caption>辅助技术获取的信息</caption>
+      <svg viewBox="0 0 140 110" width="100%">
+        <rect x="35" y="10" width="70" height="70" rx="12" stroke="currentColor" strokeOpacity=".2" strokeDasharray="4 3" fill="none"/>
+        <text x="70" y="60" fontSize="40" fontWeight="bold" textAnchor="middle" fill="#B66C6C">?</text>
+        <text x="70" y="102" fontSize="12" textAnchor="middle" fill="currentColor">缺少有效语义</text>
+      </svg>
+      <text color="danger" size="sm">可能无法识别和操作</text>
+    </box>
+  </grid-item>
+</grid>
+
+它存在以下问题：
+
+- `div` 没有原生按钮语义。
+- 元素默认无法通过 Tab 键获得焦点。
+- 没有原生 Enter、Space 键激活行为。
+- SVG 图标没有提供明确的功能名称。
+- 辅助技术无法得知它控制的弹窗是否已经打开。
+
+### 4.2 无障碍开发方式
+
+```html
+<button
+  type="button"
+  class="cart-icon"
+  aria-label="Open shopping cart"
+  aria-haspopup="dialog"
+  onclick="openCart()"
+>
+  <svg aria-hidden="true" focusable="false">
+    <!-- 购物车图标 -->
+  </svg>
+</button>
+```
+
+这里我们使用了原生的 `button` 元素，并补充了必要的 ARIA 属性。
+
+| 代码 | 作用 |
+|---|---|
+| `button` | 提供原生按钮语义和键盘行为 |
+| `type="button"` | 避免意外提交表单 |
+| `aria-label` | 为纯图标按钮提供可访问名称 |
+| `aria-haspopup="dialog"` | 表示按钮会打开一个对话框 |
+| `aria-hidden="true"` | 将装饰性 SVG 从无障碍树中隐藏 |
+| `focusable="false"` | 避免 SVG 在部分环境中获得焦点 |
+
+注意，这只是购物车**入口按钮**的无障碍实现。购物车弹窗本身还需要处理焦点转移、关闭操作、背景内容隔离等问题，后面的课程会详细介绍。
+
+### 4.3 实际体验一下两者的区别
+
+下面模拟两个外观相同的购物车入口。
+
+{@body const [cartOpen,setCartOpen] = DIL.useState(false)}
+<box border radius="lg" padding={4} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <box align="center" gap={2}>
+        <caption>方案 A：普通图标示意</caption>
+        <box border radius="md" size="64px" align="center" justify="center">
+          <icon name="shopping-cart" size="3xl"/>
+        </box>
+        <text size="sm" color="secondary">模拟无键盘入口</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box align="center" gap={2}>
+        <caption>方案 B：可操作按钮</caption>
+        <button variant="outline" color="secondary" size="xl" onClick={()=>setCartOpen(!cartOpen)}>
+          <icon name="shopping-cart" size="xl"/> 购物车
+        </button>
+        <text size="sm" color="secondary">支持键盘激活</text>
+      </box>
+    </grid-item>
+  </grid>
+  {#if cartOpen}
+    <box border radius="md" padding={3} gap={2}>
+      <row align="center">
+        **Shopping Cart**
+        <spacer/>
+        <button size="sm" variant="ghost" onClick={()=>setCartOpen(false)}><icon name="x"/> 关闭</button>
+      </row>
+      <divider/>
+      <box align="center" padding={3}>
+        <icon name="shopping-bag" size="3xl" color="secondary"/>
+        你的购物车为空
+      </box>
+    </box>
+  {/if}
+  <divider/>
+  <caption>尝试使用 Tab 键寻找可操作的购物车按钮，再使用 Enter 或 Space 键激活它。</caption>
+</box>
+
+你会发现，有些无障碍问题根本不需要复杂的 JavaScript 逻辑，只需要在开发之初选择正确的 HTML 标签。
+
+---
+
+## 5. 浏览器是如何支持无障碍的？
+
+作为前端开发工程师，这部分底层原理非常重要。
+
+我们知道浏览器会根据 HTML 构建 DOM Tree，根据 CSS 构建 CSSOM，并最终完成页面渲染。
+
+但浏览器还有一个非常重要的结构：
+
+**Accessibility Tree（无障碍树，简称 AX Tree）。**
+
+<box border radius="lg" padding={2}>
+  <svg viewBox="0 0 340 298" width="100%">
+    <rect x="68" y="8" width="204" height="42" rx="7" fill="#888888" fillOpacity=".1" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="170" y="25" fontSize="12" fontWeight="bold" fill="currentColor" textAnchor="middle">HTML / CSS / JavaScript</text>
+    <text x="170" y="41" fontSize="10" fill="currentColor" textAnchor="middle">网页源代码</text>
+    <path d="M170 50 V64" stroke="currentColor" strokeOpacity=".5"/>
+    <path d="M166 60 L170 65 L174 60" fill="none" stroke="currentColor" strokeOpacity=".5"/>
+    <rect x="68" y="66" width="204" height="39" rx="7" fill="#888888" fillOpacity=".1" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="170" y="83" fontSize="12" fontWeight="bold" fill="currentColor" textAnchor="middle">DOM Tree / CSSOM</text>
+    <text x="170" y="96" fontSize="10" fill="currentColor" textAnchor="middle">浏览器解析与处理</text>
+    <path d="M170 105 V121 H79 V137 M170 121 H259 V137" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <path d="M75 132 L79 137 L83 132 M255 132 L259 137 L263 132" fill="none" stroke="currentColor" strokeOpacity=".5"/>
+    <rect x="6" y="139" width="145" height="45" rx="7" fill="#608BC5" fillOpacity=".13" stroke="#608BC5" strokeOpacity=".7"/>
+    <text x="78" y="158" fontSize="12" fontWeight="bold" fill="currentColor" textAnchor="middle">渲染流程</text>
+    <text x="78" y="173" fontSize="11" fill="currentColor" textAnchor="middle">Render Tree 等</text>
+    <rect x="174" y="139" width="160" height="45" rx="7" fill="#39866B" fillOpacity=".15" stroke="#39866B"/>
+    <text x="254" y="158" fontSize="11" fontWeight="bold" fill="currentColor" textAnchor="middle">Accessibility Tree</text>
+    <text x="254" y="173" fontSize="11" fill="currentColor" textAnchor="middle">无障碍树</text>
+    <path d="M78 184 V201 M254 184 V201" stroke="currentColor" strokeOpacity=".5"/>
+    <rect x="6" y="202" width="145" height="35" rx="7" fill="#608BC5" fillOpacity=".1" stroke="#608BC5" strokeOpacity=".5"/>
+    <text x="78" y="224" fontSize="12" fill="currentColor" textAnchor="middle">可视化页面</text>
+    <rect x="174" y="202" width="160" height="35" rx="7" fill="#39866B" fillOpacity=".1" stroke="#39866B" strokeOpacity=".5"/>
+    <text x="254" y="217" fontSize="11" fill="currentColor" textAnchor="middle">Accessibility API</text>
+    <text x="254" y="230" fontSize="9" fill="currentColor" textAnchor="middle">平台无障碍接口</text>
+    <path d="M78 237 V252 M254 237 V252" stroke="currentColor" strokeOpacity=".5"/>
+    <rect x="6" y="253" width="145" height="36" rx="7" fill="#888888" fillOpacity=".08" stroke="currentColor" strokeOpacity=".2"/>
+    <text x="78" y="275" fontSize="12" fill="currentColor" textAnchor="middle">视觉用户</text>
+    <rect x="174" y="253" width="160" height="36" rx="7" fill="#888888" fillOpacity=".08" stroke="currentColor" strokeOpacity=".2"/>
+    <text x="254" y="267" fontSize="12" fill="currentColor" textAnchor="middle">辅助技术</text>
+    <text x="254" y="281" fontSize="10" fill="currentColor" textAnchor="middle">屏幕阅读器等</text>
+  </svg>
+  <caption textAlign="center">浏览器渲染与无障碍信息传递的简化示意图</caption>
+</box>
+
+屏幕阅读器通常不是直接将 HTML 源代码读给用户听，而是通过平台无障碍接口获取浏览器暴露的语义信息。
+
+例如下面的代码：
+
+```html
+<button aria-label="Open shopping cart">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+在无障碍树中，可以简化理解为：
+
+<box border radius="lg" padding={3} gap={2}>
+  <row>
+    <icon name="chevron-down" color="secondary"/>
+    <icon name="file-code" color="secondary"/>
+    **RootWebArea**
+  </row>
+  <box padding={{left:5}} gap={2}>
+    <row>
+      <icon name="chevron-down" color="secondary"/>
+      <text color="success" weight="medium">button</text>
+      <text size="sm">"Open shopping cart"</text>
+    </row>
+    <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+      <row><caption>Role</caption><spacer/><text size="sm">button</text></row>
+      <row><caption>Name</caption><spacer/><text size="sm">Open shopping cart</text></row>
+      <row><caption>Focusable</caption><spacer/><text size="sm" color="success">true</text></row>
+    </box>
+  </box>
+  <divider/>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap=1>
+      <caption>屏幕阅读器可能播报</caption>
+      “Open shopping cart, button.”
+    </box>
+  </row>
+</box>
+
+你可以将无障碍树理解为浏览器为辅助技术提供的一种语义化页面结构。
+
+因此，前端开发实际上需要同时关注两种页面表现：
+
+- 视觉表现：页面是否美观，布局是否合理。
+- 无障碍表现：元素是什么、叫什么、处于什么状态、如何操作。
+
+第 3 课我们会深入研究 DOM Tree、Render Tree 和 Accessibility Tree 之间的关系。
+
+---
+
+## 6. WCAG 的四大核心原则
+
+WCAG 的所有成功准则都围绕四大原则展开，简称 **POUR**。<Cite ref="turn717238search6"/>
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="eye" size="3xl" color="#5185C5"/>
+      <title size="xl">P</title>
+      **Perceivable · 可感知**
+
+      用户能够获取网站信息。
+
+      <caption>图片 alt、视频字幕、文字对比度。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="keyboard" size="3xl" color="#39866B"/>
+      <title size="xl">O</title>
+      **Operable · 可操作**
+
+      用户能够使用网站功能。
+
+      <caption>键盘操作、焦点管理、替代拖拽操作。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="brain" size="3xl" color="#9673C5"/>
+      <title size="xl">U</title>
+      **Understandable · 可理解**
+
+      用户能够理解信息与操作方式。
+
+      <caption>表单标签、错误提示、交互一致性。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="shield-check" size="3xl" color="#C6914A"/>
+      <title size="xl">R</title>
+      **Robust · 健壮性**
+
+      内容能够被不同用户代理和辅助技术正确解释。
+
+      <caption>HTML 语义化、ARIA、辅助技术兼容。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+例如，在 Shopify 商品详情页中：
+
+| 原则 | 典型问题 |
+|---|---|
+| 可感知 | 商品颜色选项仅使用色块，没有名称 |
+| 可操作 | 商品图片轮播只能通过鼠标拖动 |
+| 可理解 | 加购失败只显示红色边框，没有错误原因 |
+| 健壮性 | 自定义下拉框没有角色和选中状态信息 |
+
+后面我们会专门用一节课深入学习这四大原则。
+
+## 7. Shopify 网站中常见的 ADA 问题
+
+结合日常 Theme 开发，以下这些场景尤其值得关注。
+
+<box gap={4}>
+  <row align="start">
+    <box width="116px" background="surface-tertiary" radius="md" padding={2}>
+      <svg viewBox="0 0 120 95" width="100%">
+        <rect x="5" y="5" width="110" height="85" rx="4" stroke="currentColor" strokeOpacity=".25" fill="none"/>
+        <text x="12" y="22" fontSize="10" fill="currentColor">Color</text>
+        {#each ["#292929","#D0B69B","#B66666","#7A91A9"] as c,i}
+          <circle cx={20+i*26} cy="41" r="9" fill={c}/>
+        {/each}
+        <circle cx="20" cy="41" r="12" fill="none" stroke="currentColor"/>
+        <text x="12" y="67" fontSize="10" fill="currentColor">Size</text>
+        {#each ["S","M","L","XL"] as s,i}
+          <rect x={11+i*25} y="72" width="22" height="13" rx="2" fill="none" stroke="currentColor" strokeOpacity=".4"/>
+          <text x={22+i*25} y="81" fontSize="8" textAnchor="middle" fill="currentColor">{s}</text>
+        {/each}
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Variant Picker 商品变体选择器**
+
+      色块没有名称、选中状态无法识别、售罄状态仅通过 CSS 表示。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="116px" background="surface-tertiary" radius="md" padding={2}>
+      <svg viewBox="0 0 120 95" width="100%">
+        <rect x="3" y="5" width="114" height="85" rx="4" fill="#888888" fillOpacity=".25"/>
+        <rect x="45" y="5" width="72" height="85" rx="3" fill="#888888" fillOpacity=".15" stroke="currentColor" strokeOpacity=".4"/>
+        <text x="51" y="18" fontSize="8" fontWeight="bold" fill="currentColor">Your cart</text>
+        <path d="M104 12 L111 19 M111 12 L104 19" stroke="currentColor"/>
+        <rect x="52" y="27" width="22" height="25" rx="2" fill="#888888" fillOpacity=".4"/>
+        <path d="M79 30 H108 M79 36 H100 M79 45 H94" stroke="currentColor" strokeOpacity=".4" strokeWidth="2"/>
+        <rect x="52" y="73" width="58" height="10" rx="2" fill="#39866B"/>
+        <text x="81" y="80" fontSize="6" fill="white" textAnchor="middle">Checkout</text>
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Cart Drawer 购物车弹窗**
+
+      弹窗打开后焦点仍在页面背景中，无法使用 Esc 关闭，关闭后焦点丢失。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="116px" background="surface-tertiary" radius="md" padding={2}>
+      <svg viewBox="0 0 120 95" width="100%">
+        <rect x="5" y="8" width="110" height="59" rx="4" fill="#888888" fillOpacity=".13"/>
+        <rect x="34" y="13" width="52" height="48" rx="3" fill="#B8A28A" fillOpacity=".5"/>
+        <path d="M53 23 L45 29 L48 39 L53 36 V54 H68 V36 L73 39 L77 29 L67 23 L63 29 H57 Z" fill="#888888" fillOpacity=".55"/>
+        <path d="M15 32 L10 38 L15 44 M105 32 L110 38 L105 44" fill="none" stroke="currentColor" strokeWidth="2"/>
+        {#each [0,1,2,3] as n}
+          <circle cx={45+n*10} cy="79" r="3" fill="currentColor" opacity={n===0?1:.25}/>
+        {/each}
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Product Gallery 商品轮播**
+
+      轮播按钮缺少名称、隐藏的商品图片仍可聚焦、自动播放无法暂停。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="116px" background="surface-tertiary" radius="md" padding={2}>
+      <svg viewBox="0 0 120 95" width="100%">
+        <rect x="4" y="5" width="112" height="20" rx="4" stroke="currentColor" strokeOpacity=".4" fill="none"/>
+        <circle cx="14" cy="14" r="4" fill="none" stroke="currentColor"/>
+        <path d="M17 17 L21 21" stroke="currentColor"/>
+        <text x="28" y="18" fontSize="9" fill="currentColor">Shoes</text>
+        <rect x="4" y="29" width="112" height="60" rx="3" fill="#888888" fillOpacity=".1" stroke="currentColor" strokeOpacity=".2"/>
+        {#each [0,1,2] as n}
+          <rect x="10" y={34+n*17} width="13" height="13" rx="2" fill="#888888" fillOpacity=".3"/>
+          <path d={`M29 ${38+n*17} H98 M29 ${43+n*17} H69`} stroke="currentColor" strokeOpacity=".35" strokeWidth="2"/>
+        {/each}
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Predictive Search 预测搜索**
+
+      搜索结果更新后没有通知屏幕阅读器，无法使用方向键操作建议选项。
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="116px" background="surface-tertiary" radius="md" padding={2}>
+      <svg viewBox="0 0 120 95" width="100%">
+        <text x="8" y="14" fontSize="10" fill="currentColor">Filter</text>
+        {#each ["Color","Size","Price"] as item,i}
+          <text x="8" y={32+i*24} fontSize="9" fill="currentColor">{item}</text>
+          <rect x="8" y={36+i*24} width="8" height="8" rx="1" stroke="currentColor" fill="none"/>
+          <rect x="29" y={36+i*24} width="8" height="8" rx="1" stroke="currentColor" fill="none"/>
+        {/each}
+        {#each [0,1,2,3] as n}
+          <rect x={57+n%2*29} y={12+Math.floor(n/2)*40} width="24" height="30" rx="2" fill="#888888" fillOpacity=".2"/>
+        {/each}
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Collection 商品筛选**
+
+      AJAX 筛选后焦点丢失，商品数量变化没有播报，筛选项缺少可访问名称。
+    </box>
+  </row>
+</box>
+
+Shopify 官方也提供了专门的 Theme 无障碍开发规范，这部分会作为我们后续实战课程的重要参考。<Cite ref="turn788617search0"/>
+
+## 8. 几个常见的认知误区
+
+| 常见误区 | 正确理解 |
+|---|---|
+| 给所有图片加 alt 就完成 ADA 了 | 图片只是无障碍的一小部分 |
+| 所有元素都应该加 ARIA | 优先使用原生 HTML 语义 |
+| 所有元素都需要 tabindex | 只有合适的交互元素才应进入正常焦点顺序 |
+| 使用 Dawn 就不需要考虑 ADA | 自定义代码、商品内容、第三方 App 都可能引入问题 |
+| 安装一个 ADA 无障碍插件就行 | 插件无法替代底层代码和交互逻辑的修复 |
+| Lighthouse 无障碍得分 100 就合规 | 自动化检测无法覆盖全部无障碍问题 |
+| ADA 会影响网站的美观程度 | 大量无障碍优化并不改变视觉设计 |
+
+---
+
+## 9. 本课实践：检查一个网站的键盘无障碍能力
+
+暂时不需要安装任何工具，也不需要编写代码。
+
+打开你正在开发的 Shopify 网站，然后放开鼠标，仅使用键盘完成操作。
+
+| 按键 | 主要用途 |
+|---|---|
+| `Tab` | 移动到下一个可聚焦元素 |
+| `Shift + Tab` | 移动到上一个可聚焦元素 |
+| `Enter` | 激活按钮或链接等控件 |
+| `Space` | 激活按钮、切换复选框等 |
+| `Esc` | 关闭支持该操作的弹窗或菜单 |
+| `↑ ↓ ← →` | 操作支持方向键的复合组件 |
+
+{@body const tasks=["能否通过键盘访问 Header 导航？","当前焦点所在的元素是否清晰可见？","能否打开搜索框并选择搜索结果？","能否选择商品颜色和尺寸？","能否将商品添加到购物车？","打开购物车弹窗后，焦点是否正确转移？","能否通过 Esc 关闭购物车弹窗？","关闭弹窗后，焦点是否返回合理位置？","能否修改商品数量、删除商品并进入结算？"]}
+{@body const [checked,setChecked]=DIL.useState(Array(9).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **键盘无障碍测试清单**
+    <spacer/>
+    <caption>{checked.filter(Boolean).length} / 9 通过</caption>
+  </row>
+  <box height={6} background="surface-tertiary" radius="full" clip={true}>
+    <box height={6} background="#39866B" radius="full" width={`${checked.filter(Boolean).length/9*100}%`}/>
+  </box>
+  {#each tasks as task,i}
+    <checkbox key={i} checked={checked[i]} onChange={v=>setChecked(old=>old.map((x,j)=>j===i?v:x))}>{task}</checkbox>
+  {/each}
+  <divider/>
+  <row>
+    <caption>勾选测试通过的项目</caption>
+    <spacer/>
+    <button size="sm" variant="ghost" onClick={()=>setChecked(Array(9).fill(false))}>重置</button>
+  </row>
+</card>
+
+这也是日常前端开发完成后，最简单、成本最低的无障碍测试方式之一。
+
+## 10. 官方学习资料
+
+| 文档 | 用途 |
+|---|---|
+| [ADA 官网](https://www.ada.gov/resources/web-guidance/) | 了解美国网站无障碍法律背景 |
+| [WCAG 2.2](https://www.w3.org/TR/WCAG22/) | 查询完整技术标准 |
+| [Understanding WCAG](https://www.w3.org/WAI/WCAG22/Understanding/) | 理解每条准则及其目的 |
+| [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/) | 学习复杂组件的无障碍实现 |
+| [Shopify Accessibility](https://shopify.dev/docs/storefronts/themes/best-practices/accessibility) | Shopify Theme 开发规范 |
+
+---
+
+## 本课总结
+
+第一课暂时不需要记住具体的 ARIA 属性和 WCAG 编号，重点是建立正确的知识框架。
+
+ADA 是法律，WCAG 是技术标准，ARIA 是开发技术，A11y 是我们最终要实现的目标。
+
+无障碍也不应该是网站开发完成之后才进行的一项补救工作，而应该贯穿 UI 设计、HTML 编写、CSS 样式、JavaScript 交互、组件封装以及测试验收的整个生命周期。
+
+**下一课：辅助技术与屏幕阅读器（Screen Reader）**
+
+我们将重点学习屏幕阅读器的工作原理、NVDA、JAWS、VoiceOver 的区别、浏览模式与焦点模式，以及如何在 Windows 电脑上实际使用屏幕阅读器测试网站。
+
+理解残障用户是如何使用网站的，才能真正理解后面那些无障碍开发规范为什么存在。

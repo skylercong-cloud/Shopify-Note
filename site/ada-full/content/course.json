@@ -1,0 +1,249 @@
+{
+  "version": "2026-11-26",
+  "groups": [
+    {
+      "id": "guide",
+      "title": "课程导读",
+      "description": "回顾原对话的学习路线。"
+    },
+    {
+      "id": "foundations",
+      "title": "阶段一 · 无障碍基础与底层原理",
+      "description": "认识 ADA、辅助技术、无障碍树及 WCAG 准则。"
+    },
+    {
+      "id": "html-css",
+      "title": "阶段二 · HTML 与 CSS 无障碍",
+      "description": "学习语义、替代文本、表单、视觉设计和隐藏策略。"
+    },
+    {
+      "id": "keyboard-aria",
+      "title": "阶段三 · 键盘、焦点与 ARIA",
+      "description": "从键盘访问、焦点管理学到名称计算及动态状态播报。"
+    },
+    {
+      "id": "components",
+      "title": "阶段四 · 常用交互组件",
+      "description": "练习弹窗、菜单、组合框、标签页和轮播。"
+    },
+    {
+      "id": "shopify",
+      "title": "阶段五 · Shopify 项目实战",
+      "description": "在店面导航、商品页、集合页、购物车和结账中应用无障碍。"
+    },
+    {
+      "id": "testing",
+      "title": "阶段六 · 测试与团队规范",
+      "description": "从自动扫描和人工验收学到持续集成及团队规范。"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "guide",
+      "level": "guide",
+      "title": "学习路线",
+      "file": "content/lessons/guide.txt",
+      "kind": "reference"
+    },
+    {
+      "id": "lesson-01",
+      "level": "foundations",
+      "title": "认识 ADA 网站无障碍",
+      "file": "content/lessons/lesson-01.txt",
+      "kind": "lesson",
+      "label": "第 1 课"
+    },
+    {
+      "id": "lesson-02",
+      "level": "foundations",
+      "title": "辅助技术与屏幕阅读器",
+      "file": "content/lessons/lesson-02.txt",
+      "kind": "lesson",
+      "label": "第 2 课"
+    },
+    {
+      "id": "lesson-03",
+      "level": "foundations",
+      "title": "Accessibility Tree 无障碍树深入解析",
+      "file": "content/lessons/lesson-03.txt",
+      "kind": "lesson",
+      "label": "第 3 课"
+    },
+    {
+      "id": "lesson-04",
+      "level": "foundations",
+      "title": "WCAG 四大原则与合规标准",
+      "file": "content/lessons/lesson-04.txt",
+      "kind": "lesson",
+      "label": "第 4 课"
+    },
+    {
+      "id": "lesson-05",
+      "level": "html-css",
+      "title": "HTML 语义化与 Landmark 地标",
+      "file": "content/lessons/lesson-05.txt",
+      "kind": "lesson",
+      "label": "第 5 课"
+    },
+    {
+      "id": "lesson-06",
+      "level": "html-css",
+      "title": "图片、SVG、Icon 与多媒体无障碍",
+      "file": "content/lessons/lesson-06.txt",
+      "kind": "lesson",
+      "label": "第 6 课"
+    },
+    {
+      "id": "lesson-07",
+      "level": "html-css",
+      "title": "表单、Label 与错误提示",
+      "file": "content/lessons/lesson-07.txt",
+      "kind": "lesson",
+      "label": "第 7 课"
+    },
+    {
+      "id": "lesson-08",
+      "level": "html-css",
+      "title": "颜色对比度、字体与响应式布局无障碍",
+      "file": "content/lessons/lesson-08.txt",
+      "kind": "lesson",
+      "label": "第 8 课"
+    },
+    {
+      "id": "lesson-09",
+      "level": "html-css",
+      "title": "元素隐藏、动画与 CSS 无障碍",
+      "file": "content/lessons/lesson-09.txt",
+      "kind": "lesson",
+      "label": "第 9 课"
+    },
+    {
+      "id": "lesson-10",
+      "level": "keyboard-aria",
+      "title": "键盘导航与 tabindex",
+      "file": "content/lessons/lesson-10.txt",
+      "kind": "lesson",
+      "label": "第 10 课"
+    },
+    {
+      "id": "lesson-11",
+      "level": "keyboard-aria",
+      "title": "Focus Management 焦点管理",
+      "file": "content/lessons/lesson-11.txt",
+      "kind": "lesson",
+      "label": "第 11 课"
+    },
+    {
+      "id": "lesson-12",
+      "level": "keyboard-aria",
+      "title": "WAI-ARIA 属性与 Role 详解",
+      "file": "content/lessons/lesson-12.txt",
+      "kind": "lesson",
+      "label": "第 12 课"
+    },
+    {
+      "id": "lesson-13",
+      "level": "keyboard-aria",
+      "title": "Accessible Name 与 Description 计算规则",
+      "file": "content/lessons/lesson-13.txt",
+      "kind": "lesson",
+      "label": "第 13 课"
+    },
+    {
+      "id": "lesson-14",
+      "level": "keyboard-aria",
+      "title": "Live Region 与动态内容更新",
+      "file": "content/lessons/lesson-14.txt",
+      "kind": "lesson",
+      "label": "第 14 课"
+    },
+    {
+      "id": "lesson-15",
+      "level": "components",
+      "title": "Modal、Dialog、Drawer 弹窗组件",
+      "file": "content/lessons/lesson-15.txt",
+      "kind": "lesson",
+      "label": "第 15 课"
+    },
+    {
+      "id": "lesson-16",
+      "level": "components",
+      "title": "Dropdown、Menu、Combobox 下拉组件",
+      "file": "content/lessons/lesson-16.txt",
+      "kind": "lesson",
+      "label": "第 16 课"
+    },
+    {
+      "id": "lesson-17",
+      "level": "components",
+      "title": "Tabs、Accordion、Tooltip 组件",
+      "file": "content/lessons/lesson-17.txt",
+      "kind": "lesson",
+      "label": "第 17 课"
+    },
+    {
+      "id": "lesson-18",
+      "level": "components",
+      "title": "Carousel、Slider 轮播组件",
+      "file": "content/lessons/lesson-18.txt",
+      "kind": "lesson",
+      "label": "第 18 课"
+    },
+    {
+      "id": "lesson-20",
+      "level": "shopify",
+      "title": "Header、Mega Menu 与商品搜索",
+      "file": "content/lessons/lesson-20.txt",
+      "kind": "lesson",
+      "label": "第 20 课"
+    },
+    {
+      "id": "lesson-21",
+      "level": "shopify",
+      "title": "商品详情页、Variant Picker 与商品图库",
+      "file": "content/lessons/lesson-21.txt",
+      "kind": "lesson",
+      "label": "第 21 课"
+    },
+    {
+      "id": "lesson-22",
+      "level": "shopify",
+      "title": "Collection 筛选、排序与分页",
+      "file": "content/lessons/lesson-22.txt",
+      "kind": "lesson",
+      "label": "第 22 课"
+    },
+    {
+      "id": "lesson-23",
+      "level": "shopify",
+      "title": "加购、Cart Drawer、Checkout 与 Dawn 源码",
+      "file": "content/lessons/lesson-23.txt",
+      "kind": "lesson",
+      "label": "第 23 课"
+    },
+    {
+      "id": "lesson-24",
+      "level": "testing",
+      "title": "Lighthouse、axe、WAVE 与浏览器调试",
+      "file": "content/lessons/lesson-24.txt",
+      "kind": "lesson",
+      "label": "第 24 课"
+    },
+    {
+      "id": "lesson-25",
+      "level": "testing",
+      "title": "人工测试、屏幕阅读器测试与问题修复",
+      "file": "content/lessons/lesson-25.txt",
+      "kind": "lesson",
+      "label": "第 25 课"
+    },
+    {
+      "id": "lesson-26",
+      "level": "testing",
+      "title": "自动化测试、CI/CD、团队规范与合规审计",
+      "file": "content/lessons/lesson-26.txt",
+      "kind": "lesson",
+      "label": "第 26 课"
+    }
+  ]
+}

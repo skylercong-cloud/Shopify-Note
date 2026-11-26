@@ -1,0 +1,4131 @@
+# 第 16 课：Dropdown、Menu、Combobox 下拉组件
+
+<row align="center">
+  <caption>阶段四：复杂 UI 组件无障碍实战</caption>
+  <spacer/>
+  <caption>16 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="61.54%"/>
+</box>
+
+上一课，我们学习了 Modal、Dialog、Drawer 和 Popover 的完整实现。
+
+这一课，我们将研究另一类在前端开发中非常常见、却特别容易出现 ARIA 使用错误的组件：**下拉组件**。
+
+尤其是在 Shopify Theme 开发中：
+
+| 业务场景 | 对应组件模式 |
+|---|---|
+| Header Mega Menu | Disclosure Navigation |
+| Collection 商品排序 | Select |
+| 国家及地区选择器 | Select / Combobox |
+| Predictive Search | Editable Combobox |
+| 商品尺寸下拉选择 | Select / Listbox |
+| 用户账户操作菜单 | Menu Button 或普通导航 |
+| Collection 筛选下拉框 | Disclosure + Checkbox |
+| 商品更多操作 | Menu Button |
+
+本课最重要的目标，是让你能够根据组件的真实业务用途，选择正确的无障碍语义、键盘交互和焦点管理方案，而不是看到下拉框就添加 `role="menu"`。
+
+---
+
+## 1. Dropdown 到底是什么？
+
+Dropdown（下拉框）实际上只是一个 UI 设计概念，并不是一种明确的 HTML 元素或 ARIA Role。
+
+视觉上非常相似的下拉组件，在无障碍体系中可能完全不同。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <row align="center">
+        **Clothing**
+        <spacer/><icon name="chevron-down" size="sm"/>
+      </row>
+      <divider/>
+      <text underline={true} size="sm">T-shirts</text>
+      <text underline={true} size="sm">Jackets</text>
+      <text underline={true} size="sm">Pants</text>
+      <divider/>
+      **Disclosure**
+      <caption>展开普通导航链接。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <row align="center">
+        **More actions**
+        <spacer/><icon name="more-horizontal"/>
+      </row>
+      <divider/>
+      <row><icon name="copy" size="sm"/><text size="sm">Copy</text></row>
+      <row><icon name="pencil" size="sm"/><text size="sm">Edit</text></row>
+      <row><icon name="trash-2" size="sm"/><text size="sm">Delete</text></row>
+      <divider/>
+      **Menu Button**
+      <caption>提供一组操作命令。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <row align="center">
+        **Size: M**
+        <spacer/><icon name="chevron-down" size="sm"/>
+      </row>
+      <divider/>
+      {#each ["S","M","L"] as n}
+        <row background={n==="M"?"surface-tertiary":"surface"} radius="sm" padding={1}>
+          <text size="sm">{n}</text><spacer/>{#if n==="M"}<icon name="check" size="sm"/>{/if}
+        </row>
+      {/each}
+      <divider/>
+      **Select / Listbox**
+      <caption>从多个选项中选择一个值。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <row border radius="sm" padding={2} align="center">
+        <icon name="search" size="sm"/>
+        <text size="sm">shirt</text>
+      </row>
+      {#each ["Cotton shirt","Linen shirt","T-shirt"] as n}
+        <row padding={1}><icon name="shirt" size="sm"/><text size="sm">{n}</text></row>
+      {/each}
+      <divider/>
+      **Editable Combobox**
+      <caption>输入文字并选择搜索建议。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+这四个组件虽然都有展开、收起的视觉表现，但是语义和操作模型完全不同。
+
+| 组件 | 核心用途 | 主要键盘操作 |
+|---|---|---|
+| Disclosure | 显示或隐藏内容 | Tab、Enter、Space |
+| Menu | 执行命令或菜单操作 | 方向键、Enter、Esc |
+| Listbox | 选择一个或多个值 | 方向键、Space |
+| Combobox | 输入或选择一个值 | 方向键、Enter、Esc |
+| Native Select | 原生表单选项选择 | 浏览器自动处理 |
+| Popover | 提供非模态浮层能力 | 取决于内部组件 |
+
+**Popover 主要提供浮层显示机制，而 Menu、Listbox、Combobox 描述的是具体组件的语义及交互模式。**
+
+一个 Combobox 可以使用 Popover API 实现建议列表的浮层显示，但使用 Popover API 并不会自动让它成为 Combobox。
+
+---
+
+## 2. Shopify Mega Menu：为什么不应该随意使用 role="menu"？
+
+假设我们正在开发一个 Shopify Header。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <title size="lg">STYLE STORE</title>
+    <spacer/>
+    <icon name="search"/>
+    <icon name="shopping-bag"/>
+  </row>
+  <divider/>
+  <row justify="between" align="center">
+    <text size="sm">Home</text>
+    <row gap={1} align="center">
+      <text size="sm" weight="medium" underline={true}>Clothing</text>
+      <icon name="chevron-up" size="xs"/>
+    </row>
+    <text size="sm">Accessories</text>
+    <text size="sm">Sale</text>
+  </row>
+  <box background="surface-tertiary" radius="md" padding={3}>
+    <grid columns={2} gap={3}>
+      <grid-item>
+        <box gap={2}>
+          **Men**
+          <text size="sm">T-shirts</text>
+          <text size="sm">Jackets</text>
+          <text size="sm">Sweatshirts</text>
+          <text size="sm">Pants</text>
+        </box>
+      </grid-item>
+      <grid-item>
+        <box gap={2}>
+          **Women**
+          <text size="sm">Dresses</text>
+          <text size="sm">Tops</text>
+          <text size="sm">Coats</text>
+          <text size="sm">Accessories</text>
+        </box>
+      </grid-item>
+    </grid>
+  </box>
+  <caption>典型电商 Mega Menu，本质上是一组可展开的网站导航链接。</caption>
+</box>
+
+很多开发者会这样实现：
+
+```html
+<nav role="menubar">
+
+  <div role="menuitem">
+    Clothing
+
+    <div role="menu">
+      <a role="menuitem" href="/collections/t-shirts">
+        T-shirts
+      </a>
+
+      <a role="menuitem" href="/collections/jackets">
+        Jackets
+      </a>
+    </div>
+
+  </div>
+
+</nav>
+```
+
+问题在于，ARIA Menu 和 Menubar 具有类似桌面软件命令菜单的交互约定。
+
+使用这些角色后，辅助技术用户可能预期使用方向键在菜单项之间移动，而不是通过 Tab 遍历每一个链接。
+
+W3C APG 专门提供了 Disclosure Navigation 示例，并解释了普通网站导航通常不需要完整的 ARIA Menu 交互模型。<Cite refs={["turn868794search1","turn868794search7"]}/>
+
+### 2.1 更合理的 HTML 结构
+
+```html
+<nav aria-label="Main navigation">
+  <ul>
+
+    <li>
+      <a href="/">Home</a>
+    </li>
+
+    <li>
+      <button
+        type="button"
+        aria-expanded="false"
+        aria-controls="clothing-menu"
+      >
+        Clothing
+      </button>
+
+      <ul id="clothing-menu" hidden>
+        <li>
+          <a href="/collections/t-shirts">
+            T-shirts
+          </a>
+        </li>
+
+        <li>
+          <a href="/collections/jackets">
+            Jackets
+          </a>
+        </li>
+      </ul>
+    </li>
+
+    <li>
+      <a href="/collections/sale">Sale</a>
+    </li>
+
+  </ul>
+</nav>
+```
+
+这里不需要 `role="menu"`、`role="menuitem"`，甚至不需要为普通链接额外设置 tabindex。
+
+原生 HTML 已经提供了 navigation、list、listitem、button 和 link 语义。
+
+### 2.2 如果一级菜单本身也需要跳转呢？
+
+例如 Clothing 本身是一个集合页链接，同时右侧箭头控制二级菜单。
+
+推荐将两种操作拆分为两个控件。
+
+<box border radius="md" padding={3} gap={2}>
+  <row align="center" gap={1}>
+    <box flex={1} border radius="sm" padding={3}>
+      <text underline={true}>Clothing</text>
+      <caption>跳转集合页</caption>
+    </box>
+    <box border radius="sm" padding={3} align="center">
+      <icon name="chevron-down"/>
+      <caption>展开子导航</caption>
+    </box>
+  </row>
+</box>
+
+```html
+<li>
+  <a href="/collections/clothing">
+    Clothing
+  </a>
+
+  <button
+    type="button"
+    aria-label="Clothing submenu"
+    aria-expanded="false"
+    aria-controls="clothing-submenu"
+  >
+    <svg aria-hidden="true"></svg>
+  </button>
+
+  <ul id="clothing-submenu" hidden>
+    <!-- Navigation links -->
+  </ul>
+</li>
+```
+
+不要让同一个控件同时承担含义不清晰的页面跳转和展开操作。
+
+### 2.3 JavaScript 实现 Disclosure
+
+```javascript
+const button = document.querySelector(
+  '[aria-controls="clothing-menu"]'
+);
+
+const panel = document.getElementById(
+  'clothing-menu'
+);
+
+const container = button.closest('li');
+
+function setOpen(open, restoreFocus = false) {
+  button.setAttribute(
+    'aria-expanded',
+    String(open)
+  );
+
+  if (!open &&
+      (restoreFocus ||
+       panel.contains(document.activeElement))) {
+    button.focus();
+  }
+
+  panel.hidden = !open;
+}
+
+button.addEventListener('click', () => {
+  const open =
+    button.getAttribute('aria-expanded') === 'true';
+
+  setOpen(!open);
+});
+
+container.addEventListener('keydown', event => {
+  if (
+    event.key === 'Escape' &&
+    !event.defaultPrevented &&
+    button.getAttribute('aria-expanded') === 'true'
+  ) {
+    event.preventDefault();
+    setOpen(false, true);
+  }
+});
+
+container.addEventListener('focusout', event => {
+  if (
+    event.relatedTarget &&
+    !container.contains(event.relatedTarget)
+  ) {
+    setOpen(false);
+  }
+});
+
+document.addEventListener('click', event => {
+  if (!container.contains(event.target)) {
+    setOpen(false);
+  }
+});
+```
+
+这个实现具备基本的展开、折叠、Esc 关闭、焦点离开关闭和外部点击关闭能力。
+
+它没有使用 Focus Trap，因为普通导航下拉菜单不是模态弹窗。
+
+### 2.4 键盘导航交互演示
+
+{@body const [navOpen,setNavOpen]=DIL.useState(false)}
+{@body const [navFocus,setNavFocus]=DIL.useState("Clothing")}
+{@body const navOrder=navOpen?["Home","Clothing","T-shirts","Jackets","Pants","Sale"]:["Home","Clothing","Sale"]}
+<card gap={3}>
+  **Disclosure Navigation 实验室**
+  {#each navOrder as item}
+    <box padding={{left:["T-shirts","Jackets","Pants"].includes(item)?7:0}}>
+      <pressable border={{size:navFocus===item?2:1,color:navFocus===item?"#5185C5":"#88888840"}} radius="sm" padding={2} onClick={()=>{setNavFocus(item);if(item==="Clothing")setNavOpen(v=>!v)}}>
+        <row align="center">
+          <text size="sm" weight={navFocus===item?"medium":"normal"}>{item}</text>
+          <spacer/>
+          {#if item==="Clothing"}<icon name={navOpen?"chevron-up":"chevron-down"} size="sm"/>{:else}<caption>Link</caption>{/if}
+        </row>
+      </pressable>
+    </box>
+  {/each}
+  <grid columns={2} gap={2}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{const n=navOrder[(navOrder.indexOf(navFocus)-1+navOrder.length)%navOrder.length];setNavFocus(n);if(n==="Home"||n==="Sale")setNavOpen(false)}}>Shift + Tab</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{const n=navOrder[(navOrder.indexOf(navFocus)+1)%navOrder.length];setNavFocus(n);if(n==="Home"||n==="Sale")setNavOpen(false)}}>Tab</button></grid-item>
+    <grid-item><button block disabled={navFocus!=="Clothing"} onClick={()=>setNavOpen(v=>!v)}>Enter / Space</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={!navOpen} onClick={()=>{setNavOpen(false);setNavFocus("Clothing")}}>Esc</button></grid-item>
+  </grid>
+  <divider/>
+  <row><caption>aria-expanded</caption><spacer/>{String(navOpen)}</row>
+  <row><caption>当前模拟焦点</caption><spacer/>{navFocus}</row>
+  <caption>这是局部导航顺序模拟，真实页面的 Tab 还会继续访问其他页面控件。</caption>
+</card>
+
+对于普通 Mega Menu，方向键支持属于可以进一步增强的功能，而不是必须实现完整 Menubar 的方向键导航。
+
+如果设计还要求鼠标 Hover 自动展开，则需要同时考虑第 9 课学习的 WCAG 1.4.13：可关闭、可悬停、持续显示。
+
+---
+
+## 3. 原生 select：最容易被低估的组件
+
+假设我们要开发 Collection 商品排序功能。
+
+```liquid
+<label for="SortBy">Sort by</label>
+
+<select id="SortBy" name="sort_by">
+
+  {% assign current_sort = collection.sort_by
+    | default: collection.default_sort_by %}
+
+  {% for option in collection.sort_options %}
+
+    <option
+      value="{{ option.value | escape }}"
+      {% if option.value == current_sort %}
+        selected
+      {% endif %}
+    >
+      {{ option.name | escape }}
+    </option>
+
+  {% endfor %}
+
+</select>
+```
+
+原生 select 已经提供了：
+
+| 能力 | 是否需要自行实现 |
+|---|---|
+| Accessible Name | 通过 label 提供 |
+| 选项角色与选中状态 | 否 |
+| 键盘方向键选择 | 否 |
+| 字符快速搜索 | 否 |
+| 移动端原生选择界面 | 否 |
+| disabled / required | 否 |
+| 表单提交 | 否 |
+| 值变化事件 | 监听 change 即可 |
+
+{@body const [sort,setSort]=DIL.useState("best-selling")}
+<card gap={3}>
+  <label>Sort by</label>
+  <select value={sort} onChange={setSort} options={[{label:"Featured",value:"manual"},{label:"Best selling",value:"best-selling"},{label:"Alphabetically, A–Z",value:"title-ascending"},{label:"Price, low to high",value:"price-ascending"},{label:"Price, high to low",value:"price-descending"},{label:"Date, new to old",value:"created-descending"}]}/>
+  <divider/>
+  <row><caption>Accessible Name</caption><spacer/>Sort by</row>
+  <row><caption>当前表单值</caption><spacer/><text size="sm">{sort}</text></row>
+  <box background="surface-tertiary" radius="sm" padding={2}>
+    <text size="xs">{`?sort_by=${sort}`}</text>
+  </box>
+  <caption>常见 Shopify 排序选项示意，实际选项以 collection.sort_options 为准。</caption>
+</card>
+
+当选择发生变化时，只需要处理业务逻辑：
+
+```javascript
+select.addEventListener('change', event => {
+  const sortBy = event.target.value;
+
+  updateCollection({ sortBy });
+});
+```
+
+如果使用 AJAX 更新商品列表，继续保留 select 的焦点，并通过 Live Region 通知结果即可。
+
+### 3.1 原生 select 的无障碍 Role 是什么？
+
+这取决于 select 的具体配置。
+
+| HTML | 常见隐式角色 |
+|---|---|
+| `<select>` | combobox |
+| `<select size="1">` | combobox |
+| `<select size="5">` | listbox |
+| `<select multiple>` | listbox |
+| `<option>` | option |
+
+所以不需要手动为 select 添加 `role="combobox"`。
+
+### 3.2 什么时候才应该开发自定义 Select？
+
+例如：
+
+- 需要复杂的选项视觉样式。
+- 需要在国家列表中展示国旗等辅助内容。
+- 需要可搜索的选项列表。
+- 需要特殊的虚拟滚动机制。
+- 原生 select 无法满足业务交互需求。
+
+但应当注意，自定义 Select 不是简单地使用 div 替换 select，而是需要重新承担键盘、焦点、状态、表单值及辅助技术兼容性等职责。
+
+现代 CSS 还提供了 `appearance: base-select` 等原生 Select 自定义能力，可以作为渐进增强方案研究，不过需要检查目标浏览器的支持情况。<Cite ref="turn868794search20"/>
+
+---
+
+## 4. Menu Button：真正的 ARIA Menu 应该如何开发？
+
+假设我们正在开发一个用户账户页面中的地址管理操作菜单。
+
+它包含编辑、设为默认地址、删除地址等命令。
+
+这种场景就比较适合 Menu Button Pattern。
+
+### 4.1 HTML 结构
+
+```html
+<div id="address-actions">
+
+  <button
+    id="actions-button"
+    type="button"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-controls="actions-menu"
+  >
+    More actions
+  </button>
+
+  <ul
+    id="actions-menu"
+    role="menu"
+    aria-labelledby="actions-button"
+    hidden
+  >
+    <li role="none">
+      <button role="menuitem" tabindex="-1"
+        type="button" data-action="edit">
+        Edit address
+      </button>
+    </li>
+
+    <li role="none">
+      <button role="menuitem" tabindex="-1"
+        type="button" data-action="default">
+        Set as default
+      </button>
+    </li>
+
+    <li role="none">
+      <button role="menuitem" tabindex="-1"
+        type="button" data-action="delete">
+        Delete address
+      </button>
+    </li>
+  </ul>
+
+</div>
+```
+
+注意几个关键点：
+
+| 属性 | 职责 |
+|---|---|
+| `aria-haspopup="menu"` | 声明打开的是 ARIA Menu |
+| `aria-expanded` | 表达当前展开状态 |
+| `role="menu"` | 表达菜单容器 |
+| `role="menuitem"` | 表达菜单命令 |
+| `role="none"` | 移除中间 li 的列表项语义 |
+| `tabindex="-1"` | 不让每个菜单项进入常规 Tab 顺序 |
+
+### 4.2 键盘交互规范
+
+| 按键 | 行为 |
+|---|---|
+| Enter / Space | 打开菜单并聚焦第一项，或执行当前命令 |
+| ArrowDown | 移动到下一项 |
+| ArrowUp | 移动到上一项 |
+| Home | 移动到第一项 |
+| End | 移动到最后一项 |
+| Esc | 关闭菜单，返回触发按钮 |
+| Tab / Shift + Tab | 离开菜单并关闭 |
+| 字符键 | 可支持快速定位匹配的菜单项 |
+
+这里最重要的区别是：**Menu 使用方向键访问内部选项，而普通导航 Disclosure 使用 Tab 访问内部链接。** <Cite refs={["turn868794search2","turn868794search9"]}/>
+
+### 4.3 交互实验
+
+{@body const actions=["Edit address","Set as default","Delete address"]}
+{@body const [menuOpen,setMenuOpen]=DIL.useState(false)}
+{@body const [menuIndex,setMenuIndex]=DIL.useState(-1)}
+{@body const [actionResult,setActionResult]=DIL.useState("")}
+<card gap={3}>
+  **Menu Button 实验室**
+  <box border radius="md" padding={3} gap={2}>
+    <row align="center">
+      <box flex={1} gap={1}>
+        **Home address**
+        <caption>Shipping address</caption>
+      </box>
+      <button variant="outline" color="secondary" onClick={()=>{setMenuOpen(!menuOpen);setMenuIndex(menuOpen?-1:0);setActionResult("")}}>More actions <icon name="chevron-down" size="xs"/></button>
+    </row>
+    {#if menuOpen}
+      <box border radius="md" padding={1} gap={1}>
+        {#each actions as action,i}
+          <pressable border={{size:menuIndex===i?2:1,color:menuIndex===i?"#5185C5":"transparent"}} background={menuIndex===i?"surface-tertiary":"surface"} radius="sm" padding={3} onClick={()=>{setActionResult(action);setMenuOpen(false);setMenuIndex(-1)}}>
+            <row align="center">
+              <icon name={["pencil","check-circle","trash-2"][i]} size="sm"/>
+              <text size="sm">{action}</text>
+              <spacer/>
+              {#if menuIndex===i}<icon name="focus" color="#5185C5" size="sm"/>{/if}
+            </row>
+          </pressable>
+        {/each}
+      </box>
+    {/if}
+  </box>
+  <grid columns={4} gap={1}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setMenuIndex(menuOpen?(menuIndex+2)%3:2);setMenuOpen(true)}}><icon name="arrow-up"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setMenuIndex(menuOpen?(menuIndex+1)%3:0);setMenuOpen(true)}}><icon name="arrow-down"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{if(menuOpen){setActionResult(actions[menuIndex]);setMenuOpen(false);setMenuIndex(-1)}else{setMenuOpen(true);setMenuIndex(0)}}}>Enter</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setMenuOpen(false);setMenuIndex(-1)}}>Esc</button></grid-item>
+  </grid>
+  <row>
+    <button size="sm" variant="outline" color="secondary" disabled={!menuOpen} onClick={()=>setMenuIndex(0)}>Home</button>
+    <button size="sm" variant="outline" color="secondary" disabled={!menuOpen} onClick={()=>setMenuIndex(2)}>End</button>
+    <button size="sm" variant="outline" color="secondary" disabled={!menuOpen} onClick={()=>{setMenuOpen(false);setMenuIndex(-1)}}>Tab · 离开</button>
+  </row>
+  <divider/>
+  <row><caption>aria-expanded</caption><spacer/>{String(menuOpen)}</row>
+  <row><caption>模拟焦点</caption><spacer/><text size="sm">{menuOpen?actions[menuIndex]:"More actions（或后续控件）"}</text></row>
+  {#if actionResult}<text size="sm">已选择命令：{actionResult}</text>{/if}
+  <caption>通过模拟按键观察菜单内部导航，不会执行真实的地址修改或删除操作。</caption>
+</card>
+
+### 4.4 JavaScript 实现
+
+```javascript
+const root = document.querySelector('#address-actions');
+const trigger = root.querySelector('#actions-button');
+const menu = root.querySelector('[role="menu"]');
+
+const items = [
+  ...menu.querySelectorAll('[role="menuitem"]')
+];
+
+let activeIndex = 0;
+
+function focusItem(index) {
+  activeIndex =
+    (index + items.length) % items.length;
+
+  items[activeIndex].focus();
+}
+
+function openMenu(index = 0) {
+  menu.hidden = false;
+
+  trigger.setAttribute('aria-expanded', 'true');
+
+  focusItem(index);
+}
+
+function closeMenu(restoreFocus = false) {
+  trigger.setAttribute('aria-expanded', 'false');
+
+  if (restoreFocus) {
+    trigger.focus();
+  }
+
+  menu.hidden = true;
+}
+
+trigger.addEventListener('click', () => {
+  menu.hidden
+    ? openMenu()
+    : closeMenu(true);
+});
+
+trigger.addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    openMenu(0);
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    openMenu(items.length - 1);
+  }
+});
+
+menu.addEventListener('keydown', event => {
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault();
+      focusItem(activeIndex + 1);
+      break;
+
+    case 'ArrowUp':
+      event.preventDefault();
+      focusItem(activeIndex - 1);
+      break;
+
+    case 'Home':
+      event.preventDefault();
+      focusItem(0);
+      break;
+
+    case 'End':
+      event.preventDefault();
+      focusItem(items.length - 1);
+      break;
+
+    case 'Escape':
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu(true);
+      break;
+
+    case 'Tab':
+      // 返回菜单入口，再让浏览器继续顺序导航
+      closeMenu(true);
+      break;
+  }
+});
+
+menu.addEventListener('focusin', event => {
+  const index = items.indexOf(event.target);
+
+  if (index !== -1) {
+    activeIndex = index;
+  }
+});
+
+items.forEach(item => {
+  item.addEventListener('click', () => {
+    closeMenu(true);
+
+    // 业务层函数
+    executeAction(item.dataset.action);
+  });
+});
+
+root.addEventListener('focusout', event => {
+  if (
+    event.relatedTarget &&
+    !root.contains(event.relatedTarget)
+  ) {
+    closeMenu();
+  }
+});
+
+document.addEventListener('click', event => {
+  if (!root.contains(event.target)) {
+    closeMenu(menu.contains(document.activeElement));
+  }
+});
+```
+
+这里使用真实 DOM 焦点在 menuitem 之间移动，但所有菜单项都保持 `tabindex="-1"`。
+
+因为菜单打开时，由 JavaScript 主动设置内部焦点；菜单项不需要成为页面的常规 Tab 入口。
+
+原生 button 已经支持 Enter 和 Space，因此不需要重复实现命令激活。
+
+上述示例针对单层命令菜单；多级子菜单、动态菜单项以及不同浏览器中的 Tab 离开行为还需要进一步测试。
+
+### 4.5 Typeahead 字符快速定位
+
+例如用户打开一个国家选择菜单，然后按下 `c`，焦点移动到 Canada。
+
+对于 Menu 和 Listbox，可以在相应模式中提供这种快捷导航。
+
+```javascript
+function findByCharacter(character) {
+  const key = character.toLocaleLowerCase();
+
+  for (let offset = 1; offset <= items.length; offset++) {
+    const index =
+      (activeIndex + offset) % items.length;
+
+    const label = items[index].textContent
+      .trim()
+      .toLocaleLowerCase();
+
+    if (label.startsWith(key)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+menu.addEventListener('keydown', event => {
+  if (
+    event.isComposing ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.metaKey ||
+    event.key.length !== 1 ||
+    event.key === ' '
+  ) {
+    return;
+  }
+
+  const index = findByCharacter(event.key);
+
+  if (index >= 0) {
+    event.preventDefault();
+    focusItem(index);
+  }
+});
+```
+
+这是单字符匹配实现。更完整的 Typeahead 可以增加字符缓冲区、输入超时、多语言字符串匹配和重复字符循环。
+
+特别注意，不要将这种字符拦截逻辑直接应用到可编辑 Combobox 的 input 上，否则会影响用户正常输入文字。
+
+---
+
+## 5. Listbox：选择值，而不是执行命令
+
+Menu 和 Listbox 的视觉效果可能完全相同，但是它们承担不同职责。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Menu**
+      <divider/>
+      <text size="sm">Edit</text>
+      <text size="sm">Copy</text>
+      <text size="sm">Delete</text>
+      <divider/>
+      <caption>激活后执行操作。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Listbox**
+      <divider/>
+      <text size="sm">Small</text>
+      <row background="surface-tertiary" radius="sm" padding={1}>
+        <text size="sm">Medium</text><spacer/><icon name="check" size="sm"/>
+      </row>
+      <text size="sm">Large</text>
+      <divider/>
+      <caption>选择后形成组件的值。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+例如商品 Size Picker：
+
+```html
+<div
+  role="listbox"
+  aria-label="Size"
+  tabindex="0"
+  aria-activedescendant="size-m"
+>
+  <div id="size-s" role="option"
+    aria-selected="false">
+    Small
+  </div>
+
+  <div id="size-m" role="option"
+    aria-selected="true">
+    Medium
+  </div>
+
+  <div id="size-l" role="option"
+    aria-selected="false">
+    Large
+  </div>
+</div>
+```
+
+这里没有 `role="menuitem"`，而是使用 `role="option"`。
+
+### 5.1 单选与多选 Listbox
+
+| 属性 | 单选模式 | 多选模式 |
+|---|---|---|
+| `role="listbox"` | 支持 | 支持 |
+| `aria-multiselectable` | 可省略 | true |
+| `aria-selected` | 通常只有一项为 true | 可有多项为 true |
+| 方向键 | 移动活动项 | 移动活动项 |
+| Space | 选择当前项（取决于模式） | 切换当前项选择状态 |
+
+单选 Listbox 可以采用 Selection Follows Focus，即焦点移动时同步选择；也可以将焦点和选择分开。
+
+多选 Listbox 则通常需要将当前活动项与所有已选项分别维护。<Cite ref="turn868794search8"/>
+
+{@body const [multi,setMulti]=DIL.useState(false)}
+{@body const [selection,setSelection]=DIL.useState([1])}
+{@body const [optionFocus,setOptionFocus]=DIL.useState(1)}
+{@body const sizes=["Small","Medium","Large","Extra large"]}
+<card gap={3}>
+  **Listbox 实验室**
+  <segmented-control options={[{label:"单选",value:"single"},{label:"多选",value:"multi"}]} value={multi?"multi":"single"} onChange={v=>{setMulti(v==="multi");setSelection([optionFocus])}}/>
+  <box border radius="md" padding={2} gap={1}>
+    <caption>Size</caption>
+    {#each sizes as size,i}
+      <pressable border={{size:optionFocus===i?2:1,color:optionFocus===i?"#5185C5":"transparent"}} background={selection.includes(i)?"surface-tertiary":"surface"} radius="sm" padding={3} onClick={()=>{setOptionFocus(i);setSelection(old=>multi?(old.includes(i)?old.filter(n=>n!==i):[...old,i]):[i])}}>
+        <row align="center">
+          <text size="sm">{size}</text>
+          <spacer/>
+          {#if selection.includes(i)}<icon name="check" color="success" size="sm"/>{/if}
+        </row>
+      </pressable>
+    {/each}
+  </box>
+  <row justify="center">
+    <button uniform variant="outline" color="secondary" onClick={()=>setOptionFocus(i=>(i+3)%4)}><icon name="arrow-up"/></button>
+    <button uniform variant="outline" color="secondary" onClick={()=>setOptionFocus(i=>(i+1)%4)}><icon name="arrow-down"/></button>
+    <button variant="outline" color="secondary" onClick={()=>setSelection(old=>multi?(old.includes(optionFocus)?old.filter(i=>i!==optionFocus):[...old,optionFocus]):[optionFocus])}>Space · 选择</button>
+  </row>
+  <divider/>
+  <row><caption>aria-multiselectable</caption><spacer/>{String(multi)}</row>
+  <row><caption>当前活动项</caption><spacer/>{sizes[optionFocus]}</row>
+  <row align="start"><caption>当前已选项</caption><spacer/><box flex={1}><text textAlign="end" size="sm">{selection.map(i=>sizes[i]).join(", ")||"无"}</text></box></row>
+  <caption>本演示采用手动选择模式：方向键移动活动项，Space 改变选择状态。蓝框表示活动项，勾号表示已选项。</caption>
+</card>
+
+### 5.2 Listbox 内部能否放多个按钮？
+
+例如：
+
+```html
+<div role="option">
+  Cotton T-shirt
+
+  <button>Add to cart</button>
+  <button>Add to wishlist</button>
+</div>
+```
+
+不应该这样设计。
+
+Listbox 的选项主要表达可选择的值，并不适合承载多个独立的内部交互控件。
+
+如果每条商品建议包含多个操作按钮，可以考虑普通商品列表、具有适当交互模型的 Grid，或者其他更符合业务需求的结构。
+
+另外，Shopify Collection 多选筛选通常使用原生 Checkbox 就足够了，不必为了实现自定义样式将所有筛选项改造成多选 Listbox。
+
+---
+
+## 6. Combobox 的四种自动完成模式
+
+Combobox 是一个具有弹出选择区域的输入组件。它可以是可编辑的，也可以是只能从现有选项中选择值的。
+
+### 6.1 Editable 与 Select-only
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Editable**
+      <caption>可以输入文字</caption>
+      <row border radius="sm" padding={2}>
+        <text size="sm">Can</text>
+        <box height="18px" width="1px" background="surface-inverted"/>
+      </row>
+      <box border radius="sm" padding={2} gap={2}>
+        <text size="sm">Canada</text>
+        <text size="sm">Canary Islands</text>
+      </box>
+      <caption>国家搜索、商品搜索。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Select-only**
+      <caption>只能选择现有选项</caption>
+      <row border radius="sm" padding={2}>
+        <text size="sm">Medium</text><spacer/><icon name="chevron-down" size="sm"/>
+      </row>
+      <box border radius="sm" padding={2} gap={2}>
+        <text size="sm">Small</text>
+        <text weight="medium" size="sm">Medium</text>
+        <text size="sm">Large</text>
+      </box>
+      <caption>自定义 Select、尺寸选择。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+### 6.2 aria-autocomplete
+
+| 模式 | aria-autocomplete | 行为 |
+|---|---|---|
+| No autocomplete | none | 建议列表不随输入内容改变 |
+| List · Manual | list | 根据输入过滤，用户手动选择 |
+| List · Automatic | list | 自动高亮第一条建议 |
+| Inline + List | both | 同时提供列表建议与行内补全文字 |
+
+例如用户输入 `cot`：
+
+<box border radius="lg" padding={3} gap={3}>
+  <caption>Manual selection</caption>
+  <row border radius="sm" padding={2}><text size="sm">cot</text></row>
+  <box border radius="sm" padding={2} gap={1}>
+    <text size="sm">Cotton T-shirt</text>
+    <text size="sm">Cotton jacket</text>
+  </box>
+  <divider/>
+  <caption>Automatic selection</caption>
+  <row border radius="sm" padding={2}><text size="sm">cot</text></row>
+  <box border radius="sm" padding={2} gap={1}>
+    <box background="#5185C518" radius="sm" padding={2}><text size="sm">Cotton T-shirt</text></box>
+    <text size="sm">Cotton jacket</text>
+  </box>
+  <divider/>
+  <caption>Inline + List</caption>
+  <row border radius="sm" padding={2} gap={0}>
+    <text size="sm">cot</text><text size="sm" highlight="#5185C550">ton T-shirt</text>
+  </row>
+  <box border radius="sm" padding={2}>
+    <text size="sm">Cotton T-shirt</text>
+    <text size="sm">Cotton jacket</text>
+  </box>
+</box>
+
+其中，自动选择模式不仅仅是默认高亮第一项，还涉及用户离开输入框时如何确定最终输入值。
+
+对于电商搜索，我更推荐从 **List Autocomplete with Manual Selection** 开始实现。
+
+因为用户输入 `cotton` 之后，即使出现 Cotton T-shirt 建议，也应该允许用户直接搜索原来的关键词，而不是未经确认就改变搜索内容。
+
+这些模式的定义以及不同弹出区域的交互规则，可以参考 APG 的 Combobox Pattern。<Cite ref="turn958684view2"/>
+
+---
+
+## 7. Combobox 的核心：真实焦点与虚拟焦点
+
+对于 Shopify Predictive Search，我们希望用户既能持续输入关键词，又能通过上下方向键浏览搜索建议。
+
+这就需要第 10 课学习的 `aria-activedescendant`。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 228" width="100%">
+    <rect x="8" y="5" width="324" height="39" rx="5" fill="#5185C5" fillOpacity=".08" stroke="#5185C5" strokeWidth="2"/>
+    <circle cx="23" cy="23" r="6" fill="none" stroke="currentColor"/>
+    <path d="M27 27 L32 32" stroke="currentColor"/>
+    <text x="42" y="29" fontSize="13" fill="currentColor">shirt</text>
+    <path d="M75 15 V34" stroke="currentColor"/>
+    <text x="320" y="28" textAnchor="end" fontSize="10" fill="#5185C5">DOM Focus</text>
+    <rect x="8" y="54" width="324" height="140" rx="6" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+    {#each ["Cotton T-shirt","Linen shirt","Oversized T-shirt"] as t,i}
+      <rect x="16" y={62+i*42} width="308" height="36" rx="4" fill={i===1?"#39866B":"#888888"} fillOpacity={i===1?.14:.06} stroke={i===1?"#39866B":"none"}/>
+      <text x="27" y={84+i*42} fontSize="12" fill="currentColor">{t}</text>
+      <text x="313" y={84+i*42} textAnchor="end" fontSize="10" fill="currentColor">{`option-${i+1}`}</text>
+    {/each}
+    <path d="M250 44 V121 H235 M240 116 L235 121 L240 126" fill="none" stroke="#39866B" strokeWidth="1.5" strokeDasharray="4 3"/>
+    <text x="170" y="214" fontSize="11" fill="#39866B" textAnchor="middle">aria-activedescendant="option-2"</text>
+  </svg>
+  <caption>真实 DOM 焦点始终位于 input，ARIA 活动项指向第二条搜索建议。</caption>
+</box>
+
+在这个过程中：
+
+```javascript
+document.activeElement === input;
+
+// true
+```
+
+即使用户连续按下 ArrowDown，DOM 焦点也不会离开搜索框。
+
+因此，用户依然可以输入、删除文字、移动输入光标。
+
+### 7.1 Combobox 所需要的 ARIA 属性
+
+```html
+<label for="search-input">Search products</label>
+
+<input
+  id="search-input"
+  type="search"
+  role="combobox"
+  aria-expanded="true"
+  aria-controls="search-results"
+  aria-autocomplete="list"
+  aria-activedescendant="option-2"
+>
+
+<ul id="search-results" role="listbox"
+    aria-label="Search suggestions">
+
+  <li id="option-1" role="option"
+      aria-selected="false">
+    Cotton T-shirt
+  </li>
+
+  <li id="option-2" role="option"
+      aria-selected="true">
+    Linen shirt
+  </li>
+
+</ul>
+```
+
+| 属性 | 职责 |
+|---|---|
+| `role="combobox"` | 声明组合输入控件 |
+| `aria-expanded` | 建议列表是否展开 |
+| `aria-controls` | 关联建议列表 |
+| `aria-autocomplete` | 自动完成模式 |
+| `aria-activedescendant` | 当前活动选项 |
+| `role="listbox"` | 建议列表语义 |
+| `role="option"` | 单条建议语义 |
+| `aria-selected` | 建议列表中的选中状态 |
+
+Combobox 隐式具有 `aria-haspopup="listbox"`，因此在使用 Listbox 弹出区域时，可以省略该属性。
+
+如果弹出区域是 Grid、Tree 或 Dialog，则需要根据实际模式声明对应类型。
+
+### 7.2 键盘交互设计
+
+| 按键 | 行为 |
+|---|---|
+| 普通字符 | 正常输入关键词 |
+| Backspace | 正常删除文字 |
+| ArrowDown | 打开列表或移动到下一项 |
+| ArrowUp | 移动到上一项 |
+| Enter | 确认活动项，或提交原搜索词 |
+| Escape | 关闭建议列表 |
+| Tab | 离开组件 |
+| ArrowLeft / Right | 保留输入框光标操作 |
+| Home / End | 保留文本编辑行为 |
+
+特别注意，Editable Combobox 不应该无条件拦截 Home、End、ArrowLeft、ArrowRight 等按键。
+
+因为它首先是一个文本输入控件，其次才是一个具有建议列表的复合组件。
+
+---
+
+## 8. 实战：Shopify Predictive Search 完整核心实现
+
+下面我们从零开发一个支持键盘、鼠标、异步搜索和状态通知的 Predictive Search。
+
+为了清晰展示 Combobox 模式，本示例将匹配到的商品标题作为搜索词建议，确认后进入搜索结果页。直接跳转商品详情页的方案稍后单独讨论。
+
+### 8.1 最终交互效果
+
+{@body const catalog=["Cotton T-shirt","Linen shirt","Oversized T-shirt","Classic sweatshirt","Cotton jacket","Denim jacket","Cotton pants","Linen pants"]}
+{@body const [term,setTerm]=DIL.useState("shirt")}
+{@body const [suggestOpen,setSuggestOpen]=DIL.useState(true)}
+{@body const [suggestIndex,setSuggestIndex]=DIL.useState(-1)}
+{@body const [submitted,setSubmitted]=DIL.useState("")}
+{@body const matches=term.trim()?catalog.filter(s=>s.toLowerCase().includes(term.trim().toLowerCase())):[]}
+<card gap={3}>
+  **Predictive Search 实验室**
+  <label>Search products</label>
+  <row align="center">
+    <icon name="search" size="lg"/>
+    <box flex={1}>
+      <input value={term} onChange={v=>{setTerm(v);setSuggestIndex(-1);setSuggestOpen(true);setSubmitted("")}} placeholder="Search products"/>
+    </box>
+    <button uniform color="secondary" variant="ghost" onClick={()=>{setTerm("");setSuggestIndex(-1);setSuggestOpen(false);setSubmitted("")}}><icon name="x"/></button>
+  </row>
+  {#if suggestOpen&&matches.length}
+    <box border radius="md" padding={2} gap={1}>
+      <caption>Suggestions</caption>
+      {#each matches as item,i}
+        <pressable border={{size:1,color:suggestIndex===i?"#5185C5":"transparent"}} background={suggestIndex===i?"surface-tertiary":"surface"} radius="sm" padding={2} onClick={()=>{setTerm(item);setSuggestOpen(false);setSuggestIndex(-1);setSubmitted(item)}}>
+          <row align="center">
+            <icon name="search" color="secondary" size="sm"/>
+            <box flex={1}><text size="sm">{item}</text></box>
+            {#if suggestIndex===i}<icon name="check" size="sm" color="#5185C5"/>{/if}
+          </row>
+        </pressable>
+      {/each}
+    </box>
+  {:else if suggestOpen&&term.trim()}
+    <caption>No suggestions found.</caption>
+  {/if}
+  <grid columns={4} gap={1}>
+    <grid-item><button block variant="outline" color="secondary" disabled={!matches.length} onClick={()=>{setSuggestOpen(true);setSuggestIndex(i=>i<=0?matches.length-1:i-1)}}><icon name="arrow-up"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={!matches.length} onClick={()=>{setSuggestOpen(true);setSuggestIndex(i=>(i+1)%matches.length)}}><icon name="arrow-down"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={!term.trim()} onClick={()=>{const value=suggestOpen&&suggestIndex>=0?matches[suggestIndex]:term;setTerm(value);setSubmitted(value);setSuggestOpen(false);setSuggestIndex(-1)}}>Enter</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setSuggestOpen(false);setSuggestIndex(-1)}}>Esc</button></grid-item>
+  </grid>
+  <divider/>
+  **ARIA 状态**
+  <row><caption>DOM Focus（模拟）</caption><spacer/><text size="sm">search-input</text></row>
+  <row><caption>aria-expanded</caption><spacer/>{String(suggestOpen&&matches.length>0)}</row>
+  <row><caption>aria-activedescendant</caption><spacer/><text size="sm">{suggestOpen&&suggestIndex>=0?`option-${suggestIndex+1}`:"未设置"}</text></row>
+  <row align="start">
+    <icon name="volume-2" size="sm"/>
+    <box flex={1} gap={1}>
+      <caption>模拟辅助技术消息</caption>
+      <text size="sm">{suggestOpen?(suggestIndex>=0?`${matches[suggestIndex]}, ${suggestIndex+1} of ${matches.length}.`:`${matches.length} suggestions available.`):"Suggestions closed."}</text>
+    </box>
+  </row>
+  {#if submitted}
+    <box background="surface-tertiary" radius="sm" padding={2}>
+      <caption>模拟提交的搜索词</caption>
+      **{submitted}**
+    </box>
+  {/if}
+  <caption>尝试输入 cotton、shirt 或 jacket，然后通过方向键选择建议。本演示使用本地模拟数据。</caption>
+</card>
+
+### 8.2 HTML 与 Liquid 实现
+
+```liquid
+<form
+  id="ProductSearch"
+  action="{{ routes.search_url }}"
+  method="get"
+  role="search"
+  class="product-search"
+>
+  <label for="SearchInput">
+    Search products
+  </label>
+
+  <input
+    id="SearchInput"
+    type="search"
+    name="q"
+    role="combobox"
+    aria-expanded="false"
+    aria-controls="SearchResults"
+    aria-autocomplete="list"
+    autocomplete="off"
+  >
+
+  <button type="submit">
+    Search
+  </button>
+
+  <ul
+    id="SearchResults"
+    role="listbox"
+    aria-label="Search suggestions"
+    hidden
+  ></ul>
+
+  <p
+    id="SearchStatus"
+    role="status"
+    aria-atomic="true"
+    class="visually-hidden"
+  ></p>
+
+</form>
+```
+
+这里保留了原生搜索表单。
+
+即使 JavaScript 加载失败，用户也可以输入关键词并正常提交搜索请求。这就是 Progressive Enhancement（渐进增强）。
+
+示例假设页面只有一个搜索实例；如果 Header、Search Modal 和搜索结果页同时存在搜索组件，需要为每个实例生成唯一 ID。
+
+### 8.3 CSS 样式
+
+```css
+.product-search {
+  position: relative;
+}
+
+#SearchResults {
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+
+  z-index: 20;
+  max-height: 320px;
+  overflow-y: auto;
+
+  margin: 0;
+  padding: 8px;
+
+  list-style: none;
+  background: white;
+  color: #222;
+  border: 1px solid #777;
+}
+
+#SearchResults[hidden] {
+  display: none;
+}
+
+#SearchResults [role="option"] {
+  padding: 12px;
+  cursor: pointer;
+}
+
+#SearchResults [aria-selected="true"] {
+  background: #eef3fa;
+  outline: 2px solid #005fcc;
+  outline-offset: -2px;
+}
+```
+
+为什么这里不直接使用 `:focus` 高亮建议项？
+
+因为 DOM 焦点始终在 input 上。
+
+建议项的视觉高亮需要通过 `aria-selected` 或其他活动状态 class 来实现。
+
+### 8.4 JavaScript：状态管理
+
+```javascript
+const form = document.querySelector('#ProductSearch');
+const input = form.querySelector('#SearchInput');
+const list = form.querySelector('#SearchResults');
+const status = form.querySelector('#SearchStatus');
+
+let results = [];
+let activeIndex = -1;
+
+let debounceTimer;
+let controller;
+let requestVersion = 0;
+
+function setActive(index) {
+  activeIndex = index;
+
+  const options = [...list.children];
+
+  options.forEach((option, i) => {
+    option.setAttribute(
+      'aria-selected',
+      String(i === index)
+    );
+  });
+
+  const active = options[index];
+
+  if (!active) {
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+
+  input.setAttribute(
+    'aria-activedescendant',
+    active.id
+  );
+
+  active.scrollIntoView({
+    block: 'nearest',
+    behavior: 'instant'
+  });
+}
+
+function openResults() {
+  if (!results.length) return;
+
+  list.hidden = false;
+
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function hideResults() {
+  setActive(-1);
+
+  list.hidden = true;
+
+  input.setAttribute('aria-expanded', 'false');
+}
+```
+
+这里将展开状态、活动项、选中状态及视觉样式统一管理。
+
+### 8.5 JavaScript：渲染建议列表
+
+```javascript
+function renderResults(items) {
+  // 删除旧 DOM 前清理活动项引用
+  setActive(-1);
+
+  results = items;
+
+  const fragment = document.createDocumentFragment();
+
+  items.forEach((item, index) => {
+    const option = document.createElement('li');
+
+    option.id = `${list.id}-option-${index}`;
+
+    option.setAttribute('role', 'option');
+    option.setAttribute('aria-selected', 'false');
+
+    option.dataset.index = index;
+
+    option.textContent = item.title;
+
+    fragment.appendChild(option);
+  });
+
+  list.replaceChildren(fragment);
+
+  if (items.length) {
+    openResults();
+  } else {
+    hideResults();
+  }
+
+  status.textContent =
+    `${items.length} suggestions available.`;
+}
+```
+
+注意，这里没有将整个 Listbox 设置为 Live Region。
+
+根据第 14 课的知识，Live Region 只负责通知搜索结果数量，`aria-activedescendant` 则负责活动项变化。
+
+### 8.6 JavaScript：接入 Shopify Predictive Search API
+
+Shopify 提供两种主要的 Predictive Search 响应形式：
+
+| API | 响应内容 |
+|---|---|
+| `/search/suggest.json` | JSON 数据 |
+| `/search/suggest` + `section_id` | 服务端渲染的 Section HTML |
+
+Dawn 主要采用第二种方式。本示例采用 JSON 方式，以便更清楚地展示组件内部的状态管理。<Cite ref="turn958684view1"/>
+
+```javascript
+function cancelPendingSearch() {
+  requestVersion++;
+
+  clearTimeout(debounceTimer);
+
+  controller?.abort();
+
+  list.setAttribute('aria-busy', 'false');
+}
+
+function dismissResults() {
+  cancelPendingSearch();
+  hideResults();
+
+  status.textContent = '';
+}
+
+async function fetchSuggestions(query, version) {
+  const request = new AbortController();
+
+  controller = request;
+
+  const params = new URLSearchParams({
+    q: query,
+    'resources[type]': 'product',
+    'resources[limit]': '6'
+  });
+
+  const url =
+    window.Shopify.routes.root +
+    'search/suggest.json?' +
+    params.toString();
+
+  try {
+    const response = await fetch(url, {
+      signal: request.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // 避免渲染已经过时的搜索结果
+    if (version !== requestVersion) return;
+
+    if (document.activeElement !== input) return;
+
+    if (query !== input.value.trim()) return;
+
+    const products =
+      data.resources.results.products;
+
+    // 将商品标题作为搜索建议，并去重
+    const titles = [
+      ...new Set(products.map(product => product.title))
+    ];
+
+    renderResults(
+      titles.map(title => ({ title }))
+    );
+
+  } catch (error) {
+    if (
+      error.name === 'AbortError' ||
+      version !== requestVersion
+    ) {
+      return;
+    }
+
+    hideResults();
+
+    status.textContent =
+      'Search suggestions are unavailable. ' +
+      'You can still submit your search.';
+
+  } finally {
+    if (version === requestVersion) {
+      list.setAttribute('aria-busy', 'false');
+    }
+  }
+}
+```
+
+这里的请求 URL 使用 `window.Shopify.routes.root`，以支持 Shopify 的 locale-aware URL。
+
+### 8.7 JavaScript：Debounce 与输入法处理
+
+```javascript
+function scheduleSearch() {
+  cancelPendingSearch();
+
+  hideResults();
+
+  results = [];
+  list.replaceChildren();
+
+  status.textContent = '';
+
+  const query = input.value.trim();
+
+  if (!query) return;
+
+  const version = requestVersion;
+
+  list.setAttribute('aria-busy', 'true');
+
+  debounceTimer = setTimeout(() => {
+    fetchSuggestions(query, version);
+  }, 250);
+}
+
+input.addEventListener('input', event => {
+  if (event.isComposing) return;
+
+  scheduleSearch();
+});
+
+input.addEventListener('compositionstart', () => {
+  dismissResults();
+});
+
+input.addEventListener('compositionend', () => {
+  scheduleSearch();
+});
+```
+
+为什么需要处理输入法？
+
+例如中文、日文等输入法在文字正式输入之前，会经历 Composition（组合输入）过程。
+
+如果没有处理 `isComposing`，可能在用户尚未完成一个词语时就不断发起请求，甚至在用户按 Enter 确认输入法候选词时意外触发搜索提交。
+
+---
+
+## 9. 实现 Combobox 的完整键盘交互
+
+继续编写上面的 JavaScript。
+
+### 9.1 确认当前建议
+
+```javascript
+function selectOption(index) {
+  const option = results[index];
+
+  if (!option) return;
+
+  input.value = option.title;
+
+  dismissResults();
+
+  input.focus();
+
+  form.requestSubmit();
+}
+```
+
+这里使用 `requestSubmit()`，而不是直接调用 `form.submit()`。
+
+因为 `requestSubmit()` 更接近正常的表单提交行为，可以触发 submit 事件及适用的表单验证。
+
+### 9.2 键盘导航
+
+```javascript
+input.addEventListener('keydown', event => {
+  if (event.isComposing || event.keyCode === 229) {
+    return;
+  }
+
+  switch (event.key) {
+    case 'ArrowDown': {
+      if (!results.length) return;
+
+      event.preventDefault();
+
+      openResults();
+
+      setActive(
+        (activeIndex + 1) % results.length
+      );
+
+      break;
+    }
+
+    case 'ArrowUp': {
+      if (!results.length) return;
+
+      event.preventDefault();
+
+      openResults();
+
+      setActive(
+        activeIndex <= 0
+          ? results.length - 1
+          : activeIndex - 1
+      );
+
+      break;
+    }
+
+    case 'Enter': {
+      if (!list.hidden && activeIndex >= 0) {
+        event.preventDefault();
+
+        selectOption(activeIndex);
+      }
+
+      // 没有活动项时，保留原生表单提交
+      break;
+    }
+
+    case 'Escape': {
+      if (!list.hidden ||
+          list.getAttribute('aria-busy') === 'true') {
+        event.preventDefault();
+        event.stopPropagation();
+
+        dismissResults();
+      }
+
+      break;
+    }
+
+    case 'Tab': {
+      dismissResults();
+
+      // 不调用 preventDefault()
+      break;
+    }
+  }
+});
+```
+
+这段代码中有三个非常值得关注的细节。
+
+第一，只有存在活动建议项时，才拦截 Enter。否则用户可以直接搜索自己输入的关键词。
+
+第二，Esc 优先关闭当前建议列表。如果建议列表已经关闭，则允许 Esc 继续传递给外层 Search Modal。
+
+第三，Tab 只负责离开组件，不应该被 Focus Trap 限制在搜索框内部。
+
+### 9.3 鼠标和触屏交互
+
+```javascript
+list.addEventListener('mousedown', event => {
+  if (event.target.closest('[role="option"]')) {
+    // 避免鼠标按下时 input 提前失去焦点
+    event.preventDefault();
+  }
+});
+
+list.addEventListener('click', event => {
+  const option = event.target.closest('[role="option"]');
+
+  if (!option) return;
+
+  selectOption(
+    Number(option.dataset.index)
+  );
+});
+
+form.addEventListener('focusout', event => {
+  if (
+    event.relatedTarget &&
+    event.relatedTarget !== input
+  ) {
+    dismissResults();
+  }
+});
+
+document.addEventListener('click', event => {
+  if (!form.contains(event.target)) {
+    dismissResults();
+  }
+});
+
+input.addEventListener('focus', () => {
+  if (input.value.trim()) {
+    scheduleSearch();
+  }
+});
+```
+
+这里特别需要注意一个事件顺序问题：
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      **常见错误**
+      {#each ["mousedown","input 失去焦点","建议列表被隐藏","click 无法正常选择"] as t,i}
+        <box border radius="sm" padding={2} align="center"><text size="xs">{t}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+      <text color="danger" size="sm">点击建议失效</text>
+    </grid-item>
+    <grid-item>
+      **改进方案**
+      {#each ["mousedown","阻止不必要的焦点变化","click 选择建议","更新值并关闭列表"] as t,i}
+        <box border radius="sm" padding={2} align="center"><text size="xs">{t}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+      <text color="success" size="sm">正常选择建议</text>
+    </grid-item>
+  </grid>
+</box>
+
+对于触屏设备，还需要测试触摸滚动、软键盘、焦点变化和点击事件之间的关系，不能通过全局阻止所有 pointerdown 事件来解决问题。
+
+---
+
+## 10. Predictive Search 最容易忽略的异步问题
+
+一个搜索组件至少存在以下几种状态。
+
+<box border radius="lg" padding={3} gap={1}>
+  <box border radius="md" padding={2} align="center">Idle · 等待输入</box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={2} align="center">Debouncing · 等待防抖</box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={2} align="center">Loading · 请求中</box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={3} gap={1}>
+    <grid-item><box border radius="sm" padding={2} align="center"><text size="sm">Success</text><caption>有建议</caption></box></grid-item>
+    <grid-item><box border radius="sm" padding={2} align="center"><text size="sm">Empty</text><caption>无结果</caption></box></grid-item>
+    <grid-item><box border radius="sm" padding={2} align="center"><text size="sm">Error</text><caption>请求失败</caption></box></grid-item>
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={2} align="center">Dismissed · 用户关闭建议</box>
+  <caption>用户可以在请求过程中随时关闭组件，因此关闭操作也必须使旧请求失效。</caption>
+</box>
+
+例如用户输入 shirt，发起 AJAX 请求。
+
+请求还没有返回，用户就按下 Esc 关闭建议列表。
+
+如果请求成功后仍然无条件执行：
+
+```javascript
+renderResults(data);
+openResults();
+```
+
+已经关闭的建议列表就会重新出现。
+
+这不仅是普通功能 Bug，还会导致屏幕阅读器收到用户已经不再需要的状态消息。
+
+所以前面的实现同时使用了：
+
+| 机制 | 解决的问题 |
+|---|---|
+| Debounce | 减少频繁网络请求 |
+| AbortController | 取消旧请求 |
+| Request Version | 防止过期响应更新页面 |
+| Focus Check | 防止离开后重新打开列表 |
+| Dismiss | 使关闭前的请求失效 |
+| 清理活动项 | 防止引用已经删除的 DOM |
+| Live Region | 通知有效结果 |
+
+**无障碍组件并不是在普通组件完成之后再添加几个 ARIA 属性，而是从业务状态机设计阶段就需要考虑无障碍行为。**
+
+---
+
+## 11. Select-only Combobox：如何开发自定义 Select？
+
+假设设计师要求我们开发一个高度自定义的商品排序下拉框。
+
+它的特点是不能输入文字，只能从已有选项中选择。
+
+{@body const sortLabels=["Featured","Best selling","Price, low to high","Price, high to low","Date, new to old"]}
+{@body const [selectedSort,setSelectedSort]=DIL.useState(1)}
+{@body const [sortActive,setSortActive]=DIL.useState(1)}
+{@body const [sortOpen,setSortOpen]=DIL.useState(false)}
+<card gap={3}>
+  **Select-only Combobox 实验室**
+  <label>Sort by</label>
+  <pressable border radius="md" padding={3} onClick={()=>{setSortOpen(!sortOpen);setSortActive(selectedSort)}}>
+    <row align="center">
+      <box flex={1}>{sortLabels[selectedSort]}</box>
+      <icon name={sortOpen?"chevron-up":"chevron-down"}/>
+    </row>
+  </pressable>
+  {#if sortOpen}
+    <box border radius="md" padding={1} gap={1}>
+      {#each sortLabels as s,i}
+        <pressable border={{size:1,color:sortActive===i?"#5185C5":"transparent"}} background={sortActive===i?"surface-tertiary":"surface"} padding={3} radius="sm" onClick={()=>{setSelectedSort(i);setSortActive(i);setSortOpen(false)}}>
+          <row align="center">
+            <text size="sm">{s}</text>
+            <spacer/>
+            {#if selectedSort===i}<icon name="check" color="success" size="sm"/>{/if}
+          </row>
+        </pressable>
+      {/each}
+    </box>
+  {/if}
+  <row justify="center">
+    <button uniform variant="outline" color="secondary" onClick={()=>{setSortOpen(true);setSortActive(sortOpen?(sortActive+4)%5:selectedSort)}}><icon name="arrow-up"/></button>
+    <button uniform variant="outline" color="secondary" onClick={()=>{setSortOpen(true);setSortActive(sortOpen?(sortActive+1)%5:selectedSort)}}><icon name="arrow-down"/></button>
+    <button variant="outline" color="secondary" onClick={()=>{if(sortOpen){setSelectedSort(sortActive);setSortOpen(false)}else{setSortActive(selectedSort);setSortOpen(true)}}}>Enter</button>
+    <button variant="outline" color="secondary" onClick={()=>{setSortOpen(false);setSortActive(selectedSort)}}>Esc</button>
+  </row>
+  <divider/>
+  <row><caption>当前已提交的值</caption><spacer/><text size="sm">{sortLabels[selectedSort]}</text></row>
+  <row><caption>当前候选值</caption><spacer/><text size="sm">{sortOpen?sortLabels[sortActive]:"无"}</text></row>
+  <caption>方向键浏览候选值，Enter 确认，Esc 取消。蓝框表示候选项，勾号表示已提交值。</caption>
+</card>
+
+基本 HTML 结构可以是：
+
+```html
+<span id="sort-label">Sort by</span>
+
+<div
+  id="sort-combobox"
+  role="combobox"
+  tabindex="0"
+  aria-labelledby="sort-label"
+  aria-expanded="false"
+  aria-controls="sort-options"
+>
+  Best selling
+</div>
+
+<ul
+  id="sort-options"
+  role="listbox"
+  aria-labelledby="sort-label"
+  hidden
+>
+  <li id="sort-featured"
+      role="option"
+      aria-selected="false">
+    Featured
+  </li>
+
+  <li id="sort-best-selling"
+      role="option"
+      aria-selected="true">
+    Best selling
+  </li>
+</ul>
+
+<input
+  type="hidden"
+  name="sort_by"
+  value="best-selling"
+>
+```
+
+这里需要维护两个不同的业务状态：
+
+```javascript
+let committedValue = 'best-selling';
+
+let activeOption = 'manual';
+```
+
+一个是已经确认的表单值，另一个是用户正在浏览的候选值。
+
+打开列表后，需要实现方向键、活动项引用及弹出列表的选择状态；确认时将候选值同步给 Combobox 显示文字和隐藏表单字段；取消时恢复之前的已提交值。
+
+如果控件是必填字段，还必须自行实现对应的表单验证。隐藏 input 不会因为 `required` 属性就获得正常的约束验证行为。
+
+完整的 Select-only 交互可以参考 [W3C Select-Only Combobox Example](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/)。
+
+不过，对于 Shopify 商品排序，如果没有非常特殊的设计要求，我仍然建议优先使用原生 select。
+
+---
+
+## 12. Popover API 与下拉定位
+
+上一课我们学习了 Popover API。
+
+它可以帮助解决下拉区域被祖先元素的 `overflow: hidden` 和 Stacking Context 裁切的问题。
+
+例如国家选择浮层：
+
+```html
+<button
+  id="country-trigger"
+  type="button"
+  popovertarget="country-panel"
+>
+  Country / Region
+</button>
+
+<div id="country-panel" popover="auto">
+  <a href="/en-us">United States</a>
+  <a href="/en-ca">Canada</a>
+  <a href="/de-de">Germany</a>
+</div>
+```
+
+这里的 URL 仅用于示例，真实 Shopify 国家选择需要接入店铺的 Localization Form 或 Markets 路由。
+
+Popover 提供 Top Layer 和 Light Dismiss 等能力，但下拉位置仍然需要布局方案。
+
+现代 CSS Anchor Positioning 可以实现：
+
+```css
+@supports (anchor-name: --country-anchor) {
+  #country-trigger {
+    anchor-name: --country-anchor;
+  }
+
+  #country-panel {
+    position: fixed;
+
+    position-anchor: --country-anchor;
+    position-area: block-end;
+
+    inset: auto;
+    margin: 8px 0 0;
+
+    position-try-fallbacks: flip-block;
+  }
+}
+```
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={2}>
+      <svg viewBox="0 0 150 165" width="100%">
+        <rect x="3" y="3" width="144" height="159" rx="5" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+        <rect x="27" y="24" width="96" height="25" rx="4" fill="#888888" fillOpacity=".12" stroke="currentColor" strokeOpacity=".3"/>
+        <text x="75" y="40" textAnchor="middle" fontSize="10" fill="currentColor">Country</text>
+        <rect x="22" y="56" width="106" height="70" rx="4" fill="#5185C5" fillOpacity=".1" stroke="#5185C5"/>
+        {#each ["United States","Canada","Germany"] as s,i}
+          <text x="30" y={73+i*19} fontSize="10" fill="currentColor">{s}</text>
+        {/each}
+      </svg>
+      <caption>底部空间充足：向下展开。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={2}>
+      <svg viewBox="0 0 150 165" width="100%">
+        <rect x="3" y="3" width="144" height="159" rx="5" fill="none" stroke="currentColor" strokeOpacity=".25"/>
+        <rect x="27" y="127" width="96" height="25" rx="4" fill="#888888" fillOpacity=".12" stroke="currentColor" strokeOpacity=".3"/>
+        <text x="75" y="143" textAnchor="middle" fontSize="10" fill="currentColor">Country</text>
+        <rect x="22" y="50" width="106" height="70" rx="4" fill="#5185C5" fillOpacity=".1" stroke="#5185C5"/>
+        {#each ["United States","Canada","Germany"] as s,i}
+          <text x="30" y={67+i*19} fontSize="10" fill="currentColor">{s}</text>
+        {/each}
+      </svg>
+      <caption>底部空间不足：尝试向上展开。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+对于需要兼容较旧浏览器的 Theme，也可以使用 [Floating UI](https://floating-ui.com/) 等定位库。
+
+Popover 和 Anchor Positioning 负责显示与定位，并不会自动实现 Combobox 的活动项管理、Menu 的方向键导航或者 Listbox 的值选择逻辑。<Cite refs={["turn868794search13","turn868794search14"]}/>
+
+---
+
+## 13. Shopify Dawn：Mega Menu 源码解析
+
+源码文件：[snippets/header-mega-menu.liquid](https://github.com/Shopify/dawn/blob/main/snippets/header-mega-menu.liquid)
+
+Dawn 并没有为普通 Mega Menu 使用完整的 ARIA Menu 模式，而是基于原生 `details` 和 `summary` 实现。
+
+简化后的结构：
+
+```liquid
+<nav class="header__inline-menu">
+
+  <ul class="list-menu" role="list">
+
+    {% for link in section.settings.menu.links %}
+
+      <li>
+
+        {% if link.links != blank %}
+
+          <header-menu>
+
+            <details class="mega-menu">
+
+              <summary>
+                {{ link.title | escape }}
+              </summary>
+
+              <div class="mega-menu__content">
+
+                <ul role="list">
+
+                  {% for childlink in link.links %}
+
+                    <li>
+                      <a href="{{ childlink.url }}"
+                        {% if childlink.current %}
+                          aria-current="page"
+                        {% endif %}
+                      >
+                        {{ childlink.title | escape }}
+                      </a>
+                    </li>
+
+                  {% endfor %}
+
+                </ul>
+
+              </div>
+
+            </details>
+
+          </header-menu>
+
+        {% else %}
+
+          <a href="{{ link.url }}">
+            {{ link.title | escape }}
+          </a>
+
+        {% endif %}
+
+      </li>
+
+    {% endfor %}
+
+  </ul>
+
+</nav>
+```
+
+以上是根据 Dawn 公开源码简化的教学结构，省略了三级导航、样式及部分属性。<Cite ref="turn144170view3"/>
+
+这个实现有几个值得学习的地方：
+
+| Dawn 的设计 | 目的 |
+|---|---|
+| `nav` | 保留导航 Landmark |
+| `ul`、`li` | 保留列表结构 |
+| `details`、`summary` | 提供原生展开能力 |
+| `header-menu` | 扩展组件交互 |
+| `a[href]` | 保留真实导航链接 |
+| `aria-current="page"` | 表达当前页面 |
+
+也就是说，Dawn 的 Mega Menu 本质上也是一种 Disclosure Navigation。
+
+对于你自己开发的 Theme，如果需求比较简单，甚至可以优先使用 `details` 和 `summary`，减少 JavaScript 状态同步工作。
+
+---
+
+## 14. Shopify Dawn：Predictive Search 源码深入解析
+
+这是本节课最值得研究的源码部分。
+
+主要文件：
+
+| 文件 | 职责 |
+|---|---|
+| `assets/search-form.js` | 基础搜索表单交互 |
+| `assets/predictive-search.js` | 搜索请求、键盘及状态管理 |
+| `sections/predictive-search.liquid` | 服务端搜索建议 HTML |
+| `snippets/header-search.liquid` | Header 搜索表单结构 |
+
+### 14.1 组件整体架构
+
+<box border radius="lg" padding={3} gap={1}>
+  <box border radius="md" padding={3} align="center">
+    **SearchForm**
+    <caption>基础表单、输入变化与重置操作</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" size="sm"/><caption>继承</caption></box>
+  <box border radius="md" padding={3} align="center">
+    <title size="lg">PredictiveSearch</title>
+    <caption>extends SearchForm</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" size="sm"/></box>
+  <grid columns={2} gap={2}>
+    {#each [{t:"Request",d:"请求与缓存"},{t:"Rendering",d:"Section HTML"},{t:"Keyboard",d:"方向键与 Enter"},{t:"ARIA",d:"活动项及展开状态"},{t:"Live Region",d:"结果数量通知"},{t:"Lifecycle",d:"打开及关闭"}] as p}
+      <grid-item><box border radius="sm" padding={2} gap={1}>**{p.t}**<caption>{p.d}</caption></box></grid-item>
+    {/each}
+  </grid>
+</box>
+
+### 14.2 核心方法
+
+| 方法 | 职责 |
+|---|---|
+| `onChange()` | 处理搜索词变化 |
+| `onFocus()` | 搜索框重新获得焦点 |
+| `onFocusOut()` | 检查焦点是否离开组件 |
+| `onKeydown()` | 处理方向键默认行为 |
+| `onKeyup()` | 切换及确认建议项 |
+| `switchOption()` | 更新活动建议 |
+| `selectOption()` | 激活选中的建议 |
+| `getSearchResults()` | 获取搜索结果 |
+| `renderSearchResults()` | 渲染返回 HTML |
+| `setLiveRegionResults()` | 通知结果信息 |
+| `open()` | 展开建议列表 |
+| `closeResults()` | 清理并关闭建议 |
+
+这些方法将搜索功能划分为数据、渲染、交互、状态及无障碍通知几个层面。<Cite ref="turn958684view0"/>
+
+### 14.3 switchOption() 的核心思想
+
+Dawn 使用的是虚拟焦点机制，而不是真实 DOM 焦点移动。
+
+下面是根据其源码逻辑编写的简化示例：
+
+```javascript
+function updateActiveOption(previous, next, input) {
+  previous?.setAttribute('aria-selected', 'false');
+
+  next.setAttribute('aria-selected', 'true');
+
+  input.setAttribute(
+    'aria-activedescendant',
+    next.id
+  );
+}
+```
+
+实际源码还负责查询可见选项、计算当前索引和处理方向键循环。
+
+这里不会对搜索建议执行 `.focus()`，因此搜索框仍然可以接收用户输入。
+
+### 14.4 Dawn 如何直接跳转商品详情页？
+
+这与我们前面的教学实现有所不同。
+
+我们的示例将搜索建议作为输入值，选择后提交搜索表单。
+
+Dawn 的建议项中则包含商品链接、查询建议链接及适用的搜索按钮。用户按 Enter 时，Dawn 会激活当前选项所关联的链接或按钮。<Cite ref="turn144170view0"/>
+
+<box border radius="lg" padding={3} gap={3}>
+  <row border radius="sm" padding={2} align="center">
+    <icon name="search"/>
+    shirt
+  </row>
+  <caption>PRODUCTS</caption>
+  {#each [{n:"Cotton T-shirt",p:"$29.99",c:"#444444"},{n:"Linen shirt",p:"$49.99",c:"#B4A087"}] as p,i}
+    <row border radius="md" padding={2} align="center">
+      <svg viewBox="0 0 55 65" width="52px">
+        <rect width="55" height="65" rx="3" fill="#DFD6CB"/>
+        <path d="M19 7 L5 18 L13 29 L19 24 V57 H36 V24 L42 29 L50 18 L36 7 L32 13 H23 Z" fill={p.c}/>
+      </svg>
+      <box flex={1} gap={1}>
+        **{p.n}**
+        <caption>{p.p}</caption>
+      </box>
+      <icon name="arrow-up-right" size="sm"/>
+    </row>
+  {/each}
+  <row border radius="sm" padding={3}>
+    <text size="sm">Search for “shirt”</text>
+    <spacer/><icon name="arrow-right" size="sm"/>
+  </row>
+  <caption>类似 Dawn 的商品搜索建议布局：商品选项可直接进入商品详情页，底部提供完整搜索入口。</caption>
+</box>
+
+需要注意，Dawn 的这种实现属于电商搜索的混合交互模式，不代表在任意 Listbox 的 option 中嵌套交互控件都是合理的。
+
+如果商品建议中还包含独立的收藏、加购等按钮，更应该考虑普通搜索结果列表或 Grid Popup 等模式。
+
+### 14.5 Dawn 源码中值得进一步检查的问题
+
+阅读实际源码时，可以重点验证：
+
+| 实现细节 | 需要检查的问题 |
+|---|---|
+| 使用 `offsetParent` 判断可见性 | 是否能准确处理当前布局中的隐藏选项 |
+| 使用 `event.code` 判断按键 | 输入法及特殊键盘环境是否正常 |
+| 在 keyup 中确认建议 | 是否与原生表单提交发生冲突 |
+| 异步返回后重新渲染 | 是否会在关闭后重新打开 |
+| 多个搜索组件共享缓存 | 是否存在状态或 ID 冲突 |
+| 使用 `aria-owns` 和 `aria-controls` | 是否需要保留旧版关联方式 |
+| 临时切换 Live Region 的 aria-hidden | 快速连续请求时是否可靠 |
+
+这些是值得测试的潜在风险，并不代表所有 Dawn 店铺一定存在对应 Bug。
+
+源码地址：[Dawn — predictive-search.js](https://github.com/Shopify/dawn/blob/main/assets/predictive-search.js)。
+
+---
+
+## 15. 如何测试下拉组件？
+
+除了普通鼠标测试，还需要通过键盘、Accessibility Tree 和屏幕阅读器验证。
+
+### 15.1 Playwright 测试 Combobox
+
+以下测试假设测试店铺中存在与 `shirt` 匹配的商品。
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('predictive search keyboard navigation',
+  async ({ page }) => {
+
+    await page.goto('/');
+
+    const input = page.getByRole('combobox', {
+      name: 'Search products'
+    });
+
+    await input.fill('shirt');
+
+    await expect(input).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+
+    await page.keyboard.press('ArrowDown');
+
+    // DOM 焦点应该始终位于输入框
+    await expect(input).toBeFocused();
+
+    const activeId = await input.getAttribute(
+      'aria-activedescendant'
+    );
+
+    expect(activeId).toBeTruthy();
+
+    await expect(
+      page.getByRole('option', {
+        selected: true
+      })
+    ).toHaveAttribute('id', activeId);
+
+    await page.keyboard.press('Escape');
+
+    await expect(input).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+
+    await expect(input).not.toHaveAttribute(
+      'aria-activedescendant',
+      /.+/
+    );
+
+    await expect(input).toBeFocused();
+  }
+);
+```
+
+还应该增加一个异步测试：在搜索请求返回之前关闭建议列表，验证请求返回后不会重新展开。
+
+### 15.2 检查活动项引用是否有效
+
+在 Chrome DevTools Console 中执行：
+
+```javascript
+console.table(
+  [...document.querySelectorAll('[role="combobox"]')]
+    .map(element => {
+      const id = element.getAttribute(
+        'aria-activedescendant'
+      );
+
+      const controls = element.getAttribute(
+        'aria-controls'
+      );
+
+      const target = id
+        ? document.getElementById(id)
+        : null;
+
+      const popup = controls
+        ? document.getElementById(controls)
+        : null;
+
+      return {
+        element,
+        expanded: element.getAttribute('aria-expanded'),
+        activeId: id,
+        targetExists: Boolean(target),
+        popupExists: Boolean(popup),
+        activeInsidePopup: Boolean(
+          target && popup?.contains(target)
+        ),
+        domFocused: document.activeElement === element
+      };
+    })
+);
+```
+
+这个脚本适合检查普通 DOM 中使用 Listbox Popup 的 Combobox。它只能帮助排查引用关系，不能替代完整的 ARIA 结构及屏幕阅读器测试。
+
+---
+
+## 16. 下拉组件选型决策
+
+以后拿到一个下拉组件设计稿，可以先根据业务用途进行判断。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **这个下拉组件要解决什么问题？**
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  {#each [{q:"展示网站导航链接",a:"Disclosure Navigation",d:"nav + button / details + links"},{q:"执行一组业务命令",a:"Menu Button",d:"menu + menuitem"},{q:"选择一个标准表单值",a:"Native Select",d:"select + option"},{q:"选择一个或多个列表值",a:"Listbox",d:"listbox + option"},{q:"输入关键词并提供建议",a:"Editable Combobox",d:"input + listbox"},{q:"自定义不可编辑选择框",a:"Select-only Combobox",d:"combobox + listbox"},{q:"展示普通辅助信息",a:"Disclosure / Popover",d:"不必强行添加复合组件角色"}] as item}
+    <row align="center" gap={2}>
+      <box flex={1} gap={1}>
+        <text size="sm">{item.q}</text>
+      </box>
+      <icon name="arrow-right" size="sm" color="secondary"/>
+      <box flex={1} border radius="sm" padding={2} gap={1}>
+        <text weight="medium" size="sm">{item.a}</text>
+        <caption>{item.d}</caption>
+      </box>
+    </row>
+  {/each}
+</box>
+
+这比记忆某个组件应该添加哪些 ARIA 属性更加重要。
+
+因为如果组件模式一开始就选择错误，后续的 Role、键盘行为、焦点管理往往也会随之错误。
+
+---
+
+## 17. 本课知识测试
+
+{@body const quiz=[{q:"普通 Shopify Header Mega Menu 应该优先使用哪种模式？",o:["ARIA Menubar","Disclosure Navigation","Listbox"],a:1,e:"普通网站导航通常保留 nav、链接及展开按钮即可。"},{q:"ARIA Menu 内部主要使用什么按键导航？",o:["Tab","方向键"],a:1,e:"Menu 是复合组件，方向键负责内部导航，Tab 用于离开。"},{q:"商品排序下拉框没有特殊设计需求时，应该优先使用什么？",o:["原生 select","div + role=menu","自定义 Dialog"],a:0,e:"原生 select 已提供语义、键盘交互和表单能力。"},{q:"Editable Combobox 按下方向键时，通常应该如何管理焦点？",o:["将 DOM 焦点移到 option","保留 input 焦点，更新 aria-activedescendant"],a:1,e:"保留真实输入焦点，可以让用户继续自然编辑文字。"},{q:"Listbox 的 option 内部是否适合包含独立加购和收藏按钮？",o:["适合","不适合，应考虑其他模式"],a:1,e:"Listbox 主要用于值选择，不适合承载多个独立交互控件。"},{q:"aria-autocomplete 是否会自动发起搜索请求？",o:["会","不会"],a:1,e:"ARIA 只表达自动完成模式，不实现搜索业务逻辑。"},{q:"用户关闭搜索建议后，之前的请求返回，应该重新展开列表吗？",o:["应该","不应该"],a:1,e:"关闭操作需要让过期请求失效，避免重新打开和意外通知。"},{q:"Popover API 是否会自动赋予浮层 role=menu 语义？",o:["会","不会"],a:1,e:"Popover 提供浮层显示机制，具体组件语义仍需根据业务确定。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box height={5} background="#39866B" radius="full" width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text color={answers[i]===q.a?"success":"danger"} size="sm">{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.e}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 日常开发检查清单
+
+{@body const checks=["根据业务用途选择正确的组件模式","普通网站导航保留导航及链接语义","优先使用原生 select、checkbox 等控件","触发控件具有明确的 Accessible Name","aria-expanded 与真实显示状态一致","aria-haspopup 与弹出组件角色一致","关闭状态下内部控件不可被意外访问","Menu 支持必要的方向键导航","正确区分活动项与已提交值","Editable Combobox 保留输入框 DOM 焦点","aria-activedescendant 引用有效的选项","Esc 可以正确关闭当前层浮层","Tab 可以正常离开非模态组件","点击外部关闭不会抢夺用户焦点","支持输入法 Composition 过程","异步搜索不会渲染过期结果","Live Region 只通知有意义的状态消息","支持触屏、缩放及窄屏布局","通过真实屏幕阅读器验证交互"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Dropdown Accessibility Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as c,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block color="secondary" variant="outline" onClick={()=>GenUI.copy(checks.map((c,i)=>(done[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 学习重点 |
+|---|---|
+| [APG Disclosure Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/) | 普通展开组件 |
+| [APG Disclosure Navigation](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/) | 网站导航 |
+| [APG Menu Button](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/) | 命令菜单 |
+| [APG Menu and Menubar](https://www.w3.org/WAI/ARIA/apg/patterns/menubar/) | 菜单键盘交互 |
+| [APG Listbox](https://www.w3.org/WAI/ARIA/apg/patterns/listbox/) | 单选与多选列表 |
+| [APG Combobox](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) | 组合输入组件 |
+| [MDN Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) | 原生浮层 |
+| [MDN CSS Anchor Positioning](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Anchor_positioning) | 浮层定位 |
+| [Shopify Predictive Search API](https://shopify.dev/docs/api/ajax/reference/predictive-search) | 搜索建议 API |
+| [Shopify Dawn](https://github.com/Shopify/dawn) | 实际 Theme 源码 |
+
+本课选择了原生 HTML + JavaScript 作为教学方案，Predictive Search 使用 JSON API，而不是完全复刻 Dawn 的 Section Rendering 方案。代码未在你的实际店铺及辅助技术环境中运行验证；生产环境还需要完善多实例管理、事件销毁、本地化文案、触屏兼容及请求缓存。
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">Accessible Dropdown</title>
+    <caption>下拉组件无障碍知识体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"panel-top",t:"Disclosure",d:"展开与折叠普通内容"},{i:"menu",t:"Menu Button",d:"命令菜单与方向键"},{i:"list-checks",t:"Listbox",d:"单选、多选及活动项"},{i:"search",t:"Combobox",d:"可编辑与不可编辑模式"},{i:"focus",t:"Focus Management",d:"真实焦点与虚拟焦点"},{i:"refresh-cw",t:"Async Search",d:"防抖、取消及请求竞争"},{i:"layers",t:"Popover",d:"Top Layer 与浮层定位"},{i:"shopping-bag",t:"Shopify 实战",d:"Mega Menu、Predictive Search"}] as p}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={p.i} size="xl"/>
+          **{p.t}**
+          <caption>{p.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本节课最重要的认知是：
+
+**视觉表现决定 CSS，业务用途决定 Role，组件模式决定键盘交互，而业务状态决定 ARIA 状态。**
+
+这四个层面不能混为一谈。
+
+---
+
+**下一课：第 17 课——Tabs、Accordion、Tooltip 组件**
+
+下一课我们将继续深入电商网站中另外三种常见组件：
+
+- Tabs 的自动激活与手动激活模式。
+- `tablist`、`tab`、`tabpanel` 的完整结构。
+- 横向 Tabs、纵向 Tabs、异步 Tabs。
+- Roving Tabindex 的完整组件封装。
+- Accordion 与原生 details、summary 的区别。
+- 单面板展开与多面板展开。
+- Tooltip 与 Popover、Toggletip 的区别。
+- Tooltip 的 Hover、Focus、Escape 交互。
+- WCAG 1.4.13 的三个条件及完整实现。
+- Shopify 商品详情、FAQ、配送说明、尺寸提示实战。
+- Dawn 中 `collapsible-content.liquid` 的源码解析。
+
+其中 Tooltip 看起来是一个非常简单的 UI 组件，但涉及的无障碍规则和边界情况非常多，下一课会重点讲解。
+
+我从第 16 课的 6.3 节接着讲，补齐 Combobox 完整实现、Shopify Predictive Search、Dawn 源码分析和测试部分，不重复前面的内容。
+
+# 第 16 课（续）：Dropdown、Menu、Combobox 下拉组件
+
+前面已经讲完第 1～6.2 节，包括 Disclosure Navigation、原生 Select、Menu Button、Listbox，以及 Combobox 的四种自动完成模式。
+
+下面从 **6.3 节**继续，重点解决 Combobox 的完整实现，以及 Shopify Predictive Search 的实际开发问题。
+
+---
+
+## 6.3 Combobox 的核心 ARIA 属性
+
+一个典型的可编辑 Combobox 结构如下：
+
+```html
+<label for="search-input">
+  Search products
+</label>
+
+<input
+  id="search-input"
+  type="search"
+  role="combobox"
+  aria-autocomplete="list"
+  aria-expanded="true"
+  aria-controls="search-results"
+  aria-activedescendant="result-2"
+>
+
+<ul
+  id="search-results"
+  role="listbox"
+  aria-label="Product suggestions"
+>
+  <li
+    id="result-1"
+    role="option"
+    aria-selected="false"
+  >
+    Cotton T-shirt
+  </li>
+
+  <li
+    id="result-2"
+    role="option"
+    aria-selected="true"
+  >
+    Linen shirt
+  </li>
+</ul>
+```
+
+各个属性的作用如下：
+
+| 属性 | 职责 |
+|---|---|
+| `role="combobox"` | 表达组合输入控件 |
+| `aria-autocomplete="list"` | 提供列表式输入建议 |
+| `aria-expanded` | 表达建议列表是否展开 |
+| `aria-controls` | 关联弹出列表 |
+| `aria-activedescendant` | 指向当前活动选项 |
+| `role="listbox"` | 表达选项列表 |
+| `role="option"` | 表达单个建议选项 |
+| `aria-selected` | 表达列表中的选中状态 |
+
+Combobox 隐式具有 `aria-haspopup="listbox"`，所以当弹出区域为 listbox 时，可以省略 aria-haspopup。
+
+如果弹出区域采用 grid、tree 或 dialog，则需要声明对应的类型。<Cite ref="turn868794search0"/>
+
+### 6.4 Combobox 的四种状态
+
+在开发 Combobox 时，应该明确区分四个变量。
+
+```javascript
+const state = {
+  inputValue: 'shirt',
+  isOpen: true,
+  activeIndex: 1,
+  committedValue: null
+};
+```
+
+| 状态 | 含义 |
+|---|---|
+| inputValue | 用户当前输入的文字 |
+| isOpen | 建议列表是否展开 |
+| activeIndex | 方向键当前指向的选项 |
+| committedValue | 用户最终确认的值 |
+
+例如用户输入 `shirt`，然后按两次 ArrowDown，高亮 Linen shirt。
+
+此时输入框的值仍然可以是 `shirt`，用户尚未确认 Linen shirt。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row border={{size:2,color:"#3978BC"}} radius="md" padding={3} align="center">
+    <icon name="search"/>
+    <text>shirt</text>
+    <box height="19px" width="1px" background="surface-inverted"/>
+    <spacer/>
+    <caption>DOM Focus</caption>
+  </row>
+  <box border radius="md" padding={2} gap={1}>
+    {#each ["Cotton T-shirt","Linen shirt","Oversized T-shirt"] as n,i}
+      <row background={i===1?"#3978BC18":"surface"} border={{size:1,color:i===1?"#3978BC":"transparent"}} radius="sm" padding={3} align="center">
+        <icon name="shirt" size="lg"/>
+        <text size="sm">{n}</text>
+        <spacer/>
+        {#if i===1}<icon name="arrow-left" color="#3978BC" size="sm"/>{/if}
+      </row>
+    {/each}
+  </box>
+  <divider/>
+  {#each [["inputValue","shirt"],["isOpen","true"],["activeIndex","1"],["committedValue","null"],["document.activeElement","search-input"]] as p}
+    <row align="center">
+      <caption>{p[0]}</caption>
+      <spacer/>
+      <text size="sm">{p[1]}</text>
+    </row>
+  {/each}
+</box>
+
+这是第 10 课中虚拟焦点机制在真实业务组件中的应用。
+
+**高亮建议项，并不意味着已经确认输入值。**
+
+### 6.5 Editable Combobox 键盘交互
+
+以下是适合手动确认模式的电商搜索交互设计。
+
+| 按键 | 行为 |
+|---|---|
+| 普通字符 | 编辑输入内容并获取建议 |
+| ArrowDown | 展开列表或移动到下一项 |
+| ArrowUp | 移动到上一项 |
+| Enter（有活动项） | 确认当前建议 |
+| Enter（无活动项） | 提交原始搜索关键词 |
+| Escape | 关闭建议列表，保留输入内容 |
+| Tab | 离开组件，不强制选择建议 |
+| ArrowLeft / Right | 保留原生文本编辑行为 |
+| Home / End | 保留原生光标移动行为 |
+| Backspace / Delete | 保留原生编辑行为 |
+
+特别注意，不能为了实现下拉框导航，破坏输入框本身的文字编辑能力。
+
+例如下面的写法是不合理的：
+
+```javascript
+input.addEventListener('keydown', event => {
+  event.preventDefault();
+});
+```
+
+应该仅在实际处理特定导航按键时阻止默认行为。
+
+---
+
+## 7. Combobox 交互实验
+
+下面通过一个完整的商品搜索模拟器，观察 DOM Focus、活动选项、输入值和 Live Region 之间的关系。
+
+{@body const products=[{name:"Cotton T-shirt",price:"$29.99",color:"#535353"},{name:"Linen shirt",price:"$49.99",color:"#BBA88C"},{name:"Oversized T-shirt",price:"$39.99",color:"#8296A9"},{name:"Cotton jacket",price:"$89.99",color:"#8C947C"},{name:"Denim jacket",price:"$99.99",color:"#536C87"}]}
+{@body const [query,setQuery]=DIL.useState("shirt")}
+{@body const [open,setOpen]=DIL.useState(true)}
+{@body const [active,setActive]=DIL.useState(-1)}
+{@body const [committed,setCommitted]=DIL.useState("")}
+{@body const [focused,setFocused]=DIL.useState(true)}
+{@body const results=query.trim()?products.filter(p=>p.name.toLowerCase().includes(query.trim().toLowerCase())):[]}
+{@body const expanded=open&&results.length>0}
+<card gap={3}>
+  **Predictive Search 实验室**
+  <label>Search products</label>
+  <row align="center">
+    <icon name="search"/>
+    <box flex={1}>
+      <input value={query} onChange={v=>{setQuery(v);setOpen(true);setActive(-1);setCommitted("");setFocused(true)}} placeholder="Search products"/>
+    </box>
+    <button uniform variant="ghost" color="secondary" onClick={()=>{setQuery("");setActive(-1);setOpen(false);setCommitted("");setFocused(true)}}><icon name="x"/></button>
+  </row>
+  {#if expanded}
+    <box border radius="md" padding={2} gap={1}>
+      <caption>Products · {results.length} suggestions</caption>
+      {#each results as p,i}
+        <pressable border={{size:active===i?2:1,color:active===i?"#3978BC":"transparent"}} background={active===i?"#3978BC12":"surface"} radius="sm" padding={2} onClick={()=>{setCommitted(`打开商品：${p.name}`);setOpen(false);setActive(-1)}}>
+          <row align="center">
+            <box size="48px" background="#E4DDD3" radius="sm">
+              <svg viewBox="0 0 50 50" width="100%">
+                <path d="M17 5 L4 15 L11 25 L17 21 V46 H33 V21 L39 25 L46 15 L33 5 L25 10 Z" fill={p.color}/>
+              </svg>
+            </box>
+            <box flex={1} gap={1}>
+              <text size="sm" weight="medium">{p.name}</text>
+              <caption>{p.price}</caption>
+            </box>
+            {#if active===i}<icon name="chevron-right" color="#3978BC"/>{/if}
+          </row>
+        </pressable>
+      {/each}
+    </box>
+  {:else if open&&query.trim()&&results.length===0}
+    <box border radius="md" padding={3}>No suggestions found.</box>
+  {/if}
+  <grid columns={4} gap={1}>
+    <grid-item><button block color="secondary" variant="outline" disabled={!results.length} onClick={()=>{setActive(expanded&&active>0?active-1:results.length-1);setOpen(true);setFocused(true)}}><icon name="arrow-up"/></button></grid-item>
+    <grid-item><button block color="secondary" variant="outline" disabled={!results.length} onClick={()=>{setActive(expanded?(active+1)%results.length:0);setOpen(true);setFocused(true)}}><icon name="arrow-down"/></button></grid-item>
+    <grid-item><button block color="secondary" variant="outline" disabled={!query.trim()} onClick={()=>{setCommitted(expanded&&active>=0?`打开商品：${results[active].name}`:`搜索关键词：${query}`);setOpen(false);setActive(-1)}}>Enter</button></grid-item>
+    <grid-item><button block color="secondary" variant="outline" onClick={()=>{setOpen(false);setActive(-1)}}>Esc</button></grid-item>
+  </grid>
+  <button block variant="outline" color="secondary" onClick={()=>{setFocused(false);setOpen(false);setActive(-1)}}>Tab · 离开搜索框</button>
+  <divider/>
+  **模拟 DOM 与 ARIA 状态**
+  {#each [["input.value",query||"空"],["aria-expanded",String(expanded)],["aria-activedescendant",expanded&&active>=0?`result-${active+1}`:"未设置"],["DOM Focus",focused?"search-input":"后续控件"]] as p}
+    <row align="center"><caption>{p[0]}</caption><spacer/><text size="sm">{p[1]}</text></row>
+  {/each}
+  <divider/>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>模拟状态通知</caption>
+      <text size="sm">{expanded&&active>=0?`${results[active].name}, option, ${active+1} of ${results.length}.`:open&&query.trim()?`${results.length} suggestions found.`:"无新通知"}</text>
+    </box>
+  </row>
+  {#if committed}<box border radius="sm" padding={3}><text size="sm" weight="medium">{committed}</text></box>{/if}
+  <button block variant="ghost" color="secondary" onClick={()=>{setQuery("shirt");setOpen(true);setActive(-1);setCommitted("");setFocused(true)}}>重置实验</button>
+  <caption>这是交互状态模拟，不会访问真实商品页面，也不代表实际屏幕阅读器播报结果。</caption>
+</card>
+
+建议分别测试以下操作：
+
+1. 输入 `cotton`，观察建议列表变化。
+2. 连续按方向键，观察 aria-activedescendant 的变化。
+3. 按 Esc，观察输入内容是否被保留。
+4. 不选择任何建议，直接按 Enter。
+5. 选择某个建议后再按 Enter。
+
+其中第 4 和第 5 种操作的业务含义完全不同：一个是提交关键词搜索，一个是访问具体商品。
+
+---
+
+## 8. Shopify Predictive Search 完整实现
+
+现在我们不使用模拟数据，而是接入 Shopify 真实的 Predictive Search API，实现一个可用于 Theme 开发的商品搜索建议组件。
+
+### 8.1 Shopify 提供的两种数据获取方式
+
+| 方式 | 返回内容 |
+|---|---|
+| `/search/suggest.json` | JSON 格式的搜索建议 |
+| `/search/suggest?section_id=predictive-search` | Liquid 渲染后的 Section HTML |
+
+两种方式都是 Shopify 官方支持的方案。<Cite refs={["turn868794search3","turn868794search17"]}/>
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **用户输入搜索关键词**
+    <caption>input.value</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={2} align="center">
+    **Predictive Search API**
+  </box>
+  <grid columns={2} gap={2}>
+    <grid-item>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box border radius="md" padding={3} gap={1}>
+        **JSON 方案**
+        <caption>返回商品数据</caption>
+        <caption>JavaScript 生成 DOM</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box align="center"><icon name="arrow-down" color="secondary"/></box>
+      <box border radius="md" padding={3} gap={1}>
+        **Section 方案**
+        <caption>Liquid 生成 HTML</caption>
+        <caption>JavaScript 替换内容</caption>
+      </box>
+    </grid-item>
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border radius="md" padding={3} align="center">
+    **ARIA 状态与键盘交互管理**
+  </box>
+</box>
+
+Dawn 主要采用第二种方式。
+
+为了方便理解完整的交互逻辑，本次实战采用第一种 JSON 方案，只获取商品建议。后面再分析 Dawn 的 Section Rendering 实现。
+
+### 8.2 HTML 与 Liquid
+
+```liquid
+<form
+  id="PredictiveSearchForm"
+  action="{{ routes.search_url }}"
+  method="get"
+  role="search"
+  aria-label="Product search"
+>
+  <label for="PredictiveSearchInput">
+    Search products
+  </label>
+
+  <input
+    id="PredictiveSearchInput"
+    type="search"
+    name="q"
+    role="combobox"
+    aria-autocomplete="list"
+    aria-expanded="false"
+    aria-controls="PredictiveSearchList"
+    autocomplete="off"
+  >
+
+  <input type="hidden" name="type" value="product">
+
+  <button type="submit">
+    Search
+  </button>
+
+  <ul
+    id="PredictiveSearchList"
+    role="listbox"
+    aria-label="Product suggestions"
+    hidden
+  ></ul>
+
+  <p id="PredictiveSearchStatus" role="status"></p>
+</form>
+```
+
+这里同时出现了 `autocomplete` 和 `aria-autocomplete`。
+
+它们不是同一个属性。
+
+| 属性 | 职责 |
+|---|---|
+| `autocomplete="off"` | 控制浏览器自身的表单自动填充提示 |
+| `aria-autocomplete="list"` | 描述网站实现的建议列表模式 |
+
+即使关闭了浏览器自动填充，也仍然需要正确描述自己的 Combobox 行为。
+
+另外，这个表单保留了原生 `action` 和 `method`，即使 JavaScript 加载失败，用户仍然可以提交普通商品搜索。
+
+### 8.3 CSS 样式
+
+```css
+#PredictiveSearchForm {
+  position: relative;
+  max-width: 480px;
+}
+
+#PredictiveSearchInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+}
+
+#PredictiveSearchList[hidden] {
+  display: none !important;
+}
+
+#PredictiveSearchList {
+  position: absolute;
+  inset-inline: 0;
+  z-index: 10;
+
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  margin: 4px 0 0;
+  padding: 4px;
+
+  list-style: none;
+  background: white;
+  color: #222;
+
+  border: 1px solid #888;
+  border-radius: 8px;
+}
+
+#PredictiveSearchList [role="option"] {
+  padding: 12px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+#PredictiveSearchList [aria-selected="true"] {
+  background: #e8f0fc;
+  outline: 2px solid #005fcc;
+  outline-offset: -2px;
+}
+
+#PredictiveSearchInput:focus-visible {
+  outline: 2px solid #005fcc;
+  outline-offset: 2px;
+}
+```
+
+这里不能依靠：
+
+```css
+[role="option"]:focus {
+  background: #e8f0fc;
+}
+```
+
+因为真实 DOM 焦点一直在 input 上，option 并没有实际获得焦点。
+
+因此需要根据 `aria-selected` 或独立的活动项 class 提供视觉高亮。
+
+### 8.4 JavaScript：初始化与状态管理
+
+以下各段 JavaScript 属于同一个脚本，可以按顺序组合。
+
+```javascript
+const form = document.querySelector(
+  '#PredictiveSearchForm'
+);
+
+const input = document.querySelector(
+  '#PredictiveSearchInput'
+);
+
+const listbox = document.querySelector(
+  '#PredictiveSearchList'
+);
+
+const status = document.querySelector(
+  '#PredictiveSearchStatus'
+);
+
+let results = [];
+let activeIndex = -1;
+
+let debounceTimer;
+let controller;
+let requestVersion = 0;
+let composing = false;
+```
+
+这几个变量承担不同职责。
+
+| 变量 | 作用 |
+|---|---|
+| results | 当前搜索建议数据 |
+| activeIndex | 当前活动建议 |
+| debounceTimer | 输入防抖 |
+| controller | 取消旧请求 |
+| requestVersion | 防止过期响应覆盖新结果 |
+| composing | 判断是否正在使用输入法 |
+
+### 8.5 活动选项管理
+
+```javascript
+function setActiveOption(index) {
+  const options = [
+    ...listbox.querySelectorAll('[role="option"]')
+  ];
+
+  activeIndex =
+    index >= 0 && index < options.length
+      ? index
+      : -1;
+
+  options.forEach((option, i) => {
+    option.setAttribute(
+      'aria-selected',
+      String(i === activeIndex)
+    );
+  });
+
+  if (activeIndex === -1) {
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+
+  const option = options[activeIndex];
+
+  input.setAttribute(
+    'aria-activedescendant',
+    option.id
+  );
+
+  option.scrollIntoView({
+    block: 'nearest',
+    inline: 'nearest'
+  });
+}
+```
+
+这里有三个同步更新的状态：活动选项索引、ARIA 属性以及视觉高亮。
+
+特别是 `scrollIntoView()`，这是开发自定义 Listbox 时容易遗漏的一步。
+
+因为 option 没有真实获得 DOM 焦点，浏览器不会像普通 focus() 一样自动保证活动项可见。
+
+### 8.6 展开、关闭与清理请求
+
+```javascript
+function hideResults() {
+  setActiveOption(-1);
+
+  listbox.hidden = true;
+
+  input.setAttribute('aria-expanded', 'false');
+}
+
+function openResults() {
+  if (!results.length) return;
+
+  listbox.hidden = false;
+
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function cancelPendingSearch() {
+  clearTimeout(debounceTimer);
+
+  controller?.abort();
+
+  requestVersion++;
+
+  listbox.setAttribute('aria-busy', 'false');
+}
+
+function closeResults() {
+  cancelPendingSearch();
+
+  hideResults();
+
+  status.textContent = '';
+}
+```
+
+为什么关闭列表时还需要取消请求？
+
+假设用户输入 `shirt`，AJAX 请求尚未返回，此时按下 Esc。
+
+如果只是关闭视觉浮层，却没有取消请求，服务器响应返回后可能再次打开列表。
+
+这就违背了用户刚刚执行的关闭操作。
+
+### 8.7 请求 Shopify 搜索 API
+
+```javascript
+async function fetchSuggestions(query) {
+  const version = ++requestVersion;
+
+  controller?.abort();
+  controller = new AbortController();
+
+  const params = new URLSearchParams({
+    q: query,
+    'resources[type]': 'product',
+    'resources[limit]': '8'
+  });
+
+  const url =
+    window.Shopify.routes.root +
+    'search/suggest.json?' +
+    params.toString();
+
+  listbox.setAttribute('aria-busy', 'true');
+
+  status.textContent = 'Searching products...';
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error('Search request failed');
+    }
+
+    const data = await response.json();
+
+    // 忽略已经过期的请求
+    if (version !== requestVersion) return;
+
+    // 防止输入框内容已发生变化
+    if (input.value.trim() !== query) return;
+
+    // 用户离开搜索框后不重新打开浮层
+    if (document.activeElement !== input) return;
+
+    results =
+      data.resources.results.products || [];
+
+    renderResults(results);
+
+  } catch (error) {
+    if (
+      error.name === 'AbortError' ||
+      version !== requestVersion
+    ) {
+      return;
+    }
+
+    results = [];
+    hideResults();
+
+    status.textContent =
+      'Suggestions unavailable. You can still search.';
+
+  } finally {
+    if (version === requestVersion) {
+      listbox.setAttribute('aria-busy', 'false');
+    }
+  }
+}
+```
+
+注意 URL 使用了 `window.Shopify.routes.root`，这是为了兼容 Shopify 的多语言路径，而不是直接将请求地址硬编码为 `/search/suggest.json`。
+
+Shopify 官方也建议 Ajax API 使用与当前语言区域一致的 URL。<Cite ref="turn868794search3"/>
+
+### 8.8 渲染建议列表
+
+```javascript
+function renderResults(products) {
+  // 清理对旧 DOM 节点的引用
+  setActiveOption(-1);
+
+  const fragment = document.createDocumentFragment();
+
+  products.forEach((product, index) => {
+    const option = document.createElement('li');
+
+    option.id = `SearchOption-${index}`;
+
+    option.setAttribute('role', 'option');
+
+    option.setAttribute('aria-selected', 'false');
+
+    option.dataset.index = String(index);
+
+    option.textContent = product.title;
+
+    fragment.appendChild(option);
+  });
+
+  listbox.replaceChildren(fragment);
+
+  if (products.length) {
+    openResults();
+
+    status.textContent =
+      `${products.length} product suggestions found.`;
+  } else {
+    hideResults();
+
+    status.textContent = 'No product suggestions found.';
+  }
+}
+```
+
+这里故意使用 `textContent` 而不是通过字符串拼接 `innerHTML`，避免将商品标题错误地解释为 HTML。
+
+同时，在替换选项之前清理 aria-activedescendant，避免它指向已经被删除的旧节点。
+
+本示例的 result ID 只适用于单个搜索组件；多个搜索实例应加入唯一前缀。
+
+### 8.9 输入防抖与中文输入法处理
+
+```javascript
+function scheduleSearch() {
+  cancelPendingSearch();
+  hideResults();
+
+  results = [];
+  status.textContent = '';
+
+  const query = input.value.trim();
+
+  if (!query) {
+    listbox.replaceChildren();
+    return;
+  }
+
+  debounceTimer = setTimeout(() => {
+    fetchSuggestions(query);
+  }, 250);
+}
+
+input.addEventListener('input', event => {
+  if (event.isComposing || composing) return;
+
+  scheduleSearch();
+});
+
+input.addEventListener('compositionstart', () => {
+  composing = true;
+
+  closeResults();
+});
+
+input.addEventListener('compositionend', () => {
+  composing = false;
+
+  scheduleSearch();
+});
+```
+
+为什么需要处理 compositionstart 和 compositionend？
+
+例如用户使用中文输入法输入“衬衫”，中间可能经历：
+
+```text
+c
+ch
+chen
+chenshan
+衬衫
+```
+
+不应该把所有尚未确认的拼音都发送到 Predictive Search API，也不应该在用户通过 Enter 确认中文候选字时，错误地跳转到商品详情页。
+
+这不仅是性能问题，也是国际化和键盘无障碍问题。
+
+### 8.10 完整键盘交互
+
+```javascript
+function commitOption(index) {
+  const product = results[index];
+
+  if (!product) return;
+
+  closeResults();
+
+  window.location.assign(product.url);
+}
+
+input.addEventListener('keydown', event => {
+  if (
+    composing ||
+    event.isComposing ||
+    event.keyCode === 229
+  ) {
+    return;
+  }
+
+  switch (event.key) {
+    case 'ArrowDown':
+      if (results.length) {
+        event.preventDefault();
+
+        openResults();
+
+        setActiveOption(
+          (activeIndex + 1) % results.length
+        );
+      }
+      break;
+
+    case 'ArrowUp':
+      if (results.length) {
+        event.preventDefault();
+
+        openResults();
+
+        setActiveOption(
+          activeIndex <= 0
+            ? results.length - 1
+            : activeIndex - 1
+        );
+      }
+      break;
+
+    case 'Enter':
+      if (!listbox.hidden && activeIndex >= 0) {
+        event.preventDefault();
+
+        commitOption(activeIndex);
+      }
+
+      // 没有活动项时，保留原生表单提交
+      break;
+
+    case 'Escape':
+      if (
+        !listbox.hidden ||
+        listbox.getAttribute('aria-busy') === 'true'
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        closeResults();
+      } else {
+        cancelPendingSearch();
+      }
+      break;
+
+    case 'Tab':
+      closeResults();
+
+      // 不阻止 Tab 的原生行为
+      break;
+  }
+});
+```
+
+这里没有拦截 ArrowLeft、ArrowRight、Home、End 等文本编辑按键。
+
+另外，Predictive Search 如果位于 Search Modal 内部，Esc 应当优先关闭当前搜索建议列表，而不是立即关闭整个 Search Modal。
+
+父级 Modal 的 Esc 处理器也应该尊重已经处理过的事件。
+
+### 8.11 鼠标、触屏与外部关闭
+
+```javascript
+listbox.addEventListener('mousedown', event => {
+  if (event.target.closest('[role="option"]')) {
+    // 避免鼠标按下时输入框提前失去焦点
+    event.preventDefault();
+  }
+});
+
+listbox.addEventListener('click', event => {
+  const option = event.target.closest('[role="option"]');
+
+  if (!option) return;
+
+  commitOption(Number(option.dataset.index));
+});
+
+document.addEventListener('pointerdown', event => {
+  if (!form.contains(event.target)) {
+    closeResults();
+  }
+});
+
+document.addEventListener('focusin', event => {
+  if (event.target !== input) {
+    closeResults();
+  }
+});
+
+input.addEventListener('focus', () => {
+  if (input.value.trim() && !composing) {
+    scheduleSearch();
+  }
+});
+```
+
+至此，我们已经将前面学习的六项核心能力整合到了一个组件中：
+
+| 知识 | 实际应用 |
+|---|---|
+| HTML 语义 | form、label、input |
+| ARIA | combobox、listbox、option |
+| Focus Management | DOM 焦点保留在 input |
+| Keyboard | 方向键、Enter、Esc |
+| AccName | 搜索框及列表名称 |
+| Live Region | 搜索结果数量通知 |
+
+该代码采用的是**商品建议确认后直接导航到商品页**的电商搜索模式，而非仅将选项文字填入 input 的通用 Combobox。它覆盖主要交互流程，但仍属于教学版本：尚未加入多实例管理、组件卸载、完整本地化、结果缓存、图片价格渲染及全部触屏辅助技术兼容性处理。
+
+---
+
+## 9. Select-only Combobox：自定义 Select 应该怎么实现？
+
+上一节的 Predictive Search 允许用户自由输入。
+
+但如果我们开发的是商品尺寸选择器、国家选择器或者自定义排序下拉框，用户只能从已有选项中选择，就可以采用 Select-only Combobox。
+
+### 9.1 HTML 结构
+
+```html
+<span id="sort-label">Sort by</span>
+
+<div
+  id="sort-combobox"
+  role="combobox"
+  tabindex="0"
+  aria-labelledby="sort-label"
+  aria-expanded="false"
+  aria-controls="sort-options"
+>
+  Best selling
+</div>
+
+<ul
+  id="sort-options"
+  role="listbox"
+  aria-labelledby="sort-label"
+  hidden
+>
+  <li
+    id="sort-option-1"
+    role="option"
+    aria-selected="true"
+    data-value="best-selling"
+  >
+    Best selling
+  </li>
+
+  <li
+    id="sort-option-2"
+    role="option"
+    aria-selected="false"
+    data-value="price-ascending"
+  >
+    Price, low to high
+  </li>
+
+  <li
+    id="sort-option-3"
+    role="option"
+    aria-selected="false"
+    data-value="price-descending"
+  >
+    Price, high to low
+  </li>
+</ul>
+
+<input
+  type="hidden"
+  name="sort_by"
+  value="best-selling"
+>
+```
+
+它与 Editable Combobox 最大的区别在于：
+
+- 不提供自由文字输入。
+- 方向键和字符键可以用于选项导航。
+- 不需要 `aria-autocomplete`。
+- 需要自行维护用于表单提交的实际值。
+
+### 9.2 焦点与已确认值
+
+{@body const sortOptions=[{label:"Best selling",value:"best-selling"},{label:"Price, low to high",value:"price-ascending"},{label:"Price, high to low",value:"price-descending"},{label:"Date, new to old",value:"created-descending"}]}
+{@body const [selectOpen,setSelectOpen]=DIL.useState(false)}
+{@body const [selectedIndex,setSelectedIndex]=DIL.useState(0)}
+{@body const [highlightIndex,setHighlightIndex]=DIL.useState(0)}
+<card gap={3}>
+  **Select-only Combobox 实验室**
+  <label>Sort by</label>
+  <pressable border radius="md" padding={3} onClick={()=>{setHighlightIndex(selectedIndex);setSelectOpen(!selectOpen)}}>
+    <row align="center">
+      {sortOptions[selectedIndex].label}
+      <spacer/>
+      <icon name={selectOpen?"chevron-up":"chevron-down"}/>
+    </row>
+  </pressable>
+  {#if selectOpen}
+    <box border radius="md" padding={2} gap={1}>
+      {#each sortOptions as o,i}
+        <pressable border={{size:highlightIndex===i?2:1,color:highlightIndex===i?"#3978BC":"transparent"}} background={highlightIndex===i?"#3978BC12":"surface"} radius="sm" padding={3} onClick={()=>{setSelectedIndex(i);setHighlightIndex(i);setSelectOpen(false)}}>
+          <row align="center">
+            <text size="sm">{o.label}</text>
+            <spacer/>
+            {#if selectedIndex===i}<icon name="check" color="success" size="sm"/>{/if}
+          </row>
+        </pressable>
+      {/each}
+    </box>
+  {/if}
+  <grid columns={4} gap={1}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setHighlightIndex(selectOpen?Math.max(0,highlightIndex-1):selectedIndex);setSelectOpen(true)}}><icon name="arrow-up"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setHighlightIndex(selectOpen?Math.min(sortOptions.length-1,highlightIndex+1):selectedIndex);setSelectOpen(true)}}><icon name="arrow-down"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{if(selectOpen){setSelectedIndex(highlightIndex);setSelectOpen(false)}else{setHighlightIndex(selectedIndex);setSelectOpen(true)}}}>Enter</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{setSelectOpen(false);setHighlightIndex(selectedIndex)}}>Esc</button></grid-item>
+  </grid>
+  <divider/>
+  <caption>当前活动项</caption>
+  <text size="sm">{selectOpen?sortOptions[highlightIndex].label:"未展开"}</text>
+  <caption>当前已确认的值</caption>
+  **{sortOptions[selectedIndex].label}**
+  <box background="surface-tertiary" radius="sm" padding={3}>
+    <text size="xs">{`<input name="sort_by"\n  type="hidden"\n  value="${sortOptions[selectedIndex].value}">`}</text>
+  </box>
+  <caption>使用方向键高亮其他选项，再按 Esc，观察原来的排序值是否被保留。</caption>
+</card>
+
+这里最值得学习的是，方向键高亮选项时，不立即触发 Collection 排序请求。
+
+只有用户确认选择后，才修改最终值并执行排序。
+
+否则，用户每按一次方向键，就可能产生一次 AJAX 请求。
+
+### 9.3 需要补充的键盘机制
+
+Select-only Combobox 通常还需要支持 Home、End、Typeahead，以及适当的 Tab 确认与离开行为。
+
+W3C APG 的 Select-only Combobox 示例在 Tab 离开时会确认当前活动选项，并继续正常焦点导航；Esc 则允许取消当前选择。<Cite ref="turn868794search2"/>
+
+可以直接研究官方提供的完整实现：
+
+[W3C Select-Only Combobox Example](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/)
+
+不过，对于 Shopify 商品排序这种相对简单的业务，我仍然优先推荐原生 select。
+
+自定义组件应该解决真实业务需求，而不是单纯为了替换原生控件。
+
+---
+
+## 10. Popover API 与下拉组件定位
+
+传统下拉组件经常面临一个 CSS 问题：浮层被祖先元素裁切。
+
+```css
+.header-container {
+  overflow: hidden;
+}
+
+.dropdown {
+  position: absolute;
+  z-index: 99999;
+}
+```
+
+即使 z-index 很大，Dropdown 仍然可能被 overflow 裁切。
+
+现代浏览器可以使用上一课学习的 Popover API 来解决这一类问题。
+
+### 10.1 原生 Popover
+
+```html
+<button
+  type="button"
+  popovertarget="category-dropdown"
+>
+  Categories
+</button>
+
+<div id="category-dropdown" popover="auto">
+  <ul>
+    <li><a href="/collections/shirts">Shirts</a></li>
+    <li><a href="/collections/pants">Pants</a></li>
+    <li><a href="/collections/jackets">Jackets</a></li>
+  </ul>
+</div>
+```
+
+使用 `popovertarget` 建立关联后，浏览器能够提供基础的展开状态语义、焦点导航顺序处理、Esc 和点击外部关闭机制。<Cite ref="turn144170search0"/>
+
+### 10.2 CSS Anchor Positioning
+
+可以进一步使用 CSS Anchor Positioning，让浮层定位在触发按钮附近。
+
+```css
+#category-dropdown {
+  position: fixed;
+  position-area: bottom;
+  margin: 8px 0 0;
+
+  min-width: 180px;
+  max-width: calc(100vw - 32px);
+
+  border: 1px solid #888;
+  border-radius: 8px;
+  padding: 16px;
+
+  position-try-fallbacks: flip-block;
+}
+```
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={2} gap={2}>
+      <caption>下方空间充足</caption>
+      <svg viewBox="0 0 145 155" width="100%">
+        <rect x="2" y="2" width="141" height="151" rx="4" fill="none" stroke="currentColor" strokeOpacity=".3"/>
+        <rect x="22" y="23" width="101" height="25" rx="4" fill="#888888" fillOpacity=".12" stroke="currentColor" strokeOpacity=".3"/>
+        <text x="72" y="39" textAnchor="middle" fontSize="10" fill="currentColor">Categories</text>
+        <rect x="22" y="55" width="101" height="75" rx="4" fill="#3978BC" fillOpacity=".08" stroke="#3978BC"/>
+        {#each ["Shirts","Pants","Jackets"] as n,i}
+          <text x="34" y={73+i*21} fontSize="10" fill="currentColor">{n}</text>
+        {/each}
+      </svg>
+      <caption>默认向下展开。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={2} gap={2}>
+      <caption>下方空间不足</caption>
+      <svg viewBox="0 0 145 155" width="100%">
+        <rect x="2" y="2" width="141" height="151" rx="4" fill="none" stroke="currentColor" strokeOpacity=".3"/>
+        <rect x="22" y="115" width="101" height="25" rx="4" fill="#888888" fillOpacity=".12" stroke="currentColor" strokeOpacity=".3"/>
+        <text x="72" y="131" textAnchor="middle" fontSize="10" fill="currentColor">Categories</text>
+        <rect x="22" y="33" width="101" height="75" rx="4" fill="#3978BC" fillOpacity=".08" stroke="#3978BC"/>
+        {#each ["Shirts","Pants","Jackets"] as n,i}
+          <text x="34" y={51+i*21} fontSize="10" fill="currentColor">{n}</text>
+        {/each}
+      </svg>
+      <caption>尝试向上展开。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+这种方式可以减少传统 JavaScript 浮层定位代码。
+
+实际项目仍需要检查浏览器兼容性；也可以使用 [Floating UI](https://floating-ui.com/) 处理定位、边界检测和方向翻转。
+
+需要强调的是：**浮层定位和无障碍交互属于两个不同的技术层。**
+
+即使 Popover 已经能够正确显示、定位和关闭，如果内部使用的是 ARIA Menu，仍然需要实现相应的方向键导航和焦点管理。
+
+---
+
+## 11. Shopify Dawn Predictive Search 源码深入解析
+
+现在结合本课知识，看看 Dawn 是如何实现完整搜索组件的。
+
+我查阅了 Dawn 公开仓库 main 分支中的以下四个文件。
+
+| 文件 | 职责 |
+|---|---|
+| `snippets/header-search.liquid` | 搜索框及 ARIA 结构 |
+| `assets/search-form.js` | 基础搜索表单 |
+| `assets/predictive-search.js` | 搜索建议与键盘交互 |
+| `sections/predictive-search.liquid` | 服务端渲染搜索结果 |
+
+### 11.1 组件继承关系
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={3} align="center">
+    **HTMLElement**
+    <caption>浏览器原生自定义元素基类</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} gap={1}>
+    <title size="lg" textAlign="center">SearchForm</title>
+    <divider/>
+    <text size="sm">输入监听、300ms 防抖</text>
+    <text size="sm">搜索表单重置</text>
+    <text size="sm">清空按钮状态管理</text>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} gap={1}>
+    <title size="lg" textAlign="center">PredictiveSearch</title>
+    <divider/>
+    <text size="sm">搜索建议请求与缓存</text>
+    <text size="sm">结果渲染</text>
+    <text size="sm">ARIA 状态同步</text>
+    <text size="sm">虚拟焦点与键盘导航</text>
+    <text size="sm">Live Region</text>
+  </box>
+</box>
+
+Dawn 的架构是：
+
+```javascript
+class SearchForm extends HTMLElement {
+  // Base search functionality
+}
+
+class PredictiveSearch extends SearchForm {
+  // Predictive search functionality
+}
+```
+
+将通用搜索功能与 Predictive Search 特有能力分离。
+
+其中基础类 SearchForm 对 input 事件进行了 300ms 防抖处理。<Cite ref="turn144170view0"/>
+
+### 11.2 Liquid 中的 ARIA 声明
+
+在 `header-search.liquid` 中，Dawn 为启用了 Predictive Search 的输入框设置了以下属性：
+
+```html
+role="combobox"
+aria-expanded="false"
+aria-owns="predictive-search-results"
+aria-controls="predictive-search-results"
+aria-haspopup="listbox"
+aria-autocomplete="list"
+```
+
+这里可以看到，Dawn 同时使用了 aria-owns 和 aria-controls。<Cite ref="turn144170view1"/>
+
+结合第 12 课的知识，现代 Combobox 模式通常通过 aria-controls 关联弹出列表，不需要无条件地再声明 aria-owns。
+
+如果开发自己的新组件，应以当前 APG 推荐模式为参考，而不是机械地复制所有属性。
+
+### 11.3 核心方法解析
+
+`predictive-search.js` 中主要涉及以下方法：
+
+| 方法 | 职责 |
+|---|---|
+| `onChange()` | 处理关键词变化 |
+| `onKeydown()` | 阻止部分方向键默认行为 |
+| `onKeyup()` | 切换或激活建议 |
+| `switchOption()` | 移动活动选项 |
+| `selectOption()` | 激活建议对应的操作 |
+| `getSearchResults()` | 获取并缓存搜索结果 |
+| `renderSearchResults()` | 渲染返回的 HTML |
+| `open()` | 打开建议列表 |
+| `closeResults()` | 关闭列表并清理 ARIA 状态 |
+| `setLiveRegionResults()` | 通知结果数量 |
+
+### 11.4 switchOption() 的核心思想
+
+Dawn 没有直接将真实 DOM 焦点移动到商品链接上，而是通过 `aria-selected` 和 `aria-activedescendant` 表达活动项。
+
+简化后的教学伪代码：
+
+```javascript
+function switchOption(direction) {
+  const options = getVisibleOptions();
+
+  const previous = getSelectedOption();
+
+  const next = getNextOption(
+    options,
+    previous,
+    direction
+  );
+
+  previous?.setAttribute(
+    'aria-selected',
+    'false'
+  );
+
+  next.setAttribute(
+    'aria-selected',
+    'true'
+  );
+
+  input.setAttribute(
+    'aria-activedescendant',
+    next.id
+  );
+}
+```
+
+它的实际源码会计算可见候选项、寻找当前选项、处理首尾循环，并更新 input 的活动项引用。<Cite ref="turn958684view0"/>
+
+这与我们前面自己实现的虚拟焦点机制，本质上是一样的。
+
+### 11.5 Section Rendering 请求流程
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"用户输入 shirt",d:"SearchForm 防抖处理"},{t:"getSearchResults()",d:"检查搜索结果缓存"},{t:"Shopify Predictive Search API",d:"请求 predictive-search Section"},{t:"DOMParser",d:"解析 Shopify 返回的 HTML"},{t:"renderSearchResults()",d:"更新建议列表"},{t:"open()",d:"同步 aria-expanded"},{t:"Live Region",d:"通知结果数量"}] as item,i}
+    <box border radius="md" padding={2} gap={1}>
+      **{item.t}**
+      <caption>{item.d}</caption>
+    </box>
+    {#if i<6}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+相比我们前面使用 JSON 自行创建 DOM 的方案，Dawn 将图片、价格、商品标题、分组和多语言文案等渲染工作交给 Liquid。
+
+### 11.6 Liquid 中的结果分组
+
+Dawn 不仅支持商品搜索建议，还支持其他资源类型。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row border radius="sm" padding={3} align="center">
+    <icon name="search"/>
+    <text>cotton</text>
+  </row>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box gap={2}>
+        <caption>Suggestions</caption>
+        <text size="sm">Cotton shirts</text>
+        <text size="sm">Cotton clothing</text>
+        <divider/>
+        <caption>Pages</caption>
+        <text size="sm">Cotton care guide</text>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box gap={2}>
+        <caption>Products</caption>
+        {#each [{n:"Cotton T-shirt",c:"#454545",p:"$29.99"},{n:"Cotton jacket",c:"#9D8C77",p:"$89.99"}] as p}
+          <row align="center">
+            <box size="40px" background="#E4DDD3" radius="sm">
+              <svg viewBox="0 0 50 50" width="100%">
+                <path d="M17 5 L4 15 L11 25 L17 21 V46 H33 V21 L39 25 L46 15 L33 5 L25 10 Z" fill={p.c}/>
+              </svg>
+            </box>
+            <box flex={1} gap={1}>
+              <text size="xs">{p.n}</text>
+              <caption>{p.p}</caption>
+            </box>
+          </row>
+        {/each}
+      </box>
+    </grid-item>
+  </grid>
+  <divider/>
+  <row align="center">
+    <text size="sm">Search for “cotton”</text>
+    <spacer/>
+    <icon name="arrow-right" size="sm"/>
+  </row>
+  <caption>Dawn 搜索建议分组结构示意，不是实际主题截图。</caption>
+</box>
+
+对应的无障碍结构可以理解为：
+
+```text
+combobox "Search"
+
+listbox
+  group "Suggestions"
+    option
+    option
+
+  group "Products"
+    option
+    option
+
+  group "Pages"
+    option
+```
+
+Dawn 在 Liquid 中使用 group 及相关名称引用来组织不同资源类型。<Cite ref="turn958684view1"/>
+
+### 11.7 Dawn 的实现有哪些值得进一步检查的地方？
+
+阅读源码不能只关注它实现了什么，也要理解其设计边界。
+
+| 源码设计 | 值得检查的问题 |
+|---|---|
+| 使用 keyup 切换建议 | 长按、输入法和浏览器事件顺序 |
+| 通过 DOM 查询获取活动项 | 动态更新后的引用有效性 |
+| 使用 offsetParent 判断可见性 | 是否适用于自定义布局 |
+| Option 内部嵌套链接 | 辅助技术对选项和链接的语义处理 |
+| 缓存服务端 HTML | 多个实例是否产生重复 ID |
+| 临时切换 Live Region 的 aria-hidden | 播报遗漏或重复 |
+| 搜索请求与列表关闭分离 | 旧响应是否重新打开列表 |
+| 全局或实例间共享结果 | 多个搜索组件之间的状态隔离 |
+
+这些是基于源码结构提出的工程审查点，并不是已经通过测试确认的 Dawn 缺陷。
+
+尤其是 Option 内部的链接，需要理解它与普通独立链接的区别。如果你希望用户能够独立访问每个链接及其附属按钮，就应该考虑普通链接列表或其他更合适的组件模式。
+
+源码阅读地址：
+
+[search-form.js](https://github.com/Shopify/dawn/blob/main/assets/search-form.js) · [predictive-search.js](https://github.com/Shopify/dawn/blob/main/assets/predictive-search.js) · [header-search.liquid](https://github.com/Shopify/dawn/blob/main/snippets/header-search.liquid) · [predictive-search.liquid](https://github.com/Shopify/dawn/blob/main/sections/predictive-search.liquid)
+
+---
+
+## 12. 下拉组件的统一关闭策略
+
+在实际组件库中，下拉框可能通过多种方式关闭。
+
+不同关闭原因，应该对应不同的焦点处理策略。
+
+| 关闭原因 | 焦点策略 |
+|---|---|
+| 用户按 Esc | Menu 返回触发按钮；Combobox 保留输入框焦点 |
+| 用户按 Tab | 允许继续正常导航 |
+| 点击外部控件 | 尊重用户新的操作目标 |
+| 选择 Menu 命令 | 根据命令结果决定焦点位置 |
+| 选择商品建议 | 导航到商品详情页 |
+| 搜索结果为空 | 保留搜索框焦点 |
+| 父级 Modal 关闭 | 清理下拉状态与未完成请求 |
+| AJAX 替换组件 | 必要时恢复对应控件焦点 |
+
+因此，可以在自己的组件库中将关闭原因作为参数传入。
+
+```javascript
+close({
+  reason: 'escape'
+});
+```
+
+```javascript
+close({
+  reason: 'outside-click'
+});
+```
+
+而不是所有关闭操作都直接执行：
+
+```javascript
+trigger.focus();
+```
+
+例如用户已经点击了页面上的另一个输入框，下拉组件关闭时就不应该强制把焦点抢回原触发按钮。
+
+这与第 11 课所强调的原则一致：**焦点管理应该服务于用户的操作上下文。**
+
+---
+
+## 13. 如何测试 Dropdown 与 Combobox？
+
+### 13.1 Chrome DevTools 调试
+
+在 Console 中执行：
+
+```javascript
+const input = document.querySelector(
+  '[role="combobox"]'
+);
+
+const activeId = input.getAttribute(
+  'aria-activedescendant'
+);
+
+const activeOption = activeId
+  ? document.getElementById(activeId)
+  : null;
+
+console.table({
+  inputValue: input.value,
+
+  expanded: input.getAttribute('aria-expanded'),
+
+  activeId,
+
+  activeOption: activeOption?.textContent,
+
+  selected: activeOption?.getAttribute(
+    'aria-selected'
+  ),
+
+  domFocus: document.activeElement === input
+});
+```
+
+当按下方向键时，重点观察：
+
+```text
+DOM Focus: true
+activeId: SearchOption-1
+selected: true
+```
+
+如果 DOM Focus 已经离开输入框，或者 activeId 对应的元素不存在，就说明焦点管理或动态更新逻辑存在问题。
+
+### 13.2 Playwright 自动化测试
+
+下面测试 Shopify Predictive Search 的主要无障碍交互。
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('predictive search keyboard navigation',
+  async ({ page }) => {
+
+    await page.goto('/');
+
+    const input = page.getByRole('combobox', {
+      name: 'Search products'
+    });
+
+    await input.fill('shirt');
+
+    await expect(input).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+
+    await input.press('ArrowDown');
+
+    await expect(input).toBeFocused();
+
+    const activeId = await input.getAttribute(
+      'aria-activedescendant'
+    );
+
+    expect(activeId).toBeTruthy();
+
+    const activeOption = page
+      .getByRole('option')
+      .and(page.locator(`[id="${activeId}"]`));
+
+    await expect(activeOption).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+
+    await input.press('Escape');
+
+    await expect(input).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+
+    await expect(input).not.toHaveAttribute(
+      'aria-activedescendant',
+      /.+/
+    );
+
+    await expect(input).toBeFocused();
+
+    await expect(input).toHaveValue('shirt');
+  }
+);
+```
+
+这个测试假设测试页面已经展示搜索组件，且测试店铺中存在与 shirt 匹配的商品。正式测试可以通过固定测试数据或 API Mock 减少不稳定因素。
+
+### 13.3 需要重点测试的边缘场景
+
+| 测试场景 | 预期结果 |
+|---|---|
+| 快速输入多个关键词 | 只展示最新结果 |
+| 请求过程中按 Esc | 不意外重新展开 |
+| 请求过程中按 Tab | 不抢夺焦点 |
+| 搜索结果为空 | 明确通知用户 |
+| 网络请求失败 | 保留普通搜索能力 |
+| 中文输入法按 Enter | 不误触发建议选择 |
+| 连续按方向键 | 活动项保持可见 |
+| 用户放大页面 | 建议列表不会被裁切 |
+| 多个搜索组件共存 | 不存在重复 ID |
+| 搜索组件位于 Modal 内 | Esc 优先处理适当的内层组件 |
+| 触屏屏幕阅读器操作 | 能够正常探索和激活建议 |
+
+---
+
+## 14. 下拉组件选型决策树
+
+以后收到一个下拉框设计稿，可以按照下面的流程进行技术选型。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 442" width="100%">
+    <rect x="70" y="5" width="200" height="40" rx="6" stroke="currentColor" strokeOpacity=".4" fill="#888888" fillOpacity=".06"/>
+    <text x="170" y="29" fontSize="13" textAnchor="middle" fontWeight="600" fill="currentColor">需要开发 Dropdown</text>
+    {#each [{y:65,q:"只是展开内容或导航？",a:"Disclosure"},{y:146,q:"执行编辑、删除等命令？",a:"Menu Button"},{y:227,q:"需要输入并搜索选项？",a:"Editable Combobox"},{y:308,q:"只是从已有选项中选择？",a:"Native Select 优先"}] as n,i}
+      <path d={`M112 ${i===0?45:n.y-36} V${n.y}`} stroke="currentColor" strokeOpacity=".4" fill="none"/>
+      <rect x="4" y={n.y} width="216" height="45" rx="5" stroke="currentColor" strokeOpacity=".35" fill="#888888" fillOpacity=".05"/>
+      <text x="112" y={n.y+26} fontSize="11" textAnchor="middle" fill="currentColor">{n.q}</text>
+      <path d={`M220 ${n.y+22} H234`} stroke="#39866B" strokeWidth="1.5"/>
+      <text x="227" y={n.y+15} textAnchor="middle" fontSize="9" fill="#39866B">是</text>
+      <rect x="236" y={n.y} width="100" height="45" rx="5" stroke="#39866B" strokeOpacity=".8" fill="#39866B" fillOpacity=".09"/>
+      {#if i===2}
+        <text x="286" y={n.y+18} textAnchor="middle" fontSize="11" fill="currentColor">Editable</text>
+        <text x="286" y={n.y+32} textAnchor="middle" fontSize="11" fill="currentColor">Combobox</text>
+      {:else if i===3}
+        <text x="286" y={n.y+18} textAnchor="middle" fontSize="11" fill="currentColor">Native Select</text>
+        <text x="286" y={n.y+32} textAnchor="middle" fontSize="10" fill="currentColor">优先</text>
+      {:else}
+        <text x="286" y={n.y+26} textAnchor="middle" fontSize="11" fill="currentColor">{n.a}</text>
+      {/if}
+      {#if i<3}<text x="120" y={n.y+64} fontSize="10" fill="currentColor" opacity=".65">否</text>{/if}
+    {/each}
+    <path d="M286 353 V377 H170 V386" stroke="#39866B" strokeWidth="1.3" strokeDasharray="4 3" fill="none"/>
+    <text x="215" y="370" textAnchor="middle" fontSize="9" fill="#39866B">原生无法满足需求时</text>
+    <rect x="50" y="387" width="240" height="43" rx="5" stroke="#39866B" fill="#39866B" fillOpacity=".08"/>
+    <text x="170" y="405" fontSize="11" textAnchor="middle" fill="currentColor">Custom Listbox /</text>
+    <text x="170" y="419" fontSize="11" textAnchor="middle" fill="currentColor">Select-only Combobox</text>
+  </svg>
+</box>
+
+Shopify 中常见的组件，基本可以按照这个思路选择。
+
+| Shopify 业务 | 优先考虑 |
+|---|---|
+| Mega Menu | Disclosure Navigation |
+| Collection 排序 | 原生 Select |
+| Collection 多选筛选 | Disclosure + Checkbox |
+| 商品颜色选择 | 原生 Radio |
+| 商品尺寸下拉 | 原生 Select |
+| Predictive Search | Editable Combobox |
+| 国家搜索选择 | Editable Combobox |
+| 国家普通选择 | 原生 Select |
+| 账户更多操作 | Menu Button |
+| 配送说明浮层 | Disclosure / Popover |
+
+---
+
+## 15. 本课知识测试
+
+{@body const qs=[{q:"普通电商 Mega Menu 是否必须使用 role=\"menu\"？",o:["必须","不必，通常使用 Disclosure Navigation"],a:1,e:"普通网站导航优先保留 nav、list、link 等原生语义。"},{q:"Menu 和 Listbox 最本质的区别是什么？",o:["视觉样式不同","Menu 执行命令，Listbox 选择值"],a:1,e:"组件语义应根据真实业务用途决定。"},{q:"Editable Combobox 使用方向键时，真实 DOM 焦点通常在哪里？",o:["活动 option","输入框"],a:1,e:"通过 aria-activedescendant 表达活动建议，同时保留输入框焦点。"},{q:"aria-autocomplete=\"list\" 是否会自动过滤搜索建议？",o:["会","不会"],a:1,e:"该属性只表达自动完成模式，过滤及请求逻辑仍由应用实现。"},{q:"Combobox 没有活动建议时按 Enter，电商搜索通常应该怎么处理？",o:["强制选择第一条商品","提交用户原始搜索关键词"],a:1,e:"手动选择模式不应该擅自确认某个商品建议。"},{q:"Select-only Combobox 的活动选项与已确认值是否必须相同？",o:["必须","不必须"],a:1,e:"允许用户浏览候选项，最终确认时再修改实际值。"},{q:"用户按 Esc 关闭列表后，旧 AJAX 请求是否应该重新打开列表？",o:["应该","不应该"],a:1,e:"关闭操作需要同时处理未完成请求或过期响应。"},{q:"Popover API 是否会自动实现 ARIA Menu 的方向键操作？",o:["会","不会"],a:1,e:"Popover 主要提供浮层能力，具体组件交互需要另外实现。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(qs.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===qs[i].a).length} / {qs.length}</caption>
+  </row>
+  {#each qs as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.e}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<qs.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(qs.length).fill(-1))}>重新测试</button>
+</card>
+
+## 16. 日常开发检查清单
+
+{@body const checks=["根据真实业务用途选择组件模式","优先考虑原生 select、radio、checkbox","普通导航没有滥用 ARIA Menu","触发控件具有明确的可访问名称","aria-expanded 与视觉状态同步","aria-controls 引用有效目标","关闭状态下隐藏选项不可访问","正确实现方向键导航","支持适当的 Esc 关闭行为","Tab 不会被意外限制","正确区分活动项与最终选择值","aria-activedescendant 始终指向有效选项","活动选项滚动到可视区域","不破坏 input 原生文本编辑行为","支持中文等输入法组合输入","异步请求不会返回过期结果","关闭列表后不会被旧请求重新打开","搜索数量通过 Live Region 通知","不重复播报活动选项","支持鼠标、触屏及真实辅助技术"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Dropdown Accessibility Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box background="#39866B" height={5} radius="full" width={`${done.filter(Boolean).length/checks.length*100}%`}/>
+  </box>
+  {#each checks as c,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>j===i?v:x))} lineThrough={done[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block color="secondary" variant="outline" onClick={()=>GenUI.copy(checks.map((c,i)=>(done[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 17. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [Disclosure Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/) | 内容展开及折叠 |
+| [Disclosure Navigation](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/) | 网站导航菜单 |
+| [Menu Button Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/) | 命令菜单 |
+| [Listbox Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/listbox/) | 单选与多选列表 |
+| [Combobox Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) | 组合输入控件 |
+| [Editable Combobox Example](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/) | 可编辑下拉组件 |
+| [Select-only Combobox Example](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-select-only/) | 自定义 Select |
+| [Shopify Predictive Search API](https://shopify.dev/docs/api/ajax/reference/predictive-search) | 搜索建议接口 |
+| [Shopify Predictive Search Theme Guide](https://shopify.dev/docs/storefronts/themes/navigation-search/search/predictive-search) | Theme 开发指南 |
+| [MDN Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) | 原生浮层 |
+
+本课选择了 JSON API、手动确认建议、虚拟焦点及单搜索实例作为教学方案。代码尚未在你的实际 Shopify Theme 中运行验证，Dawn 源码分析基于公开 main 分支，交互演示中的焦点和播报均为模拟效果。
+
+---
+
+## 本课总结
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <title size="lg">Accessible Dropdown</title>
+    <caption>下拉组件无障碍知识体系</caption>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"chevrons-up-down",t:"Disclosure",d:"内容展开与折叠"},{i:"menu",t:"Menu Button",d:"命令执行与真实焦点"},{i:"list-checks",t:"Listbox",d:"单选、多选、选择状态"},{i:"search",t:"Combobox",d:"搜索建议与虚拟焦点"},{i:"keyboard",t:"Keyboard",d:"方向键、Typeahead、IME"},{i:"layers",t:"Popover",d:"Top Layer、浮层定位"},{i:"refresh-cw",t:"Async Search",d:"防抖、缓存、请求竞争"},{i:"shopping-bag",t:"Shopify Dawn",d:"Mega Menu、Predictive Search"}] as item}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={item.i} size="xl"/>
+          **{item.t}**
+          <caption>{item.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本课最重要的认知是：
+
+**视觉相同的组件，不代表具有相同的无障碍语义和交互方式。**
+
+开发一个组件时，应该先确定业务语义，再确定 Role，然后设计键盘行为、焦点管理和 ARIA 状态，最后实现视觉样式。
+
+至此，第 16 课已经完整结束。
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体学习进度</caption>
+      <title size="2xl">61.5%</title>
+    </box>
+    <caption>已完成 16 / 26 课</caption>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5},{t:"阶段四：复杂 UI 组件实战",n:5,d:2},{t:"阶段五：Shopify 电商实战",n:4,d:0},{t:"阶段六：检测与工程化",n:3,d:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm" weight={s.d>0&&s.d<s.n?"medium":"normal"}>{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}</caption>{/if}
+      </row>
+      <box height={5} background="surface-tertiary" radius="full">
+        <box height={5} background="#39866B" radius="full" width={`${s.d/s.n*100}%`}/>
+      </box>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 17 课——Tabs、Accordion、Tooltip 组件**
+
+我们将继续学习以下内容：
+
+- Tabs 的自动激活与手动激活模式。
+- tablist、tab、tabpanel 的完整语义关系。
+- Roving Tabindex 在 Tabs 中的实际应用。
+- 横向、纵向 Tabs 的键盘交互。
+- Accordion 与 Disclosure 的区别。
+- 原生 details、summary 及 `name` 属性。
+- 手风琴单项展开与多项展开模式。
+- Tooltip、Toggletip、Popover 的区别。
+- `role="tooltip"` 与 `aria-describedby`。
+- Tooltip 的 Hover、Focus、Esc 与延迟关闭机制。
+- WCAG 1.4.13 Content on Hover or Focus。
+- Shopify 商品详情、FAQ、配送说明组件实战。
+- 封装可复用的 Tabs、Accordion 和 Tooltip Web Component。

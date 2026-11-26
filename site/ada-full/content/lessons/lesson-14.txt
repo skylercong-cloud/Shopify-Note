@@ -1,0 +1,2287 @@
+# 第 14 课：Live Region 与动态内容更新
+
+<row align="center">
+  <caption>阶段三：JavaScript 与 ARIA 深入</caption>
+  <spacer/>
+  <caption>14 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="53.85%"/>
+</box>
+
+上一课，我们深入学习了 Accessible Name 和 Accessible Description 的计算机制。
+
+但是，正确的名称、描述和角色，只能保证用户在访问元素时获得正确的信息。
+
+如果用户没有访问某个元素，而这个元素的内容突然发生变化，屏幕阅读器应该如何知道？
+
+例如，在 Shopify 网站中：
+
+| 业务场景 | 需要通知用户的信息 |
+|---|---|
+| AJAX 加购 | 商品已成功加入购物车 |
+| 商品变体切换 | 最新价格、库存状态 |
+| Collection 筛选 | 当前有多少个匹配商品 |
+| Predictive Search | 找到多少条搜索建议 |
+| 购物车数量修改 | 数量及金额更新结果 |
+| 删除购物车商品 | 商品已经移除 |
+| 优惠码验证 | 优惠码是否有效 |
+| Newsletter 提交 | 订阅成功或失败 |
+| 异步请求 | 加载中、加载完成或请求失败 |
+
+这些场景都涉及本节课的核心技术：**Live Region（实时区域）**。
+
+这也是第三阶段的最后一课。学完之后，我们将正式进入复杂 UI 组件的无障碍实战。
+
+---
+
+## 1. 为什么需要 Live Region？
+
+假设有一个普通的 Shopify 商品加购按钮：
+
+```html
+<button id="add-to-cart" type="button">
+  Add to cart
+</button>
+
+<p id="message"></p>
+```
+
+AJAX 请求成功后，JavaScript 更新页面：
+
+```javascript
+document.querySelector('#message').textContent =
+  'Product added to your cart.';
+```
+
+对于视觉用户，可以直接看到页面上出现了成功提示。
+
+但是，对于屏幕阅读器用户，即使 DOM 和 Accessibility Tree 已经发生变化，也不意味着屏幕阅读器会立即主动播报这段文字。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **普通 DOM 更新**
+        <box background="#333333" theme="dark" padding={2} radius="sm" align="center">
+          <text color="#FFFFFF" size="sm">Add to cart</text>
+        </box>
+        <text color="success" size="sm">Product added to your cart.</text>
+        <divider/>
+        <row align="center">
+          <icon name="volume-x"/>
+          <caption>不保证主动播报</caption>
+        </row>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} gap={2}>
+        **Live Region 更新**
+        <box background="#333333" theme="dark" padding={2} radius="sm" align="center">
+          <text color="#FFFFFF" size="sm">Add to cart</text>
+        </box>
+        <text color="success" size="sm">Product added to your cart.</text>
+        <divider/>
+        <row align="center">
+          <icon name="volume-2"/>
+          <caption>可以主动通知用户</caption>
+        </row>
+      </box>
+    </grid-item>
+  </grid>
+  <caption>两种实现的视觉效果相同，但动态信息通知机制不同。</caption>
+</box>
+
+只需要修改 HTML：
+
+```html
+<p id="message" aria-live="polite"></p>
+```
+
+JavaScript 保持不变：
+
+```javascript
+document.querySelector('#message').textContent =
+  'Product added to your cart.';
+```
+
+浏览器就能够将这个区域的内容变化作为适当的无障碍通知传递给辅助技术。
+
+而且，整个过程中不需要调用：
+
+```javascript
+message.focus();
+```
+
+**Live Region 的核心价值，是在不改变用户当前焦点的情况下，让辅助技术感知重要的动态内容变化。**
+
+## 2. Live Region 的底层工作原理
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"① JavaScript 更新 DOM",d:"textContent、appendChild、innerHTML 等操作"},{t:"② 浏览器更新 Accessibility Tree",d:"计算变化后的内容及无障碍属性"},{t:"③ 浏览器识别 Live Region 变化",d:"根据 live、atomic、relevant、busy 等规则处理"},{t:"④ 平台无障碍 API 发出相关事件",d:"将变化信息传递给辅助技术"},{t:"⑤ 屏幕阅读器处理通知",d:"根据消息优先级、当前语音及用户设置决定播报方式"}] as item,i}
+    <box border radius="md" padding={3} gap={1}>
+      **{item.t}**
+      <caption>{item.d}</caption>
+    </box>
+    {#if i<4}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+</box>
+
+这里特别需要注意：
+
+Live Region 并不是 JavaScript 的语音合成 API。
+
+它与以下代码完全不同：
+
+```javascript
+speechSynthesis.speak(
+  new SpeechSynthesisUtterance('Added to cart')
+);
+```
+
+| 对比项 | Live Region | Speech Synthesis |
+|---|---|---|
+| 使用者 | 辅助技术用户 | 一般网站用户也可以听到 |
+| 播报控制 | 辅助技术 | 网站 JavaScript |
+| 遵循屏幕阅读器设置 | 是 | 不一定 |
+| 与无障碍树关联 | 是 | 否 |
+| 适合无障碍状态通知 | 是 | 不应作为替代方案 |
+
+开发者负责提供正确的动态语义，而具体播报行为由屏幕阅读器控制。
+
+不存在一个通用的 JavaScript API，可以保证某句话立即被所有屏幕阅读器完整播报。
+
+---
+
+## 3. aria-live 的三种取值
+
+`aria-live` 用于告诉辅助技术，应该以什么优先级处理这个区域的动态变化。
+
+```html
+<div aria-live="off"></div>
+
+<div aria-live="polite"></div>
+
+<div aria-live="assertive"></div>
+```
+
+| 取值 | 含义 | 适用场景 |
+|---|---|---|
+| `off` | 通常不主动通知，焦点位于区域内时仍可能通知 | 普通动态内容 |
+| `polite` | 在适当时机通知，通常不打断当前播报 | 加购成功、搜索结果、价格更新 |
+| `assertive` | 高优先级通知，可能打断当前播报 | 重要且需要及时感知的错误 |
+
+### 3.1 polite 与 assertive 的区别
+
+<box border radius="lg" padding={3} gap={3}>
+  **aria-live="polite"**
+  <svg viewBox="0 0 340 105" width="100%">
+    <rect x="5" y="25" width="190" height="34" rx="4" fill="#5185C5" fillOpacity=".18" stroke="#5185C5"/>
+    <text x="100" y="46" fontSize="11" textAnchor="middle" fill="currentColor">正在阅读商品描述</text>
+    <rect x="198" y="25" width="137" height="34" rx="4" fill="#39866B" fillOpacity=".17" stroke="#39866B"/>
+    <text x="266" y="46" fontSize="11" textAnchor="middle" fill="currentColor">已加入购物车</text>
+    <path d="M100 5 V23" stroke="#39866B" strokeDasharray="3 2"/>
+    <text x="110" y="12" fontSize="10" fill="#39866B">新消息到达</text>
+    <path d="M5 77 H334 M328 73 L334 77 L328 81" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <text x="170" y="96" fontSize="10" textAnchor="middle" fill="currentColor">时间 →</text>
+  </svg>
+  <caption>新消息通常等待当前阅读告一段落，再进行播报。</caption>
+  <divider/>
+  **aria-live="assertive"**
+  <svg viewBox="0 0 340 105" width="100%">
+    <rect x="5" y="25" width="95" height="34" rx="4" fill="#5185C5" fillOpacity=".18" stroke="#5185C5"/>
+    <text x="52" y="46" fontSize="10" textAnchor="middle" fill="currentColor">商品描述…</text>
+    <rect x="103" y="25" width="165" height="34" rx="4" fill="#BC5454" fillOpacity=".15" stroke="#BC5454"/>
+    <text x="185" y="46" fontSize="11" textAnchor="middle" fill="currentColor">订单提交失败</text>
+    <path d="M101 4 V24" stroke="#BC5454" strokeDasharray="3 2"/>
+    <text x="111" y="12" fontSize="10" fill="#BC5454">重要消息到达</text>
+    <path d="M5 77 H334 M328 73 L334 77 L328 81" stroke="currentColor" strokeOpacity=".5" fill="none"/>
+    <text x="170" y="96" fontSize="10" textAnchor="middle" fill="currentColor">时间 →</text>
+  </svg>
+  <caption>重要消息可能中断当前阅读，并影响之前等待播报的消息。</caption>
+</box>
+
+这只是典型播报策略示意，而不是严格的时间调度规则。最终如何处理消息，由辅助技术决定。<Cite refs={["turn952928search4","turn952928search9"]}/>
+
+### 3.2 aria-live="off" 不等于 aria-hidden="true"
+
+```html
+<div aria-live="off">
+  Current price: $29.99
+</div>
+```
+
+屏幕阅读器仍然可以正常访问其中的内容，只是通常不会在用户没有访问该区域时主动播报变化。
+
+而：
+
+```html
+<div aria-hidden="true">
+  Current price: $29.99
+</div>
+```
+
+会将该区域从无障碍访问中排除。
+
+两者分别控制通知机制和无障碍暴露机制，不能互相替代。
+
+### 3.3 如何选择消息优先级？
+
+在电商网站中，绝大多数动态业务消息使用 polite 即可。
+
+| 消息 | 建议 |
+|---|---|
+| Product added to your cart. | polite |
+| 24 products found. | polite |
+| Price updated to $39.99. | polite |
+| Loading products. | polite，必要时才播报 |
+| 优惠码无效 | 根据错误严重程度选择 |
+| 订单提交失败且需要处理 | 可考虑 assertive |
+| 每秒变化的促销倒计时 | 通常 off |
+
+不要因为希望某条消息一定被读出来，就将所有 Live Region 都设置为 assertive。
+
+这可能造成更糟糕的阅读体验。
+
+---
+
+## 4. role="status"、role="alert" 与 role="log"
+
+除了直接设置 aria-live，ARIA 还提供了一些自带 Live Region 语义的 Role。
+
+| Role | 隐式 aria-live | 隐式 aria-atomic |
+|---|---|---|
+| `status` | polite | true |
+| `alert` | assertive | true |
+| `log` | polite | false |
+| `timer` | off | false（默认） |
+| `marquee` | off | false（默认） |
+
+这些隐式属性来自 WAI-ARIA 的角色定义。<Cite refs={["turn952928search5","turn952928search19"]}/>
+
+### 4.1 role="status"
+
+适合普通业务状态反馈。
+
+```html
+<p id="cart-status" role="status"></p>
+```
+
+```javascript
+cartStatus.textContent =
+  'Cotton T-shirt added to your cart.';
+```
+
+它隐含：
+
+```html
+aria-live="polite"
+aria-atomic="true"
+```
+
+所以，对于普通业务状态消息，不一定需要再重复添加这些属性。考虑到不同辅助技术的支持差异，有时也可以显式声明 `aria-atomic="true"`。
+
+### 4.2 role="alert"
+
+适合重要的动态错误消息。
+
+```html
+<p id="cart-error" role="alert"></p>
+```
+
+```javascript
+cartError.textContent =
+  'Unable to update your cart. Please try again.';
+```
+
+注意，alert 本身不是弹窗。
+
+| Role | 是否为弹窗 | 是否需要用户响应 |
+|---|---|---|
+| alert | 否 | 不一定 |
+| alertdialog | 是 | 通常需要 |
+| status | 否 | 不需要 |
+
+如果用户必须确认删除操作，就应该考虑 alertdialog，而不是简单使用 alert。
+
+另外，给 `role="alert"` 再添加 `aria-live="assertive"` 通常没有必要，在某些 VoiceOver 环境中还可能造成重复播报。
+
+### 4.3 role="log"
+
+适合按顺序追加的消息，例如客服聊天、订单处理日志。
+
+```html
+<div role="log" aria-label="Customer support messages">
+
+  <p>Support: How can I help you?</p>
+
+</div>
+```
+
+接收到新消息后：
+
+```javascript
+const message = document.createElement('p');
+
+message.textContent =
+  'Support: Your order has been shipped.';
+
+log.appendChild(message);
+```
+
+辅助技术通常只需要通知新追加的消息，而不需要重新播报所有历史记录。
+
+### 4.4 role="timer"
+
+例如限时促销：
+
+```html
+<div role="timer" aria-label="Offer ends in">
+  00:29:59
+</div>
+```
+
+timer 默认不会持续主动播报每一秒的变化。
+
+如果确实存在需要通知的关键时间节点，可以通过独立的 status 区域提供适度提醒。
+
+但减少播报频率并不代表限时购物流程已经满足 WCAG 的时间限制要求，相关时间控制仍需单独评估。
+
+---
+
+## 5. aria-atomic：播报整个区域还是变化的部分？
+
+这是 Live Region 中非常重要的属性。
+
+假设我们有一个购物车商品数量：
+
+```html
+<p aria-live="polite">
+  Cart contains
+  <span id="count">2</span>
+  items.
+</p>
+```
+
+JavaScript 更新：
+
+```javascript
+count.textContent = '3';
+```
+
+辅助技术可能只播报：
+
+```text
+3
+```
+
+但是用户听到一个孤立的数字 3，并不知道它代表什么。
+
+可以使用：
+
+```html
+<p
+  aria-live="polite"
+  aria-atomic="true"
+>
+  Cart contains
+  <span id="count">2</span>
+  items.
+</p>
+```
+
+此时，辅助技术可以获得完整的上下文：
+
+```text
+Cart contains 3 items.
+```
+
+### 5.1 交互实验
+
+{@body const [count,setCount]=DIL.useState(2)}
+{@body const [atomic,setAtomic]=DIL.useState(false)}
+{@body const [announced,setAnnounced]=DIL.useState(false)}
+<card gap={3}>
+  **aria-atomic 实验室**
+  <checkbox checked={atomic} onChange={v=>{setAtomic(v);setAnnounced(false)}}>aria-atomic="true"</checkbox>
+  <box border radius="md" padding={4} gap={2}>
+    <row align="center">
+      <icon name="shopping-cart" size="2xl"/>
+      <box flex={1}>
+        <caption>Shopping cart</caption>
+        <title size="xl">{count} items</title>
+      </box>
+      <button uniform variant="outline" color="secondary" disabled={count===0} onClick={()=>{setCount(v=>Math.max(0,v-1));setAnnounced(true)}}><icon name="minus"/></button>
+      <button uniform variant="outline" color="secondary" onClick={()=>{setCount(v=>v+1);setAnnounced(true)}}><icon name="plus"/></button>
+    </row>
+    <text size="sm">Cart contains **{count}** items.</text>
+  </box>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <text size="xs" preserveWhitespace={true}>{`<p aria-live="polite"\n   aria-atomic="${atomic}">\n  Cart contains\n  <span>${count}</span> items.\n</p>`}</text>
+  </box>
+  <divider/>
+  <row align="start">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap={1}>
+      <caption>可能的播报结果</caption>
+      <title size="lg">{announced?(atomic?`Cart contains ${count} items.`:String(count)):"等待数量变化..."}</title>
+    </box>
+  </row>
+  <caption>关闭 atomic 后修改数量，再开启 atomic 对比。这里模拟典型的播报范围，而非真实屏幕阅读器输出。</caption>
+</card>
+
+### 5.2 atomic 并不是越大越好
+
+例如：
+
+```html
+<main
+  aria-live="polite"
+  aria-atomic="true"
+>
+  <!-- Entire storefront -->
+</main>
+```
+
+当其中一个价格发生变化时，可能产生非常冗长的通知。
+
+正确的做法是控制 Live Region 的范围，使区域本身只包含需要播报的业务信息。
+
+对于购物车状态、筛选数量等简短消息，`aria-atomic="true"` 通常是不错的选择。<Cite ref="turn952928search2"/>
+
+---
+
+## 6. aria-relevant：哪些变化值得通知？
+
+Live Region 内部的 DOM 变化主要可以分为增加、删除和文字变化。
+
+| 取值 | 关注的变化 |
+|---|---|
+| `additions` | 新增节点 |
+| `removals` | 移除节点 |
+| `text` | 文本及文本替代变化 |
+| `all` | 以上所有类型 |
+| `additions text` | 默认值 |
+
+例如一个动态列表：
+
+```html
+<div
+  aria-live="polite"
+  aria-relevant="additions text"
+>
+  <p>Cotton T-shirt</p>
+  <p>Linen shirt</p>
+</div>
+```
+
+默认情况下，增加内容和文字变化属于相关通知，而删除节点本身通常不在默认通知范围内。<Cite ref="turn952928search10"/>
+
+这也解释了购物车删除商品的一个常见问题：
+
+```javascript
+cartItem.remove();
+```
+
+不能指望屏幕阅读器因此自动播报：
+
+```text
+Cotton T-shirt removed from your cart.
+```
+
+虽然可以使用 `aria-relevant="removals"`，但辅助技术对删除变化的支持和表达方式存在差异。
+
+更可靠的业务设计，是在删除成功后主动生成一条具有完整含义的消息。
+
+```javascript
+cartItem.remove();
+
+cartStatus.textContent =
+  'Cotton T-shirt removed from your cart.';
+```
+
+---
+
+## 7. aria-busy：控制更新的完整性
+
+假设用户切换商品变体后，页面需要更新：
+
+- 商品价格。
+- 库存状态。
+- 商品 SKU。
+- 加购按钮状态。
+- 商品图片。
+
+如果每个变化都独立产生通知，用户可能会连续听到多条零散消息。
+
+可以在区域更新期间使用：
+
+```html
+<div
+  id="variant-status"
+  role="status"
+  aria-busy="false"
+></div>
+```
+
+```javascript
+variantStatus.setAttribute('aria-busy', 'true');
+
+variantStatus.textContent = 'Price: $39.99.';
+
+variantStatus.append(' In stock.');
+
+variantStatus.setAttribute('aria-busy', 'false');
+```
+
+`aria-busy="true"` 提示辅助技术当前更新尚未完成，可以等待该区域恢复非忙碌状态，再处理变化。<Cite ref="turn952928search28"/>
+
+不过，实际开发中，如果可以提前组合完整的消息，下面的代码往往更加简单：
+
+```javascript
+variantStatus.textContent =
+  'Price: $39.99. In stock.';
+```
+
+### 7.1 四个 Live Region 属性的关系
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{t:"aria-live",q:"什么时候通知？",d:"off / polite / assertive"},{t:"aria-atomic",q:"通知多少内容？",d:"整个区域或变化的部分"},{t:"aria-relevant",q:"哪些变化需要通知？",d:"新增、删除、文字变化"},{t:"aria-busy",q:"现在是否已经更新完成？",d:"等待或处理当前变化"}] as p}
+    <box border radius="md" padding={3} gap={1}>
+      **{p.t}**
+      <text size="sm">{p.q}</text>
+      <caption>{p.d}</caption>
+    </box>
+  {/each}
+</box>
+
+这四个属性共同描述动态通知的处理规则，但它们不是开发者可以精确控制的语音队列 API。
+
+---
+
+## 8. WCAG 4.1.3：Status Messages 状态消息
+
+Live Region 最直接对应的 WCAG 准则，就是 **4.1.3 Status Messages（Level AA）**。
+
+它要求适用的状态消息能够通过角色或属性被辅助技术识别，从而让用户不必移动焦点就能感知这些消息。<Cite ref="turn952928search7"/>
+
+但是，并不是所有动态内容都属于 Status Message。
+
+### 8.1 哪些内容属于状态消息？
+
+| 动态变化 | 是否属于典型状态消息 |
+|---|---|
+| 加购成功提示 | 是 |
+| 搜索结果数量 | 是 |
+| 请求加载进度 | 是 |
+| 表单提交成功 | 是 |
+| 请求失败提示 | 是 |
+| 搜索结果商品列表本身 | 通常不是 |
+| 展开 Accordion 后的正文 | 通常不是 |
+| 打开 Modal 后的内部内容 | 通常不是 |
+| 点击 Tab 后展示的面板 | 通常不是 |
+
+例如用户筛选 Collection 商品后：
+
+```html
+<p role="status">
+  24 products found.
+</p>
+
+<ul class="product-grid">
+  <!-- 24 products -->
+</ul>
+```
+
+应该将商品数量作为状态消息，而不是将整个商品列表设置为 Live Region。
+
+这样屏幕阅读器用户可以先了解筛选结果，再自行决定是否访问商品列表。
+
+### 8.2 Live Region 与 Focus Management 的区别
+
+这是第 11 课和本节课之间最重要的联系。
+
+| 业务变化 | 焦点管理 | Live Region |
+|---|---|---|
+| 打开 Cart Drawer | 移入 Drawer | 视需要补充加购结果 |
+| AJAX 加购但不打开 Drawer | 保留焦点 | 通知加购成功 |
+| 展开 Accordion | 保留焦点 | 通常不需要 |
+| Collection 筛选 | 保留筛选控件焦点 | 通知商品数量 |
+| 删除当前聚焦的商品 | 恢复合理的焦点 | 通知删除结果 |
+| 表单验证失败 | 可聚焦错误摘要 | 根据设计决定是否补充 |
+| 变体价格更新 | 保留变体控件焦点 | 通知新价格 |
+
+可以将这两个机制理解为：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="focus" size="2xl"/>
+      **Focus Management**
+
+      用户接下来在哪里操作？
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={3} gap={2}>
+      <icon name="volume-2" size="2xl"/>
+      **Live Region**
+
+      刚才发生了什么变化？
+    </box>
+  </grid-item>
+</grid>
+
+两者可以配合使用，但也要避免同时通知相同的信息，造成重复播报。
+
+---
+
+## 9. 为什么 Live Region 设置正确，却没有播报？
+
+这是实际项目中非常常见的兼容性问题。
+
+很多开发者第一次使用 Live Region，会编写如下代码：
+
+```javascript
+const message = document.createElement('div');
+
+message.setAttribute('role', 'status');
+
+message.textContent =
+  'Product added to your cart.';
+
+document.body.appendChild(message);
+```
+
+从 HTML 语义来看似乎没有问题，但是部分屏幕阅读器可能不会播报。
+
+### 9.1 Live Region 应该提前存在
+
+更可靠的方式是在初始 HTML 中建立一个空的 Live Region：
+
+```html
+<div
+  id="announcer"
+  class="visually-hidden"
+  role="status"
+></div>
+```
+
+等到业务事件发生后，再更新其内容：
+
+```javascript
+document.querySelector('#announcer').textContent =
+  'Product added to your cart.';
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      **不够可靠的方式**
+      {#each ["创建 DOM 元素","设置 role=status","立即添加消息","插入页面"] as item,i}
+        <box border radius="sm" padding={2} align="center"><text size="xs">{item}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+      <text size="sm" color="danger">可能被视为新区域的初始内容</text>
+    </grid-item>
+    <grid-item>
+      **推荐的方式**
+      {#each ["页面初始化","建立空 Live Region","用户触发业务操作","更新区域内的消息"] as item,i}
+        <box border radius="sm" padding={2} align="center"><text size="xs">{item}</text></box>
+        {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+      {/each}
+      <text size="sm" color="success">已有区域发生内容变化</text>
+    </grid-item>
+  </grid>
+</box>
+
+普通 Live Region 通常需要先被浏览器和辅助技术识别，再通过后续内容变化触发通知。
+
+`role="alert"` 存在特殊情况：许多浏览器和辅助技术会主动播报新插入的 alert 初始内容，但仍不建议将这种行为当作所有 Live Region 的通用规则。<Cite refs={["turn952928search9","turn952928search6"]}/>
+
+### 9.2 Live Region 不能真正隐藏
+
+错误写法：
+
+```html
+<div
+  id="announcer"
+  role="status"
+  style="display: none"
+></div>
+```
+
+同样需要注意：
+
+```html
+<div role="status" hidden></div>
+
+<div role="status" aria-hidden="true"></div>
+```
+
+这些隐藏方式会影响区域在无障碍树中的暴露。
+
+即使 JavaScript 更新了内部文字，也可能无法正常通知辅助技术。
+
+如果希望消息只供辅助技术用户访问，应该使用第 9 课学习的 visually-hidden。
+
+```css
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+```
+
+如果页面已经有适合的可见状态提示，优先直接将该提示设置为 Live Region，而不是额外复制一份隐藏文字。
+
+### 9.3 Section Rendering 替换了整个 Live Region
+
+假设有以下结构：
+
+```html
+<div id="cart-section">
+
+  <div id="cart-items">
+    <!-- Cart items -->
+  </div>
+
+  <p id="cart-status" role="status"></p>
+
+</div>
+```
+
+AJAX 更新时：
+
+```javascript
+cartSection.innerHTML = responseHTML;
+```
+
+原来的 `cart-status` 节点也被删除了。
+
+即使新的 HTML 中仍然存在同样 ID 的 Live Region，它也是一个全新的 DOM 节点，可能需要重新建立无障碍通知关系。
+
+推荐调整结构：
+
+```html
+<div id="cart-section">
+
+  <div id="cart-items">
+    <!-- Only this area is replaced -->
+  </div>
+
+</div>
+
+<p
+  id="cart-status"
+  role="status"
+  class="visually-hidden"
+></p>
+```
+
+这样只更新 cart-items，Live Region 本身始终存在。
+
+这对于 Shopify Section Rendering 尤其重要。
+
+### 9.4 模态弹窗中的特殊情况
+
+假设页面使用原生 dialog：
+
+```html
+<body>
+
+  <div id="global-announcer" role="status"></div>
+
+  <dialog id="cart-dialog">
+    ...
+  </dialog>
+
+</body>
+```
+
+当调用：
+
+```javascript
+cartDialog.showModal();
+```
+
+弹窗之外的背景内容会进入原生模态隔离状态。
+
+此时，位于弹窗外部的 global-announcer 可能无法正常承担弹窗内部业务的通知工作。
+
+比较合理的设计是：
+
+```html
+<dialog id="cart-dialog">
+
+  <!-- Cart content -->
+
+  <p role="status" data-cart-status></p>
+
+  <p role="alert" data-cart-error></p>
+
+</dialog>
+```
+
+因此，全局 Announcer 并不意味着所有场景只需要一个 Live Region。模态弹窗内部也可以拥有自己的消息区域。
+
+---
+
+## 10. 重复消息与连续消息
+
+### 10.1 相同的消息为什么可能只播报一次？
+
+假设用户连续两次加购同一个商品。
+
+第一次：
+
+```javascript
+status.textContent =
+  'Product added to your cart.';
+```
+
+第二次：
+
+```javascript
+status.textContent =
+  'Product added to your cart.';
+```
+
+因为最终文字相同，浏览器或辅助技术可能认为没有值得通知的新变化。
+
+一种更有业务价值的方式是加入真实变化的信息：
+
+```javascript
+status.textContent =
+  'Cotton T-shirt added. 2 items in your cart.';
+```
+
+再次加购：
+
+```javascript
+status.textContent =
+  'Cotton T-shirt added. 3 items in your cart.';
+```
+
+这样不仅能够区分两次操作，还能帮助用户理解购物车最新状态。
+
+### 10.2 清空后重新写入
+
+如果确实需要重复通知相同文字，常见的兼容性处理方式是先清空，再延迟写入。
+
+```javascript
+function announce(message) {
+  status.textContent = '';
+
+  setTimeout(() => {
+    status.textContent = message;
+  }, 100);
+}
+```
+
+但是需要注意：
+
+- 100ms 不是 W3C 规定的标准延迟。
+- 同一个 JavaScript 任务中先清空再立即写入，仍可能被浏览器合并处理。
+- setTimeout 或 requestAnimationFrame 都不能保证屏幕阅读器一定播报。
+- 多次调用时需要处理旧定时器，否则可能播报已经过期的消息。
+
+这是兼容性策略，而不是可靠的语音控制协议。
+
+### 10.3 连续更新造成消息堆积
+
+假设用户快速修改购物车数量：
+
+<box border radius="lg" padding={3} gap={3}>
+  **逐次通知**
+  {#each ["Quantity updated to 2.","Quantity updated to 3.","Quantity updated to 4.","Quantity updated to 5."] as m,i}
+    <row align="center">
+      <caption>{i*100}ms</caption>
+      <box flex={1} background="surface-tertiary" radius="sm" padding={2}><text size="sm">{m}</text></box>
+    </row>
+  {/each}
+  <divider/>
+  **合并最新状态**
+  <row align="center">
+    <icon name="volume-2"/>
+    <box flex={1} border radius="md" padding={3}>
+      <text size="sm">Quantity updated to 5. Cart total: $149.95.</text>
+    </box>
+  </row>
+  <caption>对于快速连续的同类状态更新，最终有效结果通常比所有中间结果更有价值。</caption>
+</box>
+
+这里可以采用前端开发中非常熟悉的 Debounce 思想。
+
+```javascript
+let announceTimer;
+
+function announceQuantity(quantity) {
+  clearTimeout(announceTimer);
+
+  announceTimer = setTimeout(() => {
+    status.textContent =
+      `Quantity updated to ${quantity}.`;
+  }, 300);
+}
+```
+
+但是，合并消息只适用于可被最新状态替代的业务信息。
+
+例如搜索结果、滑块数值、快速变化的数量等。
+
+对于多个独立商品的加购成功、不同的请求错误等消息，不能简单地丢弃之前的结果。可以根据实际业务进行汇总。
+
+---
+
+## 11. 封装可复用的 Accessibility Announcer
+
+在实际 Shopify Theme 开发中，我更推荐将动态消息通知能力抽象成一个公共工具，而不是让每个组件独立创建 Live Region。
+
+### 11.1 整体架构
+
+<box border radius="lg" padding={3} gap={2}>
+  <grid columns={3} gap={1}>
+    {#each ["Product Form","Cart Drawer","Variant Picker","Collection","Search","Newsletter"] as c}
+      <grid-item>
+        <box border radius="sm" padding={2} align="center"><text size="xs">{c}</text></box>
+      </grid-item>
+    {/each}
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box border={{size:1,color:"#5185C5"}} radius="md" padding={3} align="center" gap={1}>
+    <title size="lg">Accessibility Announcer</title>
+    <caption>消息生成 · 优先级 · 重复通知 · 合并更新</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <grid columns={2}>
+    <grid-item>
+      <box border radius="md" padding={3} align="center" gap={1}>
+        **Polite Channel**
+        <caption>role="status"</caption>
+      </box>
+    </grid-item>
+    <grid-item>
+      <box border radius="md" padding={3} align="center" gap={1}>
+        **Assertive Channel**
+        <caption>role="alert"</caption>
+      </box>
+    </grid-item>
+  </grid>
+  <box align="center"><icon name="arrow-down" color="secondary"/></box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    <icon name="volume-2" size="xl"/>
+    **Assistive Technology**
+  </box>
+</box>
+
+### 11.2 HTML 实现
+
+可以在 Shopify `layout/theme.liquid` 中、`body` 结束之前添加全局消息区域。
+
+```html
+<div id="a11y-announcer">
+
+  <div
+    data-announcer="polite"
+    role="status"
+    aria-atomic="true"
+    class="visually-hidden"
+  ></div>
+
+  <div
+    data-announcer="assertive"
+    role="alert"
+    class="visually-hidden"
+  ></div>
+
+</div>
+```
+
+这两个区域在页面初始化时就存在，并且不应该被常规 Section Rendering 替换。
+
+需要独立通知的模态弹窗，可以在自己的内部建立同样的结构。
+
+### 11.3 JavaScript 工具类
+
+创建 `assets/accessibility-announcer.js`：
+
+```javascript
+class AccessibilityAnnouncer {
+  constructor(container) {
+    this.regions = {
+      polite: container.querySelector(
+        '[data-announcer="polite"]'
+      ),
+
+      assertive: container.querySelector(
+        '[data-announcer="assertive"]'
+      )
+    };
+
+    this.timers = {
+      polite: null,
+      assertive: null
+    };
+  }
+
+  announce(message, {
+    priority = 'polite',
+    delay = 100
+  } = {}) {
+    const region = this.regions[priority];
+
+    if (!region || !message?.trim()) {
+      return;
+    }
+
+    clearTimeout(this.timers[priority]);
+
+    region.textContent = '';
+
+    this.timers[priority] = setTimeout(() => {
+      if (region.isConnected) {
+        region.textContent = message;
+      }
+
+      this.timers[priority] = null;
+    }, delay);
+  }
+
+  success(message) {
+    this.announce(message);
+  }
+
+  error(message) {
+    this.announce(message, {
+      priority: 'assertive'
+    });
+  }
+
+  clear(priority) {
+    const region = this.regions[priority];
+
+    if (!region) return;
+
+    clearTimeout(this.timers[priority]);
+
+    this.timers[priority] = null;
+
+    region.textContent = '';
+  }
+
+  destroy() {
+    this.clear('polite');
+    this.clear('assertive');
+  }
+}
+```
+
+初始化：
+
+```javascript
+const announcer = new AccessibilityAnnouncer(
+  document.querySelector('#a11y-announcer')
+);
+```
+
+业务组件中使用：
+
+```javascript
+announcer.success(
+  'Product added to your cart.'
+);
+```
+
+```javascript
+announcer.error(
+  'Unable to update your cart.'
+);
+```
+
+### 11.4 交互实验
+
+{@body const [channel,setChannel]=DIL.useState("polite")}
+{@body const [message,setMessage]=DIL.useState("Cotton T-shirt added to your cart.")}
+{@body const [regions,setRegions]=DIL.useState({polite:"",assertive:""})}
+{@body const [logs,setLogs]=DIL.useState([])}
+<card gap={3}>
+  **Accessibility Announcer 实验室**
+  <label>消息优先级</label>
+  <segmented-control value={channel} onChange={setChannel} options={[{label:"Polite",value:"polite"},{label:"Assertive",value:"assertive"}]}/>
+  <label>消息内容</label>
+  <textarea value={message} onChange={setMessage} rows={2}/>
+  <row wrap="wrap" gap={1}>
+    {#each [{t:"加购成功",m:"Cotton T-shirt added to your cart.",p:"polite"},{t:"筛选完成",m:"24 products found.",p:"polite"},{t:"请求失败",m:"Unable to update your cart. Please try again.",p:"assertive"},{t:"价格变化",m:"Price: 39 dollars and 99 cents. In stock.",p:"polite"}] as c}
+      <button size="sm" variant="outline" color="secondary" onClick={()=>{setMessage(c.m);setChannel(c.p)}}>{c.t}</button>
+    {/each}
+  </row>
+  <button block disabled={!message.trim()} onClick={()=>{setRegions(old=>({...old,[channel]:message}));setLogs(old=>[{message,channel},...old].slice(0,6))}}>announce(message)</button>
+  <divider/>
+  {#each ["polite","assertive"] as p}
+    <box border radius="md" padding={3} gap={1}>
+      <row align="center">
+        <text weight="medium" size="sm">{p==="polite"?"role=\"status\"":"role=\"alert\""}</text>
+        <spacer/>
+        <caption>{p}</caption>
+      </row>
+      <text size="sm">{regions[p]||"空区域"}</text>
+    </box>
+  {/each}
+  **消息发送记录**
+  {#each logs as l,i}
+    <row align="start">
+      <icon name="volume-2" color={l.channel==="assertive"?"danger":"secondary"} size="sm"/>
+      <box flex={1} gap={1}>
+        <caption>{l.channel}</caption>
+        <text size="sm">{l.message}</text>
+      </box>
+    </row>
+  {/each}
+  {#if !logs.length}<caption>等待业务消息...</caption>{/if}
+  <button block color="secondary" variant="ghost" onClick={()=>{setLogs([]);setRegions({polite:"",assertive:""})}}>清空消息</button>
+  <caption>这是消息分发与 DOM 状态的模拟，不会调用真实屏幕阅读器或控制其播报队列。</caption>
+</card>
+
+### 11.5 这个工具类的局限
+
+这是一种 Latest Message Wins（最新消息优先）的教学实现。
+
+同一优先级的新消息会取消尚未写入 DOM 的旧消息。
+
+所以，它适合价格变化、数量变化、筛选结果等可以被最新状态替代的信息，但不适合未经处理地传递多个不可丢失的独立业务事件。
+
+生产环境可以根据不同业务增加消息合并、事件去重、组件作用域管理，以及本地化能力。
+
+---
+
+## 12. Shopify 实战一：AJAX 加购
+
+假设我们正在开发一个自定义商品表单。
+
+用户点击 Add to cart 后，通过 Shopify AJAX Cart API 加购，但不打开购物车弹窗。
+
+{@body const [cartPhase,setCartPhase]=DIL.useState("idle")}
+{@body const [cartItems,setCartItems]=DIL.useState(0)}
+{@body const [cartMessage,setCartMessage]=DIL.useState("")}
+<card gap={3}>
+  <row align="center">
+    **STYLE STORE**
+    <spacer/>
+    <icon name="shopping-bag" size="xl"/>
+    <text weight="medium">{cartItems}</text>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="105px" background="#E2D8CA" radius="md" padding={2}>
+      <svg viewBox="0 0 100 115" width="100%">
+        <path d="M34 8 L8 24 L22 45 L34 37 V106 H66 V37 L78 45 L92 24 L66 8 L58 16 H42 Z" fill="#615B53"/>
+      </svg>
+    </box>
+    <box flex={1} gap={2}>
+      <title size="lg">Cotton T-shirt</title>
+      **$29.99**
+      <caption>Size: M · Color: Black</caption>
+      <button block disabled={cartPhase==="loading"} onClick={()=>{setCartPhase("loading");setCartMessage("Adding product to your cart.")}}>{cartPhase==="loading"?"Adding...":"Add to cart"}</button>
+    </box>
+  </row>
+  {#if cartPhase==="loading"}
+    <grid columns={2}>
+      <grid-item><button block variant="outline" color="secondary" onClick={()=>{setCartItems(v=>v+1);setCartPhase("success");setCartMessage(`Cotton T-shirt added. ${cartItems+1} ${cartItems===0?"item":"items"} in your cart.`)}}>模拟请求成功</button></grid-item>
+      <grid-item><button block variant="outline" color="secondary" onClick={()=>{setCartPhase("error");setCartMessage("Unable to add this product to your cart.")}}>模拟请求失败</button></grid-item>
+    </grid>
+  {/if}
+  {#if cartPhase==="success"||cartPhase==="error"}
+    <row align="start">
+      <icon name={cartPhase==="success"?"check-circle":"alert-circle"} color={cartPhase==="success"?"success":"danger"}/>
+      <box flex={1}><text size="sm">{cartMessage}</text></box>
+    </row>
+  {/if}
+  <divider/>
+  <row><caption>aria-busy</caption><spacer/>{String(cartPhase==="loading")}</row>
+  <row><caption>模拟消息优先级</caption><spacer/>{cartPhase==="error"?"assertive":"polite"}</row>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>当前消息</caption>
+      <text size="sm">{cartMessage||"等待加购..."}</text>
+    </box>
+  </row>
+  <button block variant="ghost" color="secondary" onClick={()=>{setCartItems(0);setCartPhase("idle");setCartMessage("")}}>重置</button>
+  <caption>本演示不会发送真实 Shopify 请求。</caption>
+</card>
+
+### 12.1 HTML 结构
+
+```liquid
+{% form 'product', product, id: 'AccessibleProductForm' %}
+
+  <input
+    type="hidden"
+    name="id"
+    value="{{ product.selected_or_first_available_variant.id }}"
+  >
+
+  <button type="submit">
+    Add to cart
+  </button>
+
+  <p data-product-status role="status"></p>
+
+  <p data-product-error role="alert"></p>
+
+{% endform %}
+```
+
+这里使用组件内部的可见消息区域，而不是全局隐藏 Announcer，避免同一条信息重复通知。
+
+示例假设页面中只有一个这样的商品表单。如果多个 Section 同时使用，需要结合 section.id 等生成唯一 ID。
+
+### 12.2 JavaScript 实现
+
+```javascript
+const form = document.querySelector(
+  '#AccessibleProductForm'
+);
+
+const button = form.querySelector(
+  'button[type="submit"]'
+);
+
+const status = form.querySelector(
+  '[data-product-status]'
+);
+
+const error = form.querySelector(
+  '[data-product-error]'
+);
+
+let pending = false;
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  if (pending) return;
+
+  pending = true;
+
+  button.setAttribute('aria-disabled', 'true');
+
+  status.textContent = '';
+  error.textContent = '';
+
+  // 防止快速请求产生不必要的加载播报
+  const loadingTimer = setTimeout(() => {
+    status.textContent =
+      'Adding product to your cart.';
+  }, 700);
+
+  try {
+    const response = await fetch(
+      window.Shopify.routes.root + 'cart/add.js',
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json'
+        },
+        body: new FormData(form)
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || result.status >= 400) {
+      throw new Error(
+        result.description ||
+        'Unable to add this product.'
+      );
+    }
+
+    clearTimeout(loadingTimer);
+
+    status.textContent =
+      `${result.product_title} added to your cart.`;
+
+  } catch (err) {
+    clearTimeout(loadingTimer);
+
+    status.textContent = '';
+
+    error.textContent =
+      'Unable to confirm the cart update. ' +
+      'Please check your cart.';
+
+    console.error(err);
+
+  } finally {
+    clearTimeout(loadingTimer);
+
+    pending = false;
+
+    button.removeAttribute('aria-disabled');
+  }
+});
+```
+
+### 12.3 为什么这里使用 aria-disabled？
+
+如果直接设置：
+
+```javascript
+button.disabled = true;
+```
+
+获得焦点的按钮在一些浏览器中可能会失去焦点。
+
+使用：
+
+```javascript
+button.setAttribute('aria-disabled', 'true');
+```
+
+可以在保留焦点能力的同时，向辅助技术表达控件暂时不可用。
+
+但正如第 12 课所学，aria-disabled 不会自动禁止提交，因此还必须使用：
+
+```javascript
+if (pending) return;
+```
+
+防止重复请求。
+
+另外，上面的代码仅演示单商品 AJAX 加购与消息通知。实际项目仍需结合库存状态、购物车 UI 刷新、多语言翻译和服务端错误分类进行完善。如果网络响应丢失，也不能直接认定加购一定失败，应该核实购物车实际状态。
+
+---
+
+## 13. Shopify 实战二：Variant Picker 价格与库存更新
+
+商品变体切换通常涉及多个 DOM 区域同时更新。
+
+{@body const variants=[{size:"S",price:"$29.99",stock:true,sku:"TS-S"},{size:"M",price:"$29.99",stock:true,sku:"TS-M"},{size:"L",price:"$39.99",stock:true,sku:"TS-L"},{size:"XL",price:"$39.99",stock:false,sku:"TS-XL"}]}
+{@body const [variantIndex,setVariantIndex]=DIL.useState(0)}
+{@body const [combined,setCombined]=DIL.useState(true)}
+{@body const [variantChanged,setVariantChanged]=DIL.useState(false)}
+{@body const variant=variants[variantIndex]}
+<card gap={3}>
+  <row align="start">
+    <box width="100px" background="#E0D7C9" radius="md" padding={2}>
+      <svg viewBox="0 0 100 120" width="100%">
+        <path d="M34 8 L8 25 L22 46 L34 38 V111 H66 V38 L78 46 L92 25 L66 8 L58 16 H42 Z" fill="#8E7B66"/>
+      </svg>
+    </box>
+    <box flex={1} gap={2}>
+      **Premium Cotton T-shirt**
+      <title size="xl">{variant.price}</title>
+      <row align="center">
+        <icon name={variant.stock?"check-circle":"x-circle"} size="sm" color={variant.stock?"success":"danger"}/>
+        <text size="sm">{variant.stock?"In stock":"Sold out"}</text>
+      </row>
+      <caption>SKU: {variant.sku}</caption>
+    </box>
+  </row>
+  **Size: {variant.size}**
+  <segmented-control value={String(variantIndex)} onChange={v=>{setVariantIndex(Number(v));setVariantChanged(true)}} options={variants.map((v,i)=>({label:v.size,value:String(i)}))}/>
+  <box background={variant.stock?"#333333":"surface-tertiary"} theme={variant.stock?"dark":undefined} radius="md" padding={3} align="center">
+    <text color={variant.stock?"#FFFFFF":"secondary"}>{variant.stock?"Add to cart":"Sold out"}</text>
+  </box>
+  <divider/>
+  <radio-group direction="col" value={combined?"combined":"separate"} onChange={v=>setCombined(v==="combined")}>
+    <radio value="separate">多个 Live Region 分别通知</radio>
+    <radio value="combined">统一组合业务消息</radio>
+  </radio-group>
+  <caption>可能产生的消息</caption>
+  {#if variantChanged}
+    {#each (combined?[`Price: ${variant.price}. ${variant.stock?"In stock":"Sold out"}.`]:[`Price: ${variant.price}.`,variant.stock?"In stock.":"Sold out.",`SKU: ${variant.sku}.`]) as m}
+      <row align="start">
+        <icon name="volume-2" size="sm"/>
+        <box flex={1}><text size="sm">{m}</text></box>
+      </row>
+    {/each}
+  {:else}
+    <caption>请切换商品尺寸。</caption>
+  {/if}
+  <caption>演示两种消息设计策略。真实浏览器可能合并、忽略或延迟部分变化。</caption>
+</card>
+
+### 13.1 方案一：独立 Live Region
+
+```html
+<div id="product-price" role="status">
+  $29.99
+</div>
+
+<p id="product-inventory" role="status">
+  In stock
+</p>
+```
+
+切换变体时：
+
+```javascript
+price.textContent = variant.formattedPrice;
+
+inventory.textContent = variant.available
+  ? 'In stock'
+  : 'Sold out';
+```
+
+这种方式的优点是简单，并且可见 UI 自身就是状态消息区域。
+
+缺点是多个区域同时变化时，播报顺序和完整性不容易预测。
+
+### 13.2 方案二：统一 Announcer
+
+```javascript
+function renderVariant(variant) {
+  price.textContent = variant.formattedPrice;
+
+  inventory.textContent = variant.available
+    ? 'In stock'
+    : 'Sold out';
+
+  addButton.disabled = !variant.available;
+
+  announcer.announce(
+    `Price: ${variant.formattedPrice}. ` +
+    `${variant.available ? 'In stock.' : 'Sold out.'}`
+  );
+}
+```
+
+这里假设 `formattedPrice` 是业务层已经根据当前币种格式化好的价格字符串，而不是 Shopify 原生 Variant 对象必然具有的属性。
+
+采用这个方案时，就不应该再让价格、库存和 Announcer 同时播报相同的信息。
+
+### 13.3 是否应该播报变体名称？
+
+例如用户选择 L：
+
+```text
+Large, radio button, checked.
+```
+
+原生 radio 本身已经能够表达当前选择。
+
+此时 Live Region 可以专注于补充选择所引发的变化：
+
+```text
+Price: $39.99. In stock.
+```
+
+没有必要把 radio 的名称、角色、选中状态全部重复一遍。
+
+---
+
+## 14. Shopify 实战三：Collection 筛选与排序
+
+在 Collection 页面中，用户通常需要知道的是筛选结果，而不是整个页面重新渲染了哪些 HTML。
+
+{@body const [selectedColors,setSelectedColors]=DIL.useState([false,false,false])}
+{@body const [productCount,setProductCount]=DIL.useState(48)}
+{@body const [filterPending,setFilterPending]=DIL.useState(false)}
+{@body const [filterMessage,setFilterMessage]=DIL.useState("")}
+<card gap={3}>
+  <row align="center">
+    <title size="lg">New arrivals</title>
+    <spacer/>
+    <caption>{filterPending?"Updating...":`${productCount} products`}</caption>
+  </row>
+  **Color**
+  {#each ["Black","Beige","Blue"] as c,i}
+    <checkbox checked={selectedColors[i]} onChange={v=>{setSelectedColors(old=>old.map((x,j)=>i===j?v:x));setFilterPending(true);setFilterMessage("")}}>{c}</checkbox>
+  {/each}
+  <button block disabled={!filterPending} onClick={()=>{const n=selectedColors.some(Boolean)?selectedColors.reduce((s,v,i)=>s+(v?[12,8,16][i]:0),0):48;setProductCount(n);setFilterPending(false);setFilterMessage(`${n} products found.`)}}>模拟筛选请求完成</button>
+  <grid columns={3} gap={2}>
+    {#each (selectedColors.some(Boolean)&&!filterPending?selectedColors.map((v,i)=>v?i:-1).filter(i=>i>=0):[0,1,2,0,1,2]) as i}
+      <grid-item>
+        <box gap={1}>
+          <box background="#E0D8CE" radius="sm">
+            <svg viewBox="0 0 90 95" width="100%">
+              <path d="M30 7 L8 22 L20 38 L30 31 V86 H60 V31 L70 38 L82 22 L60 7 L52 14 H38 Z" fill={["#333333","#B5A085","#71889D"][i]}/>
+            </svg>
+          </box>
+          <text size="xs">Cotton T-shirt</text>
+          <caption>$29.99</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+  <divider/>
+  <row><caption>Product Grid · aria-busy</caption><spacer/>{String(filterPending)}</row>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>Live Region 消息</caption>
+      <text size="sm">{filterMessage||"等待筛选结果。"}</text>
+    </box>
+  </row>
+  <caption>结果数量及商品列表为教学模拟。</caption>
+</card>
+
+### 14.1 推荐 HTML 结构
+
+```liquid
+<p
+  id="ProductCount"
+  role="status"
+  aria-atomic="true"
+>
+  {{ collection.products_count }} products found.
+</p>
+
+<div
+  id="ProductGridContainer"
+  aria-busy="false"
+>
+  <!-- Product grid -->
+</div>
+```
+
+这里有两个不同职责的区域：
+
+| 区域 | 职责 |
+|---|---|
+| ProductCount | 通知筛选结果数量 |
+| ProductGridContainer | 承载商品列表及更新状态 |
+
+特别注意，商品数量区域放在 busy 区域之外，可以减少加载状态对结果通知的影响。
+
+### 14.2 处理 AJAX 请求竞争
+
+假设用户连续选择三个筛选条件，产生三个请求。
+
+<box border radius="lg" padding={3} gap={2}>
+  <svg viewBox="0 0 340 185" width="100%">
+    {#each [{n:"Request A",x:65,w:251,y:20,c:"#888888",v:"旧结果：32"},{n:"Request B",x:115,w:145,y:73,c:"#888888",v:"旧结果：16"},{n:"Request C",x:160,w:57,y:126,c:"#39866B",v:"新结果：8"}] as r}
+      <text x="5" y={r.y+17} fontSize="10" fill="currentColor">{r.n}</text>
+      <rect x={r.x} y={r.y} width={r.w} height="27" rx="4" fill={r.c} fillOpacity=".18" stroke={r.c} strokeOpacity=".7"/>
+      <text x={r.x+r.w/2} y={r.y+17} fontSize="10" textAnchor="middle" fill="currentColor">请求中</text>
+      <text x={r.x+r.w} y={r.y+41} fontSize="10" textAnchor="end" fill={r.c}>{r.v}</text>
+    {/each}
+  </svg>
+  <caption>最新发出的 C 请求可能最先返回。如果随后继续使用 A、B 的结果，就会覆盖正确页面并播报过时的数量。</caption>
+</box>
+
+因此，Live Region 不仅需要正确的 ARIA 属性，还需要正确的异步请求管理。
+
+```javascript
+let requestVersion = 0;
+let controller;
+
+async function updateCollection(url) {
+  const version = ++requestVersion;
+
+  controller?.abort();
+
+  controller = new AbortController();
+
+  const grid = document.querySelector(
+    '#ProductGridContainer'
+  );
+
+  const count = document.querySelector(
+    '#ProductCount'
+  );
+
+  grid.setAttribute('aria-busy', 'true');
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error('Request failed');
+    }
+
+    const html = new DOMParser().parseFromString(
+      await response.text(),
+      'text/html'
+    );
+
+    if (version !== requestVersion) return;
+
+    const newGrid = html.querySelector(
+      '#ProductGridContainer'
+    );
+
+    const newCount = html.querySelector(
+      '#ProductCount'
+    );
+
+    if (!newGrid || !newCount) {
+      throw new Error('Invalid section response');
+    }
+
+    grid.innerHTML = newGrid.innerHTML;
+
+    // 保留原来的 Live Region 节点
+    count.textContent = newCount.textContent.trim();
+
+  } catch (error) {
+    if (
+      error.name !== 'AbortError' &&
+      version === requestVersion
+    ) {
+      announcer.error(
+        'Unable to update products.'
+      );
+    }
+
+  } finally {
+    if (version === requestVersion) {
+      grid.setAttribute('aria-busy', 'false');
+    }
+  }
+}
+```
+
+这个例子假设传入的 URL 返回包含对应商品区域和数量区域的 HTML。
+
+它展示了三个重要的工程机制：取消旧请求、校验最新请求版本、保留 Live Region 节点。
+
+实际开发中还需要接入上一课的 Focus Preservation，尤其是在筛选操作同时替换筛选控件 DOM 的情况下。
+
+---
+
+## 15. Shopify 实战四：Predictive Search
+
+Predictive Search 同时涉及我们第三阶段学习的多种技术。
+
+| 技术 | 职责 |
+|---|---|
+| `role="combobox"` | 表达搜索组合控件 |
+| `aria-expanded` | 表达建议列表展开状态 |
+| `aria-controls` | 关联建议列表 |
+| `aria-activedescendant` | 表达当前活动建议 |
+| `aria-selected` | 根据组件模式表达选项状态 |
+| Live Region | 通知搜索结果数量 |
+
+{@body const searchProducts=["Cotton T-shirt","Linen shirt","Oversized T-shirt","Classic sweatshirt","Cotton jacket","Denim jacket"]}
+{@body const [query,setQuery]=DIL.useState("shirt")}
+{@body const [searchedQuery,setSearchedQuery]=DIL.useState("shirt")}
+{@body const [searchLoading,setSearchLoading]=DIL.useState(false)}
+{@body const [activeResult,setActiveResult]=DIL.useState(-1)}
+{@body const results=searchedQuery.trim()?searchProducts.filter(p=>p.toLowerCase().includes(searchedQuery.toLowerCase())):[]}
+<card gap={3}>
+  **Predictive Search 实验室**
+  <row align="center">
+    <icon name="search"/>
+    <box flex={1}>
+      <input value={query} onChange={v=>{setQuery(v);setActiveResult(-1);setSearchLoading(!!v.trim());if(!v.trim())setSearchedQuery("")}} placeholder="Search products"/>
+    </box>
+  </row>
+  {#if searchLoading}
+    <button block variant="outline" color="secondary" onClick={()=>{setSearchedQuery(query);setSearchLoading(false);setActiveResult(-1)}}>模拟搜索结果返回</button>
+  {:else if searchedQuery}
+    <box border radius="md" padding={2} gap={1}>
+      <caption>{results.length} results found</caption>
+      {#each results as p,i}
+        <box background={i===activeResult?"surface-tertiary":"surface"} border={{size:1,color:i===activeResult?"#5185C5":"transparent"}} radius="sm" padding={2}>
+          <row align="center">
+            <icon name="shirt" size="sm" color="secondary"/>
+            <text size="sm">{p}</text>
+          </row>
+        </box>
+      {/each}
+      {#if !results.length}<text size="sm">No results found.</text>{/if}
+    </box>
+    <row justify="center">
+      <button uniform color="secondary" variant="outline" disabled={!results.length} onClick={()=>setActiveResult(i=>i<=0?results.length-1:i-1)}><icon name="arrow-up"/></button>
+      <button uniform color="secondary" variant="outline" disabled={!results.length} onClick={()=>setActiveResult(i=>(i+1)%results.length)}><icon name="arrow-down"/></button>
+    </row>
+  {/if}
+  <divider/>
+  <row align="start">
+    <icon name="volume-2"/>
+    <box flex={1} gap={1}>
+      <caption>Live Region 负责</caption>
+      <text size="sm">{searchLoading?"Searching...":searchedQuery?`${results.length} results found for ${searchedQuery}.`:"无消息"}</text>
+    </box>
+  </row>
+  <row align="start">
+    <icon name="focus"/>
+    <box flex={1} gap={1}>
+      <caption>aria-activedescendant 负责</caption>
+      <text size="sm">{activeResult>=0&&results[activeResult]?`${results[activeResult]}, option.`:"尚未选择活动项"}</text>
+    </box>
+  </row>
+  <caption>尝试输入 cotton 或 jacket，然后模拟请求完成，再使用方向键切换活动项。</caption>
+</card>
+
+### 15.1 不要重复通知活动项
+
+用户按下 ArrowDown 时，可以执行：
+
+```javascript
+input.setAttribute(
+  'aria-activedescendant',
+  option.id
+);
+```
+
+不需要每次再执行：
+
+```javascript
+announcer.announce(option.textContent);
+```
+
+因为 aria-activedescendant 本身就能够向辅助技术表达活动项变化。
+
+重复通过 Live Region 通知，可能产生两次相同播报。
+
+### 15.2 不要将整个搜索列表设置为 Live Region
+
+错误思路：
+
+```html
+<ul role="listbox" aria-live="polite">
+  <!-- Search results -->
+</ul>
+```
+
+每次输入都可能产生大量无关通知。
+
+推荐：
+
+```html
+<p
+  id="search-status"
+  role="status"
+  class="visually-hidden"
+></p>
+
+<ul id="search-results" role="listbox">
+  <!-- Search results -->
+</ul>
+```
+
+请求完成后：
+
+```javascript
+searchStatus.textContent =
+  `${results.length} results found.`;
+```
+
+活动项的导航则继续通过第 10 课学习的虚拟焦点机制处理。
+
+---
+
+## 16. Shopify Dawn 源码深入解析
+
+接下来我们看看 Dawn 实际是如何应用 Live Region 的。
+
+这里分析的是 Dawn 公开仓库 main 分支，不同版本可能存在差异。
+
+### 16.1 商品价格与库存
+
+文件：`sections/main-product.liquid`
+
+Dawn 在商品价格、库存及 SKU 区域使用了 `role="status"`。
+
+简化后的结构：
+
+```liquid
+<div id="price-{{ section.id }}" role="status">
+  {% render 'price',
+    product: product,
+    use_variant: true
+  %}
+</div>
+
+<p
+  id="Inventory-{{ section.id }}"
+  role="status"
+>
+  <!-- Inventory message -->
+</p>
+```
+
+相关更新逻辑位于 `assets/product-info.js`。
+
+当用户切换 Variant 时，Dawn 获取服务端返回的 HTML，并更新现有价格、库存等节点内部的 HTML。
+
+这里值得学习的是：它通常更新既有状态区域的内部内容，而不是每次都重新创建一个状态区域。<Cite refs={["turn652062view3","turn745528view2"]}/>
+
+<box border radius="lg" padding={3} gap={2}>
+  {#each [{t:"Variant Picker",d:"用户选择新的 option value"},{t:"ProductInfo",d:"获取 Shopify 服务端返回的 HTML"},{t:"更新价格、库存、SKU",d:"更新相应 status 节点内部内容"},{t:"Accessibility Tree",d:"识别动态变化并通知辅助技术"}] as item,i}
+    <box border radius="sm" padding={3} gap={1}>
+      **{item.t}**
+      <caption>{item.d}</caption>
+    </box>
+    {#if i<3}<box align="center"><icon name="arrow-down" size="sm" color="secondary"/></box>{/if}
+  {/each}
+</box>
+
+### 16.2 Cart Drawer
+
+文件：`snippets/cart-drawer.liquid`
+
+Dawn 在购物车抽屉中设置了多种通知区域。
+
+| 元素 ID | Role | 职责 |
+|---|---|---|
+| `CartDrawer-LiveRegionText` | status | 购物车状态区域 |
+| `CartDrawer-LineItemStatus` | status | 商品行加载状态 |
+| `CartDrawer-LineItemError-*` | alert | 商品行相关错误 |
+| `CartDrawer-CartErrors` | alert | 购物车整体错误 |
+
+其中加载状态区域包含本地化 Loading 文案，初始时设置 `aria-hidden="true"`。<Cite ref="turn652062view2"/>
+
+### 16.3 cart.js 中的 updateLiveRegions()
+
+Dawn 的 `assets/cart.js` 提供了以下方法：
+
+```javascript
+updateLiveRegions(line, message)
+```
+
+其主要处理逻辑是更新对应商品行的错误文字、隐藏加载状态区域、临时暴露购物车状态区域，并在约一秒后再次隐藏它。<Cite ref="turn745528view0"/>
+
+值得注意的是，这里的实现与我们前面推荐的「长期存在且始终暴露的空 Live Region」有所不同。
+
+Dawn 使用了切换 aria-hidden 的兼容性处理方式。
+
+但是，这种方式并不能保证所有浏览器和屏幕阅读器都会正常播报。特别是快速连续更新时，旧定时器可能影响新消息。
+
+因此，不应该直接把 Dawn 的一秒延迟视为规范要求，也不能仅凭源码存在 role=status，就认为所有购物车变化一定能够正确通知用户。
+
+### 16.4 Predictive Search
+
+文件：`assets/predictive-search.js`
+
+Dawn 提供了以下几个相关方法：
+
+| 方法 | 职责 |
+|---|---|
+| `setLiveRegionLoadingState()` | 设置搜索加载通知 |
+| `setLiveRegionText(statusText)` | 更新状态区域文字 |
+| `setLiveRegionResults()` | 通知搜索结果信息 |
+| `renderSearchResults()` | 渲染搜索建议并触发结果通知 |
+
+它从服务端返回的搜索结果 HTML 中获取 `data-predictive-search-live-region-count-value` 对应文字，并将其写入状态区域。
+
+同时，状态区域也采用临时切换 aria-hidden 的策略。<Cite ref="turn652062view1"/>
+
+这说明，在 Shopify Theme 中，Liquid 不仅可以负责生成视觉 HTML，也可以负责生成已经过翻译的无障碍消息。
+
+### 16.5 Dawn 源码阅读地址
+
+| 文件 | 阅读重点 |
+|---|---|
+| [main-product.liquid](https://github.com/Shopify/dawn/blob/main/sections/main-product.liquid) | 商品价格、库存、SKU 状态 |
+| [product-info.js](https://github.com/Shopify/dawn/blob/main/assets/product-info.js) | 变体动态更新 |
+| [cart-drawer.liquid](https://github.com/Shopify/dawn/blob/main/snippets/cart-drawer.liquid) | 购物车 Live Region 结构 |
+| [cart.js](https://github.com/Shopify/dawn/blob/main/assets/cart.js) | 加载及错误通知 |
+| [predictive-search.js](https://github.com/Shopify/dawn/blob/main/assets/predictive-search.js) | 搜索建议通知 |
+| [predictive-search.liquid](https://github.com/Shopify/dawn/blob/main/sections/predictive-search.liquid) | 服务端结果消息 |
+
+---
+
+## 17. Live Region 与 Shopify 多语言体系
+
+对于跨境电商网站，不能只翻译视觉界面，而忽略无障碍专用消息。
+
+例如：
+
+```javascript
+announcer.announce(
+  `${product.title} added to your cart.`
+);
+```
+
+这段代码将英语硬编码在 JavaScript 中。
+
+更推荐使用 Shopify locales 文件维护消息模板。
+
+例如 `locales/en.default.json` 中的自定义配置：
+
+```json
+{
+  "custom_accessibility": {
+    "cart": {
+      "added": "{{ product }} added to your cart.",
+      "removed": "{{ product }} removed from your cart."
+    },
+    "collection": {
+      "results": {
+        "one": "{{ count }} product found.",
+        "other": "{{ count }} products found."
+      }
+    }
+  }
+}
+```
+
+上述配置需要合并到已有 locale 文件，而不是覆盖整个文件。
+
+Liquid 可以提前生成业务消息：
+
+```liquid
+<script type="application/json" id="A11yMessages">
+{
+  "cartAdded": {{ 'custom_accessibility.cart.added'
+    | t: product: '[product]'
+    | json
+  }},
+  "cartRemoved": {{ 'custom_accessibility.cart.removed'
+    | t: product: '[product]'
+    | json
+  }}
+}
+</script>
+```
+
+JavaScript：
+
+```javascript
+const messages = JSON.parse(
+  document.querySelector('#A11yMessages').textContent
+);
+
+announcer.success(
+  messages.cartAdded.replace(
+    '[product]',
+    () => productTitle
+  )
+);
+```
+
+Collection 商品数量则可以由 Liquid 使用 `t` filter 传入实际 count，让 Shopify 处理对应语言的复数规则。
+
+需要统一管理的内容包括：
+
+| 内容 | 本地化需求 |
+|---|---|
+| Accessible Name | 控件名称 |
+| Accessible Description | 控件说明 |
+| Live Region | 动态通知 |
+| Error Message | 业务错误 |
+| Loading Message | 加载反馈 |
+| Currency | 金额及币种格式 |
+| Pluralization | 单复数规则 |
+
+无障碍文案本质上也是产品文案的一部分。
+
+---
+
+## 18. 如何调试 Live Region？
+
+### 18.1 查询页面中所有 Live Region
+
+在 Chrome DevTools Console 中运行：
+
+```javascript
+const selector = [
+  '[aria-live]',
+  '[role="status"]',
+  '[role="alert"]',
+  '[role="log"]',
+  '[role="timer"]',
+  '[role="marquee"]'
+].join(',');
+
+console.table(
+  [...document.querySelectorAll(selector)]
+    .map(el => ({
+      element: el,
+
+      id: el.id,
+
+      role: el.getAttribute('role'),
+
+      live: el.getAttribute('aria-live'),
+
+      atomic: el.getAttribute('aria-atomic'),
+
+      busy: el.getAttribute('aria-busy'),
+
+      relevant: el.getAttribute('aria-relevant'),
+
+      ariaHidden: el.getAttribute('aria-hidden'),
+
+      text: el.textContent.trim()
+    }))
+);
+```
+
+这可以帮助你发现页面中有哪些显式 Live Region 声明。
+
+但如果 `role="status"` 对应的 live 属性返回 null，不代表它没有 polite 语义，因为浏览器还需要计算该 Role 的隐式属性。
+
+### 18.2 使用 MutationObserver 监听消息变化
+
+```javascript
+const observer = new MutationObserver(records => {
+  const regions = new Set();
+
+  for (const record of records) {
+    const target =
+      record.target.nodeType === Node.ELEMENT_NODE
+        ? record.target
+        : record.target.parentElement;
+
+    const region = target?.closest(`
+      [aria-live],
+      [role="status"],
+      [role="alert"],
+      [role="log"]
+    `);
+
+    if (region) {
+      regions.add(region);
+    }
+  }
+
+  regions.forEach(region => {
+    console.log('[Live Region Updated]', {
+      time: performance.now(),
+
+      element: region,
+
+      message: region.textContent.trim(),
+
+      busy: region.getAttribute('aria-busy')
+    });
+  });
+});
+
+observer.observe(document.body, {
+  subtree: true,
+  childList: true,
+  characterData: true,
+
+  attributes: true,
+
+  attributeFilter: [
+    'aria-live',
+    'aria-busy',
+    'aria-hidden',
+    'role'
+  ]
+});
+```
+
+测试结束后：
+
+```javascript
+observer.disconnect();
+```
+
+这个工具能够帮助你了解现有消息区域何时发生 DOM 更新，但它无法证明浏览器真正产生了相应的无障碍事件，也无法读取屏幕阅读器实际播报的内容。
+
+### 18.3 使用 NVDA Speech Viewer
+
+这是人工测试 Live Region 时非常实用的工具。
+
+在 Windows 上打开 NVDA，进入：
+
+`NVDA Menu → Tools → Speech Viewer`
+
+然后使用键盘执行实际网站操作。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="volume-2"/>
+    **NVDA Speech Viewer**
+    <spacer/>
+    <caption>模拟记录</caption>
+  </row>
+  <box background="surface-tertiary" radius="sm" padding={3} gap={2}>
+    {#each ["Cotton T-shirt, heading level 1","Size, grouping","Medium, radio button, checked","Price, 29 dollars and 99 cents.","Add to cart, button","Cotton T-shirt added to your cart.","Shopping cart, 1 item, button"] as m}
+      <text size="sm">{m}</text>
+    {/each}
+  </box>
+  <caption>通过真实 Speech Viewer，可以检查消息是否遗漏、重复或过于冗长。上面的文字仅为示意。</caption>
+</box>
+
+建议至少测试 NVDA + Chrome、NVDA + Firefox、VoiceOver + Safari，以及移动端 VoiceOver 或 TalkBack。
+
+---
+
+## 19. Live Region 常见错误汇总
+
+| 错误 | 推荐修复 |
+|---|---|
+| 所有消息都使用 assertive | 普通消息使用 polite |
+| 整个商品列表使用 aria-live | 仅通知商品数量或摘要 |
+| Live Region 使用 display:none | 使用 visually-hidden 或可见消息 |
+| 创建区域时立即填入消息 | 提前建立空区域 |
+| Section Rendering 替换消息节点 | 保留稳定的 Live Region |
+| 消息只有孤立数字 | 提供完整业务上下文 |
+| 每秒播报促销倒计时 | 降低或取消自动通知 |
+| 快速请求返回旧消息 | 请求取消与版本校验 |
+| aria-busy 一直为 true | 在完成及失败时正确恢复 |
+| 使用 focus() 强制读取状态 | 优先考虑 Live Region |
+| 活动选项重复进行手动播报 | 优先依赖正确的控件状态 |
+| 模态弹窗使用背景消息区域 | 使用当前模态范围内的通知区域 |
+| 只检查 DOM，不测试屏幕阅读器 | 使用真实辅助技术验证 |
+
+---
+
+## 20. 本课知识测试
+
+{@body const quiz=[{q:"普通 AJAX 加购成功通知应该优先使用哪种 aria-live？",o:["off","polite","assertive"],a:1,e:"普通成功消息不需要打断用户当前的阅读操作。"},{q:"role=\"status\" 隐式提供什么 aria-live 值？",o:["polite","assertive","off"],a:0,e:"status 隐式提供 polite 和 atomic=true。"},{q:"aria-atomic=\"true\" 的主要作用是什么？",o:["禁止连续更新","提高通知优先级","提供整个相关区域的内容"],a:2,e:"atomic 控制通知的内容范围，而不是优先级。"},{q:"aria-live=\"off\" 是否等同于 aria-hidden=\"true\"？",o:["是","否"],a:1,e:"off 控制动态通知，aria-hidden 控制无障碍暴露。"},{q:"普通 Live Region 应该在什么时候建立？",o:["尽量提前建立空区域","每次发送消息时重新创建"],a:0,e:"提前存在的区域通常更有利于辅助技术识别后续变化。"},{q:"连续两次写入完全相同的消息，是否一定会播报两次？",o:["一定","不一定"],a:1,e:"浏览器和辅助技术可能合并或忽略相同的通知。"},{q:"Collection 筛选完成后，应该优先通知什么？",o:["所有商品的完整 HTML","筛选结果数量或简洁摘要"],a:1,e:"商品结果数量更适合作为状态消息，用户可以自主阅读商品列表。"},{q:"aria-busy=\"true\" 是否会自动禁止用户点击控件？",o:["会","不会"],a:1,e:"aria-busy 表达更新状态，不提供实际的禁用行为。"},{q:"Predictive Search 已使用 aria-activedescendant，是否应该再通过 Live Region 重复通知每个活动项？",o:["通常应该","通常不应该"],a:1,e:"活动项变化已经由对应 ARIA 机制表达，额外通知可能造成重复。"},{q:"JavaScript 是否能够通过 Live Region 精确控制屏幕阅读器语音队列？",o:["能","不能"],a:1,e:"网站负责提供语义信息，最终通知和播报策略由辅助技术控制。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full" clip={true}>
+    <box background="#39866B" height={5} width={`${answers.filter((a,i)=>a===quiz[i].a).length/quiz.length*100}%`} radius="full"/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.e}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 21. 日常开发检查清单
+
+{@body const checks=["重要动态状态消息具有正确的语义","普通消息优先使用 polite","仅对重要消息使用 assertive","Live Region 在内容更新之前已经存在","消息区域没有被错误隐藏","消息范围足够小且具有完整上下文","重复消息具有合理的处理机制","快速连续消息能够适当合并","异步请求不会通知过期结果","请求成功及失败后正确清理 busy 状态","Section Rendering 不会意外销毁消息区域","模态弹窗内部具有适当的通知机制","焦点管理与 Live Region 不产生重复播报","价格、库存、购物车及搜索结果变化可被感知","无障碍消息支持多语言与单复数","通过真实屏幕阅读器验证实际效果"]}
+{@body const [done,setDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **Live Region Checklist**
+    <spacer/>
+    <caption>{done.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as c,i}
+    <checkbox checked={done[i]} onChange={v=>setDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={done[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block color="secondary" variant="outline" onClick={()=>GenUI.copy(checks.map((c,i)=>(done[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 22. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [MDN ARIA Live Regions](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Guides/Live_regions) | Live Region 完整指南 |
+| [MDN aria-live](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-live) | 消息优先级 |
+| [MDN aria-atomic](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-atomic) | 消息范围 |
+| [MDN aria-relevant](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-relevant) | 变化类型 |
+| [MDN aria-busy](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-busy) | 更新状态 |
+| [WCAG 4.1.3 Status Messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html) | 状态消息合规要求 |
+| [W3C ARIA22](https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA22) | 使用 status 提供反馈 |
+| [W3C ARIA19](https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA19) | 动态错误通知 |
+
+本课源码分析基于公开的 Dawn main 分支；其余代码为教学实现，尚未在你的实际 Theme 和屏幕阅读器环境中运行验证。延迟时间、消息合并策略和播报示例属于工程设计选择，而非规范保证。
+
+---
+
+## 第三阶段学习总结
+
+至此，我们已经完成第三阶段：JavaScript 与 ARIA 深入开发。
+
+这五节课实际上构成了一套完整的复杂组件无障碍技术基础。
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{n:10,i:"keyboard",t:"键盘导航与 tabindex",d:"解决用户如何移动和操作的问题。"},{n:11,i:"focus",t:"Focus Management",d:"解决界面变化后用户应该在哪里的问题。"},{n:12,i:"network",t:"WAI-ARIA 属性与 Role",d:"解决如何表达组件语义、状态及关系的问题。"},{n:13,i:"tag",t:"Accessible Name 与 Description",d:"解决用户如何理解控件用途的问题。"},{n:14,i:"volume-2",t:"Live Region",d:"解决用户如何感知动态业务变化的问题。"}] as item}
+    <row align="start" gap={3}>
+      <box size="40px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name={item.i} size="xl"/></box>
+      <box flex={1} gap={1}>
+        **第 {item.n} 课：{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+      <icon name="check-circle" color="success" size="sm"/>
+    </row>
+  {/each}
+</box>
+
+将这五项技术结合起来，就可以建立一个复杂 UI 组件的完整无障碍模型。
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 290" width="100%">
+    <g stroke="currentColor" strokeOpacity=".3" fill="none" strokeWidth="1.3">
+      <path d="M170 121 V55 M170 55 L170 46"/>
+      <path d="M111 139 L78 89"/>
+      <path d="M229 139 L262 89"/>
+      <path d="M112 173 L76 230"/>
+      <path d="M228 173 L265 230"/>
+    </g>
+    <rect x="108" y="121" width="124" height="62" rx="10" fill="#5185C5" fillOpacity=".13" stroke="#5185C5" strokeWidth="1.5"/>
+    <text x="170" y="146" fontSize="13" fontWeight="600" textAnchor="middle" fill="currentColor">Accessible</text>
+    <text x="170" y="164" fontSize="13" fontWeight="600" textAnchor="middle" fill="currentColor">UI Component</text>
+    {#each [{x:116,y:5,w:108,t:"Role / State",s:"它是什么"},{x:4,y:52,w:108,t:"Keyboard",s:"如何操作"},{x:228,y:52,w:108,t:"AccName",s:"叫什么"},{x:8,y:230,w:120,t:"Focus",s:"在哪里"},{x:212,y:230,w:120,t:"Live Region",s:"发生了什么"}] as n}
+      <rect x={n.x} y={n.y} width={n.w} height="52" rx="7" stroke="currentColor" strokeOpacity=".25" fill="#888888" fillOpacity=".06"/>
+      <text x={n.x+n.w/2} y={n.y+20} fontSize="12" fontWeight="600" textAnchor="middle" fill="currentColor">{n.t}</text>
+      <text x={n.x+n.w/2} y={n.y+37} fontSize="11" textAnchor="middle" fill="currentColor">{n.s}</text>
+    {/each}
+  </svg>
+</box>
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体学习进度</caption>
+      <title size="2xl">53.8%</title>
+    </box>
+    <caption>已完成 14 / 26 课</caption>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5},{t:"阶段四：复杂 UI 组件实战",n:5,d:0},{t:"阶段五：Shopify 电商实战",n:4,d:0},{t:"阶段六：检测与工程化",n:3,d:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm">{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}</caption>{/if}
+      </row>
+      <box height={5} background="surface-tertiary" radius="full">
+        <box height={5} background="#39866B" radius="full" width={`${s.d/s.n*100}%`}/>
+      </box>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 15 课——Modal、Dialog、Drawer 弹窗组件**
+
+从下一课开始，我们正式进入第四阶段：复杂 UI 组件无障碍实战。
+
+接下来不再以单个 HTML 属性或底层 API 为主要学习对象，而是以完整组件为单位进行开发。
+
+第 15 课将重点学习：
+
+- Modal、Non-modal Dialog、Drawer、Popover 的本质区别。
+- 原生 dialog 的完整 API。
+- Top Layer 与 z-index 的区别。
+- `showModal()`、`show()`、`close()`、`requestClose()`。
+- `cancel`、`close` 事件及 `::backdrop`。
+- 自定义 Modal 的完整无障碍实现。
+- 背景 inert、焦点限制、滚动锁定。
+- Esc 关闭、点击遮罩关闭及嵌套弹窗。
+- Alert Dialog 删除确认组件。
+- 动画与弹窗生命周期管理。
+- Shopify Cart Drawer、Quick Add Modal、Size Guide 实战。
+- 封装一套可复用的 Web Component 弹窗组件。
+
+我们会把前面十四节课学到的语义、键盘、焦点、ARIA、Accessible Name 和 Live Region 真正整合到一个完整的业务组件中。

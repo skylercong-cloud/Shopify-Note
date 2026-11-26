@@ -1,0 +1,1660 @@
+好的，跳过第 19 课「SPA 路由、异步请求与动态页面」，直接进入第五阶段：**Shopify 电商网站无障碍实战**。
+
+前面的课程已经建立了完整的无障碍技术基础。接下来，我们将按照 Shopify 网站的实际业务模块进行学习，重点关注开发中容易出现的问题、解决方案以及 Dawn 源码。
+
+# 第 20 课：Header、Mega Menu 与商品搜索
+
+<row align="center">
+  <caption>阶段五：Shopify 电商网站无障碍实战</caption>
+  <spacer/>
+  <caption>20 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="76.92%"/>
+</box>
+
+## 1. Shopify Header 的无障碍架构
+
+<box border radius="lg" padding={3} gap={3}>
+  <box background="surface-tertiary" radius="sm" padding={2} align="center">
+    <text size="xs">Free shipping on orders over $50</text>
+  </box>
+  <row align="center">
+    <icon name="menu" size="lg"/>
+    <spacer/>
+    <title size="xl">STYLE STORE</title>
+    <spacer/>
+    <icon name="search" size="lg"/>
+    <icon name="user" size="lg"/>
+    <icon name="shopping-bag" size="lg"/>
+  </row>
+  <divider/>
+  <row justify="between" align="center">
+    <text size="sm">Home</text>
+    <row gap={1}><text size="sm">Clothing</text><icon name="chevron-down" size="xs"/></row>
+    <text size="sm">Accessories</text>
+    <text size="sm">Sale</text>
+  </row>
+  <divider/>
+  <grid columns={2} gap={3}>
+    <grid-item>
+      **Men**
+      <text size="sm">T-shirts</text>
+      <text size="sm">Jackets</text>
+      <text size="sm">Pants</text>
+    </grid-item>
+    <grid-item>
+      **Women**
+      <text size="sm">Dresses</text>
+      <text size="sm">Tops</text>
+      <text size="sm">Coats</text>
+    </grid-item>
+  </grid>
+  <caption>典型 Shopify Header 结构示意。</caption>
+</box>
+
+Header 看起来只是网站顶部的一个区域，实际上集合了前面课程中几乎所有的无障碍技术。
+
+| 业务模块 | 涉及的无障碍技术 |
+|---|---|
+| Announcement Bar | Live Region、自动播放控制 |
+| Logo | 图片 alt、链接名称 |
+| Main Navigation | Landmark、列表、链接 |
+| Mega Menu | Disclosure、键盘交互 |
+| Mobile Menu | Modal Drawer、焦点管理 |
+| Search Modal | Dialog、初始焦点 |
+| Predictive Search | Combobox、虚拟焦点 |
+| Account | 链接名称 |
+| Cart Icon | Accessible Name、动态数量 |
+| Country Selector | Select、Combobox |
+| Sticky Header | 焦点遮挡、滚动控制 |
+| Skip Link | 跳过重复导航 |
+
+一个 Header 的无障碍表现不好，会影响整个网站，而不仅仅是某一个页面。
+
+## 2. Header 的整体语义结构
+
+一个合理的 Shopify Header，可以采用以下结构：
+
+```liquid
+<header class="site-header">
+
+  <a href="{{ routes.root_url }}">
+    {{ shop.name | escape }}
+  </a>
+
+  <nav aria-label="Main navigation">
+    <!-- Main navigation links -->
+  </nav>
+
+  <div class="header-actions">
+
+    <button type="button" aria-label="Search">
+      <!-- Search icon -->
+    </button>
+
+    <a
+      href="{{ routes.account_url }}"
+      aria-label="My account"
+    >
+      <!-- Account icon -->
+    </a>
+
+    <a
+      href="{{ routes.cart_url }}"
+      aria-label="Shopping cart"
+    >
+      <!-- Cart icon -->
+    </a>
+
+  </div>
+
+</header>
+```
+
+对应的 Accessibility Tree 大致如下：
+
+<box border radius="lg" padding={3} gap={2}>
+  **banner**
+  <box padding={{left:3}} gap={2}>
+    <text size="sm">link "STYLE STORE"</text>
+    <box border radius="md" padding={2} gap={2}>
+      **navigation "Main navigation"**
+      <box padding={{left:3}} gap={1}>
+        <text size="sm">list</text>
+        <box padding={{left:3}} gap={1}>
+          <text size="sm">link "Home"</text>
+          <text size="sm">button "Clothing", collapsed</text>
+          <text size="sm">link "Accessories"</text>
+          <text size="sm">link "Sale"</text>
+        </box>
+      </box>
+    </box>
+    <text size="sm">button "Search"</text>
+    <text size="sm">link "My account"</text>
+    <text size="sm">link "Shopping cart"</text>
+  </box>
+</box>
+
+这里需要特别注意，Shopify 的 `header-group` 是 Section Group，并不等同于 HTML 中的 header 语义。
+
+浏览器不会因为某个 Section 属于 Header Group，就自动赋予它 banner 角色。
+
+同样，Header 内部的 Logo、导航和工具按钮，也没有必要分别包裹在多个 header 元素中。
+
+## 3. Skip to Content：跳过重复导航
+
+这是 Shopify 网站中非常重要，但视觉设计稿通常不会体现的功能。
+
+假设一个 Header 包含 60 个导航链接，键盘用户每访问一个新页面，都可能需要经过大量重复控件。
+
+Skip Link 可以帮助用户直接进入主要内容。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border={{size:2,color:"#3978BC"}} radius="sm" padding={3} align="center">
+    **Skip to content**
+  </box>
+  <box background="surface-tertiary" radius="md" padding={3} align="center">
+    <title size="lg">STYLE STORE</title>
+    <row justify="center" gap={3}>
+      <text size="xs">Home</text>
+      <text size="xs">Clothing</text>
+      <text size="xs">Accessories</text>
+      <text size="xs">Sale</text>
+    </row>
+  </box>
+  <box align="center"><icon name="arrow-down" color="#3978BC"/><caption>跳过重复导航</caption></box>
+  <box border={{size:2,color:"#3978BC"}} radius="md" padding={3}>
+    <caption>main#MainContent</caption>
+    <title size="xl">New arrivals</title>
+    <text size="sm">Discover our latest products.</text>
+  </box>
+</box>
+
+### 3.1 Liquid 实现
+
+在 `layout/theme.liquid` 中：
+
+```liquid
+<body>
+
+  <a class="skip-link" href="#MainContent">
+    {{ 'accessibility.skip_to_text' | t }}
+  </a>
+
+  {% sections 'header-group' %}
+
+  <main id="MainContent" tabindex="-1">
+    {{ content_for_layout }}
+  </main>
+
+  {% sections 'footer-group' %}
+
+</body>
+```
+
+### 3.2 CSS 实现
+
+```css
+.skip-link {
+  position: fixed;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+
+  z-index: 10000;
+  padding: 12px 20px;
+
+  background: #fff;
+  color: #111;
+
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+```
+
+这里不能使用 `display: none` 隐藏 Skip Link，否则键盘用户无法聚焦它。
+
+`tabindex="-1"` 则允许 main 作为焦点跳转目标，同时不会让它额外进入普通 Tab 顺序。
+
+这项功能对应 WCAG 2.4.1 Bypass Blocks（Level A）。Skip Link 是满足该要求的一种常见方法，并非唯一方法。<Cite ref="turn135853search10"/>
+
+---
+
+## 4. Logo、Search、Account、Cart Icon 无障碍设计
+
+<box border radius="lg" padding={3} gap={3}>
+  <row justify="between" align="center">
+    <title size="lg">STYLE STORE</title>
+    <row gap={4}>
+      <icon name="search" size="xl"/>
+      <icon name="user" size="xl"/>
+      <box size="30px">
+        <svg viewBox="0 0 36 36" width="30px">
+          <path d="M6 11 H27 L29 33 H4 Z M11 11 V7 A5.5 5.5 0 0 1 22 7 V11" fill="none" stroke="currentColor" strokeWidth="1.8"/>
+          <circle cx="28" cy="8" r="8" fill="#444444"/>
+          <text x="28" y="11.5" fontSize="10" fontWeight="600" fill="white" textAnchor="middle">2</text>
+        </svg>
+      </box>
+    </row>
+  </row>
+  <divider/>
+  | 元素 | 推荐 Accessible Name |
+  |---|---|
+  | Logo | STYLE STORE, home |
+  | Search | Search |
+  | Account | My account |
+  | Cart | Shopping cart, 2 items |
+</box>
+
+### 4.1 Logo 的 alt 应该怎么设置？
+
+假设 Logo 图片本身包含品牌名称。
+
+```liquid
+<a
+  href="{{ routes.root_url }}"
+  aria-label="{{ shop.name | escape }} — Home"
+>
+  {{
+    settings.logo
+    | image_url: width: 400
+    | image_tag: alt: ''
+  }}
+</a>
+```
+
+这里已经通过 aria-label 为链接提供了名称，所以内部 Logo 图片可以作为装饰图片处理。
+
+另一种方案是不设置 aria-label，直接使用 Logo 图片的 alt 为链接提供名称。
+
+不建议重复声明相同信息，也不建议使用没有实际意义的名称，例如 `Logo image`。
+
+### 4.2 Search 应该是 button 还是 a？
+
+取决于实际业务行为。
+
+| 点击后的行为 | 推荐元素 |
+|---|---|
+| 跳转 `/search` 页面 | a |
+| 打开 Search Modal | button |
+| 展开当前页面的搜索区域 | button |
+| 提交搜索表单 | button type="submit" |
+
+打开 Search Modal：
+
+```html
+<button
+  type="button"
+  aria-label="Search"
+  aria-haspopup="dialog"
+  aria-controls="SearchDialog"
+>
+  <svg aria-hidden="true" focusable="false">
+    <!-- Search icon -->
+  </svg>
+</button>
+```
+
+不要因为视觉上是图标，就使用 div 加 click 事件来实现。
+
+### 4.3 Cart Icon 的动态名称
+
+```liquid
+<button
+  type="button"
+  id="HeaderCartButton"
+  aria-haspopup="dialog"
+  aria-label="Shopping cart, {{ cart.item_count }} items"
+>
+  <svg aria-hidden="true"></svg>
+
+  <span
+    class="cart-count"
+    aria-hidden="true"
+  >
+    {{ cart.item_count }}
+  </span>
+</button>
+```
+
+加购完成后需要同步更新数量及 Accessible Name。
+
+{@body const [headerCount,setHeaderCount]=DIL.useState(2)}
+<card gap={3}>
+  **购物车名称同步实验**
+  <row align="center">
+    <icon name="shopping-bag" size="2xl"/>
+    <title size="2xl">{headerCount}</title>
+    <spacer/>
+    <button uniform variant="outline" color="secondary" disabled={headerCount===0} onClick={()=>setHeaderCount(n=>Math.max(0,n-1))}><icon name="minus"/></button>
+    <button uniform variant="outline" color="secondary" onClick={()=>setHeaderCount(n=>n+1)}><icon name="plus"/></button>
+  </row>
+  <divider/>
+  <caption>Accessible Name</caption>
+  **Shopping cart, {headerCount} {headerCount===1?"item":"items"}**
+  <caption>注意：名称发生变化，并不意味着屏幕阅读器一定会主动播报。加购成功的通知仍需通过适当的状态消息或弹窗交互实现。</caption>
+</card>
+
+正式项目应该使用 Shopify locale 翻译及单复数规则，而不是直接拼接英语文案。
+
+---
+
+## 5. Mega Menu 的 Liquid 完整结构
+
+第 16 课已经详细学习了 Disclosure Navigation。本节重点研究如何与 Shopify 的菜单数据结合。
+
+假设商家在后台配置了这样的导航菜单：
+
+<box border radius="lg" padding={3} gap={2}>
+  <row><icon name="list-tree"/> **Main menu**</row>
+  <box padding={{left:4}} gap={2}>
+    <row><icon name="link" size="sm"/> Home</row>
+    <row><icon name="folder" size="sm"/> Clothing</row>
+    <box padding={{left:4}} gap={2}>
+      <row><icon name="folder" size="sm"/> Men</row>
+      <box padding={{left:4}} gap={1}>
+        <text size="sm">T-shirts</text>
+        <text size="sm">Jackets</text>
+      </box>
+      <row><icon name="folder" size="sm"/> Women</row>
+      <box padding={{left:4}} gap={1}>
+        <text size="sm">Dresses</text>
+        <text size="sm">Tops</text>
+      </box>
+    </box>
+    <row><icon name="link" size="sm"/> Accessories</row>
+    <row><icon name="link" size="sm"/> Sale</row>
+  </box>
+</box>
+
+Shopify Liquid 中可以通过以下属性获取菜单信息：
+
+| 属性 | 含义 |
+|---|---|
+| `section.settings.menu.links` | 一级导航集合 |
+| `link.title` | 导航名称 |
+| `link.url` | 导航地址 |
+| `link.links` | 子导航集合 |
+| `link.current` | 当前链接是否匹配当前页面 |
+| `link.active` | 当前链接是否处于活动路径 |
+| `link.child_active` | 是否存在活动的子链接 |
+
+### 5.1 使用 details / summary 实现 Mega Menu
+
+```liquid
+<nav aria-label="Main navigation" data-mega-nav>
+  <ul class="main-menu" role="list">
+
+    {% for link in section.settings.menu.links %}
+      <li>
+
+        {% if link.links != blank %}
+
+          <details class="mega-menu">
+
+            <summary>
+              {{ link.title | escape }}
+
+              <span aria-hidden="true">⌄</span>
+            </summary>
+
+            <div class="mega-menu__panel">
+
+              <a href="{{ link.url }}"
+                {% if link.current %}
+                  aria-current="page"
+                {% endif %}
+              >
+                View all {{ link.title | escape }}
+              </a>
+
+              <ul role="list">
+                {% for child in link.links %}
+                  <li>
+                    <a href="{{ child.url }}"
+                      {% if child.current %}
+                        aria-current="page"
+                      {% endif %}
+                    >
+                      {{ child.title | escape }}
+                    </a>
+
+                    {% if child.links != blank %}
+                      <ul role="list">
+                        {% for grandchild in child.links %}
+                          <li>
+                            <a href="{{ grandchild.url }}"
+                              {% if grandchild.current %}
+                                aria-current="page"
+                              {% endif %}
+                            >
+                              {{ grandchild.title | escape }}
+                            </a>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+
+            </div>
+
+          </details>
+
+        {% else %}
+
+          <a href="{{ link.url }}"
+            {% if link.current %}
+              aria-current="page"
+            {% endif %}
+          >
+            {{ link.title | escape }}
+          </a>
+
+        {% endif %}
+
+      </li>
+    {% endfor %}
+
+  </ul>
+</nav>
+```
+
+这套结构具有几个重要特征：保留原生导航与列表语义，使用 details 实现基础键盘交互，支持三级菜单，并且为一级分类额外提供 View all 链接。
+
+即使 JavaScript 加载失败，基本的展开和导航依然可以正常工作。
+
+普通网站导航通常不需要采用 ARIA Menu Pattern，这也符合 W3C APG 的导航示例。<Cite ref="turn135853search4"/>
+
+### 5.2 aria-current 和 active class 的区别
+
+假设当前页面是：
+
+```text
+/collections/t-shirts
+```
+
+导航层级为：
+
+<box border radius="md" padding={3} gap={2}>
+  <row>
+    **Clothing**
+    <spacer/><caption>child_active</caption>
+  </row>
+  <box padding={{left:4}} gap={2}>
+    <row>
+      **Men**
+      <spacer/><caption>child_active</caption>
+    </row>
+    <box padding={{left:4}} gap={2}>
+      <row>
+        <text weight="bold" underline={true}>T-shirts</text>
+        <spacer/>
+        <text color="success" size="xs">aria-current="page"</text>
+      </row>
+      <text size="sm">Jackets</text>
+    </box>
+  </box>
+</box>
+
+Clothing 和 Men 可以具有视觉高亮，表示它们属于当前导航路径。
+
+但是，不应该因此全部添加 `aria-current="page"`。
+
+推荐：
+
+```liquid
+{% if link.current %}
+  aria-current="page"
+{% endif %}
+```
+
+而 active 或 child_active 主要用于实现导航路径的视觉样式。
+
+---
+
+## 6. Mega Menu 的键盘交互与关闭策略
+
+一个桌面端 Mega Menu，推荐具有以下行为：
+
+| 用户操作 | 预期行为 |
+|---|---|
+| Tab | 在导航按钮和链接之间移动 |
+| Enter / Space | 展开或折叠 summary |
+| Esc | 关闭当前 Mega Menu |
+| 焦点进入子菜单 | 保持菜单展开 |
+| 焦点离开当前菜单 | 可以自动关闭 |
+| 点击其他一级菜单 | 关闭原菜单，打开新菜单 |
+| 点击页面其他区域 | 关闭菜单 |
+
+### 6.1 JavaScript 增强
+
+在前面 Liquid 结构的基础上：
+
+```javascript
+const nav = document.querySelector('[data-mega-nav]');
+
+const menus = [...nav.querySelectorAll(
+  'details.mega-menu'
+)];
+
+function closeMenu(menu, restoreFocus = false) {
+  const summary = menu.querySelector('summary');
+
+  if (
+    restoreFocus ||
+    (menu.contains(document.activeElement) &&
+     document.activeElement !== summary)
+  ) {
+    summary.focus();
+  }
+
+  menu.open = false;
+}
+
+menus.forEach(menu => {
+  menu.addEventListener('toggle', () => {
+    if (!menu.open) return;
+
+    menus.forEach(other => {
+      if (other !== menu && other.open) {
+        closeMenu(other);
+      }
+    });
+  });
+
+  menu.addEventListener('keydown', event => {
+    if (
+      event.key === 'Escape' &&
+      !event.defaultPrevented &&
+      menu.open
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      closeMenu(menu, true);
+    }
+  });
+
+  menu.addEventListener('focusout', event => {
+    if (
+      event.relatedTarget &&
+      !menu.contains(event.relatedTarget)
+    ) {
+      menu.open = false;
+    }
+  });
+});
+
+document.addEventListener('click', event => {
+  menus.forEach(menu => {
+    if (menu.open && !menu.contains(event.target)) {
+      closeMenu(menu);
+    }
+  });
+});
+```
+
+这个例子采用单实例、点击展开、同一时间最多展开一个 Mega Menu 的设计。
+
+### 6.2 为什么 Mega Menu 不应该使用 Focus Trap？
+
+{@body const [megaOpen,setMegaOpen]=DIL.useState(true)}
+{@body const [megaFocus,setMegaFocus]=DIL.useState(1)}
+{@body const megaItems=megaOpen?["Home","Clothing","View all Clothing","T-shirts","Jackets","Sale","Search","Shopping cart"]:["Home","Clothing","Sale","Search","Shopping cart"]}
+<card gap={3}>
+  **Mega Menu 键盘实验室**
+  {#each megaItems as item,i}
+    <box padding={{left:megaOpen&&i>=2&&i<=4?6:0}}>
+      <pressable padding={2} radius="sm" border={{size:megaFocus===i?2:1,color:megaFocus===i?"#3978BC":"#88888830"}} onClick={()=>{setMegaFocus(i);if(item==="Clothing")setMegaOpen(v=>!v)}}>
+        <row align="center">
+          <text size="sm">{item}</text>
+          <spacer/>
+          {#if item==="Clothing"}<icon name={megaOpen?"chevron-up":"chevron-down"} size="sm"/>{:else}<caption>Link</caption>{/if}
+        </row>
+      </pressable>
+    </box>
+  {/each}
+  <grid columns={2} gap={2}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{const n=Math.max(0,megaFocus-1);setMegaFocus(n);if(n===0)setMegaOpen(false)}}>Shift + Tab</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{if(megaOpen&&megaFocus===4){setMegaOpen(false);setMegaFocus(2)}else{setMegaFocus(Math.min(megaItems.length-1,megaFocus+1))}}}>Tab</button></grid-item>
+    <grid-item><button block disabled={megaFocus!==1} onClick={()=>setMegaOpen(v=>!v)}>Enter / Space</button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" disabled={!megaOpen} onClick={()=>{setMegaOpen(false);setMegaFocus(1)}}>Esc</button></grid-item>
+  </grid>
+  <caption>模拟焦点：{megaItems[megaFocus]}。普通导航展开后仍然允许用户继续访问 Sale、Search 和购物车。</caption>
+</card>
+
+Mega Menu 属于非模态交互，不能把用户限制在菜单内部。
+
+只有移动端菜单采用真正的模态 Drawer 时，才需要模态焦点隔离。
+
+### 6.3 Hover Mega Menu 的特殊问题
+
+很多设计要求鼠标经过一级菜单时自动展开。
+
+如果需要支持这种功能，不能只写：
+
+```css
+.menu-item:hover .mega-menu {
+  display: block;
+}
+```
+
+因为这种实现可能缺少键盘展开能力，也可能导致 ARIA 状态与视觉状态不一致。
+
+应该让 Hover、Click、Keyboard 共同调用统一的状态管理逻辑，并满足 WCAG 1.4.13 的可关闭、可悬停、持续显示要求。
+
+尤其需要注意：用户按 Esc 关闭菜单之后，即使鼠标仍然悬停在触发元素上，也不应该立即重新打开。
+
+---
+
+## 7. 移动端 Mobile Menu Drawer
+
+移动端导航与桌面端 Mega Menu 有一个本质区别：它经常采用全屏或半屏模态抽屉。
+
+<grid columns={3} gap={2}>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <row><icon name="menu" size="sm"/><spacer/><text size="xs">STORE</text><spacer/><icon name="shopping-bag" size="sm"/></row>
+      <box background="#D5CEC1" height="100px" radius="sm" align="center" justify="center">
+        <svg viewBox="0 0 70 80" height="75px">
+          <path d="M23 6 L5 20 L15 33 L23 29 V73 H47 V29 L55 33 L65 20 L47 6 L40 13 H30 Z" fill="#777266"/>
+        </svg>
+      </box>
+      <text size="xs">New arrivals</text>
+      <box background="surface-tertiary" height="38px" radius="sm"/>
+    </box>
+    <caption textAlign="center">关闭状态</caption>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <row><text size="xs" weight="bold">Menu</text><spacer/><icon name="x" size="sm"/></row>
+      <divider/>
+      <text size="xs">Home</text>
+      <row><text size="xs">Clothing</text><spacer/><icon name="chevron-right" size="xs"/></row>
+      <row><text size="xs">Accessories</text><spacer/><icon name="chevron-right" size="xs"/></row>
+      <text size="xs">Sale</text>
+      <divider/>
+      <text size="xs">My account</text>
+      <text size="xs">United States</text>
+    </box>
+    <caption textAlign="center">一级菜单</caption>
+  </grid-item>
+  <grid-item>
+    <box border radius="lg" padding={2} gap={2}>
+      <row><icon name="arrow-left" size="sm"/><text size="xs">Clothing</text><spacer/><icon name="x" size="sm"/></row>
+      <divider/>
+      <text size="xs">View all</text>
+      <text size="xs" weight="bold">Men</text>
+      <text size="xs">T-shirts</text>
+      <text size="xs">Jackets</text>
+      <divider/>
+      <text size="xs" weight="bold">Women</text>
+      <text size="xs">Dresses</text>
+      <text size="xs">Tops</text>
+    </box>
+    <caption textAlign="center">二级菜单</caption>
+  </grid-item>
+</grid>
+
+### 7.1 推荐的原生 dialog 结构
+
+```html
+<button
+  type="button"
+  id="OpenMobileMenu"
+  aria-label="Open navigation menu"
+  aria-haspopup="dialog"
+  aria-controls="MobileMenu"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+
+<dialog
+  id="MobileMenu"
+  class="drawer"
+  aria-labelledby="MobileMenuTitle"
+>
+  <h2 id="MobileMenuTitle">Menu</h2>
+
+  <button type="button" data-close autofocus>
+    Close menu
+  </button>
+
+  <nav aria-label="Main navigation">
+    <!-- Mobile navigation -->
+  </nav>
+</dialog>
+```
+
+```javascript
+const mobileMenu = document.querySelector('#MobileMenu');
+
+const trigger = document.querySelector('#OpenMobileMenu');
+
+trigger.addEventListener('click', () => {
+  mobileMenu.showModal();
+});
+
+mobileMenu.querySelector('[data-close]')
+  .addEventListener('click', () => {
+    mobileMenu.close();
+  });
+```
+
+可以直接复用第 15 课开发的 AccessibleModal 组件与 Drawer 样式。
+
+### 7.2 多级菜单的焦点生命周期
+
+如果移动端菜单采用逐级滑入，而不是普通 Accordion，需要额外管理当前导航层级。
+
+<box border radius="lg" padding={3} gap={1}>
+  {#each [{t:"打开移动端菜单",d:"初始焦点进入 Close menu 按钮"},{t:"进入 Clothing 子菜单",d:"焦点移至 Back to main menu 按钮"},{t:"进入 Men 子菜单",d:"焦点移至 Back to Clothing 按钮"},{t:"返回上一级",d:"恢复到打开该级菜单的触发按钮"},{t:"关闭整个 Drawer",d:"恢复到 Header 的 Menu 按钮"}] as item,i}
+    <box border radius="md" padding={3} gap={1}>
+      **{item.t}**
+      <caption>{item.d}</caption>
+    </box>
+    {#if i<4}<box align="center"><icon name="arrow-down" color="secondary" size="sm"/></box>{/if}
+  {/each}
+</box>
+
+### 7.3 非当前层级不能继续被聚焦
+
+很多移动端导航通过 transform 实现滑动。
+
+```css
+.submenu {
+  transform: translateX(100%);
+}
+
+.submenu.is-open {
+  transform: translateX(0);
+}
+```
+
+与上一课的 Carousel 问题完全相同，移出屏幕并不会自动禁止键盘和屏幕阅读器访问。
+
+可以使用：
+
+```javascript
+panels.forEach(panel => {
+  panel.inert = panel !== currentPanel;
+});
+```
+
+这里要求 panels 是相互独立的兄弟区域。如果子菜单嵌套在父菜单内部，不能直接将其祖先设置为 inert，否则当前子菜单也会被一起禁用。
+
+### 7.4 桌面与移动导航共存的问题
+
+Shopify Theme 经常同时渲染桌面导航和移动导航，再根据响应式断点切换。
+
+```css
+@media (min-width: 990px) {
+  .mobile-navigation {
+    display: none;
+  }
+}
+
+@media (max-width: 989px) {
+  .desktop-navigation {
+    display: none;
+  }
+}
+```
+
+这种方案本身没有问题，但需要注意 DOM ID 必须唯一，即使其中一套导航当前不可见。
+
+另外，如果用户在移动端打开了模态菜单，然后调整窗口宽度进入桌面布局，应该先正确关闭 dialog、解除模态隔离，再隐藏移动端组件，避免出现页面无法操作的情况。
+
+---
+
+## 8. Search Modal 与 Predictive Search 的组合
+
+在第 15 课和第 16 课中，我们分别实现了 Modal 和 Combobox。
+
+Shopify Header 的商品搜索，实际上就是这两个组件的组合。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    **STYLE STORE**
+    <spacer/>
+    <icon name="search"/>
+    <icon name="shopping-bag"/>
+  </row>
+  <box border radius="md" padding={3} gap={3}>
+    <row align="center">
+      **Search products**
+      <spacer/><icon name="x"/>
+    </row>
+    <row border={{size:2,color:"#3978BC"}} radius="sm" padding={2} align="center">
+      <icon name="search" size="sm"/>
+      cotton
+      <spacer/>
+      <icon name="x" size="sm"/>
+    </row>
+    <caption>Products</caption>
+    {#each [{n:"Cotton T-shirt",p:"$29.99",c:"#575757"},{n:"Cotton jacket",p:"$89.99",c:"#B1A086"},{n:"Cotton sweatshirt",p:"$49.99",c:"#8999AA"}] as p,i}
+      <row background={i===0?"surface-tertiary":"surface"} radius="sm" padding={2} align="center">
+        <box size="45px" background="#E0D8CB" radius="sm">
+          <svg viewBox="0 0 50 50" width="100%">
+            <path d="M17 5 L4 15 L11 25 L17 21 V46 H33 V21 L39 25 L46 15 L33 5 L25 10 Z" fill={p.c}/>
+          </svg>
+        </box>
+        <box flex={1} gap={1}>
+          <text size="sm">{p.n}</text>
+          <caption>{p.p}</caption>
+        </box>
+      </row>
+    {/each}
+    <divider/>
+    <row>
+      <text size="sm">Search for “cotton”</text>
+      <spacer/><icon name="arrow-right" size="sm"/>
+    </row>
+  </box>
+  <caption>Search Modal 内部嵌套 Predictive Search Combobox。</caption>
+</box>
+
+### 8.1 组件职责划分
+
+| 模块 | 职责 |
+|---|---|
+| SearchModal | 弹窗打开、关闭、背景隔离 |
+| SearchForm | 普通搜索表单与提交 |
+| PredictiveSearch | 请求搜索建议 |
+| Combobox | 键盘导航、活动选项 |
+| Live Region | 搜索结果数量通知 |
+
+不应该让一个 PredictiveSearch 类同时承担所有弹窗、滚动锁、导航等职责。
+
+### 8.2 Liquid 基础结构
+
+```liquid
+<dialog
+  id="SearchDialog"
+  aria-labelledby="SearchDialogTitle"
+>
+  <h2 id="SearchDialogTitle">
+    Search products
+  </h2>
+
+  <form
+    action="{{ routes.search_url }}"
+    method="get"
+    role="search"
+    aria-label="Product search"
+  >
+    <label for="HeaderSearchInput"
+      class="visually-hidden">
+      Search products
+    </label>
+
+    <input
+      id="HeaderSearchInput"
+      type="search"
+      name="q"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-expanded="false"
+      aria-controls="HeaderSearchResults"
+      autocomplete="off"
+      autofocus
+    >
+
+    <button type="submit" aria-label="Search">
+      <svg aria-hidden="true"></svg>
+    </button>
+
+    <ul
+      id="HeaderSearchResults"
+      role="listbox"
+      aria-label="Product suggestions"
+      hidden
+    ></ul>
+
+    <p role="status" class="visually-hidden"
+      id="HeaderSearchStatus"></p>
+  </form>
+
+  <button type="button" data-close>
+    Close search
+  </button>
+
+</dialog>
+```
+
+在这个场景中，初始焦点直接放在搜索输入框，而不是 Close 按钮，因为用户打开搜索弹窗的主要目的就是输入关键词。
+
+Predictive Search 的请求、虚拟焦点、结果渲染逻辑可以直接复用第 16 课的实现。
+
+正式项目还应该在搜索功能成功初始化后再增强 Combobox 语义，并提供 JavaScript 不可用时的普通搜索入口。
+
+---
+
+## 9. 一个重要的实战问题：嵌套组件的 Esc 冲突
+
+假设 Search Modal 已打开，并且搜索建议也已经展开。
+
+此时按下 Esc，应该关闭谁？
+
+{@body const [searchModalOpen,setSearchModalOpen]=DIL.useState(true)}
+{@body const [suggestionsOpen,setSuggestionsOpen]=DIL.useState(true)}
+<card gap={3}>
+  <row align="center">
+    **Search Modal**
+    <spacer/>
+    <caption>{searchModalOpen?"Open":"Closed"}</caption>
+  </row>
+  {#if searchModalOpen}
+    <box border radius="md" padding={3} gap={2}>
+      <row border radius="sm" padding={2}>
+        <icon name="search" size="sm"/>
+        cotton
+      </row>
+      {#if suggestionsOpen}
+        <box background="surface-tertiary" radius="sm" padding={3} gap={2}>
+          <text size="sm">Cotton T-shirt</text>
+          <text size="sm">Cotton jacket</text>
+          <text size="sm">Cotton sweatshirt</text>
+        </box>
+      {/if}
+    </box>
+  {/if}
+  <button block variant="outline" color="secondary" disabled={!searchModalOpen} onClick={()=>{if(suggestionsOpen)setSuggestionsOpen(false);else setSearchModalOpen(false)}}>按下 Esc</button>
+  <divider/>
+  <row><caption>Search Modal</caption><spacer/>{String(searchModalOpen)}</row>
+  <row><caption>Combobox expanded</caption><spacer/>{String(suggestionsOpen)}</row>
+  <row><caption>模拟焦点</caption><spacer/><text size="sm">{searchModalOpen?"搜索输入框":"Header Search 按钮"}</text></row>
+  <button block variant="ghost" color="secondary" onClick={()=>{setSearchModalOpen(true);setSuggestionsOpen(true)}}>重置实验</button>
+</card>
+
+第一次 Esc 关闭搜索建议，第二次 Esc 关闭 Search Modal。
+
+错误的实现是两个组件都监听 document 上的 Esc，导致第一次按下时全部关闭。
+
+可以在 Combobox 内部处理：
+
+```javascript
+input.addEventListener('keydown', event => {
+  if (
+    event.key === 'Escape' &&
+    !listbox.hidden
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    closeResults();
+  }
+});
+```
+
+自定义 Modal 的键盘处理器需要尊重事件状态：
+
+```javascript
+function onModalKeydown(event) {
+  if (event.defaultPrevented) return;
+
+  if (event.key === 'Escape') {
+    closeModal();
+  }
+}
+```
+
+对于原生 dialog，通常应保留浏览器的关闭机制，通过内部按键处理及必要的 cancel 事件协调关闭行为，而不是另外实现一套全局 Esc 监听。
+
+还需要在真实浏览器中测试原生 Search 输入框的 Esc 清空行为、输入法组合输入以及多个浮层同时存在的情况。
+
+---
+
+## 10. Sticky Header 导致的焦点遮挡
+
+这是一类非常容易被自动化无障碍检测遗漏的问题。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={2} gap={2}>
+      <svg viewBox="0 0 145 180" width="100%">
+        <rect x="3" y="3" width="139" height="174" rx="5" fill="none" stroke="currentColor" strokeOpacity=".3"/>
+        <rect x="19" y="22" width="108" height="28" rx="3" stroke="#3978BC" strokeWidth="2" fill="none"/>
+        <rect x="3" y="3" width="139" height="65" rx="4" fill="#444444"/>
+        <text x="72" y="29" textAnchor="middle" fontSize="11" fill="white">STYLE STORE</text>
+        <text x="72" y="46" textAnchor="middle" fontSize="9" fill="white">Sticky Header</text>
+        <path d="M18 85 H126 M18 102 H110 M18 119 H126" stroke="currentColor" strokeOpacity=".25" strokeWidth="3"/>
+        <text x="72" y="153" fontSize="11" fill="#BC5454" textAnchor="middle">焦点被完全遮挡</text>
+      </svg>
+      **错误实现**
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={2} gap={2}>
+      <svg viewBox="0 0 145 180" width="100%">
+        <rect x="3" y="3" width="139" height="174" rx="5" fill="none" stroke="currentColor" strokeOpacity=".3"/>
+        <rect x="3" y="3" width="139" height="65" rx="4" fill="#444444"/>
+        <text x="72" y="29" textAnchor="middle" fontSize="11" fill="white">STYLE STORE</text>
+        <text x="72" y="46" textAnchor="middle" fontSize="9" fill="white">Sticky Header</text>
+        <rect x="19" y="80" width="108" height="28" rx="3" stroke="#3978BC" strokeWidth="2" fill="#3978BC" fillOpacity=".08"/>
+        <text x="73" y="98" fontSize="10" textAnchor="middle" fill="currentColor">Add to cart</text>
+        <path d="M18 122 H126 M18 137 H110" stroke="currentColor" strokeOpacity=".25" strokeWidth="3"/>
+        <text x="72" y="165" fontSize="11" fill="#39866B" textAnchor="middle">焦点保持可见</text>
+      </svg>
+      **正确实现**
+    </box>
+  </grid-item>
+</grid>
+
+WCAG 2.2 的 2.4.11 Focus Not Obscured（AA）要求，键盘焦点所在组件不能被作者创建的内容完全遮挡。
+
+固定 Header 和固定 Footer 都是典型的审计对象。<Cite refs={["turn135853search5","turn135853search8"]}/>
+
+### 10.1 基础解决方案
+
+```css
+html {
+  scroll-padding-block-start:
+    calc(var(--sticky-header-height, 0px) + 16px);
+}
+```
+
+### 10.2 动态计算 Header 高度
+
+实际 Shopify Header 的高度往往不是固定值，因为存在商家配置、Announcement Bar、多语言及响应式布局。
+
+```javascript
+const header = document.querySelector(
+  '[data-sticky-header]'
+);
+
+if (header) {
+  const updateHeight = () => {
+    const height = header.getBoundingClientRect().height;
+
+    document.documentElement.style.setProperty(
+      '--sticky-header-height',
+      `${height}px`
+    );
+  };
+
+  const observer = new ResizeObserver(updateHeight);
+
+  observer.observe(header);
+
+  updateHeight();
+}
+```
+
+这里假设 `data-sticky-header` 对应的是整个实际遮挡内容的固定区域。
+
+如果 Announcement Bar 和 Header 分别固定，则需要计算实际遮挡范围，而不仅是其中一个元素的高度。
+
+### 10.3 自动隐藏 Header 的问题
+
+很多 Shopify Theme 支持：
+
+向下滚动时隐藏 Header，向上滚动时显示 Header。
+
+但如果用户正在通过键盘访问 Header 内的控件，不能让 Header 突然滑出屏幕。
+
+可以加入：
+
+```css
+.site-header:focus-within {
+  transform: translateY(0);
+}
+```
+
+同时在 JavaScript 的自动隐藏逻辑中考虑：
+
+```javascript
+if (
+  header.contains(document.activeElement)
+) {
+  return;
+}
+```
+
+`scroll-padding` 是解决遮挡问题的重要手段，但并不能保证所有焦点和滚动场景都正确，最终仍需要通过实际 Tab 导航验证。
+
+---
+
+## 11. 国家、地区与语言选择器
+
+跨境电商 Header 经常包含 Shopify Markets 的国家和语言选择功能。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <icon name="globe"/>
+    **Country / region**
+    <spacer/>
+    <icon name="chevron-down" size="sm"/>
+  </row>
+  <divider/>
+  {#each [{flag:"🇺🇸",n:"United States",c:"USD"},{flag:"🇨🇦",n:"Canada",c:"CAD"},{flag:"🇬🇧",n:"United Kingdom",c:"GBP"},{flag:"🇩🇪",n:"Germany",c:"EUR"}] as p,i}
+    <row background={i===0?"surface-tertiary":"surface"} radius="sm" padding={2} align="center">
+      {p.flag}
+      <box flex={1}><text size="sm">{p.n}</text></box>
+      <caption>{p.c}</caption>
+      {#if i===0}<icon name="check" size="sm"/>{/if}
+    </row>
+  {/each}
+</box>
+
+### 11.1 不要只使用国旗表达国家
+
+国旗可以作为视觉辅助，但不能作为唯一标签。
+
+同一种语言可能在多个国家使用，同一个国家也可能存在多种语言。
+
+因此，应该明确显示国家或地区名称、语言名称及适用的币种信息。
+
+### 11.2 使用原生 Select
+
+Shopify 提供 localization form，以及 `localization.available_countries` 等对象属性。<Cite refs={["turn981223search9","turn981223search12"]}/>
+
+```liquid
+{% form 'localization' %}
+
+  <label for="Country-{{ section.id }}">
+    Country / region
+  </label>
+
+  <select
+    id="Country-{{ section.id }}"
+    name="country_code"
+  >
+    {% for country in localization.available_countries %}
+
+      <option
+        value="{{ country.iso_code }}"
+        {% if country.iso_code == localization.country.iso_code %}
+          selected
+        {% endif %}
+      >
+        {{ country.name | escape }}
+        ({{ country.currency.iso_code }})
+      </option>
+
+    {% endfor %}
+  </select>
+
+  <button type="submit">
+    Update country / region
+  </button>
+
+{% endform %}
+```
+
+这里采用用户确认后再提交的方式。
+
+因为切换国家可能涉及币种、价格、语言、商品可用性乃至页面跳转，所以不一定适合在用户按方向键浏览选项时立即提交。
+
+这也涉及第 4 课学习的 WCAG 3.2.2 On Input。
+
+---
+
+## 12. Shopify Dawn Header 源码解析
+
+接下来从整体架构上理解 Dawn 的 Header。
+
+### 12.1 文件结构
+
+<box border radius="lg" padding={3} gap={2}>
+  <row><icon name="folder" color="secondary"/> **Dawn**</row>
+  <box padding={{left:3}} gap={3}>
+    <row><icon name="folder" color="secondary"/> **layout**</row>
+    <box padding={{left:3}}><text size="sm">theme.liquid</text></box>
+    <row><icon name="folder" color="secondary"/> **sections**</row>
+    <box padding={{left:3}} gap={1}>
+      <text size="sm">header-group.json</text>
+      <text size="sm">header.liquid</text>
+      <text size="sm">announcement-bar.liquid</text>
+      <text size="sm">predictive-search.liquid</text>
+    </box>
+    <row><icon name="folder" color="secondary"/> **snippets**</row>
+    <box padding={{left:3}} gap={1}>
+      <text size="sm">header-mega-menu.liquid</text>
+      <text size="sm">header-dropdown-menu.liquid</text>
+      <text size="sm">header-drawer.liquid</text>
+      <text size="sm">header-search.liquid</text>
+      <text size="sm">country-localization.liquid</text>
+      <text size="sm">cart-icon-bubble.liquid</text>
+    </box>
+    <row><icon name="folder" color="secondary"/> **assets**</row>
+    <box padding={{left:3}} gap={1}>
+      <text size="sm">global.js</text>
+      <text size="sm">details-disclosure.js</text>
+      <text size="sm">details-modal.js</text>
+      <text size="sm">search-form.js</text>
+      <text size="sm">predictive-search.js</text>
+      <text size="sm">localization-form.js</text>
+    </box>
+  </box>
+</box>
+
+### 12.2 header-mega-menu.liquid
+
+Dawn 公开 main 分支中的 Mega Menu 主要使用以下结构：
+
+```liquid
+<header-menu>
+  <details class="mega-menu">
+
+    <summary>
+      <!-- First-level navigation title -->
+    </summary>
+
+    <div class="mega-menu__content">
+      <ul role="list">
+        <!-- Child navigation links -->
+      </ul>
+    </div>
+
+  </details>
+</header-menu>
+```
+
+这是根据源码简化后的结构。
+
+Dawn 并没有将普通导航直接实现为 ARIA Menubar，而是采用原生 details、summary 与链接的组合，并通过 Web Component 增强行为。<Cite ref="turn135853search0"/>
+
+### 12.3 header-drawer.liquid
+
+移动端则使用嵌套 details 实现多级导航。
+
+在 `global.js` 中，MenuDrawer 和 HeaderDrawer 负责展开、关闭、子菜单切换以及相关焦点处理。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border radius="md" padding={2} align="center">HTMLElement</box>
+  <box align="center"><icon name="arrow-down" size="sm" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} gap={1}>
+    **MenuDrawer**
+    <caption>通用抽屉与多级导航逻辑</caption>
+  </box>
+  <box align="center"><icon name="arrow-down" size="sm" color="secondary"/><caption>extends</caption></box>
+  <box border radius="md" padding={3} gap={1}>
+    **HeaderDrawer**
+    <caption>Header 专属抽屉行为</caption>
+  </box>
+</box>
+
+源码中可以看到 `openMenuDrawer()`、`closeMenuDrawer()`、`closeSubmenu()` 和 `trapFocus()` 等相关方法。<Cite refs={["turn135853search1","turn981223search0"]}/>
+
+结合前面的课程，我们可以重点审查以下问题：
+
+| Dawn 实现机制 | 自定义开发时的审查点 |
+|---|---|
+| details / summary | 展开状态是否正确 |
+| trapFocus | 当前焦点范围是否合理 |
+| 子菜单滑入滑出 | 非当前层级是否仍然可聚焦 |
+| 动画与延迟 | 减少运动模式下是否正常 |
+| Header 响应式布局 | 跨断点时是否正确关闭 |
+| Section Rendering | 触发元素被替换后能否恢复焦点 |
+
+这些是源码扩展时需要关注的风险，不代表已经确认 Dawn 存在这些缺陷。
+
+### 12.4 Dawn 与我们自己的实现如何选择？
+
+| 模块 | Dawn 设计思路 | 新项目可考虑 |
+|---|---|---|
+| Mega Menu | details + Web Component | details + Web Component |
+| Mobile Drawer | 自定义抽屉 | 原生 dialog |
+| Search Modal | 自定义弹窗 | 原生 dialog |
+| Predictive Search | Section Rendering | Section Rendering / JSON |
+| 商品数量 | Liquid 局部更新 | 保留触发元素并同步名称 |
+| 国家选择 | 自定义 Localization Form | 原生 select 或自定义 Combobox |
+
+没有必要为了追求新的浏览器 API，将 Dawn 中已经正常工作的组件全部重写。
+
+但如果你正在开发一套全新的 Theme 组件库，可以充分利用原生 dialog、inert、Popover 等现代浏览器能力。
+
+---
+
+## 13. Section Rendering 对 Header 的影响
+
+这是 Shopify 项目中一个非常实际的问题。
+
+假设用户加购商品后，我们通过 Section Rendering 获取新的 `cart-icon-bubble` HTML。
+
+如果直接替换整个 Header：
+
+```javascript
+header.innerHTML = responseHTML;
+```
+
+可能造成以下问题：
+
+| 问题 | 原因 |
+|---|---|
+| 焦点回到 body | 当前聚焦元素被删除 |
+| Mega Menu 突然关闭 | 原有组件状态丢失 |
+| Search Modal 状态丢失 | dialog 节点被替换 |
+| 搜索请求仍然执行 | 旧组件未清理资源 |
+| Live Region 无法正常通知 | 原消息节点被销毁 |
+| 按钮事件失效 | 新节点未重新绑定事件 |
+
+更推荐尽可能缩小更新范围。
+
+<grid columns={2} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **整体替换**
+      <box border={{size:2,color:"#BC5454"}} radius="sm" padding={2} gap={2}>
+        <caption>Header</caption>
+        <row justify="between">
+          <icon name="menu"/>
+          <icon name="search"/>
+          <icon name="user"/>
+          <icon name="shopping-bag"/>
+        </row>
+      </box>
+      <caption>所有组件及状态都可能受到影响。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **局部更新**
+      <box border radius="sm" padding={2} gap={2}>
+        <caption>Header</caption>
+        <row justify="between" align="center">
+          <icon name="menu"/>
+          <icon name="search"/>
+          <icon name="user"/>
+          <box border={{size:2,color:"#39866B"}} radius="sm" padding={1}>
+            <icon name="shopping-bag"/>
+          </box>
+        </row>
+      </box>
+      <caption>只更新购物车数量及相关信息。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+例如保留 Cart 按钮本身：
+
+```javascript
+function updateCartIcon(count) {
+  const button = document.querySelector(
+    '#HeaderCartButton'
+  );
+
+  const badge = button.querySelector('.cart-count');
+
+  badge.textContent = String(count);
+
+  button.setAttribute(
+    'aria-label',
+    `Shopping cart, ${count} ${count === 1 ? 'item' : 'items'}`
+  );
+}
+```
+
+这样既能够更新视觉 UI，也能够保留 DOM 节点、原有事件以及当前焦点。
+
+生产项目还需要使用翻译后的名称模板。
+
+**Section Rendering 的无障碍优化，很多时候不是增加 ARIA，而是减少不必要的 DOM 销毁。**
+
+---
+
+## 14. Header 自动化测试
+
+### 14.1 测试 Skip Link
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('skip link bypasses header navigation', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Tab');
+
+  const skipLink = page.getByRole('link', {
+    name: 'Skip to content'
+  });
+
+  await expect(skipLink).toBeFocused();
+
+  await page.keyboard.press('Enter');
+
+  await expect(
+    page.locator('#MainContent')
+  ).toBeFocused();
+});
+```
+
+### 14.2 测试 Mega Menu
+
+```javascript
+test('mega menu keyboard navigation', async ({ page }) => {
+  await page.goto('/');
+
+  const summary = page.locator(
+    '.mega-menu > summary'
+  ).filter({
+    hasText: 'Clothing'
+  });
+
+  await summary.focus();
+  await summary.press('Enter');
+
+  const details = summary.locator('..');
+
+  await expect(details).toHaveJSProperty(
+    'open',
+    true
+  );
+
+  await page.keyboard.press('Tab');
+
+  const childLink = details.getByRole('link', {
+    name: 'View all Clothing'
+  });
+
+  await expect(childLink).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(details).toHaveJSProperty(
+    'open',
+    false
+  );
+
+  await expect(summary).toBeFocused();
+});
+```
+
+### 14.3 测试 Search Modal
+
+```javascript
+test('search modal restores focus', async ({ page }) => {
+  await page.goto('/');
+
+  const trigger = page.getByRole('button', {
+    name: 'Search',
+    exact: true
+  });
+
+  await trigger.focus();
+  await trigger.press('Enter');
+
+  const dialog = page.getByRole('dialog', {
+    name: 'Search products'
+  });
+
+  await expect(dialog).toBeVisible();
+
+  const input = dialog.getByRole('combobox');
+
+  await expect(input).toBeFocused();
+
+  await page.keyboard.press('Escape');
+
+  await expect(dialog).toBeHidden();
+
+  await expect(trigger).toBeFocused();
+});
+```
+
+这些测试针对本课设计的英文页面及组件结构，并非可以无修改地用于所有 Dawn 版本的测试脚本。
+
+---
+
+## 15. Header 无障碍审计与 WCAG 对照
+
+| 常见问题 | 对应准则 |
+|---|---|
+| 无法跳过重复导航 | 2.4.1 Bypass Blocks |
+| Mega Menu 只能通过 Hover 展开 | 2.1.1 Keyboard |
+| 移动端菜单无法通过键盘退出 | 2.1.2 No Keyboard Trap |
+| 隐藏的子菜单链接仍可聚焦 | 2.4.3 Focus Order |
+| 图标按钮没有 Accessible Name | 4.1.2 Name, Role, Value |
+| Sticky Header 完全遮挡焦点 | 2.4.11 Focus Not Obscured |
+| 图标点击区域过小且不符合例外 | 2.5.8 Target Size |
+| Hover 菜单无法关闭 | 1.4.13 Content on Hover or Focus |
+| 当前导航仅通过颜色表达 | 1.4.1 Use of Color |
+| 搜索结果数量通知缺失 | 4.1.3 Status Messages |
+| 自动切换国家造成意外跳转 | 3.2.2 On Input |
+| Announcement Bar 无法暂停 | 2.2.2 Pause, Stop, Hide |
+
+具体是否违规，需要结合每项准则的适用条件进行判断。
+
+## 16. 本课知识测试
+
+{@body const headerQuiz=[{q:"Shopify Header Group 是否自动具有 banner 语义？",o:["是","否"],a:1,e:"Section Group 是 Shopify 的组织机制，HTML 语义需要单独考虑。"},{q:"普通 Mega Menu 应该优先使用哪种模式？",o:["ARIA Menubar","Disclosure Navigation"],a:1,e:"普通网站导航不需要承担桌面软件菜单的完整交互模型。"},{q:"当前页面为 T-shirts，父级 Clothing 是否也应该设置 aria-current=\"page\"？",o:["应该","不应该仅因为子项处于活动状态而设置"],a:1,e:"父级活动路径可以通过样式表达，但不等于当前页面。"},{q:"移动端子菜单通过 transform 移出屏幕，是否一定无法被键盘访问？",o:["是","否"],a:1,e:"transform 不会自动隔离焦点和无障碍语义。"},{q:"Search Modal 中的建议列表展开时按 Esc，应该优先关闭什么？",o:["整个 Modal","当前建议列表"],a:1,e:"应优先处理内层浮层，保留用户当前搜索上下文。"},{q:"加购后更新 Header，哪种方式更容易保留焦点？",o:["替换整个 Header","更新购物车数量及相关属性"],a:1,e:"缩小 DOM 更新范围可以避免不必要的组件状态丢失。"}]}
+{@body const [headerAnswers,setHeaderAnswers]=DIL.useState(Array(headerQuiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {headerAnswers.filter((a,i)=>a===headerQuiz[i].a).length} / {headerQuiz.length}</caption>
+  </row>
+  {#each headerQuiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(headerAnswers[i])} onChange={v=>setHeaderAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.o as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if headerAnswers[i]>=0}
+        <text size="sm" color={headerAnswers[i]===q.a?"success":"danger"}>{headerAnswers[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<headerQuiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setHeaderAnswers(Array(headerQuiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 17. Header 日常开发检查清单
+
+{@body const headerChecks=["具有合理的 banner 和 navigation 语义","Skip Link 可以通过键盘访问","Logo 链接名称准确","Search、Account、Cart 图标具有明确名称","购物车数量与 Accessible Name 同步","Mega Menu 支持键盘展开与关闭","普通导航没有滥用 role=menu","aria-current 正确标记当前页面","Hover 菜单满足 1.4.13 要求","隐藏子菜单不可意外聚焦","移动端 Drawer 正确隔离背景","多级菜单返回时恢复焦点","Search Modal 初始焦点正确","Predictive Search 支持虚拟焦点","嵌套组件 Esc 不发生冲突","Sticky Header 不遮挡焦点","桌面及移动端没有重复 ID","国家及语言选择器具有明确名称","Section Rendering 不破坏组件状态","无障碍专用文案支持多语言","通过真实键盘及屏幕阅读器测试"]}
+{@body const [headerDone,setHeaderDone]=DIL.useState(Array(headerChecks.length).fill(false))}
+<card gap={2}>
+  <row align="center">
+    **Header Accessibility Checklist**
+    <spacer/>
+    <caption>{headerDone.filter(Boolean).length} / {headerChecks.length}</caption>
+  </row>
+  <box height={5} background="surface-tertiary" radius="full">
+    <box height={5} background="#39866B" radius="full" width={`${headerDone.filter(Boolean).length/headerChecks.length*100}%`}/>
+  </box>
+  {#each headerChecks as c,i}
+    <checkbox checked={headerDone[i]} onChange={v=>setHeaderDone(old=>old.map((x,j)=>j===i?v:x))} lineThrough={headerDone[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(headerChecks.map((c,i)=>(headerDone[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 18. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [Shopify Accessibility Best Practices](https://shopify.dev/docs/storefronts/themes/best-practices/accessibility) | Theme 无障碍开发 |
+| [W3C Disclosure Navigation](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/examples/disclosure-navigation/) | Mega Menu 导航模式 |
+| [Shopify Markets Localization](https://shopify.dev/docs/storefronts/themes/markets/multiple-currencies-languages) | 国家与语言选择 |
+| [WCAG Focus Not Obscured](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html) | Sticky Header 焦点遮挡 |
+| [Dawn header.liquid](https://github.com/Shopify/dawn/blob/main/sections/header.liquid) | Header 整体架构 |
+| [Dawn header-mega-menu.liquid](https://github.com/Shopify/dawn/blob/main/snippets/header-mega-menu.liquid) | Mega Menu |
+| [Dawn header-drawer.liquid](https://github.com/Shopify/dawn/blob/main/snippets/header-drawer.liquid) | 移动端导航 |
+| [Dawn global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) | 通用交互逻辑 |
+
+本课采用原生 Disclosure、原生 dialog、局部 DOM 更新作为推荐教学方案。代码尚未在你的实际 Theme 中运行验证，Dawn 源码以公开 main 分支为参考，所有交互演示均为状态模拟。
+
+---
+
+## 本课总结
+
+Header 的无障碍开发实际上是一项组件协作工程。
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center">
+    <title size="lg">Accessible Shopify Header</title>
+  </box>
+  <grid columns={2} gap={2}>
+    {#each [{i:"skip-forward",t:"Skip Link",d:"跳过重复内容"},{i:"compass",t:"Navigation",d:"导航与页面语义"},{i:"menu",t:"Mega Menu",d:"Disclosure 交互"},{i:"panel-left",t:"Mobile Drawer",d:"模态与多级焦点"},{i:"search",t:"Predictive Search",d:"Combobox 与 Live Region"},{i:"shopping-bag",t:"Cart Icon",d:"名称与数量同步"},{i:"globe",t:"Localization",d:"国家、语言与币种"},{i:"layers",t:"Sticky Header",d:"焦点遮挡管理"}] as p}
+      <grid-item>
+        <box border radius="md" padding={3} gap={2}>
+          <icon name={p.i} size="xl"/>
+          **{p.t}**
+          <caption>{p.d}</caption>
+        </box>
+      </grid-item>
+    {/each}
+  </grid>
+</box>
+
+本课最重要的开发思想是：**Header 中的每个组件不仅要独立满足无障碍要求，还必须在共同运行时避免焦点、键盘事件、浮层状态和异步更新之间的冲突。**
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>课程位置</caption>
+      <title size="2xl">76.9%</title>
+    </box>
+    <box gap={1}>
+      <caption>已学习 19 课</caption>
+      <caption>已跳过 1 课</caption>
+    </box>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4,s:0},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5,s:0},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5,s:0},{t:"阶段四：复杂 UI 组件实战",n:5,d:4,s:1},{t:"阶段五：Shopify 电商实战",n:4,d:1,s:0},{t:"阶段六：检测与工程化",n:3,d:0,s:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm">{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}{s.s?" · 跳过1课":""}</caption>{/if}
+      </row>
+      <row background="surface-tertiary" height={5} radius="full" gap={0} clip>
+        <box background="#39866B" height={5} width={`${s.d/s.n*100}%`}/>
+        {#if s.s}<box background="#A0A0A0" height={5} width={`${s.s/s.n*100}%`}/>{/if}
+      </row>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 21 课——商品详情页、Variant Picker 与商品图库**
+
+这将是 Shopify 电商实战中非常核心的一课，主要学习：
+
+- 商品详情页的整体语义结构。
+- 商品价格、原价、促销价的无障碍表达。
+- Variant Picker 的 Radio Group 与 Select 方案。
+- Color Swatch 颜色选择器。
+- Sold Out、Unavailable、Disabled 的区别。
+- 不可购买的变体是否应该允许选择。
+- 变体切换后的价格、库存、图片动态更新。
+- 商品图片 Gallery 与缩略图联动。
+- 商品图片放大弹窗、视频及 3D 模型。
+- Quantity Selector 数量选择器。
+- 商品评分、评论和库存提示。
+- Dawn `product-info.js`、`product-variant-picker.liquid`、`media-gallery.js` 源码解析。
+
+下一课会重点深入一个 Shopify 特有的业务问题：**当用户切换商品颜色或尺寸时，如何保证变体数据、视觉 UI、键盘焦点和无障碍状态始终保持一致。**

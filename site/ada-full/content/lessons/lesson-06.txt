@@ -1,0 +1,1722 @@
+# 第 6 课：图片、SVG、Icon 与多媒体无障碍
+
+<row align="center">
+  <caption>阶段二：HTML、CSS 无障碍开发</caption>
+  <spacer/>
+  <caption>6 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" width="23.08%" radius="full"/>
+</box>
+
+上一课我们学习了 HTML 语义化、Landmark、Heading，以及原生 HTML 元素的正确选择。
+
+这一课，我们来解决跨境电商网站中非常常见的一类无障碍问题：**非文本内容的无障碍处理。**
+
+对于 Shopify 网站，图片、SVG、Icon 几乎无处不在，包括商品图片、促销 Banner、颜色选择器、星级评分、购物车图标、支付方式图标、商品视频等。
+
+很多开发人员认为给图片添加 alt 就完成了无障碍处理，但实际情况远比这复杂。
+
+本课我们不仅学习如何编写 alt，还要理解不同图片在 Accessibility Tree 中的表现，以及如何根据图片的实际用途选择合适的无障碍实现方案。
+
+---
+
+## 1. 非文本内容的核心规范
+
+这一课主要涉及以下 WCAG 2.2 成功准则。
+
+| WCAG 编号 | 等级 | 要求 |
+|---|---|---|
+| 1.1.1 | A | 非文本内容的文本替代 |
+| 1.2.1 | A | 纯音频和纯视频替代内容 |
+| 1.2.2 | A | 预录视频字幕 |
+| 1.2.4 | AA | 直播字幕 |
+| 1.2.5 | AA | 预录视频音频描述 |
+| 1.4.1 | A | 不仅依靠颜色传递信息 |
+| 1.4.5 | AA | 图片形式的文字 |
+| 1.4.11 | AA | 非文本对比度 |
+| 2.2.2 | A | 暂停、停止、隐藏 |
+| 4.1.2 | A | 名称、角色、值 |
+
+其中最核心的是 **1.1.1 Non-text Content**。
+
+它的基本思想是：有意义的非文本内容应当提供能够实现等价目的的文本替代信息，纯装饰性内容则应允许辅助技术忽略。
+
+注意，这并不是要求将所有图片都转换成一段详细描述。
+
+---
+
+## 2. 图片的六种类型
+
+编写 alt 之前，首先应该判断图片在当前页面中承担什么作用。
+
+<box gap={4}>
+  <row align="start">
+    <AsyncImage query="black cotton crew neck t shirt product front view ecommerce white background" aspectRatio="4:3" maxWidth="112px"/>
+    <box flex={1} gap={1}>
+      **Informative Image · 信息性图片**
+
+      用于传递商品外观、材质、颜色、结构等信息。
+
+      <caption>需要描述有意义的视觉信息。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="minimal beige abstract decorative botanical pattern background" aspectRatio="4:3" maxWidth="112px"/>
+    <box flex={1} gap={1}>
+      **Decorative Image · 装饰性图片**
+
+      仅用于美化页面，不承担独立的信息传递功能。
+
+      <caption>通常使用 alt=""。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="112px" aspectRatio="4:3" background="surface-tertiary" radius="md" align="center" justify="center">
+      <icon name="shopping-cart" size="3xl"/>
+    </box>
+    <box flex={1} gap={1}>
+      **Functional Image · 功能性图片**
+
+      用于触发操作或导航，例如搜索、购物车、关闭图标。
+
+      <caption>描述功能，而不是图标的外观。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="112px" aspectRatio="4:3" background="#E7D6C6" theme="light" radius="md" align="center" justify="center" gap={0}>
+      <text color="#46372C" size="xs">SEASON SALE</text>
+      <title color="#46372C" size="2xl">50% OFF</title>
+      <text color="#46372C" size="xs">BLACK FRIDAY</text>
+    </box>
+    <box flex={1} gap={1}>
+      **Images of Text · 文字图片**
+
+      将促销文案、活动标题等文字直接制作成图片。
+
+      <caption>优先使用真实 HTML 文本。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <AsyncImage query="technical apparel t shirt measurement size diagram chest shoulder length arrows" aspectRatio="4:3" maxWidth="112px"/>
+    <box flex={1} gap={1}>
+      **Complex Image · 复杂图片**
+
+      商品尺寸图、结构示意图、数据图表等。
+
+      <caption>通常需要简短 alt 和完整的文字说明。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box width="112px" aspectRatio="4:3" background="surface-tertiary" radius="md" align="center" justify="center">
+      <svg viewBox="0 0 100 60" width="94px">
+        {#each ["#353535","#D5C5AC","#8299AC"] as c,i}
+          <rect x={3+i*33} y="8" width="28" height="44" rx="4" fill={c}/>
+          <path d={`M${12+i*33} 14 l-7 8 6 8 4 -4 v19 h10 v-19 l4 4 5 -8 -8 -8`} stroke="#FFFFFF" strokeOpacity=".65" fill="none"/>
+        {/each}
+      </svg>
+    </box>
+    <box flex={1} gap={1}>
+      **Groups of Images · 图片组合**
+
+      多张图片共同表达一个完整的信息，例如商品颜色系列、步骤说明。
+
+      <caption>需要根据整体含义提供合理的替代信息。</caption>
+    </box>
+  </row>
+</box>
+
+同一张图片，在不同场景中可能属于不同类型。因此，alt 并不是图片文件固定不变的属性，而应该结合页面上下文设计。
+
+## 3. img 标签的 alt 属性深入解析
+
+### 3.1 不写 alt 和 alt="" 有什么区别？
+
+这是一个非常基础，但在实际开发中经常被弄错的问题。
+
+```html
+<!-- 情况一 -->
+<img src="product.jpg">
+
+<!-- 情况二 -->
+<img src="product.jpg" alt="">
+
+<!-- 情况三 -->
+<img src="product.jpg" alt="Black cotton T-shirt">
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{code:"没有 alt 属性",role:"image",name:"可能使用文件名等后备信息",speech:"product.jpg, graphic",color:"danger"},{code:'alt=""',role:"通常被忽略",name:"无",speech:"跳过图片",color:"secondary"},{code:'alt="Black cotton T-shirt"',role:"image",name:"Black cotton T-shirt",speech:"Black cotton T-shirt, graphic",color:"success"}] as item,i}
+    <box gap={2}>
+      **{item.code}**
+      <row align="center">
+        <svg viewBox="0 0 70 70" width="70px">
+          <rect width="70" height="70" rx="5" fill="#E3DFD9"/>
+          <path d="M24 10 L8 21 L17 35 L24 30 V59 H46 V30 L53 35 L62 21 L46 10 L40 15 H30 Z" fill="#343434"/>
+        </svg>
+        <box flex={1} background="surface-tertiary" radius="md" padding={2}>
+          <row><caption>Role</caption><spacer/><text size="sm">{item.role}</text></row>
+          <caption>Name</caption>
+          <text size="sm" color={item.color}>{item.name}</text>
+        </box>
+      </row>
+      <row align="center">
+        <icon name={i===1?"volume-x":"volume-2"} color="secondary"/>
+        <text size="sm">{item.speech}</text>
+      </row>
+    </box>
+    {#if i<2}<divider/>{/if}
+  {/each}
+  <caption>普通非交互图片的无障碍树及屏幕阅读器表现示意。</caption>
+</box>
+
+三种写法向浏览器表达了不同的信息。
+
+| 写法 | 含义 |
+|---|---|
+| 不写 alt | 没有提供图片的替代文本 |
+| `alt=""` | 明确表示图片不需要独立的文本替代 |
+| `alt="..."` | 提供图片的替代信息 |
+
+对于装饰性图片，应该主动设置空 alt，而不是直接省略 alt 属性。<Cite refs={["turn198272search3","turn198272search10"]}/>
+
+### 3.2 如何编写高质量的商品图片 alt？
+
+假设我们有以下四张商品图片。
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <AsyncImage query="plain black crew neck cotton short sleeve t shirt front view ecommerce product photography" aspectRatio="4:3"/>
+    **正面图**
+    <text size="sm">Black cotton T-shirt, front view</text>
+  </grid-item>
+  <grid-item>
+    <AsyncImage query="plain black crew neck cotton short sleeve t shirt back view isolated product photography" aspectRatio="4:3"/>
+    **背面图**
+    <text size="sm">Black cotton T-shirt, back view</text>
+  </grid-item>
+  <grid-item>
+    <AsyncImage query="black cotton t shirt fabric neckline stitching macro detail product photography" aspectRatio="4:3"/>
+    **细节图**
+    <text size="sm">Close-up of the ribbed crew neckline</text>
+  </grid-item>
+  <grid-item>
+    <AsyncImage query="male fashion model wearing plain black relaxed fit cotton t shirt product photography" aspectRatio="4:3"/>
+    **模特展示图**
+    <text size="sm">Model wearing the black T-shirt with a relaxed fit</text>
+  </grid-item>
+</grid>
+
+如果所有图片都使用：
+
+```html
+alt="Cotton T-shirt"
+```
+
+虽然自动化检测工具可能不会报告缺少 alt 的问题，但用户仍然无法区分这些图片之间的差异。
+
+对于商品图库，应该根据每张图片实际传递的信息编写 alt。
+
+以下是常见的错误写法：
+
+| 不推荐 | 原因 |
+|---|---|
+| `alt="IMG_001.jpg"` | 文件名没有实际意义 |
+| `alt="Product image"` | 无法了解是什么商品 |
+| `alt="Image of a black shirt"` | 通常不需要额外说明这是图片 |
+| `alt="Best cheap fashion shirt buy online"` | SEO 关键词堆砌 |
+| 所有商品图片使用相同 alt | 无法区分不同视角 |
+| 直接使用完整商品详情 | 内容过长且可能重复 |
+
+另外，**WCAG 并没有规定 alt 必须少于 125 个字符。** 125 字符可以作为某些团队的编辑参考，但不是统一的合规要求。简单图片通常使用简短的词组或句子，复杂信息则应考虑额外的文字说明。<Cite ref="turn198272search4"/>
+
+---
+
+## 4. Functional Image：功能性图片
+
+功能性图片的替代文本需要描述功能或目标，而不是单纯描述图像的外观。
+
+### 4.1 Logo 链接
+
+<box border radius="lg" padding={3}>
+  <row align="center">
+    <title size="2xl" weight="bold">STYLE.</title>
+    <spacer/>
+    <icon name="search"/>
+    <icon name="user"/>
+    <icon name="shopping-bag"/>
+  </row>
+  <caption>假设网站 Logo 点击后跳转首页。</caption>
+</box>
+
+不推荐：
+
+```html
+<a href="/">
+  <img src="logo.svg" alt="Black logo">
+</a>
+```
+
+推荐：
+
+```html
+<a href="/">
+  <img src="logo.svg" alt="Style Store home">
+</a>
+```
+
+因为图片是链接中唯一提供名称的内容，alt 应当说明链接的目的。
+
+最终 Accessibility Tree 可以简化为：
+
+```text
+link "Style Store home"
+```
+
+### 4.2 纯图片按钮
+
+```html
+<button type="button">
+  <img src="search.svg" alt="Search">
+</button>
+```
+
+这是一种有效的实现方式，因为图片的 alt 可以参与父级按钮的 Accessible Name 计算。
+
+也可以这样实现：
+
+```html
+<button type="button" aria-label="Search">
+  <img src="search.svg" alt="">
+</button>
+```
+
+两种方案都能够提供明确的按钮名称。
+
+但是不建议同时为父级和子级添加不必要的重复信息。
+
+### 4.3 图片和文字共同构成链接
+
+这是 Shopify 商品卡片中特别常见的场景。
+
+<box border radius="lg" padding={3} align="center">
+  <box width="190px" border radius="md" padding={2} gap={2}>
+    <AsyncImage query="black cotton crew neck t shirt isolated ecommerce product photography" aspectRatio="1:1"/>
+    <text underline={true} weight="medium">Cotton T-shirt</text>
+    $29.99
+  </box>
+  <caption>商品图片与商品名称属于同一个链接。</caption>
+</box>
+
+假设代码如下：
+
+```html
+<a href="/products/cotton-shirt">
+  <img src="shirt.jpg" alt="Cotton T-shirt">
+  <span>Cotton T-shirt</span>
+</a>
+```
+
+父级链接的名称可能被计算为：
+
+```text
+Cotton T-shirt Cotton T-shirt
+```
+
+如果图片只是对商品名称的视觉补充，没有额外需要传达的信息，可以使用：
+
+```html
+<a href="/products/cotton-shirt">
+  <img src="shirt.jpg" alt="">
+  <span>Cotton T-shirt</span>
+</a>
+```
+
+这样链接的名称就是：
+
+```text
+Cotton T-shirt
+```
+
+但如果图片传递了商品名称没有包含的重要信息，例如颜色、款式或特殊结构，则仍然需要以适当方式提供这些信息。
+
+W3C 对功能性图片的指导也是根据链接或按钮的实际用途，以及周围是否已经存在等价文字来确定替代文本。<Cite ref="turn198272search2"/>
+
+### 4.4 交互演示：图片如何影响父级链接名称
+
+{@body const [linkMode,setLinkMode]=DIL.useState("duplicate")}
+<card gap={3}>
+  <radio-group direction="col" value={linkMode} onChange={setLinkMode}>
+    <radio value="image">仅有图片，alt 描述商品</radio>
+    <radio value="duplicate">图片 alt 与链接文字重复</radio>
+    <radio value="empty">图片使用空 alt，保留链接文字</radio>
+    <radio value="missing">仅有图片，且 alt 为空</radio>
+  </radio-group>
+  <box align="center" background="surface-tertiary" radius="md" padding={3}>
+    <svg viewBox="0 0 100 95" width="100px">
+      <rect width="100" height="95" rx="5" fill="#DAD6D0"/>
+      <path d="M34 14 L11 29 L23 47 L34 40 V83 H66 V40 L77 47 L89 29 L66 14 L59 21 H41 Z" fill="#343434"/>
+    </svg>
+    {#if linkMode==="duplicate"||linkMode==="empty"}<text underline={true}>Cotton T-shirt</text>{/if}
+  </box>
+  <caption>HTML 结构</caption>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <text size="sm">{'<a href="/products/shirt">'}</text>
+    <text size="sm">{`  <img alt="${linkMode==="image"||linkMode==="duplicate"?"Cotton T-shirt":""}">`}</text>
+    {#if linkMode==="duplicate"||linkMode==="empty"}<text size="sm">  Cotton T-shirt</text>{/if}
+    <text size="sm">{"</a>"}</text>
+  </box>
+  **Accessibility Tree**
+  <row><caption>Role</caption><spacer/>link</row>
+  <row><caption>Name</caption><spacer/><text color={linkMode==="missing"?"danger":"default"} size="sm">{linkMode==="duplicate"?"Cotton T-shirt Cotton T-shirt":linkMode==="missing"?"空":"Cotton T-shirt"}</text></row>
+  <divider/>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1} gap={1}>
+      <caption>模拟屏幕阅读器播报</caption>
+      **{linkMode==="duplicate"?"Cotton T-shirt Cotton T-shirt, link.":linkMode==="missing"?"Link（可能使用 URL 等后备信息）":"Cotton T-shirt, link."}**
+    </box>
+  </row>
+  <text size="sm" color={linkMode==="missing"?"danger":linkMode==="duplicate"?"warning":"success"}>{linkMode==="duplicate"?"链接有名称，但存在不必要的重复信息。":linkMode==="missing"?"图片是链接的唯一内容，空 alt 导致缺少明确的链接名称。":"链接具有明确的可访问名称。"}</text>
+</card>
+
+这个案例再次说明，图片的 alt 不仅可能影响图片本身，还可能影响父级交互元素的可访问名称。
+
+---
+
+## 5. CSS background-image 的无障碍问题
+
+我们在开发 Banner、商品卡片等组件时，经常使用：
+
+```css
+.banner {
+  background-image: url('sale.jpg');
+}
+```
+
+CSS 背景图片通常不会作为独立的图片节点暴露给辅助技术，也没有像 img 一样的 alt 属性。
+
+### 5.1 哪些场景适合 background-image？
+
+| 场景 | 是否适合 |
+|---|---|
+| 页面装饰背景 | 适合 |
+| 渐变、纹理 | 适合 |
+| 有真实文字覆盖的 Banner 背景 | 通常适合 |
+| 唯一传递商品外观的图片 | 不推荐 |
+| 包含促销信息的文字图片 | 不推荐 |
+| 商品尺寸说明图 | 不推荐 |
+
+### 5.2 促销 Banner 实战
+
+<box border radius="lg" padding={3} gap={3}>
+  <box background="#E6D5C3" theme="light" radius="md" padding={5} gap={2}>
+    <text color="#705A46" size="sm">WINTER SALE</text>
+    <title color="#34291F" size="2xl">UP TO 50% OFF</title>
+    <text color="#705A46" size="sm">November 24 – November 30</text>
+    <box background="#34291F" radius="sm" padding={2} align="center" width="110px">
+      <text color="#FFFFFF" size="sm">Shop now</text>
+    </box>
+  </box>
+  <grid columns={2}>
+    <grid-item>
+      <text color="danger" weight="medium">整张 Banner 为图片</text>
+      <caption>活动标题、折扣、日期全部固化在图片中。</caption>
+    </grid-item>
+    <grid-item>
+      <text color="success" weight="medium">背景图 + HTML</text>
+      <caption>背景负责装饰，活动信息使用真实文本。</caption>
+    </grid-item>
+  </grid>
+</box>
+
+不推荐的实现：
+
+```html
+<div class="banner">
+  <!-- 所有活动文字都在背景图片中 -->
+</div>
+```
+
+推荐：
+
+```html
+<section
+  class="banner"
+  aria-labelledby="sale-title"
+>
+  <h2 id="sale-title">
+    Up to 50% off
+  </h2>
+
+  <p>November 24 – November 30</p>
+
+  <a href="/collections/sale">
+    Shop now
+  </a>
+</section>
+```
+
+```css
+.banner {
+  background-image: url('winter-background.jpg');
+  background-position: center;
+  background-size: cover;
+}
+```
+
+这样实现的好处不仅是无障碍，还包括文字缩放、响应式布局、多语言翻译、文字复制以及 SEO。
+
+这里也涉及 WCAG 1.4.5 Images of Text：能够使用真实文本实现相同视觉效果时，通常应使用文本，而不是文字图片。Logo、文字形式不可替代的情况以及符合条件的可定制图片等属于规范例外。
+
+即使给文字图片添加了完整 alt，也不意味着一定满足 1.4.5。
+
+---
+
+## 6. 复杂图片的无障碍实现
+
+商品尺寸图、安装说明、技术结构图等内容，仅靠简短的 alt 通常是不够的。
+
+例如服装尺寸示意图：
+
+<box border radius="lg" padding={3}>
+  <svg viewBox="0 0 340 240" width="100%">
+    <path d="M116 35 L65 58 L90 117 L117 103 V217 H223 V103 L250 117 L275 58 L224 35 L198 49 Q170 70 142 49 Z" fill="#C8BDAE" fillOpacity=".35" stroke="currentColor" strokeOpacity=".7" strokeWidth="1.6"/>
+    <path d="M119 83 H221" stroke="#5185C5" strokeWidth="1.8" strokeDasharray="4 3"/>
+    <path d="M119 78 V88 M221 78 V88" stroke="#5185C5" strokeWidth="1.8"/>
+    <text x="170" y="77" fontSize="12" textAnchor="middle" fill="#5185C5">A · Shoulder</text>
+    <path d="M117 131 H223" stroke="#39866B" strokeWidth="1.8" strokeDasharray="4 3"/>
+    <path d="M117 126 V136 M223 126 V136" stroke="#39866B" strokeWidth="1.8"/>
+    <text x="170" y="125" fontSize="12" textAnchor="middle" fill="#39866B">B · Chest</text>
+    <path d="M242 36 V217 M237 36 H247 M237 217 H247" stroke="#C6914A" strokeWidth="1.8"/>
+    <text x="260" y="155" fontSize="12" fill="#C6914A" transform="rotate(-90 260 155)">C · Length</text>
+  </svg>
+  <caption textAlign="center">商品尺寸测量示意图</caption>
+</box>
+
+不推荐将所有内容塞到 alt 中：
+
+```html
+<img
+  src="size-guide.jpg"
+  alt="A is shoulder... B is chest... C is length..."
+>
+```
+
+更好的方式是使用简短 alt，并提供完整的 HTML 说明。
+
+```html
+<figure>
+  <img
+    src="size-guide.jpg"
+    alt="T-shirt measurement diagram showing A, B and C"
+  >
+
+  <figcaption>
+    How to measure your T-shirt
+  </figcaption>
+</figure>
+
+<dl>
+  <dt>A — Shoulder</dt>
+  <dd>
+    Measure across the back from one shoulder seam
+    to the other.
+  </dd>
+
+  <dt>B — Chest</dt>
+  <dd>
+    Measure horizontally across the chest.
+  </dd>
+
+  <dt>C — Length</dt>
+  <dd>
+    Measure from the highest shoulder point
+    to the bottom hem.
+  </dd>
+</dl>
+```
+
+如果图片中包含具体的尺寸数据，还应该将数据提供为语义化表格。
+
+这样所有用户都能够获得完整的信息，而不是只让屏幕阅读器用户听一段非常长的替代文本。<Cite ref="turn198272search8"/>
+
+---
+
+## 7. SVG 无障碍深入解析
+
+SVG 在现代前端项目中使用得非常广泛。
+
+我们主要需要区分以下使用方式：
+
+| SVG 使用方式 | 无障碍处理 |
+|---|---|
+| `img src="icon.svg"` | 使用 img 的 alt |
+| Inline SVG | 使用 ARIA、title、desc 等 |
+| SVG Sprite + use | 通常在外层 SVG 或交互控件提供名称 |
+| CSS background SVG | 与 CSS 背景图片规则相同 |
+
+### 7.1 通过 img 引入 SVG
+
+```html
+<img src="delivery.svg" alt="Free shipping">
+```
+
+即使 SVG 文件内部已经存在 title，也不要依赖其内部信息来为外部 img 提供名称。
+
+对于 HTML 中的 img，应当通过适当的 alt 表达用途。
+
+### 7.2 装饰性 Inline SVG
+
+```html
+<button type="button">
+  <svg
+    aria-hidden="true"
+    focusable="false"
+    viewBox="0 0 24 24"
+  >
+    <path d="..."></path>
+  </svg>
+
+  Add to cart
+</button>
+```
+
+这里 SVG 不需要单独提供名称，因为按钮文字已经完整表达了其功能。
+
+最终的 Accessibility Tree 可以简化为：
+
+```text
+button "Add to cart"
+```
+
+### 7.3 具有独立含义的 Inline SVG
+
+假设 SVG 本身是一张需要表达信息的图片。
+
+```html
+<svg
+  role="img"
+  aria-label="Free shipping on orders over $50"
+  viewBox="0 0 24 24"
+>
+  <path d="..."></path>
+</svg>
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  <box align="center" padding={2}>
+    <icon name="truck" size="3xl"/>
+  </box>
+  <divider/>
+  <row><caption>Role</caption><spacer/>img</row>
+  <row><caption>Name</caption><spacer/><text size="sm">Free shipping on orders over $50</text></row>
+  <row align="center">
+    <icon name="volume-2"/>
+    <text size="sm">“Free shipping on orders over 50 dollars, graphic.”</text>
+  </row>
+</box>
+
+`role="img"` 表示希望辅助技术将整个 SVG 作为一个图像对象理解，而不是逐个理解内部图形元素。
+
+对于复杂、可交互的 SVG，则不能一律使用 role="img" 将整个结构合并，还需要考虑内部交互元素的语义。
+
+### 7.4 SVG 中的 title 和 desc
+
+SVG 原生支持两个非常重要的元素：
+
+- `title`：简短名称。
+- `desc`：详细描述。
+
+例如：
+
+```html
+<svg
+  role="img"
+  aria-labelledby="chart-title"
+  aria-describedby="chart-desc"
+  viewBox="0 0 300 200"
+>
+  <title id="chart-title">
+    Product sales by month
+  </title>
+
+  <desc id="chart-desc">
+    Sales increased from January to March,
+    with March having the highest sales.
+  </desc>
+
+  <!-- Chart shapes -->
+</svg>
+```
+
+<box border radius="lg" padding={3} gap={3}>
+  <Chart content={{"chartType":"bar","xKey":"month","series":[{"dataKey":"sales","label":"Sales"}],"data":[{"month":"Jan","sales":120},{"month":"Feb","sales":180},{"month":"Mar","sales":260}]}}/>
+  <divider/>
+  **Accessibility Node**
+  <caption>Role</caption>
+  img
+  <caption>Name</caption>
+  Product sales by month
+  <caption>Description</caption>
+  <text size="sm">Sales increased from January to March, with March having the highest sales.</text>
+</box>
+
+由于不同浏览器和辅助技术对 SVG 原生 `title`、`desc` 的支持可能存在差异，配合明确的 ARIA 引用是比较稳妥的实现方式。<Cite ref="turn198272search17"/>
+
+如果用户需要获取每个月的具体数据，还应提供文字或数据表格，而不是只描述增长趋势。
+
+另外，HTML 的 `title` 属性与 SVG 的 `<title>` 元素是不同的东西，不能混淆。
+
+### 7.5 Shopify 可复用 SVG 组件的 ID 问题
+
+假设你开发了一个 SVG snippet：
+
+```html
+<svg role="img" aria-labelledby="icon-title">
+  <title id="icon-title">Free shipping</title>
+
+  <path d="..."></path>
+</svg>
+```
+
+当这个 snippet 在同一个页面中被渲染十次，就会产生十个相同的 `id="icon-title"`。
+
+这可能导致 ARIA 引用关系错误。
+
+对于简单图标，可以直接使用：
+
+```liquid
+<svg
+  role="img"
+  aria-label="{{ icon_label | escape }}"
+>
+  <path d="..."></path>
+</svg>
+```
+
+如果必须使用 `aria-labelledby`，应从调用方传入具有唯一性的 ID，例如结合 `section.id`、`block.id` 和循环索引等信息生成。
+
+---
+
+## 8. Icon Button 纯图标按钮
+
+这是实际 ADA 审计报告中非常常见的问题。
+
+<box border radius="lg" padding={3} gap={3}>
+  {#each [{i:"search",name:"Search"},{i:"shopping-cart",name:"Open shopping cart"},{i:"x",name:"Close dialog"},{i:"trash-2",name:"Remove Cotton T-shirt"},{i:"chevron-right",name:"Next product image"},{i:"menu",name:"Open navigation menu"},{i:"plus",name:"Increase quantity"},{i:"minus",name:"Decrease quantity"}] as item}
+    <row align="center">
+      <box size="44px" border radius="md" align="center" justify="center">
+        <icon name={item.i} size="xl"/>
+      </box>
+      <box flex={1} gap=1>
+        <caption>Accessible Name</caption>
+        **{item.name}**
+      </box>
+    </row>
+  {/each}
+</box>
+
+### 8.1 推荐的三种实现方式
+
+**方式一：aria-label**
+
+```html
+<button type="button" aria-label="Search">
+  <svg aria-hidden="true">
+    <!-- Search icon -->
+  </svg>
+</button>
+```
+
+这是纯图标按钮最直接的实现方式。
+
+**方式二：visually-hidden 文本**
+
+```html
+<button type="button">
+  <svg aria-hidden="true"></svg>
+
+  <span class="visually-hidden">
+    Search
+  </span>
+</button>
+```
+
+**方式三：aria-labelledby**
+
+```html
+<span id="search-label">Search</span>
+
+<button
+  type="button"
+  aria-labelledby="search-label"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+通常有现成的可见文字可以作为名称时，可以使用第三种方式。
+
+### 8.2 不同按钮拥有相同名称的问题
+
+假设购物车中存在三个商品，每个商品都有一个删除按钮。
+
+<box border radius="lg" padding={3} gap={3}>
+  **Your cart**
+  {#each [{name:"Cotton T-shirt",price:"$29.99",color:"#333333"},{name:"Linen shirt",price:"$49.99",color:"#C3AC90"},{name:"Classic sweatshirt",price:"$59.99",color:"#7C8998"}] as p,i}
+    <row align="center">
+      <svg viewBox="0 0 60 65" width="55px">
+        <rect width="60" height="65" rx="4" fill="#D8D4CE"/>
+        <path d="M20 8 L6 18 L14 30 L20 25 V57 H40 V25 L46 30 L54 18 L40 8 L35 13 H25 Z" fill={p.color}/>
+      </svg>
+      <box flex={1} gap=1>
+        **{p.name}**
+        <caption>{p.price}</caption>
+      </box>
+      <box size="40px" align="center" justify="center" border radius="sm">
+        <icon name="trash-2"/>
+      </box>
+    </row>
+    {#if i<2}<divider/>{/if}
+  {/each}
+</box>
+
+如果每个删除按钮都使用：
+
+```html
+aria-label="Remove"
+```
+
+那么用户通过屏幕阅读器查看按钮列表时，会得到：
+
+```text
+Remove, button
+Remove, button
+Remove, button
+```
+
+用户可能难以区分各按钮对应的商品。
+
+更好的方式：
+
+```liquid
+<button
+  type="button"
+  aria-label="Remove {{ item.product.title | escape }}"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+实际多语言项目应该使用翻译插值，例如在 `locales/en.default.json` 中定义：
+
+```json
+{
+  "accessibility": {
+    "remove_product": "Remove {{ product }}"
+  }
+}
+```
+
+然后在 Liquid 中使用：
+
+```liquid
+<button
+  type="button"
+  aria-label="{{ 'accessibility.remove_product'
+    | t: product: item.title
+    | escape }}"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+{@body const [specific,setSpecific]=DIL.useState(true)}
+<card gap={3}>
+  **屏幕阅读器按钮列表模拟**
+  <segmented-control value={specific?"specific":"generic"} onChange={v=>setSpecific(v==="specific")} options={[{label:"通用名称",value:"generic"},{label:"具体名称",value:"specific"}]}/>
+  {#each ["Cotton T-shirt","Linen shirt","Classic sweatshirt"] as name}
+    <row align="center" border radius="sm" padding={2}>
+      <icon name="volume-2" color="secondary"/>
+      <text size="sm">{specific?`Remove ${name}, button`:"Remove, button"}</text>
+    </row>
+  {/each}
+  <caption>{specific?"即使脱离视觉布局，用户仍然可以判断每个删除按钮的用途。":"用户可能需要返回上下文才能判断按钮对应哪个商品。"}</caption>
+</card>
+
+如果购物车中同一个商品存在不同颜色或尺码，名称中还可以包含必要的变体信息。
+
+---
+
+## 9. SVG Sprite 和 Icon Font
+
+### 9.1 SVG Sprite
+
+很多前端项目会使用 SVG Sprite：
+
+```html
+<svg>
+  <use href="#icon-search"></use>
+</svg>
+```
+
+或者：
+
+```html
+<svg>
+  <use href="/icons.svg#icon-search"></use>
+</svg>
+```
+
+对于这种方式，建议在外层 SVG 或者交互元素中直接处理无障碍名称，不要依赖 symbol 内部的 title。
+
+```html
+<button type="button" aria-label="Search">
+  <svg aria-hidden="true" focusable="false">
+    <use href="#icon-search"></use>
+  </svg>
+</button>
+```
+
+同一个 SVG Sprite 图标可以在不同场景下复用，而不同场景的无障碍名称也可以不同。
+
+例如同一个 X 图标可能表示：
+
+| 使用场景 | Accessible Name |
+|---|---|
+| 购物车弹窗 | Close cart |
+| 搜索框 | Clear search |
+| 筛选标签 | Remove color filter |
+| 图片预览 | Close image preview |
+
+因此，名称通常应该由使用图标的业务组件决定，而不是由图标组件固定决定。
+
+### 9.2 Icon Font
+
+例如 Font Awesome 或自定义字体图标：
+
+```html
+<i class="icon-cart"></i>
+```
+
+Icon Font 可能使用 Unicode 私有区域字符或者 CSS 伪元素来显示图标。
+
+屏幕阅读器可能无法正确解释这些字符，字体加载失败时还可能出现无意义的方块。
+
+比较合理的方式：
+
+```html
+<button type="button" aria-label="Open cart">
+  <i class="icon-cart" aria-hidden="true"></i>
+</button>
+```
+
+对于新开发的 Theme 项目，我更建议使用 SVG 图标，因为 SVG 在尺寸控制、样式控制、图形清晰度和语义处理方面更加灵活。
+
+但需要强调，使用 SVG 并不意味着自动具备无障碍能力。
+
+---
+
+## 10. Shopify 实战：星级评分无障碍
+
+假设我们的商品卡片需要展示评分。
+
+<box border radius="lg" padding={4} gap={2}>
+  <row align="center">
+    <svg viewBox="0 0 130 25" width="130px">
+      {#each [0,1,2,3,4] as i}
+        <path d={`M${13+i*26} 1 L${16.7+i*26} 8.4 L${25+i*26} 9.5 L${19+i*26} 15.4 L${20.5+i*26} 24 L${13+i*26} 20 L${5.5+i*26} 24 L${7+i*26} 15.4 L${1+i*26} 9.5 L${9.3+i*26} 8.4 Z`} fill={i===4?"#BDBDBD":"#D59B33"}/>
+      {/each}
+      <path d="M117 1 L117 20 L109.5 24 L111 15.4 L105 9.5 L113.3 8.4 Z" fill="#D59B33"/>
+    </svg>
+    **4.5**
+    <caption>(128 reviews)</caption>
+  </row>
+</box>
+
+假设我们使用五个 SVG 来实现星星。
+
+```html
+<div class="rating">
+  <svg>...</svg>
+  <svg>...</svg>
+  <svg>...</svg>
+  <svg>...</svg>
+  <svg>...</svg>
+
+  <span>128 reviews</span>
+</div>
+```
+
+对于辅助技术用户，这五个图标本身并不能有效表达 4.5 分。
+
+推荐方案：
+
+```html
+<div class="rating">
+  <div class="rating-stars" aria-hidden="true">
+    <!-- Five SVG stars -->
+  </div>
+
+  <span class="visually-hidden">
+    Rated 4.5 out of 5 stars.
+  </span>
+
+  <span>128 reviews</span>
+</div>
+```
+
+或者将整个星星区域作为一个有名称的图像：
+
+```html
+<div
+  class="rating-stars"
+  role="img"
+  aria-label="4.5 out of 5 stars"
+>
+  <!-- Five SVG stars -->
+</div>
+
+<span>128 reviews</span>
+```
+
+{@body const [rating,setRating]=DIL.useState(4.5)}
+<card gap={3}>
+  **评分无障碍演示**
+  <row align="center">
+    <svg viewBox="0 0 150 30" width="150px">
+      {#each [0,1,2,3,4] as i}
+        <defs>
+          <clipPath id={`ratingclip${i}`}><rect x={i*30} y="0" width={Math.max(0,Math.min(1,rating-i))*30} height="30"/></clipPath>
+        </defs>
+        <path d={`M${15+i*30} 2 L${19+i*30} 10 L${28+i*30} 11 L${21.5+i*30} 17.5 L${23+i*30} 27 L${15+i*30} 22.5 L${7+i*30} 27 L${8.5+i*30} 17.5 L${2+i*30} 11 L${11+i*30} 10 Z`} fill="#999999" fillOpacity=".3"/>
+        <path d={`M${15+i*30} 2 L${19+i*30} 10 L${28+i*30} 11 L${21.5+i*30} 17.5 L${23+i*30} 27 L${15+i*30} 22.5 L${7+i*30} 27 L${8.5+i*30} 17.5 L${2+i*30} 11 L${11+i*30} 10 Z`} fill="#D59B33" clipPath={`url(#ratingclip${i})`}/>
+      {/each}
+    </svg>
+    <title size="xl">{rating.toFixed(1)}</title>
+    <caption>/ 5</caption>
+  </row>
+  <slider min={0} max={5} step={0.1} value={rating} onChange={setRating} marks={[{value:0,label:"0"},{value:2.5,label:"2.5"},{value:5,label:"5"}]}/>
+  <box background="surface-tertiary" radius="md" padding={3} gap={1}>
+    <caption>Accessible Name</caption>
+    <text size="sm">{rating.toFixed(1)} out of 5 stars</text>
+  </box>
+  <row align="center">
+    <icon name="volume-2" size="xl"/>
+    <box flex={1}>
+      <caption>模拟播报</caption>
+      **Rated {rating.toFixed(1)} out of 5 stars.**
+    </box>
+  </row>
+</card>
+
+注意，这里实现的是**只读评分展示**。如果需要让用户点击星星提交评分，就属于交互组件，应该考虑 radio group 等语义和键盘操作。
+
+---
+
+## 11. Shopify 实战：颜色 Swatch
+
+颜色选择器是一个同时涉及图片、颜色、名称和状态的典型场景。
+
+<box border radius="lg" padding={3} gap={3}>
+  <grid columns={2}>
+    <grid-item>
+      <text color="danger" weight="medium">不推荐的设计</text>
+      <row gap={2}>
+        {#each ["#272727","#D6C1A5","#758C9D"] as c}
+          <box size="30px" background={c} radius="full"/>
+        {/each}
+      </row>
+      <caption>只有颜色，没有名称与明确选中状态。</caption>
+    </grid-item>
+    <grid-item>
+      <text color="success" weight="medium">改进的设计</text>
+      <text size="sm">Color: Black</text>
+      <row gap={2}>
+        {#each ["#272727","#D6C1A5","#758C9D"] as c,i}
+          <box size="34px" border={{size:2,color:i===0?"#5185C5":"transparent"}} radius="full" align="center" justify="center">
+            <box background={c} size="26px" radius="full" align="center" justify="center">
+              {#if i===0}<icon name="check" color="#FFFFFF" size="sm"/>{/if}
+            </box>
+          </box>
+        {/each}
+      </row>
+    </grid-item>
+  </grid>
+</box>
+
+推荐使用原生 Radio：
+
+```html
+<fieldset>
+  <legend>Color</legend>
+
+  <label class="swatch">
+    <input
+      type="radio"
+      name="color"
+      value="black"
+      checked
+    >
+
+    <span
+      class="swatch-color"
+      style="background: #272727"
+      aria-hidden="true"
+    ></span>
+
+    <span class="visually-hidden">
+      Black
+    </span>
+  </label>
+</fieldset>
+```
+
+{@body const colors=[{name:"Black",hex:"#272727"},{name:"Beige",hex:"#D6C1A5"},{name:"Blue",hex:"#758C9D"},{name:"Olive",hex:"#737D53"}]}
+{@body const [selectedColor,setSelectedColor]=DIL.useState("Black")}
+<card gap={3}>
+  <row align="center">
+    **Color: {selectedColor}**
+  </row>
+  <row gap={3}>
+    {#each colors as c}
+      <pressable onClick={()=>setSelectedColor(c.name)} align="center" gap={1}>
+        <box size="43px" border={{size:2,color:selectedColor===c.name?"#5185C5":"transparent"}} radius="full" align="center" justify="center">
+          <box size="33px" background={c.hex} radius="full" align="center" justify="center">
+            {#if selectedColor===c.name}<icon name="check" color={c.name==="Beige"?"#252525":"#FFFFFF"}/>{/if}
+          </box>
+        </box>
+        <caption>{c.name}</caption>
+      </pressable>
+    {/each}
+  </row>
+  <divider/>
+  **Accessibility Tree 模拟**
+  <text size="sm">group "Color"</text>
+  {#each colors as c}
+    <row align="center" padding={{left:3}}>
+      <icon name={selectedColor===c.name?"circle-dot":"circle"} color={selectedColor===c.name?"success":"secondary"}/>
+      <box flex={1}><text size="sm">{`radio "${c.name}"`}</text></box>
+      <caption>{selectedColor===c.name?"checked":"not checked"}</caption>
+    </row>
+  {/each}
+  <box background="surface-tertiary" radius="md" padding={2}>
+    <row>
+      <icon name="volume-2"/>
+      <text size="sm">{selectedColor}, radio button, checked, {colors.findIndex(c=>c.name===selectedColor)+1} of 4.</text>
+    </row>
+  </box>
+</card>
+
+这个方案同时解决了：
+
+| WCAG | 问题 |
+|---|---|
+| 1.1.1 | 非文本颜色图形具有等价信息 |
+| 1.4.1 | 不只使用颜色表达选中状态 |
+| 2.1.1 | 支持原生键盘操作 |
+| 4.1.2 | 提供名称、角色及选中状态 |
+
+真实项目还需要处理焦点样式、售罄状态、点击区域和同组 radio 的键盘行为。这些会在第 21 课详细展开。
+
+---
+
+## 12. 视频与音频无障碍
+
+多媒体无障碍主要有三个核心概念。
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="start">
+    <box size="44px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name="captions" size="2xl"/></box>
+    <box flex={1} gap=1>
+      **Captions · 字幕**
+
+      将讲话内容及必要的非语言声音转换成与视频同步的文字。
+
+      <caption>主要帮助听觉障碍用户。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box size="44px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name="file-text" size="2xl"/></box>
+    <box flex={1} gap=1>
+      **Transcript · 文字稿**
+
+      将音频或视频中的信息提供为独立的文字内容。
+
+      <caption>可以直接阅读、搜索及使用辅助技术访问。</caption>
+    </box>
+  </row>
+  <divider/>
+  <row align="start">
+    <box size="44px" background="surface-tertiary" radius="md" align="center" justify="center"><icon name="headphones" size="2xl"/></box>
+    <box flex={1} gap=1>
+      **Audio Description · 音频描述**
+
+      通过语音描述视频中没有被原始音轨充分表达的重要视觉信息。
+
+      <caption>主要帮助视觉障碍用户理解画面。</caption>
+    </box>
+  </row>
+</box>
+
+三者解决的问题并不相同，不能完全互相替代。<Cite refs={["turn615649search4","turn615649search24","turn615649search13"]}/>
+
+### 12.1 HTML video 的字幕实现
+
+```html
+<video
+  controls
+  playsinline
+  preload="metadata"
+  poster="product-poster.jpg"
+>
+  <source
+    src="product-demo.mp4"
+    type="video/mp4"
+  >
+
+  <track
+    kind="captions"
+    src="captions-en.vtt"
+    srclang="en"
+    label="English"
+    default
+  >
+</video>
+```
+
+其中 track 用于提供与媒体相关的文本轨道。
+
+| kind | 用途 |
+|---|---|
+| captions | 同语言字幕，包括必要的声音信息 |
+| subtitles | 通常用于语言翻译或对白字幕 |
+| descriptions | 视频内容的文本描述轨道 |
+| chapters | 视频章节 |
+| metadata | 供脚本使用的元数据 |
+
+需要注意，浏览器对不同 track 类型的实际支持存在差异，特别是 descriptions，不能仅添加这个属性就认为音频描述已经实现。
+
+### 12.2 WebVTT 文件格式
+
+`captions-en.vtt`：
+
+```text
+WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+Introducing our new cotton T-shirt.
+
+00:00:03.000 --> 00:00:06.000
+Made with 100% premium cotton.
+
+00:00:06.000 --> 00:00:09.000
+[Fabric rustling]
+
+00:00:09.000 --> 00:00:12.000
+Available in four colors.
+```
+
+字幕文件除了对白，也可以包含对理解内容有意义的声音信息，例如警告声、笑声或重要音效。
+
+### 12.3 字幕和音频描述的区别
+
+假设商品视频在展示一件防水外套。
+
+<box border radius="lg" padding={3} gap={3}>
+  <box radius="md" clip={true} gap={0}>
+    <AsyncImage query="outdoor waterproof black jacket fabric water droplets beading demonstration close up product video frame" aspectRatio="16:9"/>
+    <box background="#222222" theme="dark" padding={2} align="center">
+      <text color="#FFFFFF" size="sm">Our jacket uses water-resistant fabric.</text>
+    </box>
+    <row background="surface-tertiary" padding={2} align="center">
+      <icon name="play"/>
+      <box flex={1} height="4px" background="#99999950" radius="full">
+        <box width="36%" background="#777777" height="4px" radius="full"/>
+      </box>
+      <caption>0:12 / 0:34</caption>
+      <icon name="captions"/>
+      <icon name="volume-2"/>
+    </row>
+  </box>
+  <box gap={1}>
+    **字幕**
+    <text size="sm">Our jacket uses water-resistant fabric.</text>
+    <caption>提供视频中正在说的话。</caption>
+  </box>
+  <divider/>
+  <box gap={1}>
+    **音频描述**
+    <text size="sm">Water droplets bead on the surface of the black jacket and roll off without soaking into the fabric.</text>
+    <caption>补充仅通过画面展示的重要信息。</caption>
+  </box>
+</box>
+
+如果原视频的旁白已经完整描述了所有有意义的视觉内容，就不一定需要额外增加重复的音频描述。
+
+### 12.4 不同媒体类型的 AA 要求
+
+| 媒体类型 | 主要要求 |
+|---|---|
+| 预录纯音频 | 提供等价文字等替代内容 |
+| 预录无声视频 | 提供等价文字内容或音频说明 |
+| 预录有声视频 | 字幕及适用的音频描述 |
+| 有声直播视频 | 实时字幕 |
+
+具体是否存在例外，需要结合 WCAG 1.2 系列成功准则判断。<Cite ref="turn615649search2"/>
+
+---
+
+## 13. 视频自动播放与 GIF 动画
+
+Shopify 首页经常出现自动播放的促销视频。
+
+例如：
+
+```html
+<video autoplay muted loop playsinline>
+  <source src="banner.mp4" type="video/mp4">
+</video>
+```
+
+这个写法虽然能够实现很好的视觉效果，但仍然需要考虑无障碍。
+
+### 13.1 自动播放声音
+
+WCAG 1.4.2（A）要求，如果网页自动播放声音超过 3 秒，则需要提供暂停、停止声音的机制，或者独立于系统音量的音量控制机制。
+
+原因是自动播放的声音可能干扰屏幕阅读器的语音输出。<Cite ref="turn615649search3"/>
+
+因此，通常不建议网站默认自动播放有声媒体。
+
+### 13.2 自动播放的视觉内容
+
+WCAG 2.2.2（A）规定，当运动、闪烁或滚动内容自动开始、持续超过 5 秒，并与其他内容同时展示时，通常需要提供暂停、停止或隐藏机制，除非运动本身具有不可替代的必要性。<Cite ref="turn615649search15"/>
+
+**muted 并不能解决自动播放视频的全部无障碍问题。**
+
+静音解决的是声音问题，自动运动仍然可能影响用户阅读和操作其他页面内容。
+
+### 13.3 提供视频暂停按钮
+
+```html
+<video
+  id="hero-video"
+  autoplay
+  muted
+  loop
+  playsinline
+>
+  <source src="banner.mp4" type="video/mp4">
+</video>
+
+<button id="video-toggle" type="button">
+  Pause video
+</button>
+```
+
+```javascript
+const video = document.querySelector('#hero-video');
+const button = document.querySelector('#video-toggle');
+
+function syncButton() {
+  button.textContent = video.paused
+    ? 'Play video'
+    : 'Pause video';
+}
+
+video.addEventListener('play', syncButton);
+video.addEventListener('pause', syncButton);
+video.addEventListener('ended', syncButton);
+
+syncButton();
+
+button.addEventListener('click', async () => {
+  if (video.paused) {
+    try {
+      await video.play();
+    } catch (error) {
+      console.error(error);
+    }
+  } else {
+    video.pause();
+  }
+});
+```
+
+这里特意通过媒体事件同步按钮名称，而不是单纯依赖一个自定义布尔变量，因为视频可能因浏览器自动播放限制等原因没有成功播放。
+
+另外，这个按钮通过不断改变名称表达下一次操作，因此不需要额外添加 `aria-pressed`。
+
+### 13.4 尊重用户的减少运动偏好
+
+```javascript
+const reduceMotion = window.matchMedia(
+  '(prefers-reduced-motion: reduce)'
+);
+
+if (reduceMotion.matches) {
+  video.autoplay = false;
+  video.pause();
+}
+```
+
+更稳妥的生产实现可以不在 HTML 中默认设置 autoplay，而是在检测用户偏好之后再决定是否启动视频。
+
+不过，`prefers-reduced-motion` 并不能替代适用的暂停控制要求，因为没有设置减少运动偏好的用户，也可能希望停止动画。
+
+对于自动循环 GIF，由于 img 元素没有原生暂停 API，通常可以考虑使用可控制的 video 替代，或者提供切换为静态图片的功能。
+
+---
+
+## 14. Shopify 商品图片的 Liquid 实现
+
+下面我们结合 Shopify 的数据模型看一看图片 alt 是如何提供的。
+
+### 14.1 Shopify Image 对象
+
+Shopify 的 Liquid `image` 对象提供了 `alt` 属性。<Cite ref="turn615649search21"/>
+
+例如：
+
+```liquid
+{% for image in product.images %}
+  {{ image.alt }}
+{% endfor %}
+```
+
+这个属性对应商品图片的替代文本，可以通过 Shopify 后台相应的媒体编辑功能进行维护。
+
+### 14.2 使用原生 img 输出
+
+```liquid
+{% for image in product.images %}
+  <img
+    src="{{ image | image_url: width: 800 }}"
+    alt="{{ image.alt | escape }}"
+    width="{{ image.width }}"
+    height="{{ image.height }}"
+  >
+{% endfor %}
+```
+
+这里的 `escape` 用于避免 alt 中的引号等字符破坏 HTML 属性结构。
+
+### 14.3 使用 image_tag Filter
+
+Shopify 提供了 `image_tag`，可以帮助生成图片标签和相关属性。<Cite ref="turn615649search0"/>
+
+```liquid
+{% for image in product.images %}
+  {{
+    image
+    | image_url: width: 1200
+    | image_tag:
+      alt: image.alt,
+      loading: 'lazy',
+      widths: '400, 600, 800, 1200'
+  }}
+{% endfor %}
+```
+
+实际项目中，首屏关键图片应根据性能要求决定加载策略，而不是全部使用 lazy loading。
+
+### 14.4 图片没有 alt，使用商品名称兜底是否合理？
+
+很多 Theme 会使用类似下面的写法：
+
+```liquid
+{% assign image_alt = image.alt | default: product.title %}
+
+{{
+  image
+  | image_url: width: 800
+  | image_tag: alt: image_alt
+}}
+```
+
+这种方案可以作为缺少商品图片描述时的有限兜底，但存在两个问题：
+
+第一，同一个商品的多张图片可能最终具有完全相同的 alt。
+
+第二，如果某张图片本来就应该是装饰性图片，`default` 可能会覆盖有意设置的空 alt。
+
+因此，在设计可复用图片组件时，可以明确区分图片用途：
+
+```liquid
+{% liquid
+  assign image_alt = image.alt
+
+  if decorative
+    assign image_alt = ''
+  elsif image_alt == blank
+    assign image_alt = fallback_alt
+  endif
+%}
+
+{{
+  image
+  | image_url: width: 1200
+  | image_tag: alt: image_alt
+}}
+```
+
+调用时：
+
+```liquid
+{% render 'accessible-image',
+  image: product.featured_image,
+  fallback_alt: product.title,
+  decorative: false
+%}
+```
+
+装饰性图片：
+
+```liquid
+{% render 'accessible-image',
+  image: section.settings.background_image,
+  decorative: true
+%}
+```
+
+这个方案的设计思想是：**将图片的无障碍用途作为组件参数，而不是让组件机械地为所有图片生成 alt。**
+
+Shopify Theme Store 的要求也明确涉及商品图片替代文本的正确输出。<Cite ref="turn198272search27"/>
+
+---
+
+## 15. 如何快速检查网站中的图片问题？
+
+可以打开你正在开发的 Shopify 网站，在 Chrome DevTools Console 中执行以下代码。
+
+### 15.1 查找缺少 alt 的图片
+
+```javascript
+const images = [...document.querySelectorAll('img')];
+
+console.table(
+  images
+    .filter(img => !img.hasAttribute('alt'))
+    .map(img => ({
+      src: img.currentSrc || img.src,
+      element: img
+    }))
+);
+```
+
+### 15.2 检查所有图片的 alt 信息
+
+```javascript
+console.table(
+  [...document.images].map(img => ({
+    src: img.currentSrc || img.src,
+
+    alt: img.getAttribute('alt'),
+
+    status: !img.hasAttribute('alt')
+      ? 'Missing'
+      : img.getAttribute('alt').trim() === ''
+        ? 'Empty'
+        : 'Provided',
+
+    interactive: Boolean(
+      img.closest('a[href], button, [role="button"]')
+    ),
+
+    element: img
+  }))
+);
+```
+
+模拟输出：
+
+| 图片 | alt | status | interactive |
+|---|---|---|---|
+| logo.svg | Style Store home | Provided | true |
+| product-1.jpg | Black T-shirt | Provided | false |
+| product-2.jpg | null | Missing | false |
+| decoration.png | 空字符串 | Empty | false |
+| search.svg | 空字符串 | Empty | true |
+
+最后一行不一定存在问题，因为父级按钮可能已经通过 `aria-label` 获得名称。
+
+所以这段脚本只能进行初步排查，不能直接判断是否符合 WCAG。
+
+### 15.3 检查纯图标按钮的真实名称
+
+例如：
+
+```html
+<button aria-label="Search">
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+打开 DevTools 的 Accessibility 面板，重点检查：
+
+<box border radius="lg" padding={3} gap={2}>
+  **Computed Properties**
+  <divider/>
+  {#each [["Name","Search"],["Role","button"],["Focusable","true"],["Disabled","false"]] as p}
+    <row>
+      <caption>{p[0]}</caption>
+      <spacer/>
+      <text size="sm">{p[1]}</text>
+    </row>
+  {/each}
+  <divider/>
+  <caption>Accessibility Tree</caption>
+  <text size="sm">RootWebArea</text>
+  <box padding={{left:3}}>
+    <text color="success" size="sm">button "Search"</text>
+  </box>
+  <caption>内部装饰性 SVG 不需要作为独立图像节点出现。</caption>
+</box>
+
+最终应该通过 Accessibility Tree 和屏幕阅读器确认结果，而不仅仅检查 HTML 是否存在某个属性。
+
+---
+
+## 16. 图片无障碍决策树
+
+以后每次编写图片相关代码时，可以按照以下逻辑判断。
+
+<box border radius="lg" padding={2}>
+  <svg viewBox="0 0 340 415" width="100%">
+    <rect x="91" y="5" width="158" height="34" rx="6" fill="#888888" fillOpacity=".08" stroke="currentColor" strokeOpacity=".3"/>
+    <text x="170" y="26" textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor">需要展示一张图片</text>
+    {#each [{y:55,q:"图片仅用于装饰？",a:'alt="" 或 CSS 背景'},{y:141,q:"图片用于操作或导航？",a:"描述功能或导航目标"},{y:227,q:"图片包含复杂信息？",a:"简短 alt + 完整说明"},{y:313,q:"图片主要传递文字？",a:"优先使用 HTML 文本"}] as n,i}
+      <path d={`M111 ${i===0?39:n.y-20} V${n.y}`} fill="none" stroke="currentColor" strokeOpacity=".45"/>
+      <rect x="6" y={n.y} width="205" height="41" rx="6" fill="#888888" fillOpacity=".06" stroke="currentColor" strokeOpacity=".3"/>
+      <text x="108" y={n.y+24} fontSize="12" textAnchor="middle" fill="currentColor">{n.q}</text>
+      <path d={`M211 ${n.y+20} H225`} stroke="#39866B" fill="none"/>
+      <text x="218" y={n.y+13} fontSize="9" textAnchor="middle" fill="#39866B">是</text>
+      <rect x="226" y={n.y-3} width="108" height="49" rx="5" fill="#39866B" fillOpacity=".1" stroke="#39866B" strokeOpacity=".65"/>
+      <text x="280" y={n.y+25} fontSize="10" textAnchor="middle" fill="currentColor">{n.a}</text>
+      <path d={`M111 ${n.y+41} V${n.y+66}`} stroke="currentColor" strokeOpacity=".45" fill="none"/>
+      <text x="122" y={n.y+56} fontSize="10" fill="currentColor" opacity=".7">否</text>
+    {/each}
+    <rect x="6" y="380" width="205" height="31" rx="5" fill="#39866B" fillOpacity=".12" stroke="#39866B"/>
+    <text x="108" y="400" textAnchor="middle" fontSize="11" fontWeight="600" fill="currentColor">描述图片传递的有意义信息</text>
+  </svg>
+  <caption>简化版决策树。实际还需要结合周围文字是否已提供等价信息等因素判断。</caption>
+</box>
+
+W3C 官方也提供了中文版的 [alt 替代决策树](https://www.w3.org/WAI/tutorials/images/decision-tree/zh-hans)，非常适合日常开发时查询。
+
+---
+
+## 17. 本课知识测试
+
+{@body const quiz=[{q:"装饰性 img 图片应该如何处理？",opts:['省略 alt','设置 alt=""','设置 alt="Decoration"'],a:1,why:"空 alt 明确表达图片不需要独立的替代信息，而省略 alt 不具有相同含义。"},{q:"CSS background-image 是否具有原生 alt 属性？",opts:["有","没有"],a:1,why:"CSS 背景图片通常没有独立的无障碍图片语义，也没有 img 的 alt 属性。"},{q:"点击 Logo 图片会跳转首页，且链接没有其他文字，哪种 alt 更合理？",opts:["Black logo","Style Store home","空字符串"],a:1,why:"功能性图片的名称应描述链接目的。"},{q:"一个按钮已经具有 Add to cart 可见文字，内部装饰性 SVG 应如何处理？",opts:['aria-hidden="true"','role="button"','添加 tabindex="0"'],a:0,why:"装饰性 SVG 不应产生不必要的重复语义或焦点。"},{q:"商品尺寸示意图包含大量重要数据，哪种方式更合理？",opts:["全部数据塞进 alt","只提供 alt=\"Size guide\"","简短 alt 加完整 HTML 说明或表格"],a:2,why:"复杂图片需要提供完整的信息等价内容，同时保持简短的图片名称。"},{q:"自动循环播放的静音 Banner 视频是否一定不需要暂停按钮？",opts:["一定不需要","不一定"],a:1,why:"静音并不解决视觉运动问题，仍需检查 WCAG 2.2.2 的适用条件。"},{q:"商品图片具有 alt，是否可以直接证明其满足 WCAG 1.1.1？",opts:["可以","不可以"],a:1,why:"还需要判断替代文本是否与图片用途匹配，是否有效传递必要信息。"}]}
+{@body const [answers,setAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {answers.filter((a,i)=>a===quiz[i].a).length} / 7</caption>
+  </row>
+  <box height={5} radius="full" background="surface-tertiary" clip={true}>
+    <box height={5} radius="full" background="#39866B" width={`${answers.filter((a,i)=>a===quiz[i].a).length/7*100}%`}/>
+  </box>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(answers[i])} onChange={v=>setAnswers(old=>old.map((a,j)=>i===j?Number(v):a))}>
+        {#each q.opts as o,j}
+          <radio value={String(j)}>{o}</radio>
+        {/each}
+      </radio-group>
+      {#if answers[i]>=0}
+        <row align="start">
+          <icon name={answers[i]===q.a?"check-circle":"x-circle"} color={answers[i]===q.a?"success":"danger"}/>
+          <box flex={1} gap={1}>
+            <text size="sm" color={answers[i]===q.a?"success":"danger"}>{answers[i]===q.a?"回答正确":"回答错误"}</text>
+            <caption>{q.why}</caption>
+          </box>
+        </row>
+      {/if}
+    </box>
+    {#if i<6}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setAnswers(Array(7).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 日常开发检查清单
+
+{@body const checks=["所有普通 img 都提供适当的 alt 属性","装饰性图片使用空 alt","商品图库的不同图片具有合适的描述","图片链接具有明确的导航目的","没有不必要的图片与链接名称重复","有意义的信息没有仅存在于 CSS 背景中","促销 Banner 优先使用真实 HTML 文字","装饰性 SVG 不产生额外的无障碍语义","所有纯图标按钮具有明确名称","可复用 SVG 中不存在重复 ID 问题","星级评分和颜色选择器提供等价文本","复杂图片具有完整的替代说明","视频提供适用的字幕和音频描述","自动播放媒体具有必要的控制机制","通过屏幕阅读器验证实际表现"]}
+{@body const [checksDone,setChecksDone]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={3}>
+  <row align="center">
+    **非文本内容无障碍检查清单**
+    <spacer/>
+    <caption>{checksDone.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as item,i}
+    <checkbox checked={checksDone[i]} onChange={v=>setChecksDone(old=>old.map((x,j)=>i===j?v:x))} lineThrough={checksDone[i]}>{item}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks.map((x,i)=>(checksDone[i]?"[x] ":"[ ] ")+x).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 主要用途 |
+|---|---|
+| [W3C Images Tutorial](https://www.w3.org/WAI/tutorials/images/) | 图片无障碍完整教程 |
+| [Alt Decision Tree 中文版](https://www.w3.org/WAI/tutorials/images/decision-tree/zh-hans) | 判断 alt 的使用方式 |
+| [Functional Images](https://www.w3.org/WAI/tutorials/images/functional/) | 功能性图片 |
+| [Complex Images](https://www.w3.org/WAI/tutorials/images/complex/) | 复杂图片 |
+| [SVG Accessibility API Mappings](https://www.w3.org/TR/svg-aam-1.0/) | SVG 无障碍映射 |
+| [W3C Audio and Video Accessibility](https://www.w3.org/WAI/media/av/) | 音视频无障碍 |
+| [Shopify image_tag](https://shopify.dev/docs/api/liquid/filters/image_tag) | Liquid 图片输出 |
+| [Shopify Accessibility](https://shopify.dev/docs/storefronts/themes/best-practices/accessibility) | Theme 无障碍规范 |
+
+---
+
+## 本课总结
+
+<grid columns={2} gap={2}>
+  {#each [{i:"image",t:"普通图片",d:"根据内容用途决定 alt"},{i:"palette",t:"装饰性图片",d:"从辅助技术中合理隐藏"},{i:"mouse-pointer-click",t:"功能性图标",d:"描述操作，而不是外观"},{i:"file-code",t:"SVG",d:"正确处理 Role、Name、Description"},{i:"chart-column",t:"复杂图片",d:"简短名称与完整替代说明"},{i:"video",t:"多媒体",d:"字幕、音频描述、播放控制"}] as item}
+    <grid-item>
+      <box border radius="lg" padding={3} gap={2}>
+        <icon name={item.i} size="2xl"/>
+        **{item.t}**
+        <caption>{item.d}</caption>
+      </box>
+    </grid-item>
+  {/each}
+</grid>
+
+本节课最重要的开发原则是：
+
+**无障碍需要提供的是等价的信息和功能，而不是单纯为所有非文本元素添加描述。**
+
+对于图片、SVG、Icon，我们始终应该先判断它承担什么作用，再决定是否需要提供名称、描述或隐藏其语义。
+
+---
+
+**下一课：第 7 课——表单、Label 与错误提示**
+
+我们将深入学习以下内容：
+
+- `label` 与 `input` 的两种关联方式。
+- `label`、`placeholder`、`aria-label` 的本质区别。
+- `fieldset` 与 `legend` 的分组语义。
+- `required` 与 `aria-required` 的区别。
+- `disabled`、`readonly`、`aria-disabled` 的区别。
+- `aria-invalid`、`aria-describedby`、`aria-errormessage`。
+- HTML 原生表单验证机制。
+- 自定义表单验证与错误播报。
+- `autocomplete` 与输入辅助。
+- Shopify 登录、注册、Newsletter、商品变体选择器的表单无障碍实战。
+
+这一课会涉及大量原生 HTML 与 JavaScript 的实际开发知识，也是日常电商网站 ADA 修复工作中的重点。

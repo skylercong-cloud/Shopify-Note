@@ -1,0 +1,1933 @@
+# 第 17 课：Tabs、Accordion、Tooltip 组件
+
+<row align="center">
+  <caption>阶段四：复杂 UI 组件无障碍实战</caption>
+  <spacer/>
+  <caption>17 / 26 课</caption>
+</row>
+<box height={5} background="surface-tertiary" radius="full">
+  <box height={5} background="#39866B" radius="full" width="65.38%"/>
+</box>
+
+上一课，我们学习了 Dropdown、Menu、Listbox 和 Combobox，理解了视觉上相似的组件为什么需要不同的无障碍交互模式。
+
+这一课，我们继续学习电商网站中非常常见的三类组件：**Tabs（标签页）、Accordion（手风琴）、Tooltip（工具提示）**。
+
+我们会按照组件原理、ARIA 语义、键盘交互、完整代码实现、Shopify 实战的顺序进行学习。
+
+## 1. 三种组件的本质区别
+
+<box border radius="lg" padding={3} gap={3}>
+  **Tabs · 标签页**
+  <row justify="between" align="center">
+    <box gap={1}>
+      <text weight="medium" size="sm">Description</text>
+      <box height={3} background="#39866B" radius="full"/>
+    </box>
+    <text color="secondary" size="sm">Specifications</text>
+    <text color="secondary" size="sm">Reviews</text>
+  </row>
+  <box background="surface-tertiary" radius="md" padding={3}>
+    Made from premium cotton, designed for everyday comfort.
+  </box>
+  <caption>在多个同级内容面板之间切换。</caption>
+  <divider/>
+  **Accordion · 手风琴**
+  <row align="center">
+    <text weight="medium" size="sm">Product details</text>
+    <spacer/><icon name="chevron-up" size="sm"/>
+  </row>
+  <text size="sm">100% cotton. Machine washable.</text>
+  <divider/>
+  <row align="center">
+    <text weight="medium" size="sm">Shipping & Returns</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <divider/>
+  <row align="center">
+    <text weight="medium" size="sm">Care instructions</text>
+    <spacer/><icon name="chevron-down" size="sm"/>
+  </row>
+  <caption>独立展开或折叠多个内容区域。</caption>
+  <divider/>
+  **Tooltip · 工具提示**
+  <box align="center" padding={2} gap={1}>
+    <box background="#333333" theme="dark" radius="md" padding={3}>
+      <text color="#FFFFFF" size="sm">Made with certified organic cotton.</text>
+    </box>
+    <svg viewBox="0 0 16 8" width="16px" height="8px"><path d="M0 0 H16 L8 8 Z" fill="#333333"/></svg>
+    <row align="center">
+      Organic cotton
+      <icon name="info"/>
+    </row>
+  </box>
+  <caption>为某个控件或元素提供简短的补充说明。</caption>
+</box>
+
+| 对比项 | Tabs | Accordion | Tooltip |
+|---|---|---|---|
+| 核心用途 | 内容切换 | 内容展开 | 补充说明 |
+| 主要角色 | tablist、tab、tabpanel | button、heading | tooltip |
+| 核心状态 | aria-selected | aria-expanded | 显示与隐藏 |
+| 方向键导航 | 通常需要 | 可选 | 不需要 |
+| 是否需要 Focus Trap | 否 | 否 | 否 |
+| 内部能否有交互控件 | 可以 | 可以 | 不应该 |
+
+这三个组件都不属于模态弹窗，因此不要直接套用上一阶段学习的 Focus Trap 机制。
+
+---
+
+## 2. Tabs：标签页组件
+
+### 2.1 Tabs 的完整 ARIA 结构
+
+Tabs 由三个核心角色组成。
+
+<box border radius="lg" padding={3} gap={2}>
+  <box border={{size:1,color:"#5185C5"}} radius="md" padding={2} gap={2}>
+    <caption>role="tablist"</caption>
+    <row gap={1}>
+      {#each ["Description","Specs","Reviews"] as t,i}
+        <box flex={1} border={{size:i===0?2:1,color:i===0?"#39866B":"#88888850"}} radius="sm" padding={2} align="center" gap={1}>
+          <text size="xs" weight="medium">{t}</text>
+          <caption>role="tab"</caption>
+          <text size="xs">{i===0?"selected":"not selected"}</text>
+        </box>
+      {/each}
+    </row>
+  </box>
+  <svg viewBox="0 0 320 42" width="100%">
+    <path d="M52 0 V35 M47 29 L52 35 L57 29" stroke="#39866B" strokeWidth="1.5" fill="none"/>
+    <text x="64" y="22" fontSize="11" fill="currentColor">aria-controls</text>
+  </svg>
+  <box border={{size:1,color:"#39866B"}} radius="md" padding={3} gap={1}>
+    <caption>role="tabpanel"</caption>
+    **Description**
+    <text size="sm">Made from premium cotton.</text>
+    <caption>aria-labelledby → Description tab</caption>
+  </box>
+  <box border radius="md" padding={2}>
+    <caption>Specifications panel · hidden</caption>
+  </box>
+  <box border radius="md" padding={2}>
+    <caption>Reviews panel · hidden</caption>
+  </box>
+</box>
+
+对应的 HTML：
+
+```html
+<div role="tablist" aria-label="Product information">
+
+  <button
+    type="button"
+    role="tab"
+    id="tab-description"
+    aria-selected="true"
+    aria-controls="panel-description"
+    tabindex="0"
+  >
+    Description
+  </button>
+
+  <button
+    type="button"
+    role="tab"
+    id="tab-specs"
+    aria-selected="false"
+    aria-controls="panel-specs"
+    tabindex="-1"
+  >
+    Specifications
+  </button>
+
+</div>
+
+<div
+  role="tabpanel"
+  id="panel-description"
+  aria-labelledby="tab-description"
+  tabindex="0"
+>
+  Made from premium cotton.
+</div>
+
+<div
+  role="tabpanel"
+  id="panel-specs"
+  aria-labelledby="tab-specs"
+  tabindex="0"
+  hidden
+>
+  Material: 100% cotton.
+</div>
+```
+
+这里存在双向的语义关联：
+
+| 属性 | 关联方向 |
+|---|---|
+| `aria-controls` | Tab → Tabpanel |
+| `aria-labelledby` | Tabpanel → Tab |
+| `aria-selected` | 当前激活的 Tab |
+| `tabindex` | 当前键盘导航入口 |
+| `hidden` | 隐藏未激活的 Tabpanel |
+
+为什么 Tabpanel 有 `tabindex="0"`？
+
+如果面板从普通文字开始，且没有可直接聚焦的内容，那么可以让面板本身获得焦点，方便键盘用户进入内容区域。如果面板开头已经有合理的可聚焦元素，则通常不需要额外增加这个停靠点。<Cite ref="turn440711search2"/>
+
+### 2.2 为什么 Tabs 不应该全部设置 tabindex="0"？
+
+假设商品详情页有五个 Tab。
+
+如果全部进入常规 Tab 顺序，键盘用户就需要连续按五次 Tab，才能离开标签栏。
+
+推荐使用第 10 课学习的 **Roving Tabindex**：
+
+```text
+Description     tabindex="0"
+Specifications  tabindex="-1"
+Reviews         tabindex="-1"
+Shipping        tabindex="-1"
+FAQ             tabindex="-1"
+```
+
+用户按 Tab 进入标签栏，再使用方向键在标签之间移动。再次按 Tab，就可以离开标签栏并进入当前内容面板。
+
+### 2.3 自动激活与手动激活
+
+Tabs 存在两种非常重要的交互模式。
+
+| 行为 | 自动激活 | 手动激活 |
+|---|---|---|
+| 按方向键 | 移动焦点并切换面板 | 只移动焦点 |
+| 按 Enter / Space | 通常不需要额外确认 | 确认切换面板 |
+| 适合场景 | 内容已经加载完成 | 内容需要异步请求 |
+| 请求次数 | 可能较多 | 用户确认后才请求 |
+
+APG 建议，当面板可以无明显延迟地显示时，采用自动激活模式；如果切换存在较明显的加载延迟，则手动激活更加适合。<Cite refs={["turn440711search3","turn440711search8"]}/>
+
+{@body const tabsData=[{name:"Description",content:"Made from premium cotton. Designed for everyday comfort."},{name:"Specifications",content:"Material: 100% cotton. Regular fit. Machine washable."},{name:"Reviews",content:"4.8 out of 5 stars · 128 customer reviews."}]}
+{@body const [activation,setActivation]=DIL.useState("manual")}
+{@body const [tabFocus,setTabFocus]=DIL.useState(0)}
+{@body const [tabSelected,setTabSelected]=DIL.useState(0)}
+<card gap={3}>
+  **Tabs 交互实验室**
+  <segmented-control value={activation} onChange={v=>{setActivation(v);setTabFocus(tabSelected)}} options={[{label:"自动激活",value:"auto"},{label:"手动激活",value:"manual"}]}/>
+  <row gap={1}>
+    {#each tabsData as t,i}
+      <pressable flex={1} padding={2} radius="sm" border={{size:tabFocus===i?2:1,color:tabFocus===i?"#5185C5":"transparent"}} onClick={()=>{setTabFocus(i);setTabSelected(i)}} gap={2}>
+        <text size="xs" weight={tabSelected===i?"bold":"normal"} textAlign="center">{t.name}</text>
+        <box height={3} background={tabSelected===i?"#39866B":"transparent"} radius="full"/>
+      </pressable>
+    {/each}
+  </row>
+  <box background="surface-tertiary" radius="md" padding={3} minHeight="85px">
+    **{tabsData[tabSelected].name}**
+    <text size="sm">{tabsData[tabSelected].content}</text>
+  </box>
+  <grid columns={4} gap={1}>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{const n=(tabFocus+2)%3;setTabFocus(n);if(activation==="auto")setTabSelected(n)}}><icon name="arrow-left"/></button></grid-item>
+    <grid-item><button block variant="outline" color="secondary" onClick={()=>{const n=(tabFocus+1)%3;setTabFocus(n);if(activation==="auto")setTabSelected(n)}}><icon name="arrow-right"/></button></grid-item>
+    <grid-item span={2}><button block onClick={()=>setTabSelected(tabFocus)}>Enter / Space</button></grid-item>
+  </grid>
+  <divider/>
+  <row><caption>当前模拟焦点</caption><spacer/><text size="sm">{tabsData[tabFocus].name}</text></row>
+  <row><caption>当前激活的 Tab</caption><spacer/><text size="sm">{tabsData[tabSelected].name}</text></row>
+  {#each tabsData as t,i}
+    <box border radius="sm" padding={2} gap={1}>
+      <text weight="medium" size="sm">{t.name}</text>
+      <caption>{`tabindex="${i===tabSelected?0:-1}" · aria-selected="${i===tabSelected}"`}</caption>
+    </box>
+  {/each}
+  <caption>蓝色边框表示模拟焦点，绿色下划线表示已激活的 Tab。手动模式下，两者可以不同。</caption>
+</card>
+
+这里的手动模式采用 APG 示例的做法：已选中的 Tab 作为常规 Tab 入口，方向键可以将程序化焦点移动到其他 `tabindex="-1"` 的 Tab。
+
+这也说明：
+
+**Focus 和 Selection 是两个不同的概念，不能在所有组件中将它们视为同一个状态。**
+
+### 2.4 Tabs 键盘交互规范
+
+| 按键 | 横向 Tabs | 纵向 Tabs |
+|---|---|---|
+| Tab | 进入或离开标签栏 | 相同 |
+| ArrowLeft | 上一个 Tab | 通常不处理 |
+| ArrowRight | 下一个 Tab | 通常不处理 |
+| ArrowUp | 保留默认行为 | 上一个 Tab |
+| ArrowDown | 保留默认行为 | 下一个 Tab |
+| Home | 第一个 Tab，可选 | 相同 |
+| End | 最后一个 Tab，可选 | 相同 |
+| Enter / Space | 手动激活 | 相同 |
+
+纵向 Tabs 还需要声明：
+
+```html
+<div
+  role="tablist"
+  aria-label="Product information"
+  aria-orientation="vertical"
+>
+  ...
+</div>
+```
+
+横向是默认方向，可以省略 `aria-orientation="horizontal"`。
+
+尤其注意，不要在横向 Tabs 中无条件拦截上下方向键，否则可能影响用户正常滚动页面。
+
+---
+
+## 3. 封装可复用的 Tabs Web Component
+
+结合 Shopify Theme 的开发方式，我们可以通过原生 JavaScript 和 Custom Element 实现一个通用组件。
+
+### 3.1 HTML
+
+```html
+<accessible-tabs activation="manual">
+
+  <div role="tablist" aria-label="Product information">
+    <button
+      type="button"
+      role="tab"
+      id="DescriptionTab"
+      aria-controls="DescriptionPanel"
+      aria-selected="true"
+      tabindex="0"
+    >
+      Description
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      id="ReviewsTab"
+      aria-controls="ReviewsPanel"
+      aria-selected="false"
+      tabindex="-1"
+    >
+      Reviews
+    </button>
+  </div>
+
+  <div
+    role="tabpanel"
+    id="DescriptionPanel"
+    aria-labelledby="DescriptionTab"
+    tabindex="0"
+  >
+    Product description
+  </div>
+
+  <div
+    role="tabpanel"
+    id="ReviewsPanel"
+    aria-labelledby="ReviewsTab"
+    tabindex="0"
+    hidden
+  >
+    Customer reviews
+  </div>
+
+</accessible-tabs>
+```
+
+通过 `activation="manual"` 或 `activation="auto"` 控制激活方式。
+
+### 3.2 JavaScript
+
+创建 `assets/accessible-tabs.js`：
+
+```javascript
+class AccessibleTabs extends HTMLElement {
+  connectedCallback() {
+    if (this.controller) return;
+
+    this.tablist = this.querySelector('[role="tablist"]');
+    if (!this.tablist) return;
+
+    this.tabs = Array.from(
+      this.tablist.querySelectorAll('[role="tab"]')
+    );
+
+    this.panels = this.tabs.map(tab =>
+      document.getElementById(
+        tab.getAttribute('aria-controls')
+      )
+    );
+
+    if (
+      !this.tabs.length ||
+      this.panels.some(panel =>
+        !panel || !this.contains(panel)
+      )
+    ) return;
+
+    this.controller = new AbortController();
+    const signal = this.controller.signal;
+
+    this.tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        this.activate(index);
+      }, { signal });
+
+      tab.addEventListener('keydown', event => {
+        this.onKeydown(event, index);
+      }, { signal });
+
+      tab.addEventListener('focus', () => {
+        if (this.getAttribute('activation') === 'auto') {
+          this.activate(index);
+        }
+      }, { signal });
+    });
+
+    const selected = this.tabs.findIndex(tab =>
+      tab.getAttribute('aria-selected') === 'true'
+    );
+
+    this.activate(Math.max(0, selected));
+  }
+
+  activate(index) {
+    if (!this.tabs[index]) return;
+
+    this.tabs.forEach((tab, i) => {
+      const selected = i === index;
+
+      // 如果旧面板即将隐藏，先移出其内部焦点
+      if (
+        !selected &&
+        this.panels[i].contains(document.activeElement)
+      ) {
+        this.tabs[index].focus();
+      }
+
+      tab.setAttribute(
+        'aria-selected',
+        String(selected)
+      );
+
+      tab.tabIndex = selected ? 0 : -1;
+
+      this.panels[i].hidden = !selected;
+    });
+
+    this.selectedIndex = index;
+  }
+
+  onKeydown(event, index) {
+    const vertical =
+      this.tablist.getAttribute('aria-orientation')
+        === 'vertical';
+
+    const previous = vertical
+      ? 'ArrowUp'
+      : 'ArrowLeft';
+
+    const next = vertical
+      ? 'ArrowDown'
+      : 'ArrowRight';
+
+    const length = this.tabs.length;
+    let target;
+
+    switch (event.key) {
+      case previous:
+        target = (index - 1 + length) % length;
+        break;
+
+      case next:
+        target = (index + 1) % length;
+        break;
+
+      case 'Home':
+        target = 0;
+        break;
+
+      case 'End':
+        target = length - 1;
+        break;
+
+      default:
+        return;
+    }
+
+    event.preventDefault();
+
+    this.tabs[target].focus();
+  }
+
+  disconnectedCallback() {
+    this.controller?.abort();
+    this.controller = null;
+  }
+}
+
+if (!customElements.get('accessible-tabs')) {
+  customElements.define(
+    'accessible-tabs',
+    AccessibleTabs
+  );
+}
+```
+
+为什么代码没有单独监听 Enter 和 Space？
+
+因为 Tab 使用的是原生 button。浏览器已经实现键盘激活，Enter 和 Space 可以触发 click 事件，因此无需重复实现。
+
+### 3.3 CSS：区分选中状态与焦点状态
+
+```css
+accessible-tabs {
+  display: block;
+}
+
+[role="tablist"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+[role="tab"] {
+  padding: 12px 16px;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+
+[role="tab"][aria-selected="true"] {
+  border-bottom-color: currentColor;
+  font-weight: 700;
+}
+
+[role="tab"]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+[role="tabpanel"] {
+  padding-block: 16px;
+}
+
+[role="tabpanel"][hidden] {
+  display: none !important;
+}
+
+[role="tabpanel"]:focus-visible {
+  outline: 2px solid currentColor;
+}
+```
+
+选中状态使用下划线和字重，焦点状态使用 outline。即使两个状态同时出现，用户也能够区分。
+
+这是一个静态 DOM 的基础组件实现。若需要动态增加、删除 Tab、支持嵌套 Tabs 或 RTL 布局，需要进一步扩展；正式项目也应考虑 JavaScript 加载失败时显示全部内容的渐进增强方案。
+
+---
+
+## 4. Accordion：手风琴组件
+
+Accordion 与上一课学习的 Disclosure 有非常紧密的关系。
+
+一个 Disclosure 负责展开或折叠一个区域，而 Accordion 通常是多个 Disclosure 的组合。
+
+Shopify 中常见的应用包括 FAQ、商品详情、配送政策、退换货说明以及移动端 Collection 筛选区域。
+
+### 4.1 三种 Accordion 模式
+
+| 模式 | 行为 |
+|---|---|
+| Multiple | 允许同时展开多个面板 |
+| Exclusive | 最多展开一个面板 |
+| Required Open | 始终至少有一个面板展开 |
+
+{@body const accordionItems=[{title:"Product details",content:"100% premium cotton. Regular fit with a crew neckline."},{title:"Shipping & Returns",content:"Free shipping on orders over $50. Returns accepted within 30 days."},{title:"Care instructions",content:"Machine wash cold. Do not bleach. Tumble dry low."}]}
+{@body const [accordionMode,setAccordionMode]=DIL.useState("multiple")}
+{@body const [openedPanels,setOpenedPanels]=DIL.useState([0])}
+<card gap={3}>
+  **Accordion 交互实验室**
+  <radio-group direction="col" value={accordionMode} onChange={v=>{setAccordionMode(v);setOpenedPanels(v==="required"?[0]:[])}}>
+    <radio value="multiple">Multiple · 多项展开</radio>
+    <radio value="exclusive">Exclusive · 最多一项展开</radio>
+    <radio value="required">Required Open · 始终一项展开</radio>
+  </radio-group>
+  <divider/>
+  {#each accordionItems as item,i}
+    <box gap={2}>
+      <pressable padding={2} radius="sm" onClick={()=>setOpenedPanels(old=>accordionMode==="multiple"?(old.includes(i)?old.filter(n=>n!==i):[...old,i]):accordionMode==="required"?[i]:old.includes(i)?[]:[i])}>
+        <row align="center">
+          **{item.title}**
+          <spacer/>
+          <icon name={openedPanels.includes(i)?"minus":"plus"} size="sm"/>
+        </row>
+      </pressable>
+      {#if openedPanels.includes(i)}
+        <box padding={{left:2,right:2,bottom:2}}>
+          <text size="sm">{item.content}</text>
+        </box>
+      {/if}
+      <caption>{`aria-expanded="${openedPanels.includes(i)}"`}{accordionMode==="required"&&openedPanels.includes(i)?' · aria-disabled="true"':""}</caption>
+    </box>
+    {#if i<2}<divider/>{/if}
+  {/each}
+  <caption>切换不同模式，然后尝试展开及关闭各个面板。</caption>
+</card>
+
+对于 FAQ 和商品详情，我通常更推荐 Multiple 模式。用户可能需要同时对比多个区域的内容，没有必要强制关闭之前展开的面板。
+
+---
+
+## 5. 原生 details 和 summary
+
+Accordion 是一个非常适合优先考虑原生 HTML 的组件。
+
+```html
+<details>
+  <summary>Product details</summary>
+
+  <p>Made from 100% premium cotton.</p>
+</details>
+
+<details>
+  <summary>Shipping & Returns</summary>
+
+  <p>Free shipping on orders over $50.</p>
+</details>
+```
+
+不需要 JavaScript，浏览器已经支持展开、折叠、键盘激活以及相应的无障碍状态。
+
+### 5.1 原生 API
+
+| API | 用途 |
+|---|---|
+| `details.open` | 获取或设置展开状态 |
+| `open` 属性 | 默认展开 |
+| `name` 属性 | 将多个 details 组成互斥分组 |
+| `toggle` 事件 | 展开状态变化通知 |
+| `summary::marker` | 原生展开标记的样式 |
+
+例如：
+
+```javascript
+const details = document.querySelector('details');
+
+details.open = true;
+
+details.addEventListener('toggle', () => {
+  console.log(details.open);
+});
+```
+
+需要注意，短时间内连续修改 open 状态时，浏览器可能合并 toggle 事件，因此不要把它当作每一次属性变化的精确事件日志。
+
+### 5.2 使用 name 实现互斥 Accordion
+
+以前实现单项展开，通常需要 JavaScript 遍历其他面板并关闭。
+
+现在可以使用原生 `name` 属性。
+
+```html
+<details name="product-information" open>
+  <summary>Description</summary>
+
+  <p>Premium cotton T-shirt.</p>
+</details>
+
+<details name="product-information">
+  <summary>Specifications</summary>
+
+  <p>100% cotton.</p>
+</details>
+
+<details name="product-information">
+  <summary>Shipping</summary>
+
+  <p>Free shipping on orders over $50.</p>
+</details>
+```
+
+同一 name 分组中，打开一个 details，浏览器就会关闭其他已经展开的 details。<Cite ref="turn440711search19"/>
+
+但是这种模式允许全部折叠，并不能直接实现始终有一个面板展开的 Required Open 模式。
+
+另外，分组元素不需要相邻。因此在 Shopify 中，如果同一个 Section 被渲染多次，要特别注意 name 的唯一性。
+
+```liquid
+<details name="product-info-{{ section.id }}">
+  <summary>Product details</summary>
+
+  {{ product.description }}
+</details>
+```
+
+旧浏览器可能不支持 name 分组，此时通常会退化为允许多项展开，而不影响基础内容访问。
+
+### 5.3 如何自定义展开图标？
+
+```html
+<details class="accordion">
+  <summary>
+    Shipping & Returns
+
+    <span class="accordion-icon" aria-hidden="true">
+    </span>
+  </summary>
+
+  <div class="accordion-content">
+    Free shipping on orders over $50.
+  </div>
+</details>
+```
+
+```css
+.accordion summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  min-height: 44px;
+  padding: 12px 0;
+
+  list-style: none;
+  cursor: pointer;
+}
+
+.accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-icon::before {
+  content: "+";
+}
+
+.accordion[open] .accordion-icon::before {
+  content: "−";
+}
+
+.accordion summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+.accordion-content {
+  padding-block-end: 16px;
+}
+```
+
+原生 summary 已经具有对应的交互语义，一般不需要重新设置 `role="button"`、`tabindex="0"` 或手动同步 `aria-expanded`。
+
+注意 summary 内部不宜再放置独立的按钮、输入框等控件，否则可能产生交互冲突。
+
+---
+
+## 6. 自定义 Accordion 的完整实现
+
+如果项目需要严格控制标题层级、展开动画、始终展开一项等业务规则，可以使用自定义 Accordion。
+
+### 6.1 HTML 结构
+
+```html
+<accessible-accordion mode="exclusive">
+
+  <h3>
+    <button
+      type="button"
+      id="details-trigger"
+      aria-expanded="true"
+      aria-controls="details-panel"
+    >
+      Product details
+    </button>
+  </h3>
+
+  <div
+    id="details-panel"
+    role="region"
+    aria-labelledby="details-trigger"
+  >
+    Made from premium cotton.
+  </div>
+
+  <h3>
+    <button
+      type="button"
+      id="shipping-trigger"
+      aria-expanded="false"
+      aria-controls="shipping-panel"
+    >
+      Shipping & Returns
+    </button>
+  </h3>
+
+  <div
+    id="shipping-panel"
+    role="region"
+    aria-labelledby="shipping-trigger"
+    hidden
+  >
+    Free shipping on orders over $50.
+  </div>
+
+</accessible-accordion>
+```
+
+这里使用 `h3 > button`，而不是在 button 内部嵌套 h3。
+
+这样既可以保留页面标题层级，又能让标题中的按钮负责展开和折叠。
+
+`role="region"` 是可选的。如果 FAQ 有几十个可以同时展开的面板，不宜给每个面板都添加 region，以免造成大量地标。<Cite ref="turn993286view1"/>
+
+### 6.2 JavaScript
+
+```javascript
+class AccessibleAccordion extends HTMLElement {
+  connectedCallback() {
+    if (this.controller) return;
+
+    this.buttons = [...this.querySelectorAll(
+      'button[aria-expanded][aria-controls]'
+    )].filter(button =>
+      button.closest('accessible-accordion') === this
+    );
+
+    this.panels = this.buttons.map(button =>
+      document.getElementById(
+        button.getAttribute('aria-controls')
+      )
+    );
+
+    if (
+      !this.buttons.length ||
+      this.panels.some(panel =>
+        !panel || !this.contains(panel)
+      )
+    ) return;
+
+    this.controller = new AbortController();
+
+    const signal = this.controller.signal;
+
+    this.mode = this.getAttribute('mode') || 'multiple';
+
+    const firstOpen = this.buttons.findIndex(button =>
+      button.getAttribute('aria-expanded') === 'true'
+    );
+
+    this.buttons.forEach((button, i) => {
+      const expanded =
+        this.mode === 'multiple'
+          ? button.getAttribute('aria-expanded') === 'true'
+          : i === (
+              firstOpen === -1 &&
+              this.mode === 'required'
+                ? 0
+                : firstOpen
+            );
+
+      this.setExpanded(i, expanded);
+
+      button.addEventListener('click', () => {
+        this.toggle(i);
+      }, { signal });
+    });
+  }
+
+  setExpanded(index, expanded) {
+    const button = this.buttons[index];
+    const panel = this.panels[index];
+
+    if (
+      !expanded &&
+      panel.contains(document.activeElement)
+    ) {
+      button.focus();
+    }
+
+    button.setAttribute(
+      'aria-expanded',
+      String(expanded)
+    );
+
+    panel.hidden = !expanded;
+
+    if (this.mode === 'required' && expanded) {
+      button.setAttribute('aria-disabled', 'true');
+    } else {
+      button.removeAttribute('aria-disabled');
+    }
+  }
+
+  toggle(index) {
+    const button = this.buttons[index];
+
+    const expanded =
+      button.getAttribute('aria-expanded') === 'true';
+
+    if (this.mode === 'required' && expanded) {
+      return;
+    }
+
+    if (!expanded && this.mode !== 'multiple') {
+      this.buttons.forEach((_, i) => {
+        if (i !== index) {
+          this.setExpanded(i, false);
+        }
+      });
+    }
+
+    this.setExpanded(index, !expanded);
+  }
+
+  disconnectedCallback() {
+    this.controller?.abort();
+    this.controller = null;
+  }
+}
+
+if (!customElements.get('accessible-accordion')) {
+  customElements.define(
+    'accessible-accordion',
+    AccessibleAccordion
+  );
+}
+```
+
+三种模式分别使用：
+
+```html
+<accessible-accordion mode="multiple">
+```
+
+```html
+<accessible-accordion mode="exclusive">
+```
+
+```html
+<accessible-accordion mode="required">
+```
+
+Required 模式下，当前展开的面板不能关闭，所以对应按钮使用 `aria-disabled="true"` 表达该操作暂时不可用。按钮仍然可以被聚焦，JavaScript 则负责阻止关闭行为。
+
+### 6.3 Accordion 与 Tabs 的键盘机制区别
+
+这是本节课的一个重点。
+
+<grid columns={2} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Tabs**
+      <row gap={1}>
+        {#each [0,1,2] as i}
+          <box flex={1} border={{size:1,color:i===0?"#5185C5":"#88888850"}} radius="sm" padding={1} align="center">
+            <text size="xs">Tab {i+1}</text>
+          </box>
+        {/each}
+      </row>
+      <caption>1 个常规 Tab 入口</caption>
+      <row justify="center"><icon name="arrow-left"/><icon name="arrow-right"/></row>
+      <caption>方向键内部导航</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Accordion**
+      {#each [1,2,3] as n}
+        <box border radius="sm" padding={2}><text size="xs">Header {n}</text></box>
+      {/each}
+      <caption>所有标题按钮均可通过 Tab 访问。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+Accordion 不应该照搬 Tabs 的 Roving Tabindex 模式。
+
+所有 Accordion 标题按钮通常都应该保留在常规 Tab 顺序中。Enter 和 Space 用于展开折叠，方向键、Home、End 可以作为额外增强，但不是基本实现所必需的。
+
+---
+
+## 7. Accordion 动画的无障碍问题
+
+假设为了实现高度过渡动画，开发者没有使用 hidden，而是这样隐藏面板：
+
+```css
+.accordion-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.accordion-panel.is-open {
+  max-height: 1000px;
+  opacity: 1;
+}
+```
+
+视觉上已经隐藏，但内部链接、按钮和输入框可能依然能够通过 Tab 聚焦。
+
+这是非常典型的无障碍问题。
+
+### 7.1 正确的动画状态模型
+
+| 状态 | 视觉 | 交互 | ARIA |
+|---|---|---|---|
+| Closed | 隐藏 | 不可访问 | expanded=false |
+| Opening | 展开动画 | 开始开放访问 | expanded=true |
+| Open | 完全显示 | 可访问 | expanded=true |
+| Closing | 折叠动画 | 关闭内部交互 | expanded=false |
+
+如果需要退出动画，可以采用以下顺序：
+
+```text
+用户关闭 Accordion
+        ↓
+如果焦点在面板内部，先恢复到标题按钮
+        ↓
+设置 aria-expanded="false"
+        ↓
+设置 panel.inert = true
+        ↓
+播放关闭动画
+        ↓
+设置 panel.hidden = true
+```
+
+重新打开时，移除 hidden 和 inert，并同步展开状态。
+
+还必须处理动画被取消、快速连续点击以及用户启用减少运动偏好时的情况。
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .accordion-panel {
+    transition: none;
+    animation: none;
+  }
+}
+```
+
+对于 FAQ、商品说明等基础组件，如果没有强烈的动画需求，我更推荐原生 details 或直接切换 hidden，能够显著降低状态同步的复杂度。
+
+---
+
+## 8. Tooltip：工具提示组件
+
+Tooltip 看起来非常简单，但实际上是无障碍审计中比较容易出问题的一类组件。
+
+例如 Shopify 商品页中的材质说明、尺寸提示、图标按钮说明、会员积分解释等。
+
+### 8.1 Tooltip、Toggletip、Popover 的区别
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Tooltip**
+      <box background="#333333" theme="dark" radius="sm" padding={2}>
+        <text color="#FFFFFF" size="xs">Measurements in centimeters</text>
+      </box>
+      <row align="center" justify="center">
+        <text size="sm">Size guide</text>
+        <icon name="info" size="sm"/>
+      </row>
+      <caption>Hover 或 Focus 触发，仅包含说明文字。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      **Toggletip**
+      <row align="center">
+        <text size="sm">Reward points</text>
+        <icon name="info"/>
+      </row>
+      <box border radius="sm" padding={2}>
+        <text size="xs">Earn points with every purchase.</text>
+      </box>
+      <caption>点击或键盘激活后显示补充信息。</caption>
+    </box>
+  </grid-item>
+  <grid-item span={2}>
+    <box border radius="md" padding={3} gap={2}>
+      **Interactive Popover**
+      <row align="center">
+        <text size="sm">Shipping information</text>
+        <icon name="chevron-down"/>
+      </row>
+      <box border radius="sm" padding={3} gap={2}>
+        <text size="sm">Free shipping on orders over $50.</text>
+        <text size="sm" underline={true}>View shipping policy</text>
+        <box align="end"><text size="sm" weight="medium">Close</text></box>
+      </box>
+      <caption>可以包含链接、按钮及其他交互控件。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+| 特征 | Tooltip | Toggletip | Interactive Popover |
+|---|---|---|---|
+| Hover 触发 | 通常支持 | 通常不需要 | 视情况 |
+| Focus 触发 | 支持 | 通常不需要 | 视情况 |
+| Click 触发 | 不是主要方式 | 是 | 是 |
+| 内部交互元素 | 不应该有 | 取决于模式 | 可以 |
+| 触屏使用 | 需要考虑替代方式 | 比较友好 | 比较友好 |
+| 推荐语义 | tooltip | Disclosure 等 | 根据实际内容决定 |
+
+Toggletip 是一种交互设计术语，并不存在专门的 `role="toggletip"`。
+
+同样，Popover API 也只是提供显示、隐藏及浮层管理能力，最终使用什么语义仍然取决于内容。
+
+---
+
+## 9. Tooltip 的正确 ARIA 结构
+
+假设有一个尺寸说明按钮：
+
+```html
+<button
+  type="button"
+  aria-describedby="size-tooltip"
+>
+  Size guide
+</button>
+
+<div id="size-tooltip" role="tooltip" hidden>
+  All measurements are in centimeters.
+</div>
+```
+
+浏览器计算的无障碍信息：
+
+```text
+Role: button
+
+Name: Size guide
+
+Description:
+All measurements are in centimeters.
+```
+
+结合第 13 课学习的 AccName 规则，即使 tooltip 使用 hidden，只要被 `aria-describedby` 有效地直接引用，其文字仍然可以参与 Description 计算。
+
+Tooltip 的常见设计原则是：焦点保留在触发元素上，浮层本身不接收焦点，也不包含可操作元素。需要在保持焦点的情况下提供关闭方式，例如 Esc。<Cite ref="turn440711search1"/>
+
+需要说明，W3C APG 的 Tooltip Pattern 仍属于尚未形成最终共识的设计模式，因此还需要结合 WCAG 正式准则和实际辅助技术测试进行判断。
+
+### 9.1 aria-label 与 Tooltip 的区别
+
+假设 Header 有一个纯图标购物车按钮。
+
+```html
+<button aria-describedby="cart-tooltip">
+  <svg aria-hidden="true"></svg>
+</button>
+
+<div role="tooltip" id="cart-tooltip">
+  Shopping cart
+</div>
+```
+
+这里的按钮只有 Description，没有明确的 Accessible Name。
+
+不应该依赖 Tooltip 为一个无名称的按钮提供核心功能信息。
+
+更合理的是：
+
+```html
+<button
+  type="button"
+  aria-label="Shopping cart"
+  aria-haspopup="dialog"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+```
+
+如果视觉上需要显示 Shopping cart 的提示，可以额外实现 Tooltip，但应避免名称和描述完全重复，造成不必要的重复播报。
+
+| 属性 | 应承担的职责 |
+|---|---|
+| aria-label | 控件叫什么 |
+| aria-describedby | 控件还有什么补充说明 |
+| role="tooltip" | 表达工具提示内容 |
+
+---
+
+## 10. WCAG 1.4.13：Content on Hover or Focus
+
+这是 Tooltip、Hover Mega Menu 等组件非常重要的一项 AA 级准则。
+
+它要求适用的 Hover 或 Focus 附加内容满足三个条件：**Dismissible、Hoverable、Persistent。** <Cite ref="turn440711search0"/>
+
+### 10.1 Dismissible：可关闭
+
+<box border radius="md" padding={3} gap={2}>
+  <svg viewBox="0 0 320 116" width="100%">
+    <rect x="14" y="5" width="292" height="106" rx="5" stroke="currentColor" strokeOpacity=".25" fill="none"/>
+    <text x="25" y="25" fontSize="12" fontWeight="600" fill="currentColor">Product specifications</text>
+    <path d="M25 43 H289 M25 60 H289 M25 77 H260 M25 94 H289" stroke="currentColor" strokeOpacity=".18" strokeWidth="4"/>
+    <rect x="57" y="37" width="210" height="43" rx="5" fill="#333333"/>
+    <text x="162" y="63" textAnchor="middle" fontSize="12" fill="white">Additional product information</text>
+    <rect x="269" y="78" width="35" height="24" rx="4" fill="#888888" fillOpacity=".12" stroke="currentColor" strokeOpacity=".4"/>
+    <text x="286" y="93" textAnchor="middle" fontSize="10" fill="currentColor">Esc</text>
+  </svg>
+  <caption>提示浮层遮挡其他内容时，用户应该能够在不移动鼠标或焦点的情况下关闭它。</caption>
+</box>
+
+常见解决方案是按 Esc 关闭。
+
+规范对输入错误提示，以及不会遮挡或替换其他内容的浮层，存在可关闭性方面的例外。
+
+### 10.2 Hoverable：可悬停
+
+<grid columns={2} gap={2}>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <text color="danger" weight="medium" size="sm">错误实现</text>
+      <box background="#333333" theme="dark" radius="sm" padding={3} align="center">
+        <text color="#FFFFFF" size="xs">More information</text>
+      </box>
+      <box align="center" gap={1}>
+        <icon name="mouse-pointer" color="danger"/>
+        <icon name="arrow-up" color="danger"/>
+        <icon name="info" size="lg"/>
+      </box>
+      <caption>鼠标离开图标，Tooltip 立即消失，无法移动到文字区域。</caption>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={3} gap={2}>
+      <text color="success" weight="medium" size="sm">正确实现</text>
+      <box border={{size:1,color:"#39866B"}} radius="md" padding={2}>
+        <box background="#333333" theme="dark" radius="sm" padding={2} align="center">
+          <text color="#FFFFFF" size="xs">More information</text>
+          <icon name="mouse-pointer" color="#FFFFFF"/>
+        </box>
+        <box align="center"><icon name="info" size="lg"/></box>
+      </box>
+      <caption>鼠标可以从触发元素移动到 Tooltip 上，内容保持显示。</caption>
+    </box>
+  </grid-item>
+</grid>
+
+因此，下面这种 CSS 写法经常存在问题：
+
+```css
+.tooltip {
+  pointer-events: none;
+}
+```
+
+如果它导致鼠标无法悬停在提示区域，就可能不满足 Hoverable 要求。
+
+### 10.3 Persistent：持续显示
+
+例如：
+
+```javascript
+showTooltip();
+
+setTimeout(hideTooltip, 2000);
+```
+
+这种实现会在用户仍然阅读 Tooltip 时，强制将其关闭。
+
+适用的附加内容应该保持显示，直到用户离开触发区域、主动关闭，或者信息已经失效，而不是简单地设置固定的自动消失时间。
+
+尤其是使用屏幕放大工具的用户，他们可能需要更长时间阅读完整内容。
+
+注意，浏览器原生 `title` 属性产生且未被作者修改的工具提示属于该准则的例外，但这不意味着 title 是良好的无障碍信息展示方案。
+
+---
+
+## 11. 封装可复用的 Tooltip Web Component
+
+现在实现一个同时支持鼠标、键盘、Esc 关闭及持续显示的基础组件。
+
+### 11.1 HTML
+
+```html
+<accessible-tooltip>
+
+  <button
+    type="button"
+    data-tooltip-trigger
+    aria-describedby="size-tooltip"
+  >
+    Size guide
+  </button>
+
+  <span
+    id="size-tooltip"
+    role="tooltip"
+    hidden
+  >
+    All measurements are in centimeters.
+  </span>
+
+</accessible-tooltip>
+```
+
+这里假设 Size guide 按钮本身已经具备打开尺寸说明的业务功能，Tooltip 只是补充说明，而不是按钮唯一的用途。
+
+### 11.2 CSS
+
+```css
+accessible-tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+accessible-tooltip [role="tooltip"] {
+  position: absolute;
+  z-index: 20;
+
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+
+  width: max-content;
+  max-width: min(260px, 80vw);
+
+  padding: 10px 14px;
+
+  background: #333;
+  color: #fff;
+  border-radius: 6px;
+
+  font-size: 0.875rem;
+  line-height: 1.5;
+
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+}
+
+accessible-tooltip [role="tooltip"][hidden] {
+  display: none !important;
+}
+```
+
+Tooltip 与触发元素直接相邻，不留导致鼠标移动时提前关闭的空白间隙。
+
+实际项目如果需要视觉间距，可以使用透明 padding 建立悬停过渡区域，或者通过适当的关闭延迟处理。
+
+### 11.3 JavaScript
+
+```javascript
+class AccessibleTooltip extends HTMLElement {
+  connectedCallback() {
+    if (this.controller) return;
+
+    this.trigger = this.querySelector(
+      '[data-tooltip-trigger]'
+    );
+
+    this.tooltip = this.querySelector(
+      '[role="tooltip"]'
+    );
+
+    if (!this.trigger || !this.tooltip) return;
+
+    this.controller = new AbortController();
+
+    const signal = this.controller.signal;
+
+    this.hovered = false;
+    this.focused =
+      document.activeElement === this.trigger;
+
+    this.dismissed = false;
+
+    this.addEventListener('pointerenter', event => {
+      if (event.pointerType === 'touch') return;
+
+      this.hovered = true;
+      this.render();
+    }, { signal });
+
+    this.addEventListener('pointerleave', event => {
+      if (event.pointerType === 'touch') return;
+
+      this.hovered = false;
+      this.render();
+    }, { signal });
+
+    this.trigger.addEventListener('focus', () => {
+      this.focused = true;
+      this.render();
+    }, { signal });
+
+    this.trigger.addEventListener('blur', () => {
+      this.focused = false;
+      this.render();
+    }, { signal });
+
+    document.addEventListener('keydown', event => {
+      if (
+        event.key === 'Escape' &&
+        !this.tooltip.hidden
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.dismissed = true;
+        this.render();
+      }
+    }, { signal, capture: true });
+
+    this.render();
+  }
+
+  render() {
+    const triggered = this.hovered || this.focused;
+
+    if (!triggered) {
+      this.dismissed = false;
+    }
+
+    this.tooltip.hidden =
+      !triggered || this.dismissed;
+  }
+
+  disconnectedCallback() {
+    this.controller?.abort();
+    this.controller = null;
+
+    if (this.tooltip) {
+      this.tooltip.hidden = true;
+    }
+  }
+}
+
+if (!customElements.get('accessible-tooltip')) {
+  customElements.define(
+    'accessible-tooltip',
+    AccessibleTooltip
+  );
+}
+```
+
+### 11.4 为什么需要 dismissed 状态？
+
+如果只是通过 CSS 控制：
+
+```css
+.trigger:hover + .tooltip,
+.trigger:focus + .tooltip {
+  display: block;
+}
+```
+
+用户按下 Esc 后，只要鼠标仍然悬停在触发元素上，或者触发元素仍然持有焦点，Tooltip 就可能继续显示。
+
+因此需要单独记录用户的关闭意图。
+
+{@body const [hovered,setHovered]=DIL.useState(false)}
+{@body const [focused,setFocused]=DIL.useState(false)}
+{@body const [dismissed,setDismissed]=DIL.useState(false)}
+{@body const tooltipVisible=(hovered||focused)&&!dismissed}
+<card gap={3}>
+  **Tooltip 状态实验室**
+  <box border radius="md" minHeight="125px" padding={3} justify="center" align="center">
+    {#if tooltipVisible}
+      <box background="#333333" theme="dark" radius="sm" padding={3}>
+        <text color="#FFFFFF" size="sm">All measurements are in centimeters.</text>
+      </box>
+      <svg viewBox="0 0 14 7" width="14px" height="7px"><path d="M0 0 H14 L7 7 Z" fill="#333333"/></svg>
+    {/if}
+    <box border={{size:focused?2:1,color:focused?"#5185C5":"#888888"}} radius="sm" padding={3}>
+      Size guide
+    </box>
+  </box>
+  <checkbox checked={hovered} onChange={v=>{setHovered(v);if(!v&&!focused)setDismissed(false)}}>模拟鼠标悬停</checkbox>
+  <checkbox checked={focused} onChange={v=>{setFocused(v);if(!v&&!hovered)setDismissed(false)}}>模拟键盘焦点</checkbox>
+  <button block variant="outline" color="secondary" disabled={!tooltipVisible} onClick={()=>setDismissed(true)}>Escape · 关闭提示</button>
+  <divider/>
+  {#each [["hovered",String(hovered)],["focused",String(focused)],["dismissed",String(dismissed)],["tooltip.hidden",String(!tooltipVisible)]] as p}
+    <row><caption>{p[0]}</caption><spacer/>{p[1]}</row>
+  {/each}
+  <caption>尝试保持 Hover 或 Focus 状态，再按 Escape。Tooltip 应保持关闭，直到本次触发状态结束。</caption>
+</card>
+
+这个组件实现了基础状态管理，但尚未包含浮层边界检测、多个 Tooltip 的统一 Esc 管理、触屏专用触发模式等能力。
+
+正式组件库可以使用 Floating UI 等定位工具，并由统一的浮层管理器决定 Esc 优先关闭哪个组件，避免与父级 Modal 或其他浮层发生冲突。
+
+---
+
+## 12. 移动端为什么更适合 Toggletip？
+
+很多电商网站在桌面端采用 Tooltip，却忘了移动端并不存在可靠的鼠标 Hover 交互。
+
+例如：
+
+<box border radius="lg" padding={3} gap={2}>
+  <row align="center">
+    **Member price**
+    <icon name="info" size="sm"/>
+    <spacer/>
+    <title size="lg">$29.99</title>
+  </row>
+  <divider/>
+  <caption>点击信息图标后</caption>
+  <box background="surface-tertiary" radius="md" padding={3} gap={2}>
+    **Member pricing**
+    <text size="sm">Sign in to your account to access exclusive member prices.</text>
+    <text size="sm" underline={true}>Learn more about membership</text>
+  </box>
+</box>
+
+这种内容需要点击后显示，而且可能包含链接。因此它更适合采用 Disclosure 或非模态 Popover，而不是严格的 Tooltip。
+
+可以使用原生 HTML：
+
+```html
+<button
+  type="button"
+  popovertarget="member-price-info"
+  aria-label="About member pricing"
+>
+  <svg aria-hidden="true"></svg>
+</button>
+
+<div id="member-price-info" popover="auto">
+  <p>
+    Sign in to access exclusive member prices.
+  </p>
+
+  <a href="/pages/membership">
+    Learn more about membership
+  </a>
+</div>
+```
+
+这种模式支持点击、键盘激活、外部点击关闭及 Esc 等原生浮层机制。
+
+它不需要 `role="tooltip"`，也不应该使用 Focus Trap。
+
+对于价格条件、库存、商品限制等重要信息，最好直接显示必要文字，而不是让用户必须通过 Tooltip 才能了解。
+
+---
+
+## 13. Shopify 实战：商品详情页 Tabs 与 Accordion
+
+在商品详情页中，一个常见设计需求是：
+
+<grid columns={2} gap={3}>
+  <grid-item>
+    <box border radius="md" padding={2} gap={2}>
+      <caption>Desktop</caption>
+      <row gap={1}>
+        <box flex={1} background="#DED6CB" radius="sm">
+          <svg viewBox="0 0 70 80" width="100%">
+            <path d="M23 6 L5 20 L15 33 L23 29 V73 H47 V29 L55 33 L65 20 L47 6 L40 13 H30 Z" fill="#716A61"/>
+          </svg>
+        </box>
+        <box flex={1} gap={2}>
+          <text size="xs" weight="medium">Cotton T-shirt</text>
+          <text size="xs">$29.99</text>
+          <box background="#333333" radius="sm" height={18}/>
+        </box>
+      </row>
+      <row gap={1}>
+        <text size="xs" underline={true}>Details</text>
+        <spacer/><text size="xs">Shipping</text>
+        <spacer/><text size="xs">Reviews</text>
+      </row>
+      <divider/>
+      <text size="xs">100% premium cotton.</text>
+    </box>
+  </grid-item>
+  <grid-item>
+    <box border radius="md" padding={2} gap={2}>
+      <caption>Mobile</caption>
+      <box background="#DED6CB" radius="sm" height="75px" align="center">
+        <svg viewBox="0 0 70 80" height="70px">
+          <path d="M23 6 L5 20 L15 33 L23 29 V73 H47 V29 L55 33 L65 20 L47 6 L40 13 H30 Z" fill="#716A61"/>
+        </svg>
+      </box>
+      **Cotton T-shirt**
+      <text size="xs">$29.99</text>
+      <box background="#333333" radius="sm" height={18}/>
+      {#each ["Details","Shipping","Reviews"] as n,i}
+        <row><text size="xs">{n}</text><spacer/><icon name={i===0?"minus":"plus"} size="xs"/></row>
+        {#if i===0}<caption>100% cotton.</caption>{/if}
+        <divider/>
+      {/each}
+    </box>
+  </grid-item>
+</grid>
+
+桌面端使用 Tabs，移动端使用 Accordion。
+
+### 13.1 能不能只通过 CSS 改变布局？
+
+如果只是视觉方向变化，例如横向 Tabs 变成纵向 Tabs，可以继续使用原来的角色结构，并同步 `aria-orientation` 和方向键行为。
+
+但如果 Tabs 真正变成 Accordion，仅仅修改 CSS 是不够的。
+
+| 需要同步的内容 | Tabs | Accordion |
+|---|---|---|
+| 容器 | tablist | 普通容器 |
+| 控件 | tab | button |
+| 状态 | aria-selected | aria-expanded |
+| 内容面板 | tabpanel | 普通区域或 region |
+| Tab 顺序 | 单个入口 | 所有标题可聚焦 |
+| 方向键 | 内部导航 | 可选 |
+
+比较稳妥的方案是两个组件分别实现完整语义，通过响应式机制只暴露其中一个，并共享内容数据。
+
+但要处理重复 ID、重复第三方评论组件、重复表单字段、焦点恢复等问题。
+
+如果商品面板包含复杂的表单或评论应用，我更倾向于复用同一份内容 DOM，在切换断点时重建正确的控件结构和事件逻辑，而不是直接复制两份复杂内容。
+
+### 13.2 使用 Liquid 生成唯一 ID
+
+例如通过 Section Block 动态生成 Tabs：
+
+```liquid
+<div
+  role="tablist"
+  aria-label="Product information"
+>
+  {% for block in section.blocks %}
+
+    <button
+      type="button"
+      role="tab"
+      id="Tab-{{ section.id }}-{{ block.id }}"
+      aria-controls="Panel-{{ section.id }}-{{ block.id }}"
+      aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+      tabindex="{% if forloop.first %}0{% else %}-1{% endif %}"
+    >
+      {{ block.settings.heading | escape }}
+    </button>
+
+  {% endfor %}
+</div>
+```
+
+对应内容：
+
+```liquid
+{% for block in section.blocks %}
+
+  <div
+    role="tabpanel"
+    id="Panel-{{ section.id }}-{{ block.id }}"
+    aria-labelledby="Tab-{{ section.id }}-{{ block.id }}"
+    tabindex="0"
+    {% unless forloop.first %}hidden{% endunless %}
+    {{ block.shopify_attributes }}
+  >
+    {{ block.settings.content }}
+  </div>
+
+{% endfor %}
+```
+
+这里假设 Section 中的所有 Block 都是 Tabs 类型，并定义了 heading 和 content 配置项。
+
+将这两部分放入前面开发的 `accessible-tabs` 自定义元素中，就可以形成一个由 Theme Editor 配置的 Tabs Section。
+
+正式开发时，还需要在 Shopify Theme Editor 的 `shopify:block:select` 等事件发生时，自动展示商家正在编辑的面板。
+
+---
+
+## 14. Shopify Dawn 源码分析
+
+Dawn 在商品详情折叠内容和 FAQ 等场景中，主要使用原生 details、summary。
+
+### 14.1 main-product.liquid
+
+在 Dawn 的 `collapsible_tab` 类型 Block 中，可以看到类似下面的结构。
+
+简化后的教学代码：
+
+```liquid
+<div class="product__accordion accordion"
+  {{ block.shopify_attributes }}
+>
+  <details id="Details-{{ block.id }}-{{ section.id }}">
+
+    <summary>
+      <h2 class="accordion__title">
+        {{ block.settings.heading | escape }}
+      </h2>
+
+      <!-- 展开图标 -->
+    </summary>
+
+    <div
+      class="accordion__content rte"
+      id="ProductAccordion-{{ block.id }}-{{ section.id }}"
+    >
+      {{ block.settings.content }}
+    </div>
+
+  </details>
+</div>
+```
+
+Dawn 通过 Liquid 生成独立的折叠区域，并使用 block.id 和 section.id 组合生成 DOM ID。<Cite ref="turn993286search0"/>
+
+### 14.2 相关源码
+
+| 文件 | 阅读重点 |
+|---|---|
+| [main-product.liquid](https://github.com/Shopify/dawn/blob/main/sections/main-product.liquid) | 商品详情折叠 Block |
+| [collapsible-content.liquid](https://github.com/Shopify/dawn/blob/main/sections/collapsible-content.liquid) | FAQ、折叠内容 Section |
+| [component-accordion.css](https://github.com/Shopify/dawn/blob/main/assets/component-accordion.css) | Accordion 样式 |
+| [global.js](https://github.com/Shopify/dawn/blob/main/assets/global.js) | 通用 details/summary 相关处理 |
+| [details-disclosure.js](https://github.com/Shopify/dawn/blob/main/assets/details-disclosure.js) | Disclosure 相关组件逻辑 |
+
+Dawn 的公开源码中还存在针对部分 details/summary 元素补充语义和状态的 JavaScript 处理。<Cite refs={["turn993286search3","turn993286search10"]}/>
+
+值得注意的是，Dawn 对 Header Menu、商品 FAQ 等不同 details 使用场景，可能附加不同的交互逻辑。
+
+不能因为它们使用相同的 HTML 元素，就认为它们应该具有完全相同的关闭行为。例如商品详情 Accordion 通常不需要在焦点离开后自动关闭，而 Header 下拉导航可能需要。
+
+---
+
+## 15. 如何测试这三类组件？
+
+### 15.1 Playwright 测试 Tabs
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('manual tabs activation', async ({ page }) => {
+  await page.goto('/products/cotton-tshirt');
+
+  const description = page.getByRole('tab', {
+    name: 'Description'
+  });
+
+  const reviews = page.getByRole('tab', {
+    name: 'Reviews'
+  });
+
+  await description.focus();
+  await page.keyboard.press('ArrowRight');
+
+  await expect(reviews).toBeFocused();
+
+  // 手动模式下，移动焦点不改变选择
+  await expect(description).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+
+  await page.keyboard.press('Enter');
+
+  await expect(reviews).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+
+  await expect(
+    page.getByRole('tabpanel', { name: 'Reviews' })
+  ).toBeVisible();
+});
+```
+
+### 15.2 Playwright 测试 Accordion
+
+```javascript
+const trigger = page.getByRole('button', {
+  name: 'Shipping & Returns'
+});
+
+await trigger.focus();
+await trigger.press('Enter');
+
+await expect(trigger).toHaveAttribute(
+  'aria-expanded',
+  'true'
+);
+
+await expect(
+  page.locator('#shipping-panel')
+).toBeVisible();
+
+await trigger.press('Space');
+
+await expect(
+  page.locator('#shipping-panel')
+).toBeHidden();
+
+await expect(trigger).toBeFocused();
+```
+
+这个例子针对自定义 Accordion。对于原生 details，可以直接检查其 open 属性。
+
+### 15.3 Playwright 测试 Tooltip
+
+```javascript
+const trigger = page.getByRole('button', {
+  name: 'Size guide'
+});
+
+const tooltip = page.locator('#size-tooltip');
+
+await trigger.focus();
+
+await expect(tooltip).toBeVisible();
+
+await expect(trigger).toHaveAccessibleDescription(
+  'All measurements are in centimeters.'
+);
+
+await page.keyboard.press('Escape');
+
+await expect(tooltip).toBeHidden();
+
+await expect(trigger).toBeFocused();
+```
+
+还应该补充鼠标从触发元素移动到 Tooltip 内部时保持显示的测试，以及移动端、屏幕放大、强制颜色模式和真实屏幕阅读器测试。
+
+---
+
+## 16. 常见错误与对应的 WCAG 准则
+
+| 错误 | 可能涉及的 WCAG 准则 |
+|---|---|
+| Tabs 无法使用键盘切换 | 2.1.1 Keyboard |
+| aria-selected 与真实面板不一致 | 4.1.2 Name, Role, Value |
+| 隐藏面板内部仍可聚焦 | 2.4.3 Focus Order |
+| 焦点与选中状态只能通过颜色区分 | 1.4.1 Use of Color |
+| Tabs 或 Accordion 没有可见焦点 | 2.4.7 Focus Visible |
+| Tooltip 只能通过鼠标访问 | 2.1.1 Keyboard |
+| Tooltip 遮挡内容且无法关闭 | 1.4.13 Content on Hover or Focus |
+| 鼠标移向 Tooltip 时立即消失 | 1.4.13 Content on Hover or Focus |
+| Tooltip 在阅读过程中自动消失 | 1.4.13 Content on Hover or Focus |
+| 图标按钮只有描述、没有名称 | 4.1.2 Name, Role, Value |
+
+具体是否构成违规，还需要结合实际页面行为及准则的适用条件判断。
+
+## 17. 本课知识测试
+
+{@body const quiz=[{q:"Tabs 的 aria-controls 应该指向哪里？",o:["对应的 tabpanel","整个 tablist","当前 Tab 自己"],a:0,e:"aria-controls 建立 Tab 与其控制的内容面板之间的关系。"},{q:"如果 Reviews 面板需要 AJAX 加载，哪种 Tabs 模式更合适？",o:["自动激活","手动激活"],a:1,e:"手动激活能够避免方向键浏览时不断发起加载请求。"},{q:"普通 Accordion 的所有标题按钮是否应该可以通过 Tab 访问？",o:["是","否，只保留一个 Tab 入口"],a:0,e:"Accordion 与 Tabs 的键盘导航模式不同。"},{q:"原生 details 的 name 属性可以实现什么？",o:["Accessible Name","互斥展开分组","禁止键盘操作"],a:1,e:"相同 name 的 details 可以自动形成最多展开一个面板的分组。"},{q:"使用 max-height:0 隐藏内容，是否一定会禁止内部链接获得焦点？",o:["一定会","不一定"],a:1,e:"视觉隐藏并不等同于键盘和无障碍语义隐藏。"},{q:"Tooltip 内部需要放置一个可操作链接，应采用什么方案？",o:["继续使用严格的 Tooltip 模式","考虑 Disclosure 或 Interactive Popover"],a:1,e:"严格的 Tooltip 不应该包含独立的交互控件。"},{q:"用户按 Esc 关闭 Tooltip 后，鼠标仍在触发元素上，应该立即重新显示吗？",o:["应该","不应该"],a:1,e:"应该尊重用户本次主动关闭的意图。"}]}
+{@body const [quizAnswers,setQuizAnswers]=DIL.useState(Array(quiz.length).fill(-1))}
+<card gap={3}>
+  <row align="center">
+    **课堂测验**
+    <spacer/>
+    <caption>答对 {quizAnswers.filter((a,i)=>a===quiz[i].a).length} / {quiz.length}</caption>
+  </row>
+  {#each quiz as q,i}
+    <box gap={2}>
+      **{i+1}. {q.q}**
+      <radio-group direction="col" value={String(quizAnswers[i])} onChange={v=>setQuizAnswers(old=>old.map((a,j)=>j===i?Number(v):a))}>
+        {#each q.o as option,j}
+          <radio value={String(j)}>{option}</radio>
+        {/each}
+      </radio-group>
+      {#if quizAnswers[i]>=0}
+        <text size="sm" color={quizAnswers[i]===q.a?"success":"danger"}>{quizAnswers[i]===q.a?"回答正确":"回答错误"}：{q.e}</text>
+      {/if}
+    </box>
+    {#if i<quiz.length-1}<divider/>{/if}
+  {/each}
+  <button block variant="ghost" color="secondary" onClick={()=>setQuizAnswers(Array(quiz.length).fill(-1))}>重新测试</button>
+</card>
+
+## 18. 日常开发检查清单
+
+{@body const checks=["Tabs 的 tablist、tab、tabpanel 语义关系正确","正确区分焦点与选中状态","根据加载延迟选择自动或手动激活","Tabs 支持对应方向键导航","非激活面板内部不可聚焦","Accordion 标题可以正常通过 Tab 访问","优先考虑原生 details 和 summary","aria-expanded 与实际显示状态同步","关闭面板前妥善处理内部焦点","展开动画不会暴露隐藏控件","Tooltip 同时支持 Hover 和 Focus","Tooltip 可以通过 Esc 关闭","鼠标可以移动至 Tooltip 内部","Tooltip 不会在阅读期间强制消失","Tooltip 不包含独立交互控件","移动端提供可访问的补充说明方式","Section Rendering 后不存在失效的 ID 引用","通过真实浏览器及屏幕阅读器测试"]}
+{@body const [completed,setCompleted]=DIL.useState(Array(checks.length).fill(false))}
+<card gap={2}>
+  <row align="center">
+    **组件无障碍 Checklist**
+    <spacer/>
+    <caption>{completed.filter(Boolean).length} / {checks.length}</caption>
+  </row>
+  {#each checks as c,i}
+    <checkbox checked={completed[i]} onChange={v=>setCompleted(old=>old.map((x,j)=>i===j?v:x))} lineThrough={completed[i]}>{c}</checkbox>
+  {/each}
+  <divider/>
+  <button block variant="outline" color="secondary" onClick={()=>GenUI.copy(checks.map((c,i)=>(completed[i]?"[x] ":"[ ] ")+c).join("\n"))}><icon name="copy" size="sm"/> 复制检查清单</button>
+</card>
+
+## 19. 官方参考资料
+
+| 文档 | 用途 |
+|---|---|
+| [WAI-ARIA Tabs Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) | Tabs 交互规范 |
+| [Automatic Activation Tabs](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/examples/tabs-automatic/) | 自动激活示例 |
+| [Manual Activation Tabs](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/examples/tabs-manual/) | 手动激活示例 |
+| [Accordion Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/accordion/) | 手风琴组件 |
+| [Tooltip Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/) | 工具提示设计指导 |
+| [WCAG 1.4.13](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html) | Hover 与 Focus 内容要求 |
+| [MDN details](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/details) | 原生折叠元素 |
+| [MDN Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) | 非模态浮层 |
+| [Shopify Dawn](https://github.com/Shopify/dawn) | Theme 源码参考 |
+
+本课采用原生 JavaScript、Light DOM Web Component 和原生 HTML 优先的技术方案。代码属于基础教学实现，尚未在你的实际 Theme 和辅助技术环境中运行验证，Dawn 的代码也进行了简化处理。
+
+---
+
+## 本课总结
+
+最重要的是理解三个组件不同的状态和焦点管理方式。
+
+| 技术 | Tabs | Accordion | Tooltip |
+|---|---|---|---|
+| 核心状态 | selected | expanded | visible |
+| 焦点模型 | Roving Tabindex | 普通 Tab 顺序 | 保留触发元素焦点 |
+| 核心 ARIA | aria-selected | aria-expanded | aria-describedby |
+| 原生 HTML 方案 | 无专用 Tabs 元素 | details / summary | 无完整专用元素 |
+| Live Region | 通常不需要 | 通常不需要 | 通常不需要 |
+| Focus Trap | 不需要 | 不需要 | 不需要 |
+
+**一个组件的无障碍设计，不是添加尽可能多的 ARIA 属性，而是选择最符合其业务用途的语义和交互模型。**
+
+## 当前课程进度
+
+<box border radius="lg" padding={3} gap={3}>
+  <row align="center">
+    <box flex={1} gap={1}>
+      <caption>整体学习进度</caption>
+      <title size="2xl">65.4%</title>
+    </box>
+    <caption>已完成 17 / 26 课</caption>
+  </row>
+  {#each [{t:"阶段一：基础与底层原理",n:4,d:4},{t:"阶段二：HTML、CSS 无障碍",n:5,d:5},{t:"阶段三：JavaScript 与 ARIA",n:5,d:5},{t:"阶段四：复杂 UI 组件实战",n:5,d:3},{t:"阶段五：Shopify 电商实战",n:4,d:0},{t:"阶段六：检测与工程化",n:3,d:0}] as s}
+    <box gap={1}>
+      <row align="center">
+        <text size="sm" weight={s.d>0&&s.d<s.n?"medium":"normal"}>{s.t}</text>
+        <spacer/>
+        {#if s.d===s.n}<icon name="check-circle" color="success" size="sm"/>{:else}<caption>{s.d}/{s.n}</caption>{/if}
+      </row>
+      <box height={5} background="surface-tertiary" radius="full">
+        <box height={5} background="#39866B" radius="full" width={`${s.d/s.n*100}%`}/>
+      </box>
+    </box>
+  {/each}
+</box>
+
+---
+
+**下一课：第 18 课——Carousel、Slider 轮播组件**
+
+这也是 Shopify 网站非常重要的一课，主要学习：
+
+- Carousel 的完整 ARIA 语义结构。
+- `aria-roledescription` 的使用方式。
+- 自动轮播、暂停与恢复播放机制。
+- 上一张、下一张及分页圆点的无障碍设计。
+- 非当前 Slide 的隐藏与焦点隔离。
+- 无限循环轮播中的克隆节点问题。
+- CSS Scroll Snap 与 JavaScript 轮播。
+- Swiper 等第三方轮播库的无障碍问题。
+- WCAG 2.2.2 Pause, Stop, Hide。
+- WCAG 2.5.7 Dragging Movements。
+- Shopify 首页 Slideshow、商品图片 Gallery 实战。
+- Dawn `SliderComponent` 与 `SlideshowComponent` 源码解析。
+- 封装一套可复用的无障碍轮播 Web Component。
+
+下一课会重点解决电商开发中一个非常典型的问题：**为什么视觉上只显示一张轮播图片，屏幕阅读器和键盘却可能访问到所有未显示的轮播内容？**

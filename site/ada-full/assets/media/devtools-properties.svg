@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="222" viewBox="0 0 520 222">
+<rect width="520" height="222" rx="12" fill="#eef3f5"/>
+<rect x="13" y="13" width="494" height="196" rx="9" fill="#fff" stroke="#bdccd2"/>
+<rect x="13" y="13" width="494" height="43" rx="9" fill="#285584"/>
+<text x="27" y="41" fill="#fff" font-size="18" font-family="system-ui,sans-serif">Chrome DevTools · Accessibility</text>
+<rect x="26" y="66" width="466" height="24" rx="4" fill="#e9f3f2"/>
+<text x="35" y="83" fill="#243843" font-size="15" font-family="system-ui,sans-serif">Computed Properties</text>
+<rect x="26" y="96" width="466" height="24" rx="4" fill="#f5f7f7"/>
+<text x="35" y="113" fill="#243843" font-size="15" font-family="system-ui,sans-serif">Name: Search</text>
+<rect x="26" y="126" width="466" height="24" rx="4" fill="#e9f3f2"/>
+<text x="35" y="143" fill="#243843" font-size="15" font-family="system-ui,sans-serif">Role: button</text>
+<rect x="26" y="156" width="466" height="24" rx="4" fill="#f5f7f7"/>
+<text x="35" y="173" fill="#243843" font-size="15" font-family="system-ui,sans-serif">Focusable: true</text>
+<text x="492" y="203" text-anchor="end" fill="#435662" font-size="12" font-family="system-ui,sans-serif">教学示意</text>
+</svg>

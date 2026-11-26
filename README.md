@@ -1,6 +1,6 @@
 # 开发知识笔记
 
-首页提供三个知识区。Shopify 笔记是面向前端工程师的 Shopify 平台开发教程。SEO 学习收录网站性能优化、Dawn 源码与结构化数据课程。ADA 无障碍提供 6 课企业培训，覆盖 Web 无障碍基础、UI 组件、Shopify 整改与验收。
+首页提供四个知识区。Shopify 笔记面向 Shopify 前端开发人员。SEO 学习收录网站性能、Dawn 源码与结构化数据课程。ADA 无障碍提供 6 课企业培训。ADA 无障碍完整版收录《讲解 ADA 无障碍》对话中的导读和 25 篇编号课程。
 
 ## 本地预览
 
@@ -24,12 +24,15 @@ node scripts/serve.cjs
 - `site/shopify/content/assets/`：Shopify 课程图片。
 - `site/seo/content/lessons/`：SEO 课程与补充笔记，整理自 [SEO 源仓库](https://github.com/skylercong-cloud/SEO/tree/ea03246b8f738ae91286f0a5eb1b7a74b655c775)。
 - `site/ada/content/`：ADA 无障碍企业培训课程、3 份附录及演示资源。
+- `site/ada-full/`：ADA 无障碍完整版的目录、原文、富文本阅读页和配图。沿用原课次，第 19 课在原对话中跳过，第 16 课收录原答与续篇。
 - `site/reader/`：知识区共用的阅读界面、目录、主题和站内全文搜索。
 - `course-additions/`：本次新增课程的迁移输入。
 - `archive/tutorial-2026-09.md`：原稿备份，用于核对，不作为新的主线课程。
 - `COURSE-MIGRATION.md`：新课与旧稿的对应记录。
 
 Shopify 课节使用 `shopify/?lesson=l0-01`，旧的首页课节链接会转到对应的新地址。SEO 课节使用 `seo/?lesson=performance-01`，旧的 `seo/#turn-1` 链接会转到对应文章。ADA 课节使用 `ada/?lesson=training-01`。正文图片相对于各知识区目录加载。
+
+ADA 完整版课节使用 `ada-full/?lesson=lesson-26`。每课底部可打开该课的对话导出原文。文内参考资料入口收录导出中可核对的链接。未随导出保存的图片使用本地配图或教学示意。
 
 `node scripts/migrate-course.cjs` 会从旧稿重新生成 Shopify 课程文件。日常内容更新请直接编辑 `site/shopify/content/lessons/`，以保留手工修订。
 
